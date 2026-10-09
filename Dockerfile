@@ -17,7 +17,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY server ./server
-COPY src/shared ./src/shared
+COPY src ./src
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node
 EXPOSE 7077
