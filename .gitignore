@@ -4,3 +4,5 @@ data
 diagrams
 *.log
 .DS_Store
+release
+dist-electron
