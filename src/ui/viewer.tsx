@@ -196,7 +196,7 @@ export function DiagramViewer({ diagram, node }: { diagram: string; node?: strin
                     <path key={l.id} d={l.d} className="owner-link" />
                   ))}
                   {edges.map(({ c, g }) => (
-                    <Edge key={c.id} c={c} d={g.d} mid={g.mid} selected={false} animate />
+                    <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={false} animate />
                   ))}
                   {doc.nodes.map((n) => (
                     <NodeShape key={n.id} n={n} selected={false} hot={cur.node === n.id || sel === n.id} hovered={false} />

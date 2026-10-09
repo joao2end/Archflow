@@ -1,4 +1,4 @@
-import { boxOf, edgeGeoms, samplePath, segmentHitsRect } from "../ui/geometry";
+import { boxOf, edgeGeoms, labelPoint, labelSize, samplePath, segmentHitsRect } from "../ui/geometry";
 import { BUILTIN_ASSETS, searchAssets } from "./catalog";
 import {
   CONNECTION_TYPES,
@@ -39,7 +39,7 @@ export type Op =
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
-  | { op: "layout"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number }
+  | { op: "layout"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
   | { op: "set_meta"; title?: string; description?: string }
   | { op: "clear" };
 
@@ -334,7 +334,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       return { ok: true, id };
     }
     case "layout":
-      autoLayout(doc, op.direction ?? "LR", { spacing: op.spacing, minGap: op.minGap });
+      autoLayout(doc, op.direction ?? "LR", { spacing: op.spacing, minGap: op.minGap, gapX: op.gapX, gapY: op.gapY, routing: op.routing });
       return { ok: true };
     case "set_meta":
       if (op.title != null) doc.title = op.title;
@@ -357,9 +357,19 @@ export type Spacing = "compact" | "comfortable" | "spacious";
 /** Distância mínima (px) entre componentes vizinhos da mesma camada; entre camadas é o dobro. */
 export const SPACING_GAP: Record<Spacing, number> = { compact: 44, comfortable: 80, spacious: 120 };
 
-export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: Spacing; minGap?: number } = {}) {
-  const GAP_ITEM = Math.max(16, opts.minGap ?? SPACING_GAP[opts.spacing ?? "comfortable"]);
-  const GAP_RANK = GAP_ITEM * 2;
+export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing } = {}) {
+  // o traçado dos conectores (curva, ortogonal = "elbow" ou reta) vale para todas as conexões e precede o desvio de colisões
+  if (opts.routing) for (const c of doc.connections) c.routing = opts.routing;
+  for (const c of doc.connections) {
+    delete c.labelT;
+    delete c.labelOffset;
+  }
+  // gapX/gapY (px, eixos da tela) têm precedência; sem eles vale o preset: vizinhos na camada = gap, entre camadas = 2×gap
+  const base = Math.max(16, opts.minGap ?? SPACING_GAP[opts.spacing ?? "comfortable"]);
+  const gapX = Math.max(16, opts.gapX ?? (dir === "LR" ? base * 2 : base));
+  const gapY = Math.max(16, opts.gapY ?? (dir === "LR" ? base : base * 2));
+  const GAP_ITEM = dir === "LR" ? gapY : gapX;
+  const GAP_RANK = dir === "LR" ? gapX : gapY;
   const parentOf = (id: string) => doc.nodes.find((n) => n.id === id)?.parent ?? doc.groups.find((g) => g.id === id)?.parent;
   const rel = new Map<string, { x: number; y: number }>();
   const size = new Map<string, { w: number; h: number }>();
@@ -433,6 +443,17 @@ export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: 
     });
 
     const horizontal = dir === "LR";
+    // o vão entre camadas vizinhas precisa comportar o maior rótulo das conexões que o atravessam
+    const need = new Map<number, number>();
+    for (const c of doc.connections) {
+      const sz = labelSize(c);
+      const a = ancestorAt(c.from, level);
+      const b = ancestorAt(c.to, level);
+      if (!sz || !a || !b || a === b) continue;
+      if (Math.abs(rank.get(a)! - rank.get(b)!) !== 1) continue;
+      const lo = Math.min(rank.get(a)!, rank.get(b)!);
+      need.set(lo, Math.max(need.get(lo) ?? 0, (horizontal ? sz.w : sz.h) + 56));
+    }
     const main = (id: string) => (horizontal ? size.get(id)!.w : size.get(id)!.h);
     const cross = (id: string) => (horizontal ? size.get(id)!.h : size.get(id)!.w);
     const colCross = cols.map((col) => col.reduce((s, id) => s + cross(id), 0) + GAP_ITEM * Math.max(0, col.length - 1));
@@ -445,9 +466,8 @@ export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: 
         rel.set(id, horizontal ? { x: m + (colMain - main(id)) / 2, y: c } : { x: c, y: m + (colMain - main(id)) / 2 });
         c += cross(id) + GAP_ITEM;
       }
-      m += colMain + GAP_RANK;
+      m += colMain + (r < cols.length - 1 ? Math.max(GAP_RANK, need.get(r) ?? 0) : 0);
     });
-    m -= GAP_RANK;
     return horizontal ? { w: m, h: totalCross } : { w: totalCross, h: m };
   }
 
@@ -473,6 +493,7 @@ export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: 
   measure(undefined);
   assign(undefined, 0, 0);
   avoidCollisions(doc);
+  placeLabels(doc);
 }
 
 type Pt = { x: number; y: number };
@@ -543,6 +564,39 @@ export function avoidCollisions(doc: Doc, margin = 14) {
       if (best) break;
     }
     if (best) c.waypoints = (best as { wps: Pt[] }).wps.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+  }
+}
+
+/**
+ * Escolhe, para cada conexão, a posição do rótulo ao longo do traçado que não cubra componentes,
+ * notas, títulos de grupo nem outros rótulos (o mais próximo do meio; sem opção livre, o de menor sobreposição).
+ */
+export function placeLabels(doc: Doc) {
+  const overlap = (a: Rect, b: Rect) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  const fixed: Rect[] = [...doc.nodes, ...doc.notes, ...doc.groups.map((g) => ({ x: g.x, y: g.y, w: Math.min(g.w, 320), h: TOP - 8 }))];
+  const placed: Rect[] = [];
+  const items = edgeGeoms(doc)
+    .map(({ c, g }) => ({ c, pts: samplePath(g.d, 24), sz: labelSize(c) }))
+    .filter((i): i is typeof i & { sz: NonNullable<typeof i.sz> } => !!i.sz)
+    .sort((a, b) => b.sz.w - a.sz.w); // rótulos largos primeiro: são os mais difíceis de encaixar
+  // candidatos do meio para as pontas, em passos de 4%
+  const ts = Array.from({ length: 21 }, (_, i) => (i === 0 ? 0 : Math.ceil(i / 2) * (i % 2 ? -1 : 1)) * 0.04 + 0.5).filter((t) => t > 0.06 && t < 0.94);
+  for (const { c, pts, sz } of items) {
+    let best = { t: 0.5, off: 0, cost: Infinity, rect: { x: 0, y: 0, w: 0, h: 0 } as Rect };
+    // sobre o traçado primeiro; sem vaga, ao lado dele (deslocamento perpendicular)
+    const side = sz.h / 2 + 12;
+    search: for (const off of [0, side, -side, side * 2, -side * 2]) {
+      for (const t of ts) {
+        const p = labelPoint(pts, t, off);
+        const rect = { x: p.x - sz.w / 2 - 4, y: p.y - sz.h / 2 - 4, w: sz.w + 8, h: sz.h + 8 };
+        const cost = fixed.reduce((s, o) => s + overlap(rect, o) * 4, 0) + placed.reduce((s, o) => s + overlap(rect, o) * 4, 0) + Math.abs(t - 0.5) + Math.abs(off) * 0.05;
+        if (cost < best.cost) best = { t, off, cost, rect };
+        if (cost < 1) break search;
+      }
+    }
+    c.labelT = best.t;
+    if (best.off) c.labelOffset = Math.round(best.off);
+    placed.push(best.rect);
   }
 }
 

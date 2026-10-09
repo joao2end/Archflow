@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { emptyDoc, type Asset, type ConnectionType, type Doc } from "../shared/schema";
 
@@ -10,6 +11,7 @@ export type Modal =
   | { type: "llm" }
   | { type: "mcp" }
   | { type: "help" }
+  | { type: "layout"; direction: "LR" | "TB" }
   | { type: "vaults" }
   | { type: "quick" }
   | { type: "diagram-view"; diagram: string; node?: string }
@@ -104,6 +106,8 @@ export interface State {
   past: Doc[];
   future: Doc[];
   focusTick: number;
+  /** inspeção de fluxo: mostra só o subgrafo ligado a um componente (efêmero, não é salvo) */
+  focus: { id: string; mode: FlowMode } | null;
   /** pilha de diagramas de onde o usuário "entrou" por uma referência (botão Voltar) */
   navBack: string[];
   toast: string | null;
@@ -194,6 +198,7 @@ function init(): State {
     past: [],
     future: [],
     focusTick: 0,
+    focus: null,
     navBack: [],
     toast: null,
     present: false,

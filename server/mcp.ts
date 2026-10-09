@@ -286,14 +286,17 @@ server.registerTool(
   "auto_layout",
   {
     description:
-      "Reorganiza automaticamente (camadas por fluxo de conexões; grupos dimensionados). `spacing` define a distância mínima entre componentes: compact (44px) | comfortable (80px, padrão) | spacious (120px); entre camadas é o dobro. `minGap` (px) sobrescreve o preset. Se o diagrama parecer apertado, use spacious.",
+      "Reorganiza automaticamente (camadas por fluxo de conexões; grupos dimensionados). `spacing` define a distância mínima entre componentes: compact (44px) | comfortable (80px, padrão) | spacious (120px); entre camadas é o dobro. `minGap` (px) sobrescreve o preset. Se o diagrama parecer apertado, use spacious. `gapX`/`gapY` (px) definem o espaçamento horizontal e vertical separadamente (sobrescrevem spacing/minGap). `routing` define o traçado de TODOS os conectores: curve (curva, padrão) | elbow (ortogonal) | straight (reta); omitido, preserva o traçado de cada conexão.",
     inputSchema: {
       direction: z.enum(["LR", "TB"]).optional(),
       spacing: z.enum(["compact", "comfortable", "spacious"]).optional(),
       minGap: z.number().min(16).max(400).optional(),
+      gapX: z.number().min(16).max(600).optional(),
+      gapY: z.number().min(16).max(600).optional(),
+      routing: z.enum(["curve", "elbow", "straight"]).optional(),
     },
   },
-  async ({ direction, spacing, minGap }) => report((await ops([{ op: "layout", direction, spacing, minGap }])).results),
+  async ({ direction, spacing, minGap, gapX, gapY, routing }) => report((await ops([{ op: "layout", direction, spacing, minGap, gapX, gapY, routing }])).results),
 );
 
 server.registerTool(

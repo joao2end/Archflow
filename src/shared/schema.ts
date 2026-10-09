@@ -374,6 +374,10 @@ export interface ConnectionEl {
   routing?: Routing;
   /** pontos de passagem (coordenadas do mundo) que moldam o traçado; definidos arrastando a conexão na UI */
   waypoints?: { x: number; y: number }[];
+  /** posição do rótulo ao longo do traçado (0–1, por comprimento de arco); o auto-layout a escolhe para não sobrepor nada */
+  labelT?: number;
+  /** deslocamento do rótulo perpendicular ao traçado, em px (negativo = outro lado) */
+  labelOffset?: number;
   animated?: boolean;
 }
 

@@ -342,7 +342,7 @@ export function Dock() {
         </button>
       ))}
       <div className="rule" />
-      <button className="tool" onClick={() => layout("LR")} data-tip={"Auto-layout (L)\nOrganiza por fluxo. Shift+L: vertical."} data-tip-pos="right" aria-label="Auto layout">
+      <button className="tool" onClick={() => layout("LR")} data-tip={"Auto-layout (L)\nConfigura espaçamento e conectores. Shift+L: vertical."} data-tip-pos="right" aria-label="Auto layout">
         <Glyph name="layout" size={21} />
       </button>
       <button className={`tool ${animate ? "active" : ""}`} onClick={() => setPrefs({ animate: !animate })} data-tip={`Animações das conexões (A): ${animate ? "ligadas" : "desligadas"}`} data-tip-pos="right" aria-label="Alternar animações" aria-pressed={animate}>

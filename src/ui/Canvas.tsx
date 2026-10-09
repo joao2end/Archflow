@@ -3,10 +3,11 @@ import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { IconSvg } from "./icons";
-import { contains, edgeGeoms, intersects, normRect, previewGeom, sidePoint, type Pt, type Side } from "./geometry";
+import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, useStore, type View } from "./store";
-import { fitView, spaceHeld } from "./keys";
+import { exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
+import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { inkPath, strokeAttrs } from "./ink";
 
 const GROUP_COLORS: Record<string, string> = {
@@ -36,7 +37,7 @@ const snapV = (v: number, on: boolean) => (on ? Math.round(v / 8) * 8 : v);
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string }
+  | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string; under?: string }
   | { kind: "marquee"; start: Pt; cur: Pt; additive: boolean; base: string[] }
   | { kind: "resize"; id: string; start: Pt; orig: { w: number; h: number } }
   | { kind: "waypoint"; id: string; idx: number }
@@ -479,11 +480,9 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate }: { c: Co
   const t = CONNECTION_TYPES[c.type];
   const pid = `p-${c.id}`;
   const motion = animate && c.animated !== false ? t.motion : "none";
-  const text = c.label ?? (c.protocol ? "" : t.label);
-  const sub = c.label ? c.protocol : c.protocol;
-  const w = Math.max(text.length * 6.8, (sub?.length ?? 0) * 5.8) + 22 + (c.interface ? 16 : 0);
-  const showLabel = !!(text || sub || c.interface);
-  const h = sub && text ? 36 : 26;
+  const ls = labelSize(c);
+  const { text, sub, w, h } = ls ?? { text: "", sub: undefined, w: 0, h: 0 };
+  const showLabel = !!ls;
   return (
     <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={18} />
@@ -577,6 +576,34 @@ function EdgeHandles({ c, g, z }: { c: ConnectionEl; g: { pts?: Pt[]; mid: Pt };
 
 /* ───────────────────────── helpers de desenho (usados também pelo visualizador) ───────────────────────── */
 
+/** Barra da inspeção de fluxo: resumo do subgrafo, sentido (tudo / a jusante / a montante) e saída. */
+function FlowBar({ id, mode, flow }: { id: string; mode: FlowMode; flow: ReturnType<typeof flowOf> }) {
+  const label = useStore((s) => s.doc.nodes.find((n) => n.id === id)?.label ?? id);
+  const set$ = (m: FlowMode) => inspectFlow(id, m);
+  const total = flow.nodes.size - 1;
+  return (
+    <div className="glass flow-bar" role="region" aria-label="Inspeção de fluxo">
+      <div className="flow-info">
+        <span className="flow-kicker">Fluxo de</span>
+        <b title={label}>{label}</b>
+        <span className="flow-count">
+          {total} componente{total === 1 ? "" : "s"} · {flow.up} a montante · {flow.down} a jusante
+        </span>
+      </div>
+      <div className="seg" role="radiogroup" aria-label="Sentido do fluxo">
+        {([["both", "Tudo"], ["up", "← Entradas"], ["down", "Saídas →"]] as [FlowMode, string][]).map(([k, l]) => (
+          <button key={k} role="radio" aria-checked={mode === k} className={mode === k ? "active" : ""} onClick={() => set$(k)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <button className="btn sm" onClick={exitFlow} data-tip="Sair da inspeção (Esc)">
+        Sair
+      </button>
+    </div>
+  );
+}
+
 /** Geometria das conexões, com "lanes" para pares repetidos. */
 export const computeEdges = (doc: Doc) => edgeGeoms(doc);
 
@@ -643,10 +670,11 @@ export function Canvas() {
   const [panning, setPanning] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; conn: string; at: Pt; idx: number; onPoint: boolean } | null>(null);
+  const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
 
   useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(null);
+    if (!menu && !nodeMenu) return;
+    const close = () => (setMenu(null), setNodeMenu(null));
     const esc = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("pointerdown", close);
     window.addEventListener("blur", close);
@@ -656,7 +684,7 @@ export function Canvas() {
       window.removeEventListener("blur", close);
       window.removeEventListener("keydown", esc);
     };
-  }, [menu]);
+  }, [menu, nodeMenu]);
 
   const toWorld = useCallback((e: { clientX: number; clientY: number }): Pt => {
     const r = svgRef.current!.getBoundingClientRect();
@@ -839,20 +867,32 @@ export function Canvas() {
       if (e.shiftKey) nextSel = s.sel.includes(t.id) ? s.sel.filter((x) => x !== t.id) : [...s.sel, t.id];
       else if (!s.sel.includes(t.id)) nextSel = [t.id];
       select(nextSel);
-      if (t.role !== "conn" && nextSel.includes(t.id)) {
-        // conjunto em movimento: selecionados + descendentes de grupos
+      // conjunto em movimento: selecionados + descendentes de grupos
+      const startMove = (ids: string[], id: string, under?: string) => {
         const moving = new Set<string>();
-        const add = (id: string) => {
-          if (moving.has(id)) return;
-          moving.add(id);
-          s.doc.nodes.filter((n) => n.parent === id || n.owner === id).forEach((n) => add(n.id));
-          s.doc.groups.filter((g) => g.parent === id).forEach((g) => add(g.id));
+        const add = (x: string) => {
+          if (moving.has(x)) return;
+          moving.add(x);
+          s.doc.nodes.filter((n) => n.parent === x || n.owner === x).forEach((n) => add(n.id));
+          s.doc.groups.filter((g) => g.parent === x).forEach((g) => add(g.id));
         };
-        nextSel.forEach(add);
+        ids.forEach(add);
         const origin = new Map<string, Pt>();
         [...s.doc.nodes, ...s.doc.groups, ...s.doc.notes].forEach((el) => moving.has(el.id) && origin.set(el.id, { x: el.x, y: el.y }));
         beginTx();
-        drag.current = { kind: "move", start: p, origin, moved: false, id: t.id };
+        drag.current = { kind: "move", start: p, origin, moved: false, id, under };
+      };
+      if (t.role !== "conn" && nextSel.includes(t.id)) startMove(nextSel, t.id);
+      else if (t.role === "conn") {
+        // a conexão (traço largo e rótulo) fica por cima dos grupos: arrastar a partir dela move o que está embaixo
+        for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
+          const r = (el as Element).closest?.("[data-role]") as SVGElement | null;
+          const role = r?.dataset.role;
+          if (r?.dataset.id && (role === "node" || role === "group" || role === "note")) {
+            startMove([r.dataset.id], r.dataset.id, r.dataset.id);
+            break;
+          }
+        }
       }
       return;
     }
@@ -879,22 +919,26 @@ export function Canvas() {
         set({ view: { ...s.view, x: d.vx + e.clientX - d.sx, y: d.vy + e.clientY - d.sy } });
         break;
       case "move": {
-        const dx = p.x - d.start.x;
-        const dy = p.y - d.start.y;
-        if (!d.moved && Math.hypot(dx, dy) * s.view.z < 3) return;
+        const rawDx = p.x - d.start.x;
+        const rawDy = p.y - d.start.y;
+        if (!d.moved && Math.hypot(rawDx, rawDy) * s.view.z < 3) return;
+        // o snap vale para o deslocamento (não para a posição): item fora da grade não "pula" ao começar a arrastar
+        const dx = snapV(rawDx, s.snap);
+        const dy = snapV(rawDy, s.snap);
+        if (!d.moved && d.under) select([d.under]);
         d.moved = true;
         const nd: Doc = { ...s.doc };
         const mv = <T extends { id: string; x: number; y: number }>(arr: T[]) =>
           arr.map((el) => {
             const o = d.origin.get(el.id);
-            return o ? { ...el, x: snapV(o.x + dx, s.snap), y: snapV(o.y + dy, s.snap) } : el;
+            return o ? { ...el, x: o.x + dx, y: o.y + dy } : el;
           });
         nd.nodes = mv(s.doc.nodes);
         nd.groups = s.doc.groups.map((g) => (d.origin.has(g.id) ? { ...mv([g])[0], auto: false } : g));
         nd.notes = mv(s.doc.notes);
         live(nd);
         // destaque do grupo alvo (primeiro item selecionado)
-        const lead = s.sel[0];
+        const lead = d.under ?? s.sel[0];
         const el = [...nd.nodes, ...nd.groups].find((x) => x.id === lead);
         if (el) {
           const exclude = new Set([...d.origin.keys()]);
@@ -959,7 +1003,7 @@ export function Canvas() {
     const p = toWorld(e);
     switch (d.kind) {
       case "move": {
-        if (!d.moved && e.button === 0 && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (!d.moved && !d.under && e.button === 0 &&!e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
           // clique simples numa referência a outro diagrama → visualizar em modal
           const ref = s.doc.nodes.find((n) => n.id === d.id)?.ref;
           if (ref) set({ modal: { type: "diagram-view", diagram: ref.diagram, node: ref.node } });
@@ -1046,11 +1090,21 @@ export function Canvas() {
   const onContextMenu = (e: React.MouseEvent) => {
     if (getState().present) return e.preventDefault();
     const t = targetOf(e.target);
+    if (t?.id && t.role === "node") {
+      // botão direito num componente: inspecionar o fluxo ligado a ele
+      e.preventDefault();
+      setMenu(null);
+      select([t.id]);
+      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 190), id: t.id });
+      return;
+    }
     if (!t?.id || (t.role !== "conn" && t.role !== "wp" && t.role !== "wp-add")) {
       setMenu(null);
+      setNodeMenu(null);
       return;
     }
     e.preventDefault();
+    setNodeMenu(null);
     const at = toWorld(e);
     const edge = edges.find((x) => x.c.id === t.id);
     if (!edge) return;
@@ -1124,13 +1178,15 @@ export function Canvas() {
     placeAsset(id, snapV(p.x - 92, s.snap), snapV(p.y - 36, s.snap), target?.id);
   };
 
-  const edges = useMemo(() => computeEdges(doc), [doc]);
-  const ownerLinks = useMemo(() => computeOwnerLinks(doc), [doc.nodes]);
+  const focus = useStore((s) => s.focus);
+  const flow = useMemo(() => (focus && doc.nodes.some((n) => n.id === focus.id) ? flowOf(doc, focus.id, focus.mode) : null), [doc, focus]);
+  const edges = useMemo(() => computeEdges(doc).filter((e) => !flow || flow.conns.has(e.c.id)), [doc, flow]);
+  const ownerLinks = useMemo(() => computeOwnerLinks(doc).filter((l) => !flow || (flow.nodes.has(l.id))), [doc.nodes, flow]);
 
   const bg = useStore((s) => s.bg);
   const bgStep = 24 * view.z;
   const bgPreset = presetById(bg.image);
-  const groupsSorted = useMemo(() => sortedGroups(doc), [doc.groups]);
+  const groupsSorted = useMemo(() => sortedGroups(doc).filter((g) => !flow || flow.groups.has(g.id) || flow.nodes.has(g.id)), [doc.groups, flow]);
   const d = drag.current;
   const selSet = new Set(sel);
   const cursor = panning || tool === "hand" ? "grab" : tool === "text" ? "text" : tool === "eraser" ? ERASER_CURSOR : tool === "connect" || tool === "group" || tool === "note" || tool === "list" || tool === "pen" || tool === "highlight" ? "crosshair" : "default";
@@ -1179,16 +1235,20 @@ export function Canvas() {
           <path key={l.id} d={l.d} className="owner-link" />
         ))}
         {edges.map(({ c, g }) => (
-          <Edge key={c.id} c={c} d={g.d} mid={g.mid} selected={selSet.has(c.id)} animate={animate} />
+          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} animate={animate} />
         ))}
         {sel.length === 1 &&
           edges
             .filter(({ c }) => c.id === sel[0])
             .map(({ c, g }) => <EdgeHandles key={c.id} c={c} g={g} z={view.z} />)}
-        {doc.nodes.map((n) => (
+        {doc.nodes.filter((n) => !flow || flow.nodes.has(n.id)).map((n) => (
           <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} />
         ))}
-        {doc.notes.map((n) => (
+        {flow &&
+          doc.nodes
+            .filter((n) => n.id === focus!.id)
+            .map((n) => <rect key="flow-ring" x={n.x - 6} y={n.y - 6} width={n.w + 12} height={n.h + 12} rx={16} className="flow-ring" pointerEvents="none" />)}
+        {(flow ? [] : doc.notes).map((n) => (
           <NoteShape key={n.id} n={n} selected={selSet.has(n.id)} />
         ))}
 
@@ -1208,6 +1268,38 @@ export function Canvas() {
           })()}
       </g>
     </svg>
+    {nodeMenu && (() => {
+      const n = doc.nodes.find((x) => x.id === nodeMenu.id);
+      if (!n) return null;
+      const pick = (mode: FlowMode) => (setNodeMenu(null), inspectFlow(n.id, mode));
+      return (
+        <div className="glass ctx-menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+          <div className="ctx-title">{n.label}</div>
+          <button role="menuitem" onClick={() => pick("both")}>
+            Inspecionar fluxo
+            <kbd>tudo ligado</kbd>
+          </button>
+          <button role="menuitem" onClick={() => pick("down")}>
+            Só o que ele aciona
+            <kbd>a jusante →</kbd>
+          </button>
+          <button role="menuitem" onClick={() => pick("up")}>
+            Só quem depende dele
+            <kbd>← a montante</kbd>
+          </button>
+          {focus && (
+            <>
+              <hr />
+              <button role="menuitem" onClick={() => (setNodeMenu(null), exitFlow())}>
+                Sair da inspeção
+                <kbd>Esc</kbd>
+              </button>
+            </>
+          )}
+        </div>
+      );
+    })()}
+    {flow && focus && <FlowBar id={focus.id} mode={focus.mode} flow={flow} />}
     {menu && menuConn && (
       <div className="glass ctx-menu" style={{ left: menu.x, top: menu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
         {menu.onPoint ? (

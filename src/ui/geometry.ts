@@ -1,4 +1,4 @@
-import type { Box, Doc, Routing } from "../shared/schema";
+import { CONNECTION_TYPES, type Box, type ConnectionEl, type Doc, type Routing } from "../shared/schema";
 
 export type Pt = { x: number; y: number };
 export type Side = "left" | "right" | "top" | "bottom";
@@ -60,6 +60,8 @@ export interface EdgeGeom {
   start: Pt;
   end: Pt;
   mid: Pt;
+  /** centro do rótulo: `labelT` ao longo do traçado ou, sem ele, o ponto médio */
+  label?: Pt;
   /** início, pontos de passagem e fim — base dos puxadores de edição */
   pts?: Pt[];
 }
@@ -209,8 +211,44 @@ export function edgeGeoms(doc: Doc) {
     idx.set(k, i + 1);
     const n = pairCount.get(k)!;
     const lane = n > 1 ? (i - (n - 1) / 2) * 26 : 0;
-    return [{ c, g: edgeGeom(a, b, c.routing, lane, c.waypoints) }];
+    const g = edgeGeom(a, b, c.routing, lane, c.waypoints);
+    g.label = c.labelT != null ? labelPoint(samplePath(g.d), c.labelT, c.labelOffset) : g.mid;
+    return [{ c, g }];
   });
+}
+
+/** Texto do rótulo de uma conexão e seu tamanho (compartilhado entre o desenho e o auto-layout). */
+export function labelSize(c: ConnectionEl): { text: string; sub?: string; w: number; h: number } | null {
+  const text = c.label ?? (c.protocol ? "" : CONNECTION_TYPES[c.type].label);
+  const sub = c.protocol;
+  if (!(text || sub || c.interface)) return null;
+  const w = Math.max(text.length * 6.8, (sub?.length ?? 0) * 5.8) + 22 + (c.interface ? 16 : 0);
+  return { text, sub, w, h: sub && text ? 36 : 26 };
+}
+
+/** Ponto a `f` (0–1) do comprimento de uma polilinha. */
+export function pointAtFraction(pts: Pt[], f: number): Pt {
+  if (pts.length < 2) return pts[0] ?? { x: 0, y: 0 };
+  const lens = pts.slice(1).map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y));
+  let want = lens.reduce((s, l) => s + l, 0) * Math.min(1, Math.max(0, f));
+  for (let i = 0; i < lens.length; i++) {
+    if (want <= lens[i] || i === lens.length - 1) {
+      const u = lens[i] ? Math.min(1, want / lens[i]) : 0;
+      return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * u, y: pts[i].y + (pts[i + 1].y - pts[i].y) * u };
+    }
+    want -= lens[i];
+  }
+  return pts[pts.length - 1];
+}
+
+/** Centro do rótulo: ponto a `t` do traçado, deslocado `offset` px na perpendicular. */
+export function labelPoint(pts: Pt[], t: number, offset = 0): Pt {
+  const p = pointAtFraction(pts, t);
+  if (!offset) return p;
+  const a = pointAtFraction(pts, Math.max(0, t - 0.02));
+  const b = pointAtFraction(pts, Math.min(1, t + 0.02));
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  return { x: p.x - ((b.y - a.y) / len) * offset, y: p.y + ((b.x - a.x) / len) * offset };
 }
 
 /** Amostra um path gerado por `edgeGeom` (comandos M, L, C, Q) como polilinha. */

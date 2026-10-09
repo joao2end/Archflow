@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ASSET_CATEGORIES } from "../shared/catalog";
-import { describe, schemaGuide, toMermaid } from "../shared/ops";
-import { NODE_KINDS, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind } from "../shared/schema";
+import { SPACING_GAP, describe, schemaGuide, toMermaid } from "../shared/ops";
+import { NODE_KINDS, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind, type Routing } from "../shared/schema";
 import { ColorPicker } from "./colorpicker";
 import { AssetBadge, Glyph } from "./icons";
 import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
@@ -361,8 +361,8 @@ function McpModal() {
 function HelpModal() {
   const rows: [string, string][] = [
     ["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["G", "Grupo"], ["C", "Conector"], ["N", "Nota"], ["B", "Biblioteca"], ["/", "Buscar asset"],
-    ["L / Shift+L", "Auto-layout horizontal / vertical"], ["F", "Ajustar à tela"], ["A", "Animações on/off"], ["Ctrl+Z / Y", "Desfazer / refazer"],
-    ["T", "Alternar tema (auto/claro/escuro)"], ["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"], ["Ctrl+D", "Duplicar"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Duplo clique", "Renomear · editar interface"], ["Shift+clique", "Selecionar vários"], ["Ctrl+roda", "Zoom"], ["Esc", "Cancelar / fechar"],
+    ["L / Shift+L", "Auto-layout: abre a configuração (horizontal / vertical)"], ["F", "Ajustar à tela"], ["A", "Animações on/off"], ["Ctrl+Z / Y", "Desfazer / refazer"],
+    ["T", "Alternar tema (auto/claro/escuro)"], ["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"], ["Ctrl+D", "Duplicar"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Duplo clique", "Renomear · editar interface"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Shift+clique", "Selecionar vários"], ["Ctrl+roda", "Zoom"], ["Esc", "Cancelar / fechar"],
   ];
   return (
     <Modal title="Atalhos e dicas" onClose={close}>
@@ -381,6 +381,169 @@ function HelpModal() {
   );
 }
 
+/* ───────── auto-layout ───────── */
+
+const LS_LAYOUT = "archflow.layout.v2";
+type RoutingChoice = Routing | "keep";
+type LayoutCfg = { gapX: number; gapY: number; routing: RoutingChoice };
+const GAP_MIN = 16;
+const GAP_MAX = 400;
+const DEFAULT_CFG: LayoutCfg = { gapX: SPACING_GAP.comfortable * 2, gapY: SPACING_GAP.comfortable, routing: "keep" };
+const SPACING_PRESETS: [string, number, number][] = [
+  ["Compacto", SPACING_GAP.compact * 2, SPACING_GAP.compact],
+  ["Confortável", SPACING_GAP.comfortable * 2, SPACING_GAP.comfortable],
+  ["Amplo", SPACING_GAP.spacious * 2, SPACING_GAP.spacious],
+];
+const ROUTING_OPTIONS: [RoutingChoice, string, string][] = [
+  ["keep", "Manter", "Preserva o traçado de cada conexão"],
+  ["curve", "Curva", "Linhas suaves"],
+  ["elbow", "Ortogonal", "Ângulos retos"],
+  ["straight", "Reta", "Linha direta"],
+];
+const ROUTING_PATH: Record<RoutingChoice, string> = {
+  keep: "M4 20 C14 20 12 8 22 8 S30 14 40 6",
+  curve: "M4 20 C20 20 24 6 40 6",
+  elbow: "M4 20 H22 V6 H40",
+  straight: "M4 20 L40 6",
+};
+
+const clampGap = (n: number) => Math.min(GAP_MAX, Math.max(GAP_MIN, Math.round(n) || GAP_MIN));
+
+function readLayoutCfg(): LayoutCfg {
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_LAYOUT) ?? "null") as Partial<LayoutCfg> | null;
+    return {
+      gapX: clampGap(Number(v?.gapX) || DEFAULT_CFG.gapX),
+      gapY: clampGap(Number(v?.gapY) || DEFAULT_CFG.gapY),
+      routing: ROUTING_OPTIONS.some(([k]) => k === v?.routing) ? v!.routing! : DEFAULT_CFG.routing,
+    };
+  } catch {
+    return DEFAULT_CFG;
+  }
+}
+
+function GapRow({ label, axis, value, onChange }: { label: string; axis: "x" | "y"; value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="lay-gap">
+      <span className="lay-gap-lbl">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          {axis === "x" ? <path d="M2 8h12M5 5 2 8l3 3M11 5l3 3-3 3" /> : <path d="M8 2v12M5 5l3-3 3 3M5 11l3 3 3-3" />}
+        </svg>
+        {label}
+      </span>
+      <input type="range" aria-label={`Espaçamento ${label.toLowerCase()}`} min={GAP_MIN} max={GAP_MAX} step={4} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <span className="lay-num">
+        <input type="number" aria-label={`${label} (px)`} min={GAP_MIN} max={GAP_MAX} value={value} onChange={(e) => onChange(clampGap(Number(e.target.value)))} />
+        px
+      </span>
+    </div>
+  );
+}
+
+/** Miniatura da grade: mostra como os dois espaçamentos afetam a distribuição. */
+function GapPreview({ gapX, gapY }: { gapX: number; gapY: number }) {
+  const k = 0.2;
+  const w = 34;
+  const h = 20;
+  const cols = 3;
+  const rows = 2;
+  const dx = w + gapX * k;
+  const dy = h + gapY * k;
+  const W = cols * w + (cols - 1) * gapX * k;
+  const H = rows * h + (rows - 1) * gapY * k;
+  return (
+    <svg className="lay-preview" viewBox={`-6 -6 ${W + 12} ${H + 12}`} role="img" aria-label="Pré-visualização do espaçamento">
+      {Array.from({ length: cols * rows }, (_, i) => (
+        <rect key={i} x={(i % cols) * dx} y={Math.floor(i / cols) * dy} width={w} height={h} rx={4} />
+      ))}
+    </svg>
+  );
+}
+
+function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
+  const [cfg] = useState(readLayoutCfg);
+  const [direction, setDirection] = useState(initial);
+  const [gapX, setGapX] = useState(cfg.gapX);
+  const [gapY, setGapY] = useState(cfg.gapY);
+  const [routing, setRouting] = useState(cfg.routing);
+  const apply = () => {
+    try {
+      localStorage.setItem(LS_LAYOUT, JSON.stringify({ gapX, gapY, routing }));
+    } catch {
+      /* preferência opcional */
+    }
+    run([{ op: "layout", direction, gapX, gapY, routing: routing === "keep" ? undefined : routing }]);
+    close();
+    toast("Layout automático aplicado");
+  };
+  return (
+    <Modal
+      title="Layout automático"
+      onClose={close}
+      foot={
+        <>
+          <button className="btn" onClick={close}>Cancelar</button>
+          <button className="btn primary" onClick={apply}>Aplicar layout</button>
+        </>
+      }
+    >
+      <div
+        className="lay"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") apply();
+        }}
+      >
+        <section className="lay-sec">
+          <h3>Direção do fluxo</h3>
+          <div className="lay-opts two" role="radiogroup" aria-label="Direção do fluxo">
+            {([["LR", "Horizontal", "Da esquerda para a direita", "M4 12h16M14 6l6 6-6 6"], ["TB", "Vertical", "De cima para baixo", "M12 4v16M6 14l6 6 6-6"]] as const).map(([k, l, d, icon]) => (
+              <button key={k} role="radio" aria-checked={direction === k} className={`lay-opt ${direction === k ? "active" : ""}`} onClick={() => setDirection(k)}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={icon} /></svg>
+                <b>{l}</b>
+                <small>{d}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="lay-sec">
+          <h3>Espaçamento</h3>
+          <div className="seg" role="radiogroup" aria-label="Presets de espaçamento">
+            {SPACING_PRESETS.map(([l, x, y]) => {
+              const on = gapX === x && gapY === y;
+              return (
+                <button key={l} role="radio" aria-checked={on} className={on ? "active" : ""} onClick={() => (setGapX(x), setGapY(y))}>{l}</button>
+              );
+            })}
+          </div>
+          <div className="lay-spacing">
+            <div className="lay-gaps">
+              <GapRow label="Horizontal" axis="x" value={gapX} onChange={setGapX} />
+              <GapRow label="Vertical" axis="y" value={gapY} onChange={setGapY} />
+            </div>
+            <GapPreview gapX={gapX} gapY={gapY} />
+          </div>
+        </section>
+
+        <section className="lay-sec">
+          <h3>Tipo de conector</h3>
+          <div className="lay-opts four" role="radiogroup" aria-label="Tipo de conector">
+            {ROUTING_OPTIONS.map(([k, l, d]) => (
+              <button key={k} role="radio" aria-checked={routing === k} className={`lay-opt ${routing === k ? "active" : ""}`} onClick={() => setRouting(k)} title={d}>
+                <svg width="44" height="26" viewBox="0 0 44 26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={ROUTING_PATH[k]} strokeDasharray={k === "keep" ? "3 3" : undefined} />
+                </svg>
+                <b>{l}</b>
+              </button>
+            ))}
+          </div>
+          <p className="lay-hint">{routing === "keep" ? "Cada conexão mantém o traçado atual." : "O traçado escolhido vale para todas as conexões do diagrama."}</p>
+        </section>
+      </div>
+    </Modal>
+  );
+}
+
 export function Modals() {
   const m = useStore((s) => s.modal);
   if (!m) return null;
@@ -395,6 +558,8 @@ export function Modals() {
       return <McpModal />;
     case "help":
       return <HelpModal />;
+    case "layout":
+      return <LayoutModal key={m.direction} direction={m.direction} />;
     case "vaults":
       return <VaultsModal />;
     case "quick":

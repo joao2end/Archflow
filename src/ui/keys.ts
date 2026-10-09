@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { applyOps, fitGroup, uniqueId } from "../shared/ops";
+import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { enterPresent } from "./present";
 import { commit, cycleTheme, getState, redo, run, select, set, setPrefs, toast, undo, type Tool } from "./store";
 
@@ -51,17 +52,17 @@ export function duplicateSelection() {
   select(created);
 }
 
+/** Abre a janela de configuração do auto-layout (direção, espaçamento e traçado dos conectores). */
 export function layout(direction: "LR" | "TB" = "LR") {
-  run([{ op: "layout", direction }]);
-  toast("Layout automático aplicado");
+  set({ modal: { type: "layout", direction } });
 }
 
-export function fitView(svg?: SVGSVGElement | null) {
+export function fitView(svg?: SVGSVGElement | null, only?: { x: number; y: number; w: number; h: number }[]) {
   const el = svg ?? (document.querySelector("svg.canvas") as SVGSVGElement | null);
   const { doc } = getState();
   if (!el || !(doc.nodes.length + doc.groups.length + doc.notes.length)) return;
   const r = el.getBoundingClientRect();
-  const all = [...doc.nodes, ...doc.groups, ...doc.notes];
+  const all = only?.length ? only : [...doc.nodes, ...doc.groups, ...doc.notes];
   const x1 = Math.min(...all.map((b) => b.x));
   const y1 = Math.min(...all.map((b) => b.y));
   const x2 = Math.max(...all.map((b) => b.x + b.w));
@@ -77,6 +78,17 @@ export function fitView(svg?: SVGSVGElement | null) {
   const ah = Math.max(150, r.height - top - bottom);
   const z = Math.min(1.1, Math.max(0.15, Math.min(aw / w, ah / h)));
   set({ view: { z, x: left + (aw - w * z) / 2 - x1 * z, y: top + (ah - h * z) / 2 - y1 * z } });
+}
+
+/** Mostra só o fluxo ligado ao componente (a jusante, a montante ou ambos) e enquadra a tela nele. */
+export function inspectFlow(id: string, mode: FlowMode = "both") {
+  const { doc } = getState();
+  set({ focus: { id, mode }, sel: [], tool: "select" });
+  requestAnimationFrame(() => fitView(undefined, flowBoxes(doc, flowOf(doc, id, mode))));
+}
+
+export function exitFlow() {
+  set({ focus: null });
 }
 
 export function useHotkeys() {
@@ -114,6 +126,7 @@ export function useHotkeys() {
         deleteSelection();
       } else if (e.key === "Escape") {
         if (s.modal) set({ modal: null });
+        else if (s.focus) exitFlow();
         else if (s.tool !== "select") set({ tool: "select" });
         else select([]);
       } else if (!mod) {
