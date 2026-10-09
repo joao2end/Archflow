@@ -5,18 +5,16 @@ services:
     expose:
       - "7077"
     environment:
+      ARCHFLOW_PUBLIC: "1" # só estático: cada visitante usa o cofre do próprio navegador
       ARCHFLOW_ALLOWED_HOSTS: archflow.2end.online,archflow.2-end.online
     volumes:
       - archflow-data:/data
     labels:
-      # Basic Auth: o bridge não tem autenticação própria (usuário: admin)
-      - "traefik.http.middlewares.archflow-auth.basicauth.users=admin:$$apr1$$0A6Q8oJJ$$pJDQu1d.b4eSIecmfZGbw."
-      # Router pr�prio (prioridade maior) com auth; reutiliza o servi�o gerado pelo Dokploy
+      # Router próprio (prioridade maior); reutiliza o serviço gerado pelo Dokploy. Sem auth: no modo público o servidor não guarda dados
       - "traefik.http.routers.archflow-secure.rule=Host(`archflow.2end.online`) || Host(`archflow.2-end.online`)"
       - "traefik.http.routers.archflow-secure.entrypoints=websecure"
       - "traefik.http.routers.archflow-secure.priority=100"
       - "traefik.http.routers.archflow-secure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.archflow-secure.middlewares=archflow-auth"
       - "traefik.http.routers.archflow-secure.service=archflow-mrehah-41-websecure"
 
 volumes:

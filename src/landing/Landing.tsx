@@ -191,6 +191,9 @@ function HeroDiagram() {
   );
 }
 
+const WIN_VERSION = "0.1.0";
+const WIN_DOWNLOAD = `https://github.com/joao2end/Archflow/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
+
 const HEADLINE: { t: string; em?: boolean }[] = [
   { t: "Desenhe" }, { t: "a" }, { t: "arquitetura" }, { t: "junto", em: true }, { t: "com" }, { t: "a" }, { t: "sua" }, { t: "IA." },
 ];
@@ -228,10 +231,16 @@ function Hero() {
           <a className="btn primary lg shine" href="/app">
             Abrir o Archflow <Glyph name="arrow-up" size={17} style={{ transform: "rotate(45deg)" }} />
           </a>
+          <a className="btn lg" href={WIN_DOWNLOAD} download>
+            <Glyph name="download" size={17} /> Baixar para Windows
+          </a>
           <a className="btn lg" href="#demo">
             Ver em ação
           </a>
         </div>
+        <p className="lp-dl-note lp-fade" style={style({ animationDelay: "1200ms" })}>
+          Instalador v{WIN_VERSION} · Windows 10/11 (x64) · já inclui o servidor MCP
+        </p>
         <ul className="lp-stats lp-fade" style={style({ animationDelay: "1300ms" })} aria-label="Números">
           <li>
             <b>
@@ -954,6 +963,9 @@ function Nav({ theme }: { theme: string }) {
       <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip="Alternar tema" data-tip-pos="bottom">
         <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme as "system"]} size={18} />
       </button>
+      <a className="btn shine lp-nav-dl" href={WIN_DOWNLOAD} download data-tip="Baixar para Windows" data-tip-pos="bottom">
+        <Glyph name="download" size={16} /> <span>Windows</span>
+      </a>
       <a className="btn primary shine" href="/app">
         Abrir o app
       </a>
@@ -1097,9 +1109,14 @@ export default function Landing() {
               Pronto para desenhar <i>junto</i>?
             </h2>
             <p>Abra o app, crie um cofre e comece com o exemplo ou com uma tela em branco.</p>
-            <a className="btn primary lg shine" href="/app">
-              Abrir o Archflow
-            </a>
+            <div className="lp-cta lp-cta-center">
+              <a className="btn primary lg shine" href="/app">
+                Abrir o Archflow
+              </a>
+              <a className="btn lg" href={WIN_DOWNLOAD} download>
+                <Glyph name="download" size={17} /> Baixar para Windows
+              </a>
+            </div>
           </section>
         </Reveal>
       </main>

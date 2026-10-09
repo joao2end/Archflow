@@ -36,6 +36,11 @@ const DEFAULT_DIR = resolve(process.env.ARCHFLOW_DATA ?? "diagrams");
 const DIST = resolve(process.env.ARCHFLOW_DIST ?? "dist");
 const EXT = ".archflow.json";
 const META = ".archflow";
+/**
+ * Modo público (ARCHFLOW_PUBLIC=1): só serve o app estático. Nenhuma rota /api existe e nada é gravado no
+ * servidor — cada visitante usa o cofre do próprio navegador (IndexedDB), sem login e sem ver dados alheios.
+ */
+const PUBLIC_MODE = process.env.ARCHFLOW_PUBLIC === "1";
 const SEG_BAD = /[\\/:*?"<>|\0]/;
 
 interface Vault {
@@ -571,6 +576,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
   const m = req.method;
   if (!originOk(req)) return json(res, 403, { error: "origem não permitida" });
   if (m === "OPTIONS") return void res.writeHead(204).end();
+  if (PUBLIC_MODE && path.startsWith("/api/")) return json(res, 404, { error: "indisponível no modo público" });
   try {
     if (path === "/api/health") return json(res, 200, { ok: true, rev, title: doc.title });
     if (path === "/api/doc" && m === "GET") return json(res, 200, { rev, doc, file: current, pristine });
@@ -819,9 +825,9 @@ export function ensureBridge(port = DEFAULT_PORT): Promise<"started" | "existing
     srv.listen(port, HOST, () => {
       if (!booted) {
         booted = true;
-        boot();
+        if (!PUBLIC_MODE) boot();
       }
-      console.error(`[bridge] http://${HOST}:${port}  cofre: ${vault.name} (${dir})`);
+      console.error(PUBLIC_MODE ? `[bridge] http://${HOST}:${port}  modo público (somente estático)` : `[bridge] http://${HOST}:${port}  cofre: ${vault.name} (${dir})`);
       ok("started");
     });
   });
