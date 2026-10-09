@@ -22,9 +22,10 @@ interface McpInfo {
   skill: { file: string; installed: boolean };
 }
 
+/** Sem acesso ao servidor local (site hospedado / navegador): o MCP vive no app instalado, no caminho padrão do instalador. */
 const PLACEHOLDER: McpInfo = {
-  packaged: false,
-  launch: { command: "npx", args: ["tsx", "C:/caminho/do/projeto/server/mcp.ts"] },
+  packaged: true,
+  launch: { command: "C:\Program Files\Archflow\Archflow.exe", args: ["--mcp"] },
   clients: [],
   skill: { file: "~/.claude/skills/archflow/SKILL.md", installed: false },
 };
@@ -61,12 +62,13 @@ export function McpBody() {
   const live = online && storage === "server";
   const [tab, setTab] = useState<"connect" | "skill">("connect");
   const [info, setInfo] = useState<McpInfo>(PLACEHOLDER);
+  const [detected, setDetected] = useState(false);
   const [busy, setBusy] = useState("");
 
   const load = () =>
     fetch("/api/mcp/info")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setInfo)
+      .then((i) => (setInfo(i), setDetected(true)))
       .catch(() => undefined);
   useEffect(() => {
     if (live) void load();
@@ -126,7 +128,11 @@ export function McpBody() {
       {tab === "connect" ? (
         <>
           <p className="mcp-lead">
-            {info.packaged ? (
+            {!detected ? (
+              <>
+                O MCP <b>não roda no site</b>: ele fica no app instalado. <a href="https://github.com/joao2end/Archflow/releases/latest" target="_blank" rel="noreferrer">Baixe o Archflow para Windows</a>, instale e use o caminho abaixo (é o padrão do instalador; se você escolheu outra pasta, ajuste). Abrindo o MCP <b>dentro do app instalado</b>, o caminho e os botões “Instalar” já vêm preenchidos.
+              </>
+            ) : info.packaged ? (
               <>
                 O servidor MCP já está <b>dentro do Archflow.exe</b> (<code>Archflow.exe --mcp</code>): não precisa de Node, npm nem do código-fonte. Quando o agente conecta, o app abre sozinho.
               </>
