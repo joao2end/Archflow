@@ -9,7 +9,13 @@ services:
     labels:
       # Basic Auth: o bridge não tem autenticação própria (usuário: admin)
       - "traefik.http.middlewares.archflow-auth.basicauth.users=admin:$$apr1$$0A6Q8oJJ$$pJDQu1d.b4eSIecmfZGbw."
-      - "traefik.http.routers.archflow-mrehah-41-websecure.middlewares=archflow-auth"
+      # Router pr�prio (prioridade maior) com auth; reutiliza o servi�o gerado pelo Dokploy
+      - "traefik.http.routers.archflow-secure.rule=Host(`archflow.2end.online`)"
+      - "traefik.http.routers.archflow-secure.entrypoints=websecure"
+      - "traefik.http.routers.archflow-secure.priority=100"
+      - "traefik.http.routers.archflow-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.archflow-secure.middlewares=archflow-auth"
+      - "traefik.http.routers.archflow-secure.service=archflow-mrehah-41-websecure"
 
 volumes:
   archflow-data:
