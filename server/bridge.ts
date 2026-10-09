@@ -28,6 +28,7 @@ import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "..
 import { emptyDoc, type Doc } from "../src/shared/schema";
 
 export const DEFAULT_PORT = Number(process.env.ARCHFLOW_PORT ?? 7077);
+const HOST = process.env.ARCHFLOW_HOST ?? "127.0.0.1";
 const CONFIG_DIR = process.env.ARCHFLOW_CONFIG ?? join(homedir(), ".archflow");
 const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 const DEFAULT_DIR = resolve(process.env.ARCHFLOW_DATA ?? "diagrams");
@@ -732,12 +733,12 @@ export function ensureBridge(port = DEFAULT_PORT): Promise<"started" | "existing
   return new Promise((ok, fail) => {
     const srv = createServer(handler);
     srv.once("error", (e: NodeJS.ErrnoException) => (e.code === "EADDRINUSE" ? ok("existing") : fail(e)));
-    srv.listen(port, "127.0.0.1", () => {
+    srv.listen(port, HOST, () => {
       if (!booted) {
         booted = true;
         boot();
       }
-      console.error(`[bridge] http://127.0.0.1:${port}  cofre: ${vault.name} (${dir})`);
+      console.error(`[bridge] http://${HOST}:${port}  cofre: ${vault.name} (${dir})`);
       ok("started");
     });
   });

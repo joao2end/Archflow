@@ -1,0 +1,11 @@
+services:
+  archflow:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "7077"
+    volumes:
+      - archflow-data:/data
+
+volumes:
+  archflow-data:
