@@ -4,6 +4,8 @@ services:
     restart: unless-stopped
     expose:
       - "7077"
+    environment:
+      ARCHFLOW_ALLOWED_HOSTS: archflow.2end.online
     volumes:
       - archflow-data:/data
     labels:
