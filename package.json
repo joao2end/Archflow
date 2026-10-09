@@ -8,14 +8,17 @@
   "scripts": {
     "icons": "tsx scripts/build-icons.ts",
     "dev": "vite --configLoader runner",
-    "build": "tsc --noEmit && vite build --configLoader runner",
+    "build": "npm run skill && tsc --noEmit && vite build --configLoader runner",
     "bridge": "tsx server/bridge.ts",
     "mcp": "tsx server/mcp.ts",
     "typecheck": "tsc --noEmit",
     "electron:bundle": "esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/main.cjs",
     "app": "npm run build && npm run electron:bundle && electron .",
     "app:icon": "tsx scripts/build-app-icon.ts",
-    "app:dist": "npm run build && npm run electron:bundle && electron-builder --win nsis"
+    "app:dist": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --win nsis",
+    "skill": "tsx scripts/build-skill.ts",
+    "mcp:bundle": "tsx scripts/build-mcp.ts",
+    "app:pack": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --win dir"
   },
   "dependencies": {
     "@fontsource/instrument-serif": "^5.3.0",
@@ -78,6 +81,12 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "language": "1046"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "dist-mcp/archflow-mcp.mjs",
+        "to": "mcp/archflow-mcp.mjs"
+      }
+    ]
   }
 }

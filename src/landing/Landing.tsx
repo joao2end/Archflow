@@ -741,12 +741,6 @@ const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: s
 const em = (s: string) => s.split(/(\*[^*]+\*)/g).map((p, i) => (p.startsWith("*") ? <em key={i}>{p.slice(1, -1)}</em> : p));
 
 function Guide() {
-  const [tab, setTab] = useState(0);
-  const g = GUIDE[tab];
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowRight") setTab((t) => (t + 1) % GUIDE.length);
-    if (e.key === "ArrowLeft") setTab((t) => (t - 1 + GUIDE.length) % GUIDE.length);
-  };
   return (
     <section id="guia" className="lp-section">
       <Reveal>
@@ -783,8 +777,53 @@ function Guide() {
         <p className="lp-foot">Comparação com os recursos nativos do Excalidraw de código aberto; extensões e serviços de terceiros podem cobrir parte das lacunas. Onde o Excalidraw é melhor, dizemos — o Archflow não tenta substituí-lo em desenho livre nem em colaboração multiusuário.</p>
       </Reveal>
 
+    </section>
+  );
+}
+
+/** true em telas largas (desktop) e sem preferência por menos movimento */
+function useDesktopMotion() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const q = matchMedia("(min-width: 961px) and (prefers-reduced-motion: no-preference)");
+    const f = () => setOn(q.matches);
+    f();
+    q.addEventListener("change", f);
+    return () => q.removeEventListener("change", f);
+  }, []);
+  return on;
+}
+
+function HowTo() {
+  const [tab, setTab] = useState(0);
+  const [step, setStep] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const desktop = useDesktopMotion();
+  const g = GUIDE[tab];
+  const n = g.steps.length;
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowRight") setTab((t) => (t + 1) % GUIDE.length);
+    if (e.key === "ArrowLeft") setTab((t) => (t - 1 + GUIDE.length) % GUIDE.length);
+  };
+  useEffect(() => setStep(0), [tab]);
+  // o cursor avança passo a passo na horizontal e recomeça ao chegar no fim
+  useEffect(() => {
+    if (!desktop || paused) return;
+    const t = setTimeout(() => setStep((i) => (i + 1) % n), 2400);
+    return () => clearTimeout(t);
+  }, [desktop, paused, step, n]);
+  return (
+    <section id="como-usar" className="lp-section">
+      <Reveal>
+        <span className="lp-eyebrow">Como usar</span>
+        <h2>
+          Funcionalidade por <i>funcionalidade</i>.
+        </h2>
+      </Reveal>
+      <Reveal delay={100}>
+        <p className="lp-sub">Escolha um recurso e siga o passo a passo — com o que o Excalidraw faz no mesmo caso e como o Archflow resolve.</p>
+      </Reveal>
       <Reveal delay={80}>
-        <h3 className="lp-guide-h">Como usar, funcionalidade por funcionalidade</h3>
         <div className="lp-tabs" role="tablist" aria-label="Funcionalidades" onKeyDown={onKey}>
           {GUIDE.map((t, i) => (
             <button key={t.id} role="tab" id={`tab-${t.id}`} aria-selected={i === tab} aria-controls="guide-panel" tabIndex={i === tab ? 0 : -1} className={i === tab ? "on" : ""} onClick={() => setTab(i)}>
@@ -792,16 +831,26 @@ function Guide() {
             </button>
           ))}
         </div>
-        <div className="glass lp-guide" id="guide-panel" role="tabpanel" aria-labelledby={`tab-${g.id}`} key={g.id}>
-          <div className="lp-guide-steps">
+        <div className="glass lp-guide how" id="guide-panel" role="tabpanel" aria-labelledby={`tab-${g.id}`} key={g.id}>
+          <div className={`lp-guide-steps${desktop ? " h" : ""}`} onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} style={style({ "--n": n, "--step": step })}>
             <h4>Passo a passo</h4>
+            <div className="lp-lane">
+            {desktop && (
+              <div className="lp-track" aria-hidden>
+                <i className="fill" />
+                <svg className="cur" width="24" height="24" viewBox="0 0 24 24">
+                  <path d="M5 3l14 7-6 2-2 6z" fill="var(--primary-600)" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" />
+                </svg>
+              </div>
+            )}
             <ol>
-              {g.steps.map((s, i) => (
-                <li key={i} style={style({ "--i": i })}>
-                  {em(s)}
+              {g.steps.map((st, i) => (
+                <li key={i} className={desktop && i === step ? "cur" : desktop && i < step ? "done" : ""} style={style({ "--i": i })} onClick={() => desktop && setStep(i)}>
+                  {em(st)}
                 </li>
               ))}
             </ol>
+            </div>
             {g.keys.length > 0 && (
               <p className="lp-keys">
                 Atalhos: {g.keys.map((k) => (
@@ -900,6 +949,7 @@ function Nav({ theme }: { theme: string }) {
         <a href="#demo">Em ação</a>
         <a href="#recursos">Recursos</a>
         <a href="#guia">Guia</a>
+        <a href="#como-usar">Como usar</a>
       </nav>
       <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip="Alternar tema" data-tip-pos="bottom">
         <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme as "system"]} size={18} />
@@ -1038,6 +1088,7 @@ export default function Landing() {
         <Connections />
         <Features />
         <Guide />
+        <HowTo />
         <Vault />
 
         <Reveal className="lp-final-wrap">

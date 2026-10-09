@@ -12,6 +12,10 @@
   overscroll-behavior: contain;
   z-index: 1;
 }
+/* o backdrop é fixed: sem isso a roda do mouse sobre ele rola o viewport em vez do .lp */
+.lp > .backdrop {
+  pointer-events: none;
+}
 .lp > *:not(.backdrop):not(.lp-aurora):not(.lp-progress) {
   position: relative;
   z-index: 1;
@@ -1184,6 +1188,71 @@ svg .lp-fade {
   margin: 0 auto 26px;
 }
 
+/* passo a passo horizontal (desktop): o cursor percorre a trilha e acende cada etapa */
+.lp-guide.how .lp-guide-steps.h {
+  grid-column: 1 / -1;
+}
+.lp-guide.how:has(.lp-guide-steps.h) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.lp-lane {
+  position: relative;
+}
+.lp-guide-steps.h ol {
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 0;
+}
+.lp-guide-steps.h li {
+  padding: 44px 22px 0 0;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.4s;
+}
+.lp-guide-steps.h li.cur,
+.lp-guide-steps.h li.done {
+  opacity: 1;
+}
+.lp-guide-steps.h li::before {
+  transition: background 0.4s, color 0.4s, transform 0.4s;
+}
+.lp-guide-steps.h li.cur::before {
+  background: var(--primary-600);
+  color: #fff;
+  transform: scale(1.15);
+}
+:root[data-theme="dark"] .lp-guide-steps.h li.cur::before {
+  background: #ab9df2;
+  color: #221f22;
+}
+.lp-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 13px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+.lp-track .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--step) * 100% / var(--n) + 14px);
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--c-async));
+  transition: width 0.9s cubic-bezier(0.5, 0, 0.2, 1);
+}
+.lp-track .cur {
+  position: absolute;
+  top: -4px;
+  left: calc(var(--step) * 100% / var(--n) + 14px);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  transition: left 0.9s cubic-bezier(0.5, 0, 0.2, 1);
+  z-index: 2;
+}
+
 .lp-footer {
   text-align: center;
   padding: 0 24px 32px;
@@ -1295,4 +1364,8 @@ svg .lp-fade {
   height: 100vh;
   pointer-events: none;
   z-index: 2147483647;
+}
+.lp-guide.how:has(.lp-guide-steps.h) .lp-vs {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }

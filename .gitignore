@@ -6,3 +6,4 @@ diagrams
 .DS_Store
 release
 dist-electron
+dist-mcp

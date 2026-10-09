@@ -50,7 +50,7 @@ function canvasCss(): string {
 }
 
 export function buildSvg(): { svg: string; w: number; h: number } | null {
-  const { doc } = getState();
+  const { doc, bg: board } = getState();
   const b = contentBounds(doc);
   const src = document.querySelector("svg.canvas") as SVGSVGElement | null;
   if (!b || !src) return null;
@@ -70,7 +70,7 @@ export function buildSvg(): { svg: string; w: number; h: number } | null {
   const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
   style.textContent = canvasCss();
   const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  for (const [k, v] of Object.entries({ x: b.x - pad, y: b.y - pad, width: w, height: h, fill: "#f7f1e3" })) bg.setAttribute(k, String(v));
+  for (const [k, v] of Object.entries({ x: b.x - pad, y: b.y - pad, width: w, height: h, fill: board.color ?? "#f7f1e3" })) bg.setAttribute(k, String(v));
   clone.insertBefore(bg, clone.firstChild);
   clone.insertBefore(style, clone.firstChild);
   return { svg: new XMLSerializer().serializeToString(clone), w, h };

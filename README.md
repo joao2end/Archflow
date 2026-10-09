@@ -66,7 +66,10 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run dev` | App (Vite) + bridge local |
 | `npm run build` | Checagem de tipos + build de produção |
 | `npm run bridge` | Servidor local (HTTP/SSE) servindo o build |
-| `npm run mcp` | Servidor MCP (stdio) |
+| `npm run mcp` | Servidor MCP (stdio) em desenvolvimento |
+| `npm run mcp:bundle` | Empacota o MCP (`dist-mcp/`), levado pelo instalador em `resources/mcp/` |
+| `npm run skill` | Embute `skills/archflow/SKILL.md` no app |
+| `npm run app:pack` | Gera o app desempacotado (`release/win-unpacked`) para testes |
 | `npm run icons` | Regenera os ícones do catálogo |
 | `npm run typecheck` | Apenas checagem de tipos |
 | `npm run app` | Abre o app desktop (Electron) sem gerar instalador |
@@ -86,7 +89,7 @@ Detalhes:
 - O instalador **não é assinado digitalmente**: o SmartScreen pode avisar na primeira execução (*Mais informações → Executar assim mesmo*).
 - O app usa a porta **7077**. Se já houver um bridge nela (por exemplo, `npm run dev` rodando), ele é reutilizado em vez de subir outro.
 - Os cofres e a lista de cofres ficam em `~/.archflow` (compartilhados com a versão de desenvolvimento); sem configuração prévia, o cofre padrão é `Documentos\Archflow`.
-- Para conectar um agente (MCP) ao app instalado, veja [Conectar um agente](#conectar-um-agente-mcp) — o bridge fica em `http://127.0.0.1:7077`.
+- Para conectar um agente (MCP) ao app instalado, veja [Conectar um agente](#conectar-um-agente-mcp) — o bridge fica em `http://127.0.0.1:7077` e o MCP é o próprio `Archflow.exe --mcp`.
 
 ### Gerar o instalador
 
@@ -159,20 +162,34 @@ O botão **?** (ou a tecla `?`) mostra todos os atalhos e dicas.
 
 ## Conectar um agente (MCP)
 
-O servidor MCP (stdio) sobe o bridge sozinho se ele ainda não estiver rodando. O botão **MCP** da barra superior mostra o passo a passo
-já com o caminho do seu projeto:
+O servidor MCP (stdio) está **embutido no `Archflow.exe`** — sem Node, npm nem código-fonte. O botão **MCP** da barra superior
+mostra os comandos já com o caminho do seu exe, e a aba **Skill para os modelos** entrega o guia de uso para o agente:
 
 ![Modal Conectar um agente (MCP)](docs/screenshots/06-mcp.png)
 
-```bash
-claude mcp add archflow --cwd "<caminho do projeto>" -- npx tsx server/mcp.ts
-```
+**Um clique:** na modal, **Instalar** grava a entrada `archflow` no Claude Desktop, Cursor ou Windsurf (preserva o resto do arquivo e faz cópia `.bak`); **Abrir no Cursor** usa o deeplink de instalação. Reinicie o cliente depois.
 
-ou em `claude_desktop_config.json`:
+**Manual** (troque pelo caminho do seu exe; o padrão do instalador é `C:Program FilesArchflowArchflow.exe`):
+
+```bash
+claude mcp add --scope user archflow -- "C:Program FilesArchflowArchflow.exe" --mcp
+```
 
 ```json
-{ "mcpServers": { "archflow": { "command": "npx", "args": ["tsx", "<caminho>/server/mcp.ts"], "cwd": "<caminho>" } } }
+{ "mcpServers": { "archflow": { "command": "C:\Program Files\Archflow\Archflow.exe", "args": ["--mcp"] } } }
 ```
+
+Quando o agente conecta, o servidor **abre o app Archflow sozinho** (se ainda não estiver aberto) e edita o diagrama pelo bridge dele — você acompanha ao vivo.
+Em desenvolvimento use `npx tsx server/mcp.ts` (o botão MCP mostra o comando certo para cada modo).
+
+### Skill para os modelos
+
+`skills/archflow/SKILL.md` ensina o modelo a usar o Archflow (fluxo, tools, vocabulário, erros comuns). Ela fica disponível:
+
+- na modal **MCP → Skill para os modelos**: instalar no Claude Code (`~/.claude/skills/archflow/`), copiar, baixar `SKILL.md` ou baixar como regra do Cursor (`.cursor/rules/archflow.mdc`);
+- pelo próprio MCP: resource `archflow://skill` + `instructions` enviadas ao cliente na conexão.
+
+O texto é editado em `skills/archflow/SKILL.md`; `npm run skill` (já parte do `npm run build`) o embute em `src/shared/skill.generated.ts`.
 
 Com o app aberto (o indicador **MCP sincronizado** fica verde), peça: *"Use o archflow para desenhar uma arquitetura de pedidos com Laravel, Postgres e SQS"*.
 Edições do agente aparecem ao vivo (`Ctrl+Z` desfaz).

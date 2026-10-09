@@ -273,13 +273,11 @@ export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...gen
 export const ASSET_CATEGORIES = Array.from(new Set(BUILTIN_ASSETS.map((a) => a.category)));
 
 export function searchAssets(assets: Asset[], query = "", category?: string): Asset[] {
-  const q = query.trim().toLowerCase();
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return assets.filter((a) => {
-    if (category && a.category !== category) return false;
-    if (!q) return true;
-    return [a.id, a.name, a.category, a.vendor ?? "", a.problem, a.description, a.tags.join(" ")]
-      .join(" ")
-      .toLowerCase()
-      .includes(q);
+    if (category && a.category.toLowerCase() !== category.toLowerCase()) return false;
+    if (!terms.length) return true;
+    const hay = [a.id, a.name, a.category, a.vendor ?? "", a.problem, a.description, a.tags.join(" ")].join(" ").toLowerCase();
+    return terms.every((t) => hay.includes(t));
   });
 }

@@ -1,7 +1,13 @@
 /**
- * Archflow MCP server (stdio). Sobe o bridge automaticamente e expõe ferramentas semânticas.
- * Claude Desktop / Claude Code: { "command": "npx", "args": ["tsx", "server/mcp.ts"] }
+ * Archflow MCP server (stdio). Expõe ferramentas semânticas sobre o bridge do app.
+ *
+ *  - App instalado (exe):  Archflow.exe --mcp          (empacotado em resources/mcp/archflow-mcp.mjs)
+ *  - Desenvolvimento:      npx tsx server/mcp.ts
+ *
+ * No exe, o servidor abre o app Archflow se ele ainda não estiver rodando e conversa com o bridge dele;
+ * em dev (ou se o app não abrir) sobe o próprio bridge.
  */
+import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -9,9 +15,31 @@ import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, searchAssets } from "../src/shared/catalog";
 import { CONNECTION_TYPE_KEYS, type Doc } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, validate, type Op } from "../src/shared/ops";
+import { SKILL_MD } from "../src/shared/skill.generated";
 
 const BASE = `http://127.0.0.1:${DEFAULT_PORT}`;
-await ensureBridge();
+
+const bridgeUp = () =>
+  fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(800) })
+    .then((r) => r.ok)
+    .catch(() => false);
+
+/** Dentro do exe (Electron em modo node) abre o app e espera o bridge; senão, hospeda o bridge aqui. */
+async function connectBridge() {
+  if (await bridgeUp()) return;
+  if (process.versions.electron && process.env.ARCHFLOW_NO_APP !== "1") {
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    spawn(process.execPath, [], { detached: true, stdio: "ignore", env }).unref();
+    for (let i = 0; i < 60; i++) {
+      if (await bridgeUp()) return;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    console.error("[mcp] o app Archflow não respondeu em 30s — hospedando o bridge neste processo");
+  }
+  await ensureBridge();
+}
+await connectBridge();
 
 type Result = { ok: boolean; id?: string; error?: string };
 
@@ -32,7 +60,15 @@ const report = (results: Result[]) => {
   );
 };
 
-const server = new McpServer({ name: "archflow", version: "0.1.0" });
+const server = new McpServer(
+  { name: "archflow", version: "0.1.0" },
+  {
+    instructions:
+      "Archflow é um quadro branco de arquitetura de software que o usuário vê em tempo real. Trabalhe com componentes, grupos e conexões (nunca pixels). " +
+      "Fluxo: get_diagram → list_assets/search_assets (prefira assets do catálogo) → add_groups → add_components → add_endpoints → connect → auto_layout → validate_diagram. " +
+      "Leia o resource archflow://skill (ou get_schema_guide) para o guia completo. Nunca use clear_diagram sem pedido explícito.",
+  },
+);
 
 const ifaceSchema = z.object({
   name: z.string(),
@@ -57,16 +93,42 @@ server.registerTool(
 );
 
 server.registerTool(
+  "list_assets",
+  {
+    description:
+      "Lista TODO o catálogo de assets (built-in + personalizados do diagrama), agrupado por categoria, com id, nome e kind. Chame ANTES de montar um diagrama para reutilizar os assets existentes em vez de criar componentes do zero. Sem parâmetros retorna tudo; `category` filtra uma categoria; `detailed` inclui o problema que cada asset resolve.",
+    inputSchema: {
+      category: z.string().optional().describe("nome (ou parte) de uma categoria, ex.: AWS"),
+      detailed: z.boolean().optional().describe("inclui o problema que cada asset resolve"),
+    },
+  },
+  async ({ category, detailed }) => {
+    const doc = await getDoc();
+    const all = [...doc.customAssets, ...BUILTIN_ASSETS];
+    const cats = Array.from(new Set(all.map((a) => a.category)));
+    const wanted = category ? cats.filter((c) => c.toLowerCase().includes(category.toLowerCase())) : cats;
+    if (!wanted.length) return text(`categoria "${category}" não existe. Categorias: ${cats.join(", ")}`, true);
+    const out = [`${all.length} assets em ${cats.length} categorias. Use o id em add_components.asset.`];
+    for (const c of wanted) {
+      const items = all.filter((a) => a.category === c);
+      out.push("", `## ${c} (${items.length})`);
+      for (const a of items) out.push(detailed ? `- ${a.id} | ${a.name} | ${a.kind} | ${a.problem}` : `- ${a.id} | ${a.name} | ${a.kind}`);
+    }
+    return text(out.join("\n"));
+  },
+);
+
+server.registerTool(
   "search_assets",
   {
     description:
-      "Busca no catálogo de tecnologias (AWS, Laravel, Postgres, Claude...). Cada asset descreve o problema que resolve. Retorna ids para usar em add_components.asset.",
+      "Busca no catálogo de tecnologias (AWS, Laravel, Postgres, Claude...) por palavras (todas devem casar). Cada asset descreve o problema que resolve. Retorna ids para usar em add_components.asset. Para ver tudo, use list_assets.",
     inputSchema: { query: z.string().optional(), category: z.string().optional() },
   },
   async ({ query, category }) => {
     const doc = await getDoc();
-    const list = searchAssets([...doc.customAssets, ...BUILTIN_ASSETS], query, category).slice(0, 40);
-    return text(list.map((a) => `- ${a.id} | ${a.name} | ${a.category} | ${a.kind} | ${a.problem}`).join("\n") || "nenhum asset encontrado");
+    const list = searchAssets([...doc.customAssets, ...BUILTIN_ASSETS], query, category).slice(0, 80);
+    return text(list.map((a) => `- ${a.id} | ${a.name} | ${a.category} | ${a.kind} | ${a.problem}`).join("\n") || "nenhum asset encontrado (tente list_assets)");
   },
 );
 
@@ -320,5 +382,14 @@ server.registerResource(
   async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: schemaGuide() }] }),
 );
 
+server.registerResource(
+  "skill",
+  "archflow://skill",
+  { description: "Skill: como usar o Archflow (fluxo, tools, vocabulário, erros comuns)", mimeType: "text/markdown" },
+  async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: SKILL_MD }] }),
+);
+
 await server.connect(new StdioServerTransport());
-console.error(`[mcp] archflow pronto · bridge em ${BASE} (abra o app: npm run dev, ou npm run build + bridge)`);
+// O cliente MCP encerra fechando o stdin; sem isto o bridge hospedado manteria o processo vivo.
+process.stdin.on("close", () => process.exit(0));
+console.error(`[mcp] archflow pronto · bridge em ${BASE}`);

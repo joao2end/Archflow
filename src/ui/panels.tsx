@@ -1,3 +1,5 @@
+import { ColorPicker } from "./colorpicker";
+import { BG_PRESETS, PresetPattern } from "./bgpresets";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { searchAssets } from "../shared/catalog";
@@ -6,9 +8,12 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, GROUP_KINDS, NODE_KINDS, type C
 import { exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
+import { enterPresent } from "./present";
+import { INK_COLORS } from "./ink";
+import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitView, layout } from "./keys";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
+import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, toast, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, DEFAULT_BG, type BgPattern, type Tool } from "./store";
 
 /* ───────── helpers ───────── */
 
@@ -20,7 +25,7 @@ function Tip({ tip, pos = "right", children }: { tip: string; pos?: "right" | "t
   );
 }
 
-function ConnSample({ type }: { type: ConnectionType }) {
+export function ConnSample({ type }: { type: ConnectionType }) {
   const t = CONNECTION_TYPES[type];
   return (
     <svg className="conn-sample" viewBox="0 0 26 14" fill="none">
@@ -124,6 +129,9 @@ export function TopBar() {
           {!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado"}
         </span>
         <div className="sep" />
+        <button className="btn ghost" onClick={enterPresent} data-tip="Modo apresentação: caneta, marca-texto, laser e cronômetro (P)" data-tip-pos="bottom">
+          <Glyph name="present" size={17} /> Apresentar
+        </button>
         <button className="btn ghost" onClick={() => set({ modal: { type: "llm" } })} data-tip="Veja o diagrama como um LLM o enxerga (Markdown, Mermaid, JSON)." data-tip-pos="bottom">
           <Glyph name="sparkle" size={17} /> Visão LLM
         </button>
@@ -177,12 +185,143 @@ export function TopBar() {
 /* ───────── dock de ferramentas ───────── */
 
 const TOOLS: { id: Tool; icon: string; label: string; key: string; tip: string }[] = [
-  { id: "select", icon: "select", label: "Selecionar", key: "V", tip: "Mover, selecionar e editar. Arraste dos pontos “+” de um componente para conectá-lo." },
   { id: "hand", icon: "hand", label: "Mover tela", key: "H", tip: "Arraste para navegar. Dica: segure Espaço em qualquer ferramenta." },
   { id: "group", icon: "group", label: "Grupo", key: "G", tip: "Desenhe uma fronteira (VPC, camada, bounded context). Componentes dentro entram no grupo." },
   { id: "connect", icon: "connect", label: "Conector", key: "C", tip: "Arraste de um componente a outro. O tipo vem da barra inferior." },
   { id: "note", icon: "note", label: "Nota", key: "N", tip: "Registre decisões, riscos e premissas." },
 ];
+
+const BG_PATTERNS: { id: BgPattern; label: string }[] = [
+  { id: "dots", label: "Pontos" },
+  { id: "grid", label: "Grade" },
+  { id: "lines", label: "Linhas" },
+  { id: "none", label: "Liso" },
+];
+const BG_COLORS = ["#ffffff", "#f7f1e3", "#eef2f7", "#e8f3ec", "#fdf0f0", "#2d2a2e", "#14161c"];
+
+/** reduz a imagem (máx. 1920px, JPEG) para caber no localStorage */
+function fileToBackground(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1920 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k);
+      c.height = Math.round(img.height * k);
+      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => (URL.revokeObjectURL(url), reject(new Error("imagem inválida")));
+    img.src = url;
+  });
+}
+
+function BackgroundPopover() {
+  const bg = useStore((s) => s.bg);
+  const imgRef = useRef<HTMLInputElement>(null);
+  const open = useStore((s) => s.panel === "bg");
+  const setOpen = (v: boolean | ((o: boolean) => boolean)) => {
+    const next = typeof v === "function" ? v(getState().panel === "bg") : v;
+    set({ panel: next ? "bg" : getState().panel === "bg" ? null : getState().panel });
+  };
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => !(e.target as Element).closest(".bg-wrap, .cpick-pop") && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  const patch = (p: Partial<typeof bg>) => setPrefs({ bg: { ...bg, ...p } });
+  return (
+    <div className="bg-wrap">
+      <button className={`tool ${open ? "active" : ""}`} onClick={() => setOpen((o) => !o)} data-tip="Fundo do quadro" data-tip-pos="right" aria-label="Fundo do quadro" aria-haspopup="dialog" aria-expanded={open}>
+        <Glyph name="grid" size={19} />
+      </button>
+      {open && (
+        <div className="glass bg-pop" role="dialog" aria-label="Fundo do quadro" style={{ background: "var(--glass-strong)" }}>
+          <div className="field">
+            <span>Padrão</span>
+            <div className="bg-patterns" role="radiogroup" aria-label="Padrão do fundo">
+              {BG_PATTERNS.map((p) => (
+                <button key={p.id} role="radio" aria-checked={bg.pattern === p.id} className={`bg-pat ${bg.pattern === p.id ? "active" : ""}`} onClick={() => patch({ pattern: p.id })}>
+                  <i className={`bg-prev ${p.id}`} />
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <span>Cor</span>
+            <div className="swatches insp-swatches">
+              <button className={`swatch auto ${!bg.color ? "active" : ""}`} aria-label="Cor padrão do tema" onClick={() => patch({ color: undefined })} data-tip="Padrão do tema" data-tip-pos="top" />
+              <ColorPicker value={bg.color ?? "#f7f1e3"} swatchColor={bg.color && !BG_COLORS.includes(bg.color) ? bg.color : undefined} onChange={(c) => patch({ color: c })} />
+              {BG_COLORS.map((c) => (
+                <button key={c} className={`swatch ${bg.color === c ? "active" : ""}`} style={{ background: c }} aria-label={`Fundo ${c}`} onClick={() => patch({ color: c })} />
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <span>Imagem</span>
+            <div className="bg-patterns five" role="radiogroup" aria-label="Modelos de imagem">
+              {BG_PRESETS.map((p) => (
+                <button key={p.id} role="radio" aria-checked={bg.image === `preset:${p.id}`} className={`bg-pat ${bg.image === `preset:${p.id}` ? "active" : ""}`} onClick={() => patch({ image: `preset:${p.id}`, pattern: "none" })}>
+                  <svg className="bg-prev" width="48" height="34" aria-hidden>
+                    <defs>
+                      <PresetPattern id={`pv-${p.id}`} preset={p} scale={0.2} />
+                    </defs>
+                    <rect width="100%" height="100%" fill={`url(#pv-${p.id})`} />
+                  </svg>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="bg-img-actions">
+              <button className="btn ghost" onClick={() => imgRef.current?.click()}>
+                <Glyph name="upload" size={16} /> Enviar imagem…
+              </button>
+              {bg.image && (
+                <button className="btn ghost" onClick={() => patch({ image: undefined })}>
+                  Remover
+                </button>
+              )}
+            </div>
+            {bg.image && (
+              <label className="field">
+                <span>Transparência da imagem · {Math.round((1 - (bg.imageOpacity ?? 1)) * 100)}%</span>
+                <input type="range" min={0} max={90} value={Math.round((1 - (bg.imageOpacity ?? 1)) * 100)} onChange={(e) => patch({ imageOpacity: +e.target.value === 0 ? undefined : 1 - +e.target.value / 100 })} aria-label="Transparência da imagem" />
+              </label>
+            )}
+            <input
+              ref={imgRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                  patch({ image: await fileToBackground(f), pattern: "none" });
+                } catch {
+                  toast("Não foi possível ler essa imagem");
+                }
+              }}
+            />
+          </div>
+          <button className="btn ghost" onClick={() => setPrefs({ bg: { ...DEFAULT_BG } })}>
+            Restaurar padrão
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Dock() {
   const tool = useStore((s) => s.tool);
@@ -209,6 +348,7 @@ export function Dock() {
       <button className={`tool ${animate ? "active" : ""}`} onClick={() => setPrefs({ animate: !animate })} data-tip={`Animações das conexões (A): ${animate ? "ligadas" : "desligadas"}`} data-tip-pos="right" aria-label="Alternar animações" aria-pressed={animate}>
         <Glyph name={animate ? "play" : "pause"} size={19} />
       </button>
+      <BackgroundPopover />
     </div>
   );
 }
@@ -245,36 +385,6 @@ export function ZoomBar() {
       <button className="btn ghost icon" onClick={() => fitView()} aria-label="Ajustar à tela" data-tip="Ajustar à tela (F)" data-tip-pos="top">
         <Glyph name="fit" size={17} />
       </button>
-    </div>
-  );
-}
-
-export function ConnBar() {
-  const connType = useStore((s) => s.connType);
-  const sel = useStore((s) => s.sel);
-  return (
-    <div className="hud glass conn-bar" role="radiogroup" aria-label="Tipo de conexão">
-      {CONNECTION_TYPE_KEYS.map((k) => {
-        const t = CONNECTION_TYPES[k];
-        return (
-          <button
-            key={k}
-            role="radio"
-            aria-checked={connType === k}
-            className={`conn-chip ${connType === k ? "active" : ""}`}
-            data-tip={`${t.label}\n${t.semantics}`}
-            data-tip-pos="top"
-            onClick={() => {
-              set({ connType: k });
-              const conns = sel.filter((id) => getState().doc.connections.some((c) => c.id === id));
-              if (conns.length) run(conns.map((id) => ({ op: "update" as const, id, patch: { type: k } })));
-            }}
-          >
-            <ConnSample type={k} />
-            <span className="lbl">{t.label}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -463,6 +573,29 @@ export function Library() {
 
 const PALETTE = ["#706fd3", "#2f80ed", "#14a38b", "#e08a1e", "#c2410c", "#d6453d", "#7a5af8", "#7a7a8c"];
 
+const FILL_COLORS = ["#ffffff", "#f7f1e3", "#eef2f7", "#e8f3ec", "#fdf0f0", "#2d2a2e", "#14161c"];
+
+/** Cor de fundo + transparência do corpo de um componente ou grupo. */
+function FillControls({ el, patch }: { el: { fill?: string; fillOpacity?: number }; patch: (p: Record<string, unknown>) => void }) {
+  const transp = Math.round((1 - (el.fillOpacity ?? 1)) * 100);
+  return (
+    <>
+      <span className="lbl-s">Cor de fundo</span>
+      <div className="swatches insp-swatches">
+        <button className={`swatch auto ${!el.fill ? "active" : ""}`} aria-label="Fundo padrão do tema" onClick={() => patch({ fill: undefined })} data-tip="Padrão do tema" data-tip-pos="top" />
+        <ColorPicker value={el.fill ?? "#ffffff"} swatchColor={el.fill && !FILL_COLORS.includes(el.fill) ? el.fill : undefined} onChange={(c) => patch({ fill: c })} label="Cor de fundo personalizada" />
+        {FILL_COLORS.map((c) => (
+          <button key={c} className={`swatch ${el.fill === c ? "active" : ""}`} style={{ background: c }} aria-label={`Fundo ${c}`} onClick={() => patch({ fill: c })} />
+        ))}
+      </div>
+      <label className="field">
+        <span>Transparência do fundo · {transp}%</span>
+        <input type="range" min={0} max={100} value={transp} onChange={(e) => patch({ fillOpacity: +e.target.value === 0 ? undefined : 1 - +e.target.value / 100 })} aria-label="Transparência do fundo" />
+      </label>
+    </>
+  );
+}
+
 export function Inspector() {
   const sel = useStore((s) => s.sel);
   const doc = useStore((s) => s.doc);
@@ -569,6 +702,7 @@ export function Inspector() {
             </select>
           </label>
         </div>
+        <FillControls el={node} patch={patch} />
         {(node.kind === "system" || node.ref) && <RefPicker node={node} patch={patch} />}
         {node.kind !== "endpoint" && node.kind !== "system" && !node.ref && <EndpointsSection node={node} />}
         <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />
@@ -682,6 +816,7 @@ export function Inspector() {
             <button key={c} className={`swatch ${group.color === c ? "active" : ""}`} style={{ background: c }} aria-label={`Cor ${c}`} onClick={() => patch({ color: c })} />
           ))}
         </div>
+        <FillControls el={group} patch={patch} />
         <label className="field">
           <span>Descrição</span>
           <TextField multiline value={group.description ?? ""} placeholder="Propósito desta fronteira" onCommit={(v) => patch({ description: v || undefined })} />
@@ -700,14 +835,44 @@ export function Inspector() {
       <aside className="hud glass inspector">
         <div className="insp-head">
           <div>
-            <div className="kicker">Nota</div>
-            <div className="ttl">Decisão ou premissa</div>
+            <div className="kicker">{note.variant === "text" ? "Texto" : note.variant === "list" ? "Lista" : "Nota"}</div>
+            <div className="ttl">{note.variant === "text" ? "Texto livre" : note.variant === "list" ? "Itens, um por linha" : "Decisão ou premissa"}</div>
           </div>
         </div>
+        {note.variant === "list" && (
+          <>
+            <label className="field">
+              <span>Título</span>
+              <TextField value={note.title ?? ""} placeholder="Sem título" onCommit={(v) => patch({ title: v.trim() || undefined })} />
+            </label>
+            {note.checklist && (
+              <label className="field">
+                <span>Descrição</span>
+                <TextField multiline value={note.subtitle ?? ""} placeholder="Texto de apoio sob o título" onCommit={(v) => patch({ subtitle: v.trim() || undefined, h: checklistLayout({ ...note, subtitle: v.trim() }).total })} />
+              </label>
+            )}
+            <label className="field check-field">
+              <input type="checkbox" checked={!!note.checklist} onChange={(e) => patch({ checklist: e.target.checked, ...(e.target.checked ? { h: checklistLayout({ ...note, w: Math.max(note.w, 300) }).total, w: Math.max(note.w, 300) } : {}) })} />
+              <span>Transformar em checklist (caixas de seleção clicáveis no quadro)</span>
+            </label>
+          </>
+        )}
         <label className="field">
-          <span>Texto</span>
-          <TextField id="insp-first" multiline value={note.text} onCommit={(v) => patch({ text: v })} />
+          <span>{note.variant === "list" ? "Itens (um por linha)" : "Texto"}</span>
+          <TextField id="insp-first" multiline value={note.text} onCommit={(v) => patch({ text: v, ...(note.checklist ? { h: checklistLayout({ ...note, text: v }).total } : {}) })} />
         </label>
+        {note.variant && note.variant !== "note" && (
+          <div className="field">
+            <span>Cor</span>
+            <div className="swatches insp-swatches">
+              <button className={`swatch auto ${!note.color ? "active" : ""}`} aria-label="Cor padrão" onClick={() => patch({ color: undefined })} data-tip="Padrão do tema" data-tip-pos="top" />
+              <ColorPicker value={note.color ?? "#706fd3"} swatchColor={note.color && !INK_COLORS.some((c) => c.id === note.color) ? note.color : undefined} onChange={(c) => patch({ color: c })} />
+              {INK_COLORS.map((c) => (
+                <button key={c.id} className={`swatch ${note.color === c.id ? "active" : ""}`} style={{ background: c.id }} aria-label={c.name} onClick={() => patch({ color: c.id })} data-tip={c.name} data-tip-pos="top" />
+              ))}
+            </div>
+          </div>
+        )}
         {actions}
       </aside>
     );

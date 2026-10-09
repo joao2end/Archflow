@@ -26,6 +26,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { emptyDoc, type Doc } from "../src/shared/schema";
+import { SKILL_MD } from "../src/shared/skill.generated";
 
 export const DEFAULT_PORT = Number(process.env.ARCHFLOW_PORT ?? 7077);
 const HOST = process.env.ARCHFLOW_HOST ?? "127.0.0.1";
@@ -451,6 +452,80 @@ function listDir(path?: string) {
   return { path: p, parent, home: homedir(), dirs, vault: existsSync(join(p, META, "vault.json")), files: readdirSync(p).filter((n) => n.endsWith(EXT)).length };
 }
 
+/* ───────── integração MCP (exe / dev) ───────── */
+
+interface McpLaunch {
+  command: string;
+  args: string[];
+  cwd?: string;
+}
+
+/** Como um cliente MCP deve iniciar o servidor: pelo próprio exe instalado (--mcp) ou, em dev, via tsx. */
+function mcpLaunch(): McpLaunch {
+  const exe = process.env.ARCHFLOW_EXE;
+  if (exe) return { command: exe, args: ["--mcp"] };
+  const root = resolve(process.env.ARCHFLOW_ROOT ?? process.cwd());
+  return { command: "npx", args: ["tsx", join(root, "server", "mcp.ts")], cwd: root };
+}
+
+type McpClientId = "claude-desktop" | "cursor" | "windsurf";
+const MCP_CLIENTS: Record<McpClientId, { label: string; file: () => string }> = {
+  "claude-desktop": {
+    label: "Claude Desktop",
+    file: () =>
+      process.platform === "win32"
+        ? join(process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "Claude", "claude_desktop_config.json")
+        : process.platform === "darwin"
+          ? join(homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json")
+          : join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "Claude", "claude_desktop_config.json"),
+  },
+  cursor: { label: "Cursor", file: () => join(homedir(), ".cursor", "mcp.json") },
+  windsurf: { label: "Windsurf", file: () => join(homedir(), ".codeium", "windsurf", "mcp_config.json") },
+};
+const SKILL_DIR = () => join(homedir(), ".claude", "skills", "archflow");
+
+function readJsonFile(p: string): any | undefined {
+  if (!existsSync(p)) return undefined;
+  try {
+    return JSON.parse(readFileSync(p, "utf8"));
+  } catch {
+    throw new HttpError(422, `${p} não é um JSON válido — corrija ou remova o arquivo e tente de novo (nada foi alterado)`);
+  }
+}
+
+function mcpInfo() {
+  const clients = (Object.keys(MCP_CLIENTS) as McpClientId[]).map((id) => {
+    const file = MCP_CLIENTS[id].file();
+    let installed = false;
+    try {
+      installed = !!readJsonFile(file)?.mcpServers?.archflow;
+    } catch {
+      /* arquivo inválido: aparece como não instalado; o erro sai ao instalar */
+    }
+    return { id, label: MCP_CLIENTS[id].label, file, exists: existsSync(file), installed };
+  });
+  const skillFile = join(SKILL_DIR(), "SKILL.md");
+  return { packaged: !!process.env.ARCHFLOW_EXE, launch: mcpLaunch(), clients, skill: { file: skillFile, installed: existsSync(skillFile) } };
+}
+
+function installMcp(id: string) {
+  const c = MCP_CLIENTS[id as McpClientId];
+  if (!c) throw new HttpError(400, "cliente desconhecido");
+  const file = c.file();
+  const cfg = readJsonFile(file) ?? {};
+  if (typeof cfg !== "object" || Array.isArray(cfg)) throw new HttpError(422, `${file} tem formato inesperado`);
+  if (existsSync(file)) writeFileSync(file + ".bak", readFileSync(file));
+  cfg.mcpServers = { ...(cfg.mcpServers ?? {}), archflow: mcpLaunch() };
+  atomicWrite(file, JSON.stringify(cfg, null, 2));
+  return { file, label: c.label };
+}
+
+function installSkill() {
+  const file = join(SKILL_DIR(), "SKILL.md");
+  atomicWrite(file, SKILL_MD);
+  return { file };
+}
+
 /* ───────── HTTP ───────── */
 
 const ALLOWED_HOSTS = (process.env.ARCHFLOW_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -698,6 +773,13 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       return void res.end(describe(doc));
     }
+    if (path === "/api/mcp/info" && m === "GET") return json(res, 200, mcpInfo());
+    if (path === "/api/mcp/install" && m === "POST") return json(res, 200, installMcp((await body(req)).client));
+    if (path === "/api/skill" && m === "GET") {
+      res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
+      return void res.end(SKILL_MD);
+    }
+    if (path === "/api/skill/install" && m === "POST") return json(res, 200, installSkill());
     if (path === "/api/schema") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       return void res.end(schemaGuide());

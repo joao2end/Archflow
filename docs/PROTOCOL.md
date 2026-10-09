@@ -138,6 +138,16 @@ event: doc     data: {"rev":13,"doc":{…},"source":"mcp"}
 `connect`, `update_element`, `remove_elements`, `add_note`, `add_asset`, `auto_layout`, `set_diagram_info`,
 `clear_diagram`, `validate_diagram`. **Resources:** `archflow://diagram`, `archflow://schema`.
 
+### 5.3b Integração MCP
+MCP no exe: `Archflow.exe --mcp` (Electron como Node sobre `resources/mcp/archflow-mcp.mjs`); abre o app se o bridge não responder. Resource extra: `archflow://skill`.
+
+| Método | Rota | Resposta |
+| --- | --- | --- |
+| GET | `/api/mcp/info` | `{ packaged, launch{command,args,cwd?}, clients[{id,label,file,exists,installed}], skill{file,installed} }` |
+| POST | `/api/mcp/install` | `{ client: claude-desktop｜cursor｜windsurf }` → mescla `mcpServers.archflow` no arquivo do cliente (com `.bak`) |
+| GET | `/api/skill` | `SKILL.md` (markdown) |
+| POST | `/api/skill/install` | grava em `~/.claude/skills/archflow/SKILL.md` |
+
 ### 5.4 Cofres (vaults) e arquivos
 Cofre = pasta; diagramas = `*.archflow.json` em subpastas; `.archflow/` (oculta) = `vault.json` + `trash/`. Caminhos de diagrama são **relativos ao cofre, com "/"** (ex.: `backend/orders.archflow.json`).
 

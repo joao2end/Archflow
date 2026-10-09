@@ -3,7 +3,7 @@ import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type Op
 import { emptyDoc, type Asset, type ConnectionType, type Doc } from "../shared/schema";
 
 export type Theme = "system" | "light" | "dark";
-export type Tool = "select" | "hand" | "group" | "note" | "connect";
+export type Tool = "select" | "hand" | "group" | "note" | "connect" | "pen" | "highlight" | "eraser" | "text" | "list";
 export type Modal =
   | { type: "asset"; id?: string }
   | { type: "interface"; id: string }
@@ -54,6 +54,25 @@ export interface View {
   z: number;
 }
 
+export type BgPattern = "dots" | "grid" | "lines" | "none";
+export interface Background {
+  pattern: BgPattern;
+  /** cor sólida do papel; undefined = padrão do tema */
+  color?: string;
+  /** `preset:<id>` (modelo pronto) ou data URL de uma imagem enviada */
+  image?: string;
+  /** opacidade da imagem, 0–1 (padrão 1) */
+  imageOpacity?: number;
+}
+export const DEFAULT_BG: Background = { pattern: "dots" };
+
+interface Prefs {
+  animate?: boolean;
+  snap?: boolean;
+  theme?: Theme;
+  bg?: Background;
+}
+
 export interface State {
   doc: Doc;
   docSource: "local" | "remote";
@@ -61,12 +80,21 @@ export interface State {
   tool: Tool;
   view: View;
   connType: ConnectionType;
-  panel: "assets" | "files" | null;
+  panel: "assets" | "files" | "bg" | null;
   expanded: Record<string, boolean>;
   modal: Modal;
   theme: Theme;
   animate: boolean;
   snap: boolean;
+  /** fundo do quadro (preferência local) */
+  bg: Background;
+  /** cor da caneta / marca-texto */
+  inkColor: string;
+  /** espessura (px de tela) e opacidade por ferramenta de tinta */
+  inkCfg: Record<"pen" | "highlight", { width: number; opacity: number }>;
+  inkDash: "solid" | "dashed" | "dotted";
+  /** borracha: "ink" apaga só desenhos à mão livre; "all" apaga também componentes, textos, notas e conexões */
+  eraseMode: "ink" | "all";
   /** backend de armazenamento ativo: servidor local (disco) ou memória do navegador */
   storage: "server" | "local" | null;
   online: boolean;
@@ -79,6 +107,8 @@ export interface State {
   /** pilha de diagramas de onde o usuário "entrou" por uma referência (botão Voltar) */
   navBack: string[];
   toast: string | null;
+  /** modo apresentação: tela limpa com desenho, laser e cronômetro */
+  present: boolean;
 }
 
 const LS_DOC = "archflow.doc.v1";
@@ -136,7 +166,7 @@ export function sampleDoc(): Doc {
 }
 
 function init(): State {
-  const prefs = read<{ animate?: boolean; snap?: boolean; theme?: Theme }>(LS_PREFS) ?? {};
+  const prefs = read<Prefs>(LS_PREFS) ?? {};
   const saved = read<Doc>(LS_DOC);
   return {
     doc: saved ? normalizeDoc(saved) : sampleDoc(),
@@ -151,6 +181,11 @@ function init(): State {
     theme: prefs.theme ?? "system",
     animate: prefs.animate ?? true,
     snap: prefs.snap ?? true,
+    bg: { ...DEFAULT_BG, ...prefs.bg },
+    inkColor: "#e5484d",
+    inkCfg: { pen: { width: 4, opacity: 1 }, highlight: { width: 22, opacity: 0.38 } },
+    inkDash: "solid",
+    eraseMode: "all",
     storage: null,
     online: false,
     workspace: null,
@@ -161,6 +196,7 @@ function init(): State {
     focusTick: 0,
     navBack: [],
     toast: null,
+    present: false,
   };
 }
 
@@ -274,9 +310,9 @@ export function placeAsset(assetId: string, x: number, y: number, parent?: strin
   }
 }
 
-export function setPrefs(p: { animate?: boolean; snap?: boolean; theme?: Theme }) {
+export function setPrefs(p: Prefs) {
   set(p);
-  write(LS_PREFS, { animate: state.animate, snap: state.snap, theme: state.theme });
+  write(LS_PREFS, { animate: state.animate, snap: state.snap, theme: state.theme, bg: state.bg });
   if (p.theme) applyTheme();
 }
 

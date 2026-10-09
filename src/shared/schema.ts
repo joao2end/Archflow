@@ -279,6 +279,10 @@ interface Base {
   id: string;
   label: string;
   description?: string;
+  /** cor de fundo do corpo (hex); undefined = padrão do tema */
+  fill?: string;
+  /** opacidade do fundo, 0–1 (padrão 1) */
+  fillOpacity?: number;
 }
 
 export interface Box {
@@ -320,8 +324,34 @@ export interface GroupEl extends Base, Box {
   auto?: boolean;
 }
 
+export type NoteVariant = "note" | "text" | "list";
+
+/** Traço à mão livre (caneta / marca-texto), em coordenadas do quadro. */
+export interface InkStroke {
+  id: string;
+  kind: "pen" | "highlight";
+  color: string;
+  width: number;
+  /** traçado: contínuo (padrão), tracejado ou pontilhado */
+  dash?: "solid" | "dashed" | "dotted";
+  /** opacidade 0–1 (padrão: 1 caneta, 0.38 marca-texto) */
+  opacity?: number;
+  pts: { x: number; y: number }[];
+}
+
 export interface NoteEl {
   id: string;
+  /** "note" = post-it · "text" = texto solto · "list" = lista (uma linha por item; "[ ]" / "[x]" viram caixas) */
+  variant?: NoteVariant;
+  color?: string;
+  /** lista: título exibido no topo */
+  title?: string;
+  /** lista: true = mostra só o cabeçalho (retraída) */
+  collapsed?: boolean;
+  /** lista/checklist: texto de apoio sob o título */
+  subtitle?: string;
+  /** lista: true = todos os itens são tarefas com caixa de seleção (estado em "[x]" / "[ ]" no início da linha) */
+  checklist?: boolean;
   text: string;
   x: number;
   y: number;
@@ -356,6 +386,8 @@ export interface Doc {
   nodes: NodeEl[];
   notes: NoteEl[];
   connections: ConnectionEl[];
+  /** desenhos à mão livre */
+  ink?: InkStroke[];
   /** assets personalizados usados neste diagrama */
   customAssets: Asset[];
 }

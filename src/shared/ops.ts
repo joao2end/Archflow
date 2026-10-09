@@ -34,7 +34,7 @@ export type Op =
   | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; x?: number; y?: number; w?: number; h?: number }
-  | { op: "add_note"; id?: string; text: string; x?: number; y?: number }
+  | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean }
   | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
@@ -254,7 +254,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
     case "add_note": {
       const id = uniqueId(doc, op.id ?? "note");
       const pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : findFreeSpot(doc, 200, 110);
-      doc.notes.push({ id, text: op.text, x: pos.x, y: pos.y, w: 200, h: 110 });
+      doc.notes.push({ id, ...(op.variant && op.variant !== "note" ? { variant: op.variant } : {}), ...(op.title ? { title: op.title } : {}), ...(op.checklist != null ? { checklist: op.checklist } : {}), text: op.text, x: pos.x, y: pos.y, w: 200, h: 110 });
       return { ok: true, id };
     }
     case "add_connection": {
@@ -686,7 +686,7 @@ export function schemaGuide(): string {
     "Use `list_diagrams` e `get_diagram_outline` para descobrir caminhos e ids antes de referenciar.",
     "",
     "## Fluxo recomendado",
-    "1. `search_assets` para achar o `asset` certo (ex.: `laravel`, `postgresql`, `aws-sqs`).",
+    "1. `list_assets` (catálogo completo agrupado por categoria) e/ou `search_assets` para achar o `asset` certo (ex.: `laravel`, `postgresql`, `aws-sqs`). SEMPRE prefira um asset do catálogo a criar o componente do zero; só use `add_asset` se nada servir.",
     "2. `add_groups` (fronteiras/camadas) e `add_components` (use `parent` = id do grupo).",
     "3. `connect` com `type`, `label`, `protocol` e, quando relevante, `interface` (operações, payloads).",
     "4. `auto_layout`, depois `get_diagram` (markdown) para revisar os avisos.",
@@ -705,6 +705,7 @@ export function normalizeDoc(raw: any): Doc {
     nodes: Array.isArray(raw?.nodes) ? raw.nodes : [],
     notes: Array.isArray(raw?.notes) ? raw.notes : [],
     connections: Array.isArray(raw?.connections) ? raw.connections : [],
+    ink: Array.isArray(raw?.ink) ? raw.ink : [],
     customAssets: Array.isArray(raw?.customAssets) ? raw.customAssets : [],
   };
 }

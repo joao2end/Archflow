@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { applyOps, fitGroup, uniqueId } from "../shared/ops";
+import { enterPresent } from "./present";
 import { commit, cycleTheme, getState, redo, run, select, set, setPrefs, toast, undo, type Tool } from "./store";
 
 let space = false;
@@ -68,7 +69,7 @@ export function fitView(svg?: SVGSVGElement | null) {
   const w = x2 - x1;
   const h = y2 - y1;
   const st = getState();
-  const left = 100 + (st.panel ? 340 : 0);
+  const left = 100 + (st.panel === "assets" || st.panel === "files" ? 340 : 0);
   const right = st.sel.length ? 360 : 32;
   const top = 90;
   const bottom = 100;
@@ -85,6 +86,7 @@ export function useHotkeys() {
         if (e.key === "Escape") (e.target as HTMLElement).blur();
         return;
       }
+      if (getState().present) return; // o modo apresentação trata as próprias teclas
       const mod = e.ctrlKey || e.metaKey;
       const s = getState();
       if (e.code === "Space") {
@@ -115,13 +117,14 @@ export function useHotkeys() {
         else if (s.tool !== "select") set({ tool: "select" });
         else select([]);
       } else if (!mod) {
-        const map: Record<string, Tool> = { v: "select", h: "hand", g: "group", n: "note", c: "connect" };
+        const map: Record<string, Tool> = { v: "select", h: "hand", g: "group", n: "note", c: "connect", d: "pen", m: "highlight", x: "eraser", w: "text", i: "list" };
         const k = e.key.toLowerCase();
         if (map[k]) set({ tool: map[k] });
         else if (k === "l") layout(e.shiftKey ? "TB" : "LR");
         else if (k === "f") fitView();
         else if (k === "b") set({ panel: s.panel === "assets" ? null : "assets" });
         else if (k === "e") set({ panel: s.panel === "files" ? null : "files" });
+        else if (k === "p") enterPresent();
         else if (k === "t") cycleTheme();
         else if (k === "a") setPrefs({ animate: !s.animate });
         else if (e.key === "?") set({ modal: { type: "help" } });

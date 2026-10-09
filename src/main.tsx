@@ -11,8 +11,10 @@ import "./landing/landing.css";
 import App from "./App";
 import Landing from "./landing/Landing";
 import { applyTheme } from "./ui/store";
+import { initTooltips } from "./ui/tooltip";
 
 applyTheme();
+initTooltips();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

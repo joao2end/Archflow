@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ASSET_CATEGORIES } from "../shared/catalog";
 import { describe, schemaGuide, toMermaid } from "../shared/ops";
 import { NODE_KINDS, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind } from "../shared/schema";
+import { ColorPicker } from "./colorpicker";
 import { AssetBadge, Glyph } from "./icons";
 import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
+import { McpBody } from "./mcp";
 import { DiagramViewer } from "./viewer";
 import { allKnownAssets, getState, lookupAsset, newAssetId, run, saveAsset, set, toast, useStore } from "./store";
 
@@ -68,13 +70,32 @@ function AssetModal({ id }: { id?: string }) {
   const cats = Array.from(new Set(["Personalizados", ...ASSET_CATEGORIES, ...allKnownAssets().map((x) => x.category)]));
   const icon = a.icon || `t:${a.name.slice(0, 3).toUpperCase() || "?"}`;
 
+  const build = (): Asset => ({ ...a, id: a.id || newAssetId(a.name), name: a.name.trim(), icon, tags: tags.split(",").map((t) => t.trim()).filter(Boolean), builtin: undefined });
+  const snapshot = JSON.stringify([a, tags]);
+  const initial = useRef(snapshot);
+  const latest = useRef({ snapshot, valid: false, build });
+  latest.current = { snapshot, valid: !!a.name.trim() && !!a.problem.trim(), build };
+  const done = useRef(false);
+
   const save = () => {
     if (!a.name.trim()) return setErr("Dê um nome ao asset.");
     if (!a.problem.trim()) return setErr("Descreva o problema que ele resolve — é o que ajuda humanos e LLMs a escolher.");
-    saveAsset({ ...a, id: a.id || newAssetId(a.name), name: a.name.trim(), icon, tags: tags.split(",").map((t) => t.trim()).filter(Boolean), builtin: undefined });
+    done.current = true;
+    saveAsset(build());
     toast("Asset salvo na biblioteca");
     close();
   };
+
+  /* fechar a modal (X, fora, Esc, Cancelar) salva as alterações, se o asset estiver completo */
+  useEffect(
+    () => () => {
+      const l = latest.current;
+      if (done.current || l.snapshot === initial.current || !l.valid) return;
+      saveAsset(l.build());
+      toast("Alterações do asset salvas");
+    },
+    [],
+  );
 
   return (
     <Modal
@@ -83,9 +104,6 @@ function AssetModal({ id }: { id?: string }) {
       foot={
         <>
           <span style={{ color: "var(--danger)", marginRight: "auto", alignSelf: "center" }}>{err}</span>
-          <button className="btn" onClick={close}>
-            Cancelar
-          </button>
           <button className="btn primary" onClick={save}>
             Salvar
           </button>
@@ -146,7 +164,7 @@ function AssetModal({ id }: { id?: string }) {
         </label>
         <label className="field">
           <span>Cor</span>
-          <input className="input" type="color" value={a.color} onChange={(e) => up({ color: e.target.value })} style={{ padding: 3, height: 38 }} />
+          <div><ColorPicker value={a.color} swatchColor={a.color} onChange={(c) => up({ color: c })} label="Cor do asset" /></div>
         </label>
       </div>
       <label className="field">
@@ -175,6 +193,23 @@ function InterfaceModal({ id }: { id: string }) {
   const [spec, setSpec] = useState<InterfaceSpec>(
     conn?.interface ?? { name: "", kind: conn?.type === "async" ? "event" : conn?.type === "data" ? "sql" : "rest", operations: [{ name: "" }] },
   );
+  const initial = useRef(JSON.stringify(spec));
+  const latest = useRef({ spec, from: "", to: "" });
+  const done = useRef(false);
+  const fromLabel = getState().doc.nodes.find((n) => n.id === conn?.from)?.label ?? conn?.from ?? "";
+  const toLabel = getState().doc.nodes.find((n) => n.id === conn?.to)?.label ?? conn?.to ?? "";
+  latest.current = { spec, from: fromLabel, to: toLabel };
+
+  /* fechar a modal (X, fora, Esc, Cancelar) salva as alterações da interface */
+  useEffect(
+    () => () => {
+      const l = latest.current;
+      if (done.current || JSON.stringify(l.spec) === initial.current || !getState().doc.connections.some((c) => c.id === id)) return;
+      run([{ op: "update", id, patch: { interface: { ...l.spec, name: l.spec.name || `${l.from} → ${l.to}`, operations: l.spec.operations.filter((o) => o.name.trim()) } } }]);
+      toast("Interface salva");
+    },
+    [],
+  );
   if (!conn) return null;
   const upOp = (i: number, p: Partial<InterfaceOperation>) => setSpec((s) => ({ ...s, operations: s.operations.map((o, j) => (j === i ? { ...o, ...p } : o)) }));
   const from = getState().doc.nodes.find((n) => n.id === conn.from)?.label ?? conn.from;
@@ -182,6 +217,7 @@ function InterfaceModal({ id }: { id: string }) {
   const placeholder = spec.kind === "rest" ? ["createOrder", "/orders", '{ items: [{ sku, qty }] }', "201 { orderId, status }"] : spec.kind === "event" ? ["OrderCreated", "order-events", "{ orderId, total }", "(sem resposta)"] : ["operação", "caminho / tópico / tabela", "entrada", "saída"];
 
   const save = (remove = false) => {
+    done.current = true;
     const ops = spec.operations.filter((o) => o.name.trim());
     run([{ op: "update", id, patch: { interface: remove ? undefined : { ...spec, name: spec.name || `${from} → ${to}`, operations: ops } } }]);
     close();
@@ -199,9 +235,6 @@ function InterfaceModal({ id }: { id: string }) {
               Remover interface
             </button>
           )}
-          <button className="btn" onClick={close}>
-            Cancelar
-          </button>
           <button className="btn primary" onClick={() => save()}>
             Salvar interface
           </button>
@@ -316,49 +349,9 @@ function LlmModal() {
 /* ───────── MCP ───────── */
 
 function McpModal() {
-  const online = useStore((s) => s.online);
-  const storage = useStore((s) => s.storage);
-  const [root, setRoot] = useState("C:/caminho/do/projeto");
-  const cfg = JSON.stringify({ mcpServers: { archflow: { command: "npx", args: ["tsx", `${root}/server/mcp.ts`], cwd: root } } }, null, 2);
-  const cli = `claude mcp add archflow --cwd "${root}" -- npx tsx server/mcp.ts`;
-  const copy = (t: string) => navigator.clipboard.writeText(t).then(() => toast("Copiado"));
   return (
     <Modal wide title="Conectar um agente (MCP)" onClose={close}>
-      {storage === "local" && (
-        <div className="callout warn-soft">
-          <b>Indisponível no modo navegador.</b> Agentes MCP editam o diagrama pelo servidor local, que não está rodando — por isso seus dados estão na memória deste navegador. Rode <code>npm run dev</code> na pasta do projeto e recarregue a página para ativar o MCP.
-        </div>
-      )}
-      <p className={`status ${online && storage === "server" ? "on" : ""}`} style={{ display: "inline-flex" }}>
-        <span className="dot" /> {online && storage === "server" ? "Servidor ativo — as mudanças do agente aparecem aqui em tempo real" : "Servidor local desligado — será iniciado pelo servidor MCP ou por npm run dev"}
-      </p>
-      <ol className="steps">
-        <li>
-          Informe a pasta do projeto:{" "}
-          <input className="input" style={{ display: "inline-block", width: 320 }} value={root} onChange={(e) => setRoot(e.target.value.replace(/\\/g, "/"))} />
-        </li>
-        <li>
-          <b>Claude Code:</b> rode no terminal
-          <pre className="code" style={{ marginTop: 6 }}>{cli}</pre>
-          <button className="btn sm" onClick={() => copy(cli)}>
-            <Glyph name="copy" size={14} /> Copiar
-          </button>
-        </li>
-        <li>
-          <b>Claude Desktop</b> (claude_desktop_config.json) ou outro cliente MCP:
-          <pre className="code" style={{ marginTop: 6 }}>{cfg}</pre>
-          <button className="btn sm" onClick={() => copy(cfg)}>
-            <Glyph name="copy" size={14} /> Copiar
-          </button>
-        </li>
-        <li>
-          Mantenha esta página aberta e peça: <i>“Use o archflow para desenhar uma arquitetura de pedidos com Laravel, Postgres e SQS.”</i>
-        </li>
-      </ol>
-      <div className="callout">
-        <b>Ferramentas:</b> get_schema_guide · search_assets · get_diagram · add_components · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram. <br />
-        <b>Recursos:</b> archflow://diagram · archflow://schema. O protocolo completo está em <code>docs/PROTOCOL.md</code>.
-      </div>
+      <McpBody />
     </Modal>
   );
 }
@@ -369,7 +362,7 @@ function HelpModal() {
   const rows: [string, string][] = [
     ["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["G", "Grupo"], ["C", "Conector"], ["N", "Nota"], ["B", "Biblioteca"], ["/", "Buscar asset"],
     ["L / Shift+L", "Auto-layout horizontal / vertical"], ["F", "Ajustar à tela"], ["A", "Animações on/off"], ["Ctrl+Z / Y", "Desfazer / refazer"],
-    ["T", "Alternar tema (auto/claro/escuro)"], ["Ctrl+D", "Duplicar"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Duplo clique", "Renomear · editar interface"], ["Shift+clique", "Selecionar vários"], ["Ctrl+roda", "Zoom"], ["Esc", "Cancelar / fechar"],
+    ["T", "Alternar tema (auto/claro/escuro)"], ["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"], ["Ctrl+D", "Duplicar"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Duplo clique", "Renomear · editar interface"], ["Shift+clique", "Selecionar vários"], ["Ctrl+roda", "Zoom"], ["Esc", "Cancelar / fechar"],
   ];
   return (
     <Modal title="Atalhos e dicas" onClose={close}>

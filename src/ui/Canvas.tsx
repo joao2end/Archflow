@@ -1,11 +1,13 @@
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { fitGroup, isContainerOf } from "../shared/ops";
+import { createContext, memo, type CSSProperties, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, normRect, previewGeom, sidePoint, type Pt, type Side } from "./geometry";
+import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, useStore, type View } from "./store";
 import { fitView, spaceHeld } from "./keys";
+import { inkPath, strokeAttrs } from "./ink";
 
 const GROUP_COLORS: Record<string, string> = {
   boundary: "#706fd3",
@@ -16,6 +18,11 @@ const GROUP_COLORS: Record<string, string> = {
   cluster: "#7a5af8",
   team: "#d6453d",
 };
+
+/** Cursor em forma de borracha (SVG embutido); o ponto ativo fica na ponta inferior esquerda. */
+const ERASER_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-linejoin="round" stroke-linecap="round"><g transform="rotate(-35 12 12)"><rect x="3" y="8" width="18" height="9" rx="2.5" fill="#fff" stroke="#25244a" stroke-width="1.6"/><path d="M11 8v9" stroke="#25244a" stroke-width="1.6"/><rect x="3.8" y="8.8" width="7.2" height="7.4" rx="1.8" fill="#f2a1b3"/></g></svg>',
+)}") 5 22, cell`;
 
 function distToSegment(p: Pt, a: Pt, b: Pt) {
   const dx = b.x - a.x;
@@ -34,7 +41,9 @@ type Drag =
   | { kind: "resize"; id: string; start: Pt; orig: { w: number; h: number } }
   | { kind: "waypoint"; id: string; idx: number }
   | { kind: "connect"; from: string; side: Side; cur: Pt }
-  | { kind: "create"; tool: "group" | "note"; start: Pt; cur: Pt };
+  | { kind: "create"; tool: "group" | "note" | "text" | "list"; start: Pt; cur: Pt }
+  | { kind: "ink"; id: string; pts: Pt[] }
+  | { kind: "erase" };
 
 /* ───────────────────────── formas ───────────────────────── */
 
@@ -50,7 +59,7 @@ const EndpointShape = memo(function EndpointShape({ n, selected, hot, hovered }:
   return (
     <g data-id={n.id} data-role="node" transform={`translate(${n.x},${n.y})`} className={`node endpoint${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
       <title>{`${ENDPOINT_PROTOCOLS[e.protocol].label} · ${badge} ${path}${n.description ? "\n" + n.description : ""}`}</title>
-      <rect className="node-body" width={n.w} height={n.h} rx={14} filter="url(#shadow)" />
+      <rect className="node-body" width={n.w} height={n.h} rx={14} filter="url(#shadow)" style={fillStyle(n)} />
       <rect className="node-ring" width={n.w} height={n.h} rx={14} pointerEvents="none" />
       <rect x={6} y={6} width={bw} height={n.h - 12} rx={9} fill={color} pointerEvents="none" />
       <text x={6 + bw / 2} y={n.h / 2 + 0.5} className="ep-badge" pointerEvents="none">
@@ -64,6 +73,10 @@ const EndpointShape = memo(function EndpointShape({ n, selected, hot, hovered }:
     </g>
   );
 });
+
+/** Estilo inline do fundo (cor + transparência) de nós e grupos; vazio mantém o padrão do tema. */
+const fillStyle = (e: { fill?: string; fillOpacity?: number }): CSSProperties | undefined =>
+  e.fill || e.fillOpacity != null ? { ...(e.fill ? { fill: e.fill } : {}), ...(e.fillOpacity != null ? { fillOpacity: e.fillOpacity } : {}) } : undefined;
 
 const refName = (n: NodeEl) => {
   const base = (n.ref?.diagram ?? "").split("/").pop()?.replace(".archflow.json", "") ?? "";
@@ -87,7 +100,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered }: 
           <rect className="ref-page" x={7} y={-6} width={n.w - 14} height={n.h} rx={17} pointerEvents="none" opacity={0.75} />
         </>
       )}
-      <rect className="node-body" width={n.w} height={n.h} rx={18} filter="url(#shadow)" />
+      <rect className="node-body" width={n.w} height={n.h} rx={18} filter="url(#shadow)" style={fillStyle(n)} />
       <rect className="node-sheen" width={n.w} height={n.h} rx={18} fill="url(#sheen)" pointerEvents="none" />
       <rect className="node-ring" width={n.w} height={n.h} rx={18} pointerEvents="none" />
       <rect x={14} y={(n.h - 44) / 2} width={44} height={44} rx={13} fill="#fff" fillOpacity={0.85} stroke={color} strokeOpacity={0.28} pointerEvents="none" />
@@ -116,7 +129,7 @@ export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered }
   const color = g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3";
   return (
     <g data-id={g.id} data-role="group" transform={`translate(${g.x},${g.y})`} className={`group${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
-      <rect className="group-body" width={g.w} height={g.h} rx={26} />
+      <rect className="group-body" width={g.w} height={g.h} rx={26} style={fillStyle(g)} />
       <rect className="group-edge" width={g.w} height={g.h} rx={26} pointerEvents="none" />
       <g pointerEvents="none">
         <text className="group-kind" x={20} y={24}>
@@ -160,33 +173,272 @@ function ResizeGrip({ w, h }: { w: number; h: number }) {
   );
 }
 
-export const NoteShape = memo(function NoteShape({ n, selected }: { n: NoteEl; selected: boolean }) {
+const NOTE_STYLE = {
+  note: { fs: 13, lh: 17, x: 14, top: 28, cw: 6.8, indent: 0 },
+  text: { fs: 19, lh: 26, x: 10, top: 28, cw: 10.2, indent: 0 },
+  list: { fs: 15, lh: 23, x: 16, top: 30, cw: 8, indent: 20 },
+};
+
+const PlainNote = memo(function PlainNote({ n, selected }: { n: NoteEl; selected: boolean }) {
+  const v = n.variant ?? "note";
+  // texto livre: a fonte acompanha a altura da caixa (arrastar uma caixa maior gera texto maior)
+  const paras = Math.max(1, n.text.split("\n").length);
+  const tfs = Math.min(120, Math.max(12, (n.h - 10) / (paras * 1.3)));
+  const st = v === "text" ? { fs: tfs, lh: tfs * 1.3, x: 10, top: tfs * 1.05 + 4, cw: tfs * 0.54, indent: 0 } : NOTE_STYLE[v];
   const lines = useMemo(() => {
-    const out: string[] = [];
-    const per = Math.floor((n.w - 28) / 6.8);
-    for (const para of n.text.split("\n")) {
+    const out: { t: string; bullet?: string }[] = [];
+    const per = Math.max(4, Math.floor((n.w - st.x * 2 - st.indent) / st.cw));
+    for (const raw of n.text.split("\n")) {
+      let para = raw;
+      let bullet: string | undefined;
+      if (v === "list") {
+        const box = /^\s*(?:[-*]\s*)?\[( |x|X)\]\s?/.exec(para);
+        if (box) bullet = box[1] === " " ? "☐" : "☑";
+        para = para.replace(/^\s*(?:[-*]\s+|(?:[-*]\s*)?\[( |x|X)\]\s?)/, "");
+        bullet ??= "•";
+      }
       let cur = "";
+      let first = true;
+      const flush = () => {
+        out.push({ t: cur, bullet: first ? bullet : undefined });
+        first = false;
+      };
       for (const w of para.split(" ")) {
         if ((cur + " " + w).trim().length > per) {
-          out.push(cur);
+          flush();
           cur = w;
         } else cur = (cur + " " + w).trim();
       }
-      out.push(cur);
+      flush();
     }
-    return out.slice(0, Math.floor((n.h - 20) / 17));
-  }, [n.text, n.w, n.h]);
+    return out.slice(0, Math.max(1, Math.floor((n.h - 12) / st.lh)));
+  }, [n.text, n.w, n.h, v, st.fs]);
+  const fill = n.color ?? (v === "note" ? undefined : "var(--ink)");
   return (
-    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note${selected ? " sel" : ""}`}>
-      <rect className="note-body" width={n.w} height={n.h} rx={14} filter="url(#shadow)" />
+    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note ${v}${selected ? " sel" : ""}`}>
+      <rect className="note-body" width={n.w} height={n.h} rx={14} filter={v === "text" ? undefined : "url(#shadow)"} />
+      {v === "list" && <rect x={0} y={10} width={4} height={n.h - 20} rx={2} fill={n.color ?? "var(--primary-600)"} pointerEvents="none" />}
       {lines.map((l, i) => (
-        <text key={i} x={14} y={28 + i * 17} className="note-text" pointerEvents="none">
-          {l}
-        </text>
+        <g key={i} pointerEvents="none">
+          {l.bullet && (
+            <text x={st.x} y={st.top + i * st.lh} className="note-text" style={{ fontSize: st.fs, fill }}>
+              {l.bullet}
+            </text>
+          )}
+          <text x={st.x + st.indent} y={st.top + i * st.lh} className="note-text" style={{ fontSize: st.fs, fontWeight: v === "text" ? 600 : undefined, fill }}>
+            {l.t}
+          </text>
+        </g>
       ))}
       {selected && <ResizeGrip w={n.w} h={n.h} />}
     </g>
   );
+});
+
+const LIST_LH = 24;
+const LIST_COLOR = "#706fd3";
+const BOX_RE = /^(\s*(?:[-*]\s*)?)\[( |x|X)\]\s?/;
+
+/** Alterna o estado "feito" de uma linha de lista ("[ ] " ↔ "[x] "); sem prefixo, marca como feita. */
+export const toggleListLine = (line: string) => {
+  const m = BOX_RE.exec(line);
+  return m ? line.replace(BOX_RE, m[2] === " " ? "[x] " : "[ ] ") : "[x] " + line.replace(/^\s*[-*]\s+/, "");
+};
+
+/** Lista estilizada: título, itens separados por linhas finas e, opcionalmente, checklist com caixas clicáveis. */
+const ListShape = memo(function ListShape({ n, selected }: { n: NoteEl; selected: boolean }) {
+  const color = n.color ?? LIST_COLOR;
+  const { title, rows, seps } = useMemo(() => {
+    const all = n.text.split("\n");
+    let title = n.title;
+    let from = 0;
+    if (title === undefined) {
+      const m = /^#\s+(.*)$/.exec(all[0] ?? "");
+      if (m) (title = m[1]), (from = 1); // formato antigo: "# Título" na primeira linha
+    }
+    const rows: { y: number; t: string; mark: "dot" | "todo" | "done" | null; para: number }[] = [];
+    const seps: number[] = [];
+    const per = Math.max(4, Math.floor((n.w - 34 - 46) / 7.6));
+    let top = title ? 44 : 8;
+    if (title) seps.push(top - 4);
+    all.forEach((raw, para) => {
+      if (para < from) return;
+      const box = BOX_RE.exec(raw);
+      const asCheck = n.checklist ?? !!box;
+      const body = box ? raw.replace(BOX_RE, "") : raw.replace(/^\s*[-*]\s+/, "");
+      const mark = asCheck ? (box && box[2] !== " " ? "done" : "todo") : "dot";
+      const wrapped: string[] = [];
+      let cur = "";
+      for (const w of body.split(" ")) {
+        if ((cur + " " + w).trim().length > per) {
+          wrapped.push(cur);
+          cur = w;
+        } else cur = (cur + " " + w).trim();
+      }
+      wrapped.push(cur);
+      if (para > from) seps.push(top);
+      wrapped.forEach((t, i) => rows.push({ y: top + 6 + 17 + i * LIST_LH, t, mark: i === 0 ? mark : null, para }));
+      top += 12 + wrapped.length * LIST_LH;
+    });
+    return { title, rows: rows.filter((r) => r.y + 10 <= n.h), seps: seps.filter((y) => y < n.h - 8) };
+  }, [n.text, n.title, n.checklist, n.w, n.h]);
+  return (
+    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note list${selected ? " sel" : ""}`} style={{ ["--lc" as string]: color }}>
+      <rect className="note-body" width={n.w} height={n.collapsed && title ? 46 : n.h} rx={18} filter="url(#shadow)" />
+      {title && <CollapseToggle id={n.id} x={n.w - 26} y={23} collapsed={!!n.collapsed} />}
+      <path d={`M18 0.8H${n.w - 18}`} stroke={color} strokeWidth={3} strokeLinecap="round" pointerEvents="none" opacity={0.9} />
+      {title && (
+        <text x={18} y={31} className="list-title" pointerEvents="none">
+          {truncate(title, Math.floor((n.w - 70) / 9))}
+        </text>
+      )}
+      {!(n.collapsed && title) && seps.map((y, i) => (
+        <path key={i} d={`M${i === 0 && title ? 14 : 38} ${y}H${n.w - 14}`} className="list-sep" pointerEvents="none" />
+      ))}
+      {!(n.collapsed && title) && rows.map((r, i) => (
+        <g key={i} transform={`translate(0,${r.y - 17})`}>
+          {r.mark === "dot" && <circle cx={22} cy={12.5} r={3.6} fill={color} pointerEvents="none" />}
+          {(r.mark === "todo" || r.mark === "done") && (
+            <g data-role="check" data-id={n.id} data-para={r.para} className="list-check">
+              <rect x={13} y={3} width={19} height={19} fill="transparent" />
+              <rect x={14.5} y={4.5} width={16} height={16} rx={5} fill={r.mark === "done" ? color : "none"} stroke={color} strokeWidth={1.8} />
+              {r.mark === "done" && <path d="M18.4 12.8l3.1 3.1 5.2-6" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />}
+            </g>
+          )}
+          <text x={40} y={17} className={`list-item${r.mark === "done" ? " done" : ""}`} pointerEvents="none">
+            {r.t}
+          </text>
+        </g>
+      ))}
+      {selected && !(n.collapsed && title) && <ResizeGrip w={n.w} h={n.h} />}
+    </g>
+  );
+});
+
+/** Layout do checklist (cartão com título, progresso e lista de tarefas em caixa). Também calcula a altura total. */
+export function checklistLayout(n: Pick<NoteEl, "text" | "title" | "w">&{ subtitle?: string }) {
+  const all = n.text.split("\n");
+  let title = n.title;
+  let from = 0;
+  if (title === undefined) {
+    const m = /^#\s+(.*)$/.exec(all[0] ?? "");
+    if (m) (title = m[1]), (from = 1);
+  }
+  const wrap = (txt: string, per: number) => {
+    const out: string[] = [];
+    let cur = "";
+    for (const w of txt.split(" ")) {
+      if ((cur + " " + w).trim().length > per) {
+        out.push(cur);
+        cur = w;
+      } else cur = (cur + " " + w).trim();
+    }
+    out.push(cur);
+    return out;
+  };
+  const sub = n.subtitle ? n.subtitle.split("\n").flatMap((l) => wrap(l, Math.floor((n.w - 36) / 7.2))) : [];
+  let y = title ? 52 : 20;
+  const subY = y;
+  y += sub.length ? sub.length * 19 + 6 : 0;
+  const pctY = y + 16;
+  const barY = y + 26;
+  y = barY + 6 + 18;
+  const boxY = y;
+  const per = Math.max(4, Math.floor((n.w - 24 - 28 - 44) / 7.4));
+  const rows: { y: number; h: number; lines: string[]; para: number; done: boolean }[] = [];
+  let ry = boxY;
+  all.forEach((raw, para) => {
+    if (para < from) return;
+    const box = BOX_RE.exec(raw);
+    const body = (box ? raw.replace(BOX_RE, "") : raw.replace(/^\s*[-*]\s+/, "")) || " ";
+    const lines = wrap(body, per);
+    const h = Math.max(46, lines.length * 20 + 26);
+    rows.push({ y: ry, h, lines, para, done: !!box && box[2] !== " " });
+    ry += h;
+  });
+  const done = rows.filter((r) => r.done).length;
+  return { title, sub, subY, pctY, barY, headH: barY + 6 + 18, boxY, boxH: ry - boxY, rows, done, total: Math.round(ry + 18) };
+}
+
+/** Checklist no estilo "cartão de progresso": título, % concluído, barra e tarefas com indicador à direita. */
+/** Seta de expandir/retrair no canto do cabeçalho (clicável; tratada em onPointerDown). */
+function CollapseToggle({ id, x, y, collapsed }: { id: string; x: number; y: number; collapsed: boolean }) {
+  return (
+    <g data-role="collapse" data-id={id} className="cl-collapse" transform={`translate(${x},${y})`}>
+      <title>{collapsed ? "Expandir" : "Retrair"}</title>
+      <circle r={13} fill="transparent" />
+      <path d="M-5 2.5L0 -2.5L5 2.5" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ transform: collapsed ? "rotate(180deg)" : undefined }} />
+    </g>
+  );
+}
+
+const ChecklistShape = memo(function ChecklistShape({ n, selected }: { n: NoteEl; selected: boolean }) {
+  const color = n.color ?? LIST_COLOR;
+  const L = useMemo(() => checklistLayout(n), [n.text, n.title, n.subtitle, n.w]);
+  const pct = L.rows.length ? Math.round((L.done / L.rows.length) * 100) : 0;
+  const inner = n.w - 24;
+  const cid = `cl-${n.id}`;
+  const H = n.collapsed ? L.headH : n.h;
+  return (
+    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note list checklist${selected ? " sel" : ""}`} style={{ ["--lc" as string]: color }}>
+      <clipPath id={cid}>
+        <rect width={n.w} height={H} rx={20} />
+      </clipPath>
+      <rect className="note-body" width={n.w} height={H} rx={20} filter="url(#shadow)" />
+      <CollapseToggle id={n.id} x={n.w - 28} y={24} collapsed={!!n.collapsed} />
+      <g clipPath={`url(#${cid})`}>
+        {L.title && (
+          <text x={18} y={34} className="cl-title" pointerEvents="none">
+            {truncate(L.title, Math.floor((n.w - 70) / 9.5))}
+          </text>
+        )}
+        {L.sub.map((t, i) => (
+          <text key={i} x={18} y={L.subY + 13 + i * 19} className="cl-sub" pointerEvents="none">
+            {t}
+          </text>
+        ))}
+        <text x={18} y={L.pctY} className="cl-pct" pointerEvents="none">
+          {pct}%
+        </text>
+        <text x={n.w - 18} y={L.pctY} textAnchor="end" className="cl-count" pointerEvents="none">
+          {L.done} de {L.rows.length} concluídas
+        </text>
+        <rect x={18} y={L.barY} width={n.w - 36} height={6} rx={3} className="cl-track" pointerEvents="none" />
+        {pct > 0 && <rect x={18} y={L.barY} width={((n.w - 36) * pct) / 100} height={6} rx={3} fill={color} pointerEvents="none" />}
+        {!n.collapsed && <rect x={12} y={L.boxY} width={inner} height={L.boxH} rx={14} className="cl-box" pointerEvents="none" />}
+        {!n.collapsed && L.rows.map((r, i) => (
+          <g key={i} data-role="check" data-id={n.id} data-para={r.para} className="list-check cl-row">
+            <rect x={12} y={r.y} width={inner} height={r.h} fill="transparent" />
+            {i > 0 && <path d={`M12 ${r.y}H${12 + inner}`} className="cl-sep" pointerEvents="none" />}
+            {r.lines.map((t, k) => (
+              <text key={k} x={26} y={r.y + r.h / 2 + 5 - ((r.lines.length - 1) * 10) + k * 20} className={`cl-item${r.done ? " done" : ""}`} pointerEvents="none">
+                {t}
+              </text>
+            ))}
+            <g transform={`translate(${12 + inner - 28},${r.y + r.h / 2})`} pointerEvents="none">
+              {r.done ? (
+                <>
+                  <circle r={11} fill={color} />
+                  <path d="M-4.2 0.3l2.8 2.8 5.6-6" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                </>
+              ) : (
+                <>
+                  <circle r={11} className="cl-dot" />
+                  <path d="M-4.2 0.3l2.8 2.8 5.6-6" fill="none" className="cl-chev" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                </>
+              )}
+            </g>
+          </g>
+        ))}
+      </g>
+      {selected && !n.collapsed && <ResizeGrip w={n.w} h={n.h} />}
+    </g>
+  );
+});
+
+export const NoteShape = memo(function NoteShape({ n, selected }: { n: NoteEl; selected: boolean }) {
+  if (n.variant === "list" && n.checklist) return <ChecklistShape n={n} selected={selected} />;
+  return n.variant === "list" ? <ListShape n={n} selected={selected} /> : <PlainNote n={n} selected={selected} />;
 });
 
 function Marker({ type }: { type: ConnectionType }) {
@@ -466,6 +718,35 @@ export function Canvas() {
     return cands.sort((a, b) => a.w * a.h - b.w * b.h)[0];
   };
 
+  /** Borracha: no modo "tudo" remove o que o cursor toca — desenhos, componentes, textos, listas, notas, conexões e (pela borda) grupos. */
+  const eraseAt = (p: Pt, e: { clientX: number; clientY: number }) => {
+    const s = getState();
+    let doc = s.doc;
+    const ink = doc.ink ?? [];
+    const r = 12 / s.view.z;
+    const hit = (k: (typeof ink)[number]) => k.pts.some((q, i) => Math.hypot(q.x - p.x, q.y - p.y) <= r + k.width / 2 || (i > 0 && distToSegment(p, k.pts[i - 1], q) <= r + k.width / 2));
+    const keep = ink.filter((k) => !hit(k));
+    if (keep.length !== ink.length) doc = { ...doc, ink: keep };
+    if (s.eraseMode === "ink") {
+      if (doc !== s.doc) live(doc);
+      return;
+    }
+    const ids = new Set<string>();
+    for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
+      const t = (el as Element).closest?.("[data-role]") as SVGElement | null;
+      if (t?.dataset.id && (t.dataset.role === "node" || t.dataset.role === "note" || t.dataset.role === "conn")) ids.add(t.dataset.id);
+    }
+    // grupos só pela borda, para não apagar a fronteira inteira ao passar por dentro dela
+    for (const g of doc.groups) {
+      if (contains({ x: g.x - r, y: g.y - r, w: g.w + 2 * r, h: g.h + 2 * r }, p) && !contains({ x: g.x + r, y: g.y + r, w: g.w - 2 * r, h: g.h - 2 * r }, p)) ids.add(g.id);
+    }
+    if (ids.size) {
+      doc = applyOps(doc, [...ids].map((id) => ({ op: "remove" as const, id }))).doc;
+      set({ sel: [] });
+    }
+    if (doc !== s.doc) live(doc);
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     const svg = svgRef.current!;
     const s = getState();
@@ -478,6 +759,39 @@ export function Canvas() {
     if (e.button === 1 || s.tool === "hand" || spaceHeld()) {
       drag.current = { kind: "pan", sx: e.clientX, sy: e.clientY, vx: s.view.x, vy: s.view.y };
       setPanning(true);
+      return;
+    }
+    if (s.tool === "pen" || s.tool === "highlight") {
+      const hl = s.tool === "highlight";
+      const id = "ink-" + Math.random().toString(36).slice(2, 8);
+      beginTx();
+      live({ ...s.doc, ink: [...(s.doc.ink ?? []), { id, kind: hl ? "highlight" : "pen", color: s.inkColor, width: s.inkCfg[hl ? "highlight" : "pen"].width / s.view.z, opacity: s.inkCfg[hl ? "highlight" : "pen"].opacity, dash: s.inkDash, pts: [p] }] });
+      drag.current = { kind: "ink", id, pts: [p] };
+      return;
+    }
+    if (s.tool === "eraser") {
+      beginTx();
+      drag.current = { kind: "erase" };
+      eraseAt(p, e);
+      return;
+    }
+    if (t?.role === "collapse" && t.id) {
+      const doc = getState().doc;
+      commit({ ...doc, notes: doc.notes.map((nt) => (nt.id === t.id ? { ...nt, collapsed: nt.collapsed ? undefined : true } : nt)) });
+      return;
+    }
+    if (t?.role === "check" && t.id) {
+      const para = Number((e.target as Element).closest("[data-role]")!.getAttribute("data-para"));
+      const doc = getState().doc;
+      commit({
+        ...doc,
+        notes: doc.notes.map((nt) => (nt.id === t.id ? { ...nt, text: nt.text.split("\n").map((l, i) => (i === para ? toggleListLine(l) : l)).join("\n") } : nt)),
+      });
+      return;
+    }
+    if (s.tool === "text" || s.tool === "list") {
+      drag.current = { kind: "create", tool: s.tool, start: p, cur: p };
+      force((n) => n + 1);
       return;
     }
     if (t?.role === "open-ref" && t.id) {
@@ -554,6 +868,7 @@ export function Canvas() {
     const p = toWorld(e);
     const s = getState();
     if (!d) {
+      if (getState().present) return;
       const t = targetOf(e.target);
       const id = t && (t.role === "node" || t.role === "group" || t.role === "handle") ? t.id ?? null : null;
       if (id !== hover) setHover(id);
@@ -620,6 +935,16 @@ export function Canvas() {
         d.cur = p;
         force((n) => n + 1);
         break;
+      case "ink": {
+        const last = d.pts[d.pts.length - 1];
+        if (Math.hypot(p.x - last.x, p.y - last.y) * s.view.z < 1.5) return;
+        d.pts = [...d.pts, p];
+        live({ ...s.doc, ink: (s.doc.ink ?? []).map((k) => (k.id === d.id ? { ...k, pts: d.pts } : k)) });
+        break;
+      }
+      case "erase":
+        eraseAt(p, e);
+        break;
     }
   };
 
@@ -671,6 +996,8 @@ export function Canvas() {
       }
       case "resize":
       case "waypoint":
+      case "ink":
+      case "erase":
         endTx();
         break;
       case "connect": {
@@ -696,8 +1023,12 @@ export function Canvas() {
             set({ focusTick: getState().focusTick + 1 });
           }
         } else {
-          const box = big ? r : { x: d.start.x - 100, y: d.start.y - 55, w: 200, h: 110 };
-          const [res] = run([{ op: "add_note", text: "Nova nota", x: snapV(box.x, s.snap), y: snapV(box.y, s.snap) }]);
+          const variant = d.tool === "text" || d.tool === "list" ? d.tool : undefined;
+          const k = 1 / Math.min(1, Math.max(0.2, s.view.z)); // tamanho padrão legível em qualquer zoom
+          const base = variant === "text" ? { w: 220, h: 48, text: "Texto" } : variant === "list" ? { w: 270, h: 190, text: "Primeiro item\nSegundo item\nTerceiro item", title: "Minha lista" } : { w: 200, h: 110, text: "Nova nota" };
+          const dflt = { ...base, w: Math.round(base.w * k), h: Math.round(base.h * k) };
+          const box = variant ? (r.w > 60 && r.h > 30 ? r : { x: d.start.x, y: d.start.y, w: dflt.w, h: dflt.h }) : big ? r : { x: d.start.x - 100, y: d.start.y - 55, w: 200, h: 110 };
+          const [res] = run([{ op: "add_note", text: dflt.text, title: (dflt as { title?: string }).title, variant, x: snapV(box.x, s.snap), y: snapV(box.y, s.snap) }]);
           if (res.ok && res.id) {
             commit({ ...getState().doc, notes: getState().doc.notes.map((n) => (n.id === res.id ? { ...n, w: box.w, h: box.h } : n)) });
             select([res.id]);
@@ -713,6 +1044,7 @@ export function Canvas() {
 
   /** Botão direito sobre uma conexão: adicionar ponto de passagem ali ou remover o ponto sob o cursor. */
   const onContextMenu = (e: React.MouseEvent) => {
+    if (getState().present) return e.preventDefault();
     const t = targetOf(e.target);
     if (!t?.id || (t.role !== "conn" && t.role !== "wp" && t.role !== "wp-add")) {
       setMenu(null);
@@ -749,6 +1081,7 @@ export function Canvas() {
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
+    if (getState().present) return;
     const t = targetOf(e.target);
     if (t?.role === "wp" && t.id) {
       // duplo clique num ponto de passagem o remove
@@ -794,10 +1127,13 @@ export function Canvas() {
   const edges = useMemo(() => computeEdges(doc), [doc]);
   const ownerLinks = useMemo(() => computeOwnerLinks(doc), [doc.nodes]);
 
+  const bg = useStore((s) => s.bg);
+  const bgStep = 24 * view.z;
+  const bgPreset = presetById(bg.image);
   const groupsSorted = useMemo(() => sortedGroups(doc), [doc.groups]);
   const d = drag.current;
   const selSet = new Set(sel);
-  const cursor = panning || tool === "hand" ? "grab" : tool === "connect" || tool === "group" || tool === "note" ? "crosshair" : "default";
+  const cursor = panning || tool === "hand" ? "grab" : tool === "text" ? "text" : tool === "eraser" ? ERASER_CURSOR : tool === "connect" || tool === "group" || tool === "note" || tool === "list" || tool === "pen" || tool === "highlight" ? "crosshair" : "default";
 
   const menuConn = menu ? doc.connections.find((c) => c.id === menu.conn) : undefined;
 
@@ -823,12 +1159,18 @@ export function Canvas() {
       onDrop={onDrop}
     >
       <defs>
-        <pattern id="dots" width={24 * view.z} height={24 * view.z} patternUnits="userSpaceOnUse" x={view.x} y={view.y}>
-          <circle cx={1} cy={1} r={Math.max(0.9, 1.1 * view.z)} fill="#706fd3" fillOpacity={0.22} />
+        <pattern id="bgpat" width={bgStep} height={bgStep} patternUnits="userSpaceOnUse" x={view.x} y={view.y}>
+          {bg.pattern === "dots" && <circle cx={1} cy={1} r={Math.max(0.9, 1.1 * view.z)} fill="#706fd3" fillOpacity={0.22} />}
+          {bg.pattern === "grid" && <path d={`M${bgStep} 0H0V${bgStep}`} fill="none" stroke="#706fd3" strokeOpacity={0.16} strokeWidth={1} />}
+          {bg.pattern === "lines" && <path d={`M0 ${bgStep}H${bgStep}`} fill="none" stroke="#706fd3" strokeOpacity={0.16} strokeWidth={1} />}
         </pattern>
+        {bgPreset && <PresetPattern id="bgimg" preset={bgPreset} x={view.x} y={view.y} />}
         <DiagramDefs />
       </defs>
-      <rect width="100%" height="100%" fill="url(#dots)" data-bg />
+      {(bg.color || bg.image) && <rect width="100%" height="100%" fill={bg.color ?? "var(--secondary)"} data-bg="color" />}
+      {bgPreset && <rect width="100%" height="100%" fill="url(#bgimg)" opacity={bg.imageOpacity ?? 1} style={{ mixBlendMode: "overlay" }} data-bg />}
+      {bg.image && !bgPreset && <image href={bg.image} width="100%" height="100%" preserveAspectRatio="xMidYMid slice" opacity={bg.imageOpacity ?? 1} style={{ mixBlendMode: "overlay" }} data-bg />}
+      {bg.pattern !== "none" && <rect width="100%" height="100%" fill="url(#bgpat)" data-bg />}
       <g transform={`translate(${view.x},${view.y}) scale(${view.z})`}>
         {groupsSorted.map((g) => (
           <GroupShape key={g.id} g={g} selected={selSet.has(g.id)} hot={hotDrop === g.id} hovered={hover === g.id || (tool === "connect" && hover === g.id)} />
@@ -850,6 +1192,9 @@ export function Canvas() {
           <NoteShape key={n.id} n={n} selected={selSet.has(n.id)} />
         ))}
 
+        {(doc.ink ?? []).map((k) => (
+          <path key={k.id} d={inkPath(k.pts)} fill="none" {...strokeAttrs(k)} pointerEvents="none" />
+        ))}
         {d?.kind === "marquee" && <rect className="marquee" {...normRect(d.start, d.cur)} />}
         {d?.kind === "create" && <rect className="marquee" {...normRect(d.start, d.cur)} />}
         {d?.kind === "connect" &&
