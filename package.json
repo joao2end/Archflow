@@ -1,0 +1,35 @@
+{
+  "name": "archflow",
+  "private": true,
+  "version": "0.1.0",
+  "author": "2.end",
+  "description": "Archflow — quadro branco de arquitetura de software com MCP. Desenvolvido pela 2.end.",
+  "type": "module",
+  "scripts": {
+    "icons": "tsx scripts/build-icons.ts",
+    "dev": "vite --configLoader runner",
+    "build": "tsc --noEmit && vite build --configLoader runner",
+    "bridge": "tsx server/bridge.ts",
+    "mcp": "tsx server/mcp.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/inter-tight": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@iconify-json/logos": "^1.2.15",
+    "@iconify-json/simple-icons": "^1.2.99",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}
