@@ -6,6 +6,10 @@ services:
       - "7077"
     volumes:
       - archflow-data:/data
+    labels:
+      # Basic Auth: o bridge não tem autenticação própria (usuário: admin)
+      - "traefik.http.middlewares.archflow-auth.basicauth.users=admin:$$apr1$$0A6Q8oJJ$$pJDQu1d.b4eSIecmfZGbw."
+      - "traefik.http.routers.archflow-mrehah-41-websecure.middlewares=archflow-auth"
 
 volumes:
   archflow-data:
