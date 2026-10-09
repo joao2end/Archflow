@@ -453,7 +453,8 @@ function listDir(path?: string) {
 
 /* ───────── HTTP ───────── */
 
-const isLocalHost = (h?: string) => !!h && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(h);
+const ALLOWED_HOSTS = (process.env.ARCHFLOW_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
+const isLocalHost = (h?: string) => !!h && (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(h) || ALLOWED_HOSTS.includes(h.toLowerCase()));
 function originOk(req: IncomingMessage): boolean {
   if (!isLocalHost(req.headers.host)) return false; // anti DNS-rebinding
   const o = req.headers.origin;
