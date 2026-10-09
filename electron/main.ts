@@ -26,7 +26,7 @@ async function createWindow() {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: "deny" };
   });
-  await win.loadURL(`http://127.0.0.1:${DEFAULT_PORT}`);
+  await win.loadURL(`http://127.0.0.1:${DEFAULT_PORT}/app`);
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();

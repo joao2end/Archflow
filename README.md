@@ -15,6 +15,7 @@ modelo semântico (componentes, grupos, conexões tipadas e interfaces), interfa
 
 - [Visão geral](#visão-geral)
 - [Instalação e execução](#instalação-e-execução)
+- [Versão para Windows (instalador)](#versão-para-windows-instalador)
 - [Guia de utilização](#guia-de-utilização)
 - [Conectar um agente (MCP)](#conectar-um-agente-mcp)
 - [Cofre de diagramas](#cofre-de-diagramas-estilo-obsidian)
@@ -68,6 +69,34 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run mcp` | Servidor MCP (stdio) |
 | `npm run icons` | Regenera os ícones do catálogo |
 | `npm run typecheck` | Apenas checagem de tipos |
+| `npm run app` | Abre o app desktop (Electron) sem gerar instalador |
+| `npm run app:dist` | Gera o instalador do Windows em `release/` |
+| `npm run app:icon` | Regenera o ícone do app (`build/icon.*`) |
+
+## Versão para Windows (instalador)
+
+Não quer rodar via Node? Há um **instalador para Windows (x64)** com o app desktop — uma janela própria com o servidor local (bridge) embutido, sem terminal e sem navegador.
+
+1. Baixe o `Archflow Setup <versão>.exe` na página de [**Releases**](https://github.com/joao2end/Archflow/releases/latest) (o repositório é privado: é preciso estar logado no GitHub com acesso).
+2. Execute o instalador (pede permissão de administrador). Ele instala em `C:\Program Files\Archflow`, permite trocar a pasta e cria atalhos no Menu Iniciar e na Área de Trabalho.
+3. Abra o **Archflow** pelo atalho.
+
+Detalhes:
+
+- O instalador **não é assinado digitalmente**: o SmartScreen pode avisar na primeira execução (*Mais informações → Executar assim mesmo*).
+- O app usa a porta **7077**. Se já houver um bridge nela (por exemplo, `npm run dev` rodando), ele é reutilizado em vez de subir outro.
+- Os cofres e a lista de cofres ficam em `~/.archflow` (compartilhados com a versão de desenvolvimento); sem configuração prévia, o cofre padrão é `Documentos\Archflow`.
+- Para conectar um agente (MCP) ao app instalado, veja [Conectar um agente](#conectar-um-agente-mcp) — o bridge fica em `http://127.0.0.1:7077`.
+
+### Gerar o instalador
+
+```bash
+npm install
+npm run app:dist   # build + bundle do Electron + instalador NSIS em release/
+```
+
+Se o `electron-builder` falhar com `EPERM` ao extrair o Electron (comum com antivírus ativo), rode `node node_modules/electron/install.js` e depois
+`npx electron-builder --win nsis -c.electronDist=node_modules/electron/dist`.
 
 ## Guia de utilização
 
@@ -195,7 +224,9 @@ Um **cofre** é uma pasta qualquer do disco; seus diagramas são arquivos `.arch
 src/shared   schema, catálogo, operações semânticas, layout, describe()  (usado por UI, bridge e MCP)
 src/ui       canvas SVG, painéis, modais, store, sincronização
 server       bridge HTTP/SSE e servidor MCP
-scripts      build-icons.ts (extrai ícones do Iconify logos/simple-icons)
+electron     casca desktop (Electron) que embute o bridge
+build        ícones do app (icon.ico / icon.png)
+scripts      build-icons.ts (extrai ícones do Iconify logos/simple-icons) · build-app-icon.ts (ícone do app)
 docs         documentação técnica e screenshots usados neste README
 ```
 
