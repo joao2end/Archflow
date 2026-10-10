@@ -845,7 +845,7 @@ function HowTo() {
             <h4>Passo a passo</h4>
             <div className="lp-lane">
             {desktop && (
-              <div className="lp-track" aria-hidden>
+              <div className="lp-steptrack" aria-hidden>
                 <i className="fill" />
                 <svg className="cur" width="24" height="24" viewBox="0 0 24 24">
                   <path d="M5 3l14 7-6 2-2 6z" fill="var(--primary-600)" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" />

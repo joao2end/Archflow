@@ -25,7 +25,7 @@ interface McpInfo {
 /** Sem acesso ao servidor local (site hospedado / navegador): o MCP vive no app instalado, no caminho padrão do instalador. */
 const PLACEHOLDER: McpInfo = {
   packaged: true,
-  launch: { command: "C:\Program Files\Archflow\Archflow.exe", args: ["--mcp"] },
+  launch: { command: "C:\\Program Files\\Archflow\\Archflow.exe", args: ["--mcp"] },
   clients: [],
   skill: { file: "~/.claude/skills/archflow/SKILL.md", installed: false },
 };

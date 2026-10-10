@@ -669,7 +669,7 @@ svg .lp-fade {
   align-items: center;
   min-width: 0;
 }
-.lp-board svg {
+.lp-board > svg {
   width: 100%;
   height: auto;
   display: block;
@@ -1224,7 +1224,7 @@ svg .lp-fade {
   background: #ab9df2;
   color: #221f22;
 }
-.lp-track {
+.lp-steptrack {
   position: absolute;
   left: 0;
   right: 0;
@@ -1234,7 +1234,7 @@ svg .lp-fade {
   background: var(--hairline);
   pointer-events: none;
 }
-.lp-track .fill {
+.lp-steptrack .fill {
   position: absolute;
   left: 0;
   top: 0;
@@ -1244,7 +1244,7 @@ svg .lp-fade {
   background: linear-gradient(90deg, var(--primary), var(--c-async));
   transition: width 0.9s cubic-bezier(0.5, 0, 0.2, 1);
 }
-.lp-track .cur {
+.lp-steptrack .cur {
   position: absolute;
   top: -4px;
   left: calc(var(--step) * 100% / var(--n) + 14px);
