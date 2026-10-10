@@ -15,6 +15,13 @@ interface ClientInfo {
   exists: boolean;
   installed: boolean;
 }
+interface Check {
+  ok: boolean;
+  problems: string[];
+  tools?: number;
+  ms?: number;
+  stderr?: string;
+}
 interface McpInfo {
   packaged: boolean;
   launch: Launch;
@@ -64,6 +71,7 @@ export function McpBody() {
   const [info, setInfo] = useState<McpInfo>(PLACEHOLDER);
   const [detected, setDetected] = useState(false);
   const [busy, setBusy] = useState("");
+  const [checks, setChecks] = useState<Record<string, Check | "busy">>({});
 
   const load = () =>
     fetch("/api/mcp/info")
@@ -80,17 +88,36 @@ export function McpBody() {
   const vscodeCmd = `code --add-mcp ${q(JSON.stringify({ name: "archflow", ...launch }))}`;
   const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=archflow&config=${encodeURIComponent(b64(JSON.stringify({ command: launch.command, args: launch.args })))}`;
 
-  const install = async (c: ClientInfo) => {
+  /** Inicia o comando gravado no cliente e faz o handshake MCP: o mesmo caminho que o cliente segue ao conectar. */
+  const test = async (c: ClientInfo): Promise<Check> => {
+    setChecks((x) => ({ ...x, [c.id]: "busy" }));
+    let r: Check;
+    try {
+      r = await post("/api/mcp/check", { client: c.id });
+    } catch (e) {
+      r = { ok: false, problems: [e instanceof Error ? e.message : String(e)] };
+    }
+    setChecks((x) => ({ ...x, [c.id]: r }));
+    return r;
+  };
+  const install = async (c: ClientInfo, quiet = false) => {
     setBusy(c.id);
     try {
       await post("/api/mcp/install", { client: c.id });
-      toast(`Configurado no ${c.label}. Reinicie o ${c.label} para carregar.`);
+      if (!quiet) toast(`Configurado no ${c.label}. Testando a conexão…`);
       await load();
+      await test(c);
     } catch (e) {
-      toast(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setChecks((x) => ({ ...x, [c.id]: { ok: false, problems: [msg] } }));
+      if (!quiet) toast(msg);
     } finally {
       setBusy("");
     }
+  };
+  const installAll = async () => {
+    for (const c of info.clients.filter((x) => x.exists)) await install(c, true);
+    toast("Instalação concluída — veja o resultado de cada cliente");
   };
   const installSkill = async () => {
     setBusy("skill");
@@ -145,24 +172,49 @@ export function McpBody() {
 
           {info.clients.length > 0 && (
             <div className="mcp-clients">
-              {info.clients.map((c) => (
-                <div className="mcp-row" key={c.id}>
-                  <div className="mcp-row-main">
-                    <b>{c.label}</b>
-                    <span className="mcp-path" title={c.file}>{c.file}</span>
+              {info.clients.map((c) => {
+                const chk = checks[c.id];
+                return (
+                  <div key={c.id}>
+                    <div className="mcp-row">
+                      <div className="mcp-row-main">
+                        <b>{c.label}</b>
+                        <span className="mcp-path" title={c.file}>{c.file}</span>
+                      </div>
+                      {c.installed && !chk && <span className="mcp-ok">✓ configurado</span>}
+                      <button className="btn sm" disabled={busy === c.id} onClick={() => install(c)}>
+                        {busy === c.id ? "Instalando…" : c.installed ? "Reinstalar" : "Instalar"}
+                      </button>
+                      <button className="btn sm" disabled={!c.installed || chk === "busy"} onClick={() => test(c)} data-tip="Inicia o servidor como o cliente faz e confere se ele responde">
+                        {chk === "busy" ? "Testando…" : "Testar"}
+                      </button>
+                      {c.id === "cursor" && (
+                        <button className="btn sm" onClick={() => window.open(cursorLink)} data-tip="Abre o Cursor com a instalação pronta">
+                          Abrir no Cursor
+                        </button>
+                      )}
+                    </div>
+                    {chk && chk !== "busy" && (
+                      <div className={`mcp-check ${chk.ok ? "ok" : "bad"}`} role="status">
+                        {chk.ok ? (
+                          <>✓ Conectou em {chk.ms} ms · {chk.tools} ferramentas disponíveis. {c.id === "cursor" ? "O Cursor recarrega sozinho; se não aparecer, ligue o servidor em Settings → MCP." : "Reinicie o cliente se ele já estava aberto."}</>
+                        ) : (
+                          <>
+                            <b>✗ Não conectou.</b> {chk.problems.join(" ")}
+                            {chk.stderr && <pre className="code">{chk.stderr}</pre>}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {c.installed && <span className="mcp-ok">✓ configurado</span>}
-                  <button className="btn sm" disabled={busy === c.id} onClick={() => install(c)}>
-                    {c.installed ? "Reinstalar" : "Instalar"}
-                  </button>
-                  {c.id === "cursor" && (
-                    <button className="btn sm" onClick={() => window.open(cursorLink)} data-tip="Abre o Cursor com a instalação pronta">
-                      Abrir no Cursor
-                    </button>
-                  )}
-                </div>
-              ))}
-              <p className="mcp-hint">“Instalar” adiciona só a entrada <code>archflow</code> ao arquivo do cliente (com cópia de segurança <code>.bak</code>). Reinicie o cliente depois.</p>
+                );
+              })}
+              <div className="mcp-actions">
+                <button className="btn primary sm" disabled={!!busy} onClick={installAll}>
+                  Instalar em tudo e testar
+                </button>
+              </div>
+              <p className="mcp-hint">“Instalar” adiciona só a entrada <code>archflow</code> ao arquivo do cliente (com cópia de segurança <code>.bak</code>) e já testa a conexão. No Claude Code usa o comando <code>claude mcp add</code>.</p>
             </div>
           )}
 

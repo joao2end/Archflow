@@ -2640,3 +2640,16 @@ svg.canvas.drag-over {
     bottom: 104px;
   }
 }
+
+/* ───────── MCP: resultado do teste de conexão ───────── */
+.mcp-check {
+  margin: 4px 0 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  border: 1px solid var(--hairline);
+}
+.mcp-check.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.mcp-check.bad { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.mcp-check pre.code { margin: 8px 0 0; max-height: 140px; overflow: auto; white-space: pre-wrap; word-break: break-all; }

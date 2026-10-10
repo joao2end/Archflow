@@ -68,6 +68,7 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run bridge` | Servidor local (HTTP/SSE) servindo o build |
 | `npm run mcp` | Servidor MCP (stdio) em desenvolvimento |
 | `npm run mcp:bundle` | Empacota o MCP (`dist-mcp/`), levado pelo instalador em `resources/mcp/` |
+| `npm run mcp:install` / `mcp:check` | Instala o MCP no Cursor, Claude Desktop e Claude Code e testa a conexão / só testa |
 | `npm run skill` | Embute `skills/archflow/SKILL.md` no app |
 | `npm run app:pack` | Gera o app desempacotado (`release/win-unpacked`) para testes |
 | `npm run icons` | Regenera os ícones do catálogo |
@@ -167,7 +168,17 @@ mostra os comandos já com o caminho do seu exe, e a aba **Skill para os modelos
 
 ![Modal Conectar um agente (MCP)](docs/screenshots/06-mcp.png)
 
-**Um clique:** na modal, **Instalar** grava a entrada `archflow` no Claude Desktop, Cursor ou Windsurf (preserva o resto do arquivo e faz cópia `.bak`); **Abrir no Cursor** usa o deeplink de instalação. Reinicie o cliente depois.
+**Um clique:** na modal, **Instalar** grava a entrada `archflow` no Claude Desktop, Claude Code (via `claude mcp add`), Cursor ou Windsurf (preserva o resto do arquivo e faz cópia `.bak`) e **testa a conexão na hora**: o botão **Testar** inicia o servidor igual ao cliente e faz o handshake MCP; se falhar, mostra a causa real (ex.: arquivo inexistente, “Connection closed”). **Instalar em tudo e testar** faz isso nos clientes encontrados. **Abrir no Cursor** usa o deeplink de instalação. O Cursor recarrega sozinho; os outros pedem para reiniciar.
+
+**Pelo terminal (desenvolvimento):**
+
+```bash
+npm run mcp:install              # reconstrói o bundle, instala em todos os clientes encontrados e testa
+npm run mcp:install -- cursor    # só um: cursor | claude-desktop | claude-code | windsurf
+npm run mcp:check                # só testa o que já está instalado (não altera nada)
+```
+
+O comando gravado usa `node` com **caminhos absolutos** (o bundle `dist-mcp/` se estiver em dia com o código, senão o `tsx` local do projeto), nunca `npx` nem a pasta atual do processo.
 
 **Manual** (troque pelo caminho do seu exe; o padrão do instalador é `C:Program FilesArchflowArchflow.exe`):
 

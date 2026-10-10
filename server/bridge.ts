@@ -18,12 +18,14 @@
  *   GET  /api/events                            SSE: hello | doc | workspace
  * Caminhos de diagrama são relativos ao cofre, com "/" (ex.: "backend/orders.archflow.json").
  */
+import { spawn, spawnSync } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
   existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, watch, writeFileSync, type FSWatcher,
 } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { emptyDoc, type Doc } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
@@ -465,16 +467,48 @@ interface McpLaunch {
   cwd?: string;
 }
 
-/** Como um cliente MCP deve iniciar o servidor: pelo próprio exe instalado (--mcp) ou, em dev, via tsx. */
-function mcpLaunch(): McpLaunch {
-  const exe = process.env.ARCHFLOW_EXE;
-  if (exe) return { command: exe, args: ["--mcp"] };
-  const root = resolve(process.env.ARCHFLOW_ROOT ?? process.cwd());
-  return { command: "npx", args: ["tsx", join(root, "server", "mcp.ts")], cwd: root };
+/** Raiz do projeto, achada pela localização deste arquivo (server/ ou dist-mcp/) — nunca pela pasta atual do processo,
+ *  que muda conforme quem iniciou o servidor (ex.: uma pasta temporária) e quebrava o caminho gravado nos clientes. */
+function projectRoot(): string {
+  if (process.env.ARCHFLOW_ROOT) return resolve(process.env.ARCHFLOW_ROOT);
+  try {
+    return resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  } catch {
+    return process.cwd(); // bundle CJS do Electron (sem import.meta); lá o exe é usado e este caminho não é gravado
+  }
 }
 
-type McpClientId = "claude-desktop" | "cursor" | "windsurf";
-const MCP_CLIENTS: Record<McpClientId, { label: string; file: () => string }> = {
+/** O bundle só serve se for mais novo que o código-fonte que ele empacota. */
+function bundleFresh(root: string, bundle: string): boolean {
+  try {
+    const t = statSync(bundle).mtimeMs;
+    // só o que entra no bundle (server/mcp-install.ts, por exemplo, não entra)
+    const sources = [join(root, "server", "mcp.ts"), join(root, "server", "bridge.ts"), ...readdirSync(join(root, "src", "shared")).filter((f) => f.endsWith(".ts")).map((f) => join(root, "src", "shared", f))];
+    return sources.every((f) => statSync(f).mtimeMs <= t);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Como um cliente MCP deve iniciar o servidor. Sempre com caminhos absolutos e `node` direto (sem npx, que no Windows
+ * depende do PATH e de .cmd): o exe instalado (--mcp); em dev, o bundle (se em dia) ou o tsx local do projeto.
+ */
+export function mcpLaunch(): McpLaunch {
+  const exe = process.env.ARCHFLOW_EXE;
+  if (exe) return { command: exe, args: ["--mcp"] };
+  const root = projectRoot();
+  const fwd = (p: string) => p.split("\\").join("/");
+  const bundle = join(root, "dist-mcp", "archflow-mcp.mjs");
+  const src = join(root, "server", "mcp.ts");
+  const tsxCli = join(root, "node_modules", "tsx", "dist", "cli.mjs");
+  if (existsSync(bundle) && bundleFresh(root, bundle)) return { command: "node", args: [fwd(bundle)] };
+  if (existsSync(tsxCli) && existsSync(src)) return { command: "node", args: [fwd(tsxCli), fwd(src)] };
+  return { command: "npx", args: ["tsx", fwd(src)] };
+}
+
+export type McpClientId = "claude-desktop" | "claude-code" | "cursor" | "windsurf";
+export const MCP_CLIENTS: Record<McpClientId, { label: string; file: () => string }> = {
   "claude-desktop": {
     label: "Claude Desktop",
     file: () =>
@@ -484,6 +518,8 @@ const MCP_CLIENTS: Record<McpClientId, { label: string; file: () => string }> = 
           ? join(homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json")
           : join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "Claude", "claude_desktop_config.json"),
   },
+  // Claude Code: usa a própria CLI (`claude mcp add`), que cuida da concorrência no arquivo de estado dele
+  "claude-code": { label: "Claude Code", file: () => join(homedir(), ".claude.json") },
   cursor: { label: "Cursor", file: () => join(homedir(), ".cursor", "mcp.json") },
   windsurf: { label: "Windsurf", file: () => join(homedir(), ".codeium", "windsurf", "mcp_config.json") },
 };
@@ -498,7 +534,7 @@ function readJsonFile(p: string): any | undefined {
   }
 }
 
-function mcpInfo() {
+export function mcpInfo() {
   const clients = (Object.keys(MCP_CLIENTS) as McpClientId[]).map((id) => {
     const file = MCP_CLIENTS[id].file();
     let installed = false;
@@ -510,19 +546,121 @@ function mcpInfo() {
     return { id, label: MCP_CLIENTS[id].label, file, exists: existsSync(file), installed };
   });
   const skillFile = join(SKILL_DIR(), "SKILL.md");
-  return { packaged: !!process.env.ARCHFLOW_EXE, launch: mcpLaunch(), clients, skill: { file: skillFile, installed: existsSync(skillFile) } };
+  return { packaged: !!process.env.ARCHFLOW_EXE, launch: { ...mcpLaunch(), cwd: undefined }, clients, skill: { file: skillFile, installed: existsSync(skillFile) } };
 }
 
-function installMcp(id: string) {
+/** Executável `claude` (Claude Code) no PATH, se houver. */
+function claudeCli(): string | undefined {
+  const r = spawnSync("claude", ["--version"], { encoding: "utf8", shell: false, timeout: 8000 });
+  return r.error || r.status !== 0 ? undefined : "claude";
+}
+
+export function installMcp(id: string) {
   const c = MCP_CLIENTS[id as McpClientId];
   if (!c) throw new HttpError(400, "cliente desconhecido");
   const file = c.file();
+  const launch = mcpLaunch();
+  const entry = { command: launch.command, args: launch.args };
+  if (id === "claude-code") {
+    const cli = claudeCli();
+    if (!cli) throw new HttpError(422, "Claude Code não encontrado no PATH. Abra o terminal e rode o comando da aba “Claude Code”.");
+    spawnSync(cli, ["mcp", "remove", "--scope", "user", "archflow"], { encoding: "utf8", timeout: 15000 }); // troca uma entrada antiga/quebrada
+    const r = spawnSync(cli, ["mcp", "add", "--scope", "user", "archflow", "--", entry.command, ...entry.args], { encoding: "utf8", timeout: 20000 });
+    if (r.status !== 0) throw new HttpError(500, `claude mcp add falhou: ${(r.stderr || r.stdout || "sem detalhes").trim()}`);
+    return { file, label: c.label };
+  }
   const cfg = readJsonFile(file) ?? {};
   if (typeof cfg !== "object" || Array.isArray(cfg)) throw new HttpError(422, `${file} tem formato inesperado`);
   if (existsSync(file)) writeFileSync(file + ".bak", readFileSync(file));
-  cfg.mcpServers = { ...(cfg.mcpServers ?? {}), archflow: mcpLaunch() };
+  cfg.mcpServers = { ...(cfg.mcpServers ?? {}), archflow: entry };
+  mkdirSync(dirname(file), { recursive: true });
   atomicWrite(file, JSON.stringify(cfg, null, 2));
   return { file, label: c.label };
+}
+
+export interface McpCheck {
+  ok: boolean;
+  /** o que está errado, em português, já com a correção sugerida */
+  problems: string[];
+  command?: string;
+  tools?: number;
+  ms?: number;
+  /** últimas linhas que o servidor escreveu em stderr (a causa real quando ele morre ao iniciar) */
+  stderr?: string;
+}
+
+const looksLikePath = (a: string) => /^[A-Za-z]:[\\/]/.test(a) || a.startsWith("/") || a.startsWith("\\\\");
+
+/** Resolve um comando como o cliente faria: caminho absoluto existente ou executável no PATH. */
+function resolveCommand(cmd: string): string | undefined {
+  if (looksLikePath(cmd) || cmd.includes("/") || cmd.includes("\\")) return existsSync(cmd) ? cmd : undefined;
+  const r = spawnSync(process.platform === "win32" ? "where" : "which", [cmd], { encoding: "utf8", timeout: 8000 });
+  return r.status === 0 ? r.stdout.split(/\r?\n/)[0].trim() || cmd : undefined;
+}
+
+/**
+ * Testa de verdade o que está gravado no cliente: confere comando e arquivos, inicia o processo igual ao cliente e
+ * faz o handshake MCP (initialize + tools/list). É o mesmo caminho que o Cursor/Claude seguem — se passa aqui, conecta lá.
+ */
+export async function checkMcp(id: string): Promise<McpCheck> {
+  const c = MCP_CLIENTS[id as McpClientId];
+  if (!c) throw new HttpError(400, "cliente desconhecido");
+  let entry: { command?: string; args?: string[]; env?: Record<string, string> } | undefined;
+  try {
+    entry = readJsonFile(c.file())?.mcpServers?.archflow;
+  } catch (e) {
+    return { ok: false, problems: [e instanceof Error ? e.message : String(e)] };
+  }
+  if (!entry?.command) return { ok: false, problems: [`O Archflow ainda não está configurado no ${c.label}. Clique em “Instalar”.`] };
+  const command = entry.command;
+  const args = entry.args ?? [];
+  const problems: string[] = [];
+  const found = resolveCommand(command);
+  if (!found) problems.push(`O comando “${command}” não foi encontrado. Instale o Node.js 20+ (ou use o Archflow.exe) e reinstale.`);
+  for (const a of args.filter((x) => !x.startsWith("-") && looksLikePath(x))) {
+    if (!existsSync(a)) problems.push(`O arquivo não existe: ${a} — o caminho gravado ficou desatualizado (pasta movida ou temporária). Clique em “Reinstalar”.`);
+  }
+  if (problems.length) return { ok: false, problems, command };
+
+  const t0 = Date.now();
+  const useShell = process.platform === "win32" && !/\.exe$/i.test(command) && command !== "node"; // npx/.cmd precisam de shell no Windows
+  const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, ...(entry.env ?? {}) }, shell: useShell, windowsHide: true });
+  let stderr = "";
+  let out = "";
+  child.stderr.on("data", (d) => (stderr = (stderr + d).slice(-1500)));
+  const send = (m: object) => child.stdin.write(JSON.stringify(m) + "\n");
+  return new Promise<McpCheck>((done) => {
+    const finish = (r: Omit<McpCheck, "command" | "stderr" | "ms">) => {
+      clearTimeout(timer);
+      child.kill();
+      done({ ...r, command, ms: Date.now() - t0, stderr: stderr.trim() || undefined });
+    };
+    const timer = setTimeout(() => finish({ ok: false, problems: ["O servidor não respondeu em 25 s. Reinicie o cliente e tente de novo (a primeira execução pode demorar)."] }), 25000);
+    child.on("error", (e) => finish({ ok: false, problems: [`Não foi possível iniciar o comando: ${e.message}`] }));
+    child.on("exit", (code) => finish({ ok: false, problems: [`O servidor encerrou ao iniciar (código ${code}). É o erro “Connection closed” do cliente — veja o detalhe abaixo.`] }));
+    child.stdout.on("data", (d) => {
+      out += d;
+      let i: number;
+      while ((i = out.indexOf("\n")) >= 0) {
+        const line = out.slice(0, i).trim();
+        out = out.slice(i + 1);
+        if (!line) continue;
+        try {
+          const m = JSON.parse(line);
+          if (m.id === 1 && m.result) {
+            send({ jsonrpc: "2.0", method: "notifications/initialized" });
+            send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+          } else if (m.id === 2 && m.result) {
+            const tools = (m.result.tools ?? []).length;
+            finish(tools ? { ok: true, problems: [], tools } : { ok: false, problems: ["O servidor conectou, mas não expôs nenhuma ferramenta."], tools });
+          } else if (m.error) finish({ ok: false, problems: [`O servidor respondeu com erro: ${m.error.message ?? JSON.stringify(m.error)}`] });
+        } catch {
+          /* linha que não é JSON (log): ignora */
+        }
+      }
+    });
+    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "archflow-check", version: "1" } } });
+  });
 }
 
 function installSkill() {
@@ -781,6 +919,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     }
     if (path === "/api/mcp/info" && m === "GET") return json(res, 200, mcpInfo());
     if (path === "/api/mcp/install" && m === "POST") return json(res, 200, installMcp((await body(req)).client));
+    if (path === "/api/mcp/check" && m === "POST") return json(res, 200, await checkMcp((await body(req)).client));
     if (path === "/api/skill" && m === "GET") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       return void res.end(SKILL_MD);
