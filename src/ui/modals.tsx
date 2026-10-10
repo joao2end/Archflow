@@ -13,12 +13,24 @@ function Modal({ title, onClose, children, foot, wide }: { title: string; onClos
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>("input,textarea,select,button.primary")?.focus();
+    // sem campo ou botão principal, o foco vai para o próprio diálogo (atalhos do quadro ficam suspensos)
+    (ref.current?.querySelector<HTMLElement>("input,textarea,select,button.primary") ?? ref.current)?.focus();
     return () => prev?.focus?.();
   }, []);
+  /** Prende o Tab dentro do diálogo. */
+  const trap = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !ref.current) return;
+    const items = [...ref.current.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex]:not([tabindex="-1"])')].filter((el) => el.offsetParent !== null);
+    if (!items.length) return e.preventDefault();
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === ref.current)) (e.preventDefault(), last.focus());
+    else if (!e.shiftKey && active === last) (e.preventDefault(), first.focus());
+  };
   return (
     <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className={`glass modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={ref} className={`glass modal ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={trap}>
         <div className="modal-head">
           <h2>{title}</h2>
           <button className="btn ghost icon" onClick={onClose} aria-label="Fechar">

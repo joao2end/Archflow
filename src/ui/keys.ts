@@ -210,6 +210,7 @@ export function useHotkeys() {
         return;
       }
       if (getState().present) return; // o modo apresentação trata as próprias teclas
+      if (getState().modal && e.key !== "Escape") return; // com um modal aberto, os atalhos do quadro ficam suspensos
       const mod = e.ctrlKey || e.metaKey;
       const s = getState();
       if (e.code === "Space") {
