@@ -2604,3 +2604,29 @@ svg.canvas.drag-over {
 .empty-hint .empty-actions { display: flex; gap: 8px; justify-content: center; pointer-events: auto; }
 .empty-hint .empty-keys { margin: 16px 0 0; font-size: 12.5px; color: var(--ink-3); }
 .empty-hint kbd { font: 600 11px var(--sans); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--hairline); }
+
+/* ───────── Celular (≤700px): nada fica cortado ou coberto ───────── */
+@media (max-width: 700px) {
+  .topbar {
+    right: 12px;
+    left: 12px;
+  }
+  .topbar > * {
+    max-width: 100%;
+  }
+  .actions-pill {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .actions-pill::-webkit-scrollbar {
+    display: none;
+  }
+  .actions-pill > *,
+  .actions-pill .btn {
+    flex-shrink: 0;
+  }
+  .zoombar {
+    left: 12px;
+    bottom: 104px;
+  }
+}
