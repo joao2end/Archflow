@@ -346,6 +346,8 @@ let lastDoc = state.doc;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
 
+let firstAdopt = true;
+
 function adoptRemote(doc: Doc, rev: number, source: string, file?: string) {
   bridgeRev = rev;
   const d = normalizeDoc(doc);
@@ -358,6 +360,13 @@ function adoptRemote(doc: Doc, rev: number, source: string, file?: string) {
   }
   const ids = new Set([...d.nodes, ...d.groups, ...d.notes, ...d.connections].map((e) => e.id));
   state = { ...state, sel: state.sel.filter((s) => ids.has(s)) };
+  if (firstAdopt && source === "file") {
+    // primeiro carregamento: o rascunho local não é uma ação do usuário; desfazer não pode voltar a ele
+    firstAdopt = false;
+    set({ doc: d, docSource: "remote", past: [], future: [] });
+    return;
+  }
+  firstAdopt = false;
   commit(d, "remote");
   if (source === "mcp") toast("Diagrama atualizado pelo agente (MCP) — Ctrl+Z desfaz");
 }
