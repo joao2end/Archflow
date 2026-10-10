@@ -147,6 +147,22 @@ export function selectNext(dir: 1 | -1) {
   }
 }
 
+
+/** Move componentes/notas selecionados para o fim (frente) ou início (trás) da ordem de desenho. */
+export function reorderSelection(toFront: boolean) {
+  const s = getState();
+  const doc = structuredClone(s.doc);
+  const sel = new Set(s.sel);
+  const reorder = <T extends { id: string }>(list: T[]) => {
+    const picked = list.filter((b) => sel.has(b.id));
+    const rest = list.filter((b) => !sel.has(b.id));
+    return toFront ? [...rest, ...picked] : [...picked, ...rest];
+  };
+  doc.nodes = reorder(doc.nodes);
+  doc.notes = reorder(doc.notes);
+  commit(doc);
+}
+
 /** Abre a janela de configuração do auto-layout (direção, espaçamento e traçado dos conectores). */
 export function layout(direction: "LR" | "TB" = "LR") {
   set({ modal: { type: "layout", direction } });

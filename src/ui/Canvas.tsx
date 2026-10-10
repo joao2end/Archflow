@@ -6,7 +6,7 @@ import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, useStore, type View } from "./store";
-import { hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
+import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { inkPath, strokeAttrs } from "./ink";
 
@@ -1097,7 +1097,7 @@ export function Canvas() {
       setMenu(null);
       setPaneMenu(null);
       select([t.id]);
-      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 290), id: t.id });
+      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 340), id: t.id });
       return;
     }
     if (!t?.id || (t.role !== "conn" && t.role !== "wp" && t.role !== "wp-add")) {
@@ -1305,6 +1305,12 @@ export function Canvas() {
           <button role="menuitem" onClick={() => (setNodeMenu(null), duplicateSelection())}>
             Duplicar
             <kbd>Ctrl+D</kbd>
+          </button>
+          <button role="menuitem" onClick={() => (setNodeMenu(null), reorderSelection(true))}>
+            Trazer para frente
+          </button>
+          <button role="menuitem" onClick={() => (setNodeMenu(null), reorderSelection(false))}>
+            Enviar para trás
           </button>
           <button role="menuitem" className="danger" onClick={() => (setNodeMenu(null), deleteSelection())}>
             Excluir
