@@ -129,6 +129,24 @@ export function zoomTo(factor: number | "reset") {
   set({ view: { z: nz, x: cx - ((cx - v.x) / v.z) * nz, y: cy - ((cy - v.y) / v.z) * nz } });
 }
 
+
+/** Tab / Shift+Tab: seleciona o próximo componente ou nota e traz a tela até ele se estiver fora de vista. */
+export function selectNext(dir: 1 | -1) {
+  const s = getState();
+  const items = [...s.doc.nodes, ...s.doc.notes];
+  if (!items.length) return;
+  const cur = items.findIndex((b) => s.sel[0] === b.id);
+  const next = items[(cur + dir + items.length) % items.length];
+  select([next.id]);
+  const { x, y, z } = s.view;
+  const sx = next.x * z + x;
+  const sy = next.y * z + y;
+  const margin = 120;
+  if (sx < margin || sy < margin + 60 || sx + next.w * z > window.innerWidth - margin || sy + next.h * z > window.innerHeight - margin) {
+    set({ view: { z, x: window.innerWidth / 2 - (next.x + next.w / 2) * z, y: window.innerHeight / 2 - (next.y + next.h / 2) * z } });
+  }
+}
+
 /** Abre a janela de configuração do auto-layout (direção, espaçamento e traçado dos conectores). */
 export function layout(direction: "LR" | "TB" = "LR") {
   set({ modal: { type: "layout", direction } });
@@ -195,6 +213,9 @@ export function useHotkeys() {
       } else if (mod && e.key.toLowerCase() === "d") {
         e.preventDefault();
         duplicateSelection();
+      } else if (e.key === "Tab" && !mod && !e.altKey && (document.activeElement === document.body || document.activeElement?.closest("svg.canvas"))) {
+        e.preventDefault();
+        selectNext(e.shiftKey ? -1 : 1);
       } else if (mod && e.key.toLowerCase() === "c") {
         if (copySelection()) e.preventDefault();
       } else if (mod && e.key.toLowerCase() === "x") {
