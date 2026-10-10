@@ -39,7 +39,7 @@ export function ConnSample({ type }: { type: ConnectionType }) {
   );
 }
 
-export function TextField({ value, onCommit, multiline, id, placeholder }: { value: string; onCommit: (v: string) => void; multiline?: boolean; id?: string; placeholder?: string }) {
+export function TextField({ value, onCommit, multiline, id, placeholder, label }: { value: string; onCommit: (v: string) => void; multiline?: boolean; id?: string; placeholder?: string; label?: string }) {
   const [v, setV] = useState(value);
   const focused = useRef(false);
   useEffect(() => {
@@ -50,6 +50,7 @@ export function TextField({ value, onCommit, multiline, id, placeholder }: { val
     className: "input",
     value: v,
     placeholder,
+    "aria-label": label,
     onFocus: () => (focused.current = true),
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV(e.target.value),
     onBlur: () => {
@@ -104,7 +105,7 @@ export function TopBar() {
             <Glyph name="arrow-up" size={15} style={{ transform: "rotate(-90deg)" }} /> Voltar
           </button>
         )}
-        <TextField value={title} onCommit={setTitle} id="doc-title" />
+        <TextField value={title} onCommit={setTitle} id="doc-title" label="Título do diagrama" />
         <button className="btn ghost icon" onClick={() => set({ panel: getState().panel === "files" ? null : "files" })} aria-label="Arquivos do cofre" data-tip={folderTip} data-tip-pos="bottom">
           <Glyph name="folder" size={19} />
         </button>
