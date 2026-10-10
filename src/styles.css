@@ -2542,3 +2542,23 @@ svg.canvas.drag-over {
   .flow-bar { flex-wrap: wrap; justify-content: center; top: 66px; }
 }
 @media (prefers-reduced-motion: reduce) { .flow-ring { animation: none; } }
+
+/* ───────── Janelas médias (701–950px): evita sobreposição das barras ───────── */
+@media (min-width: 701px) and (max-width: 950px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .brand-pill {
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  .draw-bar {
+    bottom: 76px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  .draw-bar .swatches {
+    flex-wrap: nowrap;
+  }
+}

@@ -11,7 +11,7 @@ import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
 import { enterPresent } from "./present";
 import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
-import { deleteSelection, duplicateSelection, fitView, layout } from "./keys";
+import { deleteSelection, duplicateSelection, fitView, layout, zoomTo } from "./keys";
 import type { Asset } from "../shared/schema";
 import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, toast, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, DEFAULT_BG, type BgPattern, type Tool } from "./store";
 
@@ -337,7 +337,7 @@ export function Dock() {
       </button>
       <div className="rule" />
       {TOOLS.map((t) => (
-        <button key={t.id} className={`tool ${tool === t.id ? "active" : ""}`} onClick={() => set({ tool: t.id })} data-tip={`${t.label} (${t.key})\n${t.tip}`} data-tip-pos="right" aria-label={t.label} aria-pressed={tool === t.id}>
+        <button key={t.id} className={`tool ${tool === t.id ? "active" : ""}`} onClick={() => set({ tool: tool === t.id ? "select" : t.id })} data-tip={`${t.label} (${t.key})\n${t.tip}`} data-tip-pos="right" aria-label={t.label} aria-pressed={tool === t.id}>
           <Glyph name={t.icon} size={21} />
         </button>
       ))}
@@ -345,7 +345,8 @@ export function Dock() {
       <button className="tool" onClick={() => layout("LR")} data-tip={"Auto-layout (L)\nConfigura espaçamento e conectores. Shift+L: vertical."} data-tip-pos="right" aria-label="Auto layout">
         <Glyph name="layout" size={21} />
       </button>
-      <button className={`tool ${animate ? "active" : ""}`} onClick={() => setPrefs({ animate: !animate })} data-tip={`Animações das conexões (A): ${animate ? "ligadas" : "desligadas"}`} data-tip-pos="right" aria-label="Alternar animações" aria-pressed={animate}>
+      <button className={`tool ${animate ? "active" : ""}`} onClick={() => setPrefs({ animate: !animate })} data-tip={`Animações das conexões (A): ${animate ? "ligadas" : "desligadas"}
+Clique para ${animate ? "pausar" : "ativar"}`} data-tip-pos="right" aria-label="Alternar animações" aria-pressed={animate}>
         <Glyph name={animate ? "play" : "pause"} size={19} />
       </button>
       <BackgroundPopover />
@@ -359,13 +360,7 @@ export function ZoomBar() {
   const z = useStore((s) => s.view.z);
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
-  const zoomBy = (f: number) => {
-    const v = getState().view;
-    const nz = Math.min(3, Math.max(0.15, v.z * f));
-    const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2;
-    set({ view: { z: nz, x: cx - ((cx - v.x) / v.z) * nz, y: cy - ((cy - v.y) / v.z) * nz } });
-  };
+  const zoomBy = zoomTo;
   return (
     <div className="hud glass zoombar">
       <button className="btn ghost icon" onClick={undo} disabled={!canUndo} aria-label="Desfazer" data-tip="Desfazer (Ctrl+Z)" data-tip-pos="top">
@@ -375,11 +370,11 @@ export function ZoomBar() {
         <Glyph name="redo" size={18} />
       </button>
       <div className="sep" style={{ margin: "6px 4px" }} />
-      <button className="btn ghost icon" onClick={() => zoomBy(1 / 1.2)} aria-label="Diminuir zoom">
+      <button className="btn ghost icon" onClick={() => zoomBy(1 / 1.2)} aria-label="Diminuir zoom" data-tip="Diminuir zoom (Ctrl+-)" data-tip-pos="top">
         <Glyph name="minus" size={17} />
       </button>
-      <span className="pct">{Math.round(z * 100)}%</span>
-      <button className="btn ghost icon" onClick={() => zoomBy(1.2)} aria-label="Aumentar zoom">
+      <button className="btn ghost pct" onClick={() => zoomTo("reset")} aria-label="Redefinir zoom para 100%" data-tip="Redefinir para 100% (Ctrl+0)" data-tip-pos="top">{Math.round(z * 100)}%</button>
+      <button className="btn ghost icon" onClick={() => zoomBy(1.2)} aria-label="Aumentar zoom" data-tip="Aumentar zoom (Ctrl++)" data-tip-pos="top">
         <Glyph name="plus" size={17} />
       </button>
       <button className="btn ghost icon" onClick={() => fitView()} aria-label="Ajustar à tela" data-tip="Ajustar à tela (F)" data-tip-pos="top">

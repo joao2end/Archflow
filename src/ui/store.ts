@@ -179,7 +179,7 @@ function init(): State {
     tool: "select",
     view: { x: 120, y: 120, z: 1 },
     connType: "sync",
-    panel: "assets",
+    panel: null,
     expanded: read<Record<string, boolean>>(LS_TREE) ?? {},
     modal: null,
     theme: prefs.theme ?? "system",
