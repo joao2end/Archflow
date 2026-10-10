@@ -58,7 +58,7 @@ const EndpointShape = memo(function EndpointShape({ n, selected, hot, hovered }:
   const bw = Math.max(44, badge.length * 8.4 + 18);
   const path = e.path ?? n.label;
   return (
-    <g data-id={n.id} data-role="node" transform={`translate(${n.x},${n.y})`} className={`node endpoint${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${ENDPOINT_PROTOCOLS[e.protocol].label} ${badge} ${path}`} transform={`translate(${n.x},${n.y})`} className={`node endpoint${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
       <title>{`${ENDPOINT_PROTOCOLS[e.protocol].label} · ${badge} ${path}${n.description ? "\n" + n.description : ""}`}</title>
       <rect className="node-body" width={n.w} height={n.h} rx={14} filter="url(#shadow)" style={fillStyle(n)} />
       <rect className="node-ring" width={n.w} height={n.h} rx={14} pointerEvents="none" />
@@ -94,7 +94,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered }: 
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
-    <g data-id={n.id} data-role="node" transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
       {n.ref && (
         <>
           <rect className="ref-page" x={14} y={-12} width={n.w - 28} height={n.h} rx={16} pointerEvents="none" opacity={0.45} />
