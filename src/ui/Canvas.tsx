@@ -129,7 +129,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered }: 
 export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered }: { g: GroupEl; selected: boolean; hot: boolean; hovered: boolean }) {
   const color = g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3";
   return (
-    <g data-id={g.id} data-role="group" transform={`translate(${g.x},${g.y})`} className={`group${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
+    <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Grupo ${g.label}`} transform={`translate(${g.x},${g.y})`} className={`group${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
       <rect className="group-body" width={g.w} height={g.h} rx={26} style={fillStyle(g)} />
       <rect className="group-edge" width={g.w} height={g.h} rx={26} pointerEvents="none" />
       <g pointerEvents="none">
@@ -216,7 +216,7 @@ const PlainNote = memo(function PlainNote({ n, selected }: { n: NoteEl; selected
   }, [n.text, n.w, n.h, v, st.fs]);
   const fill = n.color ?? (v === "note" ? undefined : "var(--ink)");
   return (
-    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note ${v}${selected ? " sel" : ""}`}>
+    <g data-id={n.id} data-role="note" role="button" aria-pressed={selected} aria-label={`${n.variant === "text" ? "Texto" : n.variant === "list" ? "Lista" : "Nota"}: ${(n.title ?? n.text ?? "").slice(0, 80)}`} transform={`translate(${n.x},${n.y})`} className={`note ${v}${selected ? " sel" : ""}`}>
       <rect className="note-body" width={n.w} height={n.h} rx={14} filter={v === "text" ? undefined : "url(#shadow)"} />
       {v === "list" && <rect x={0} y={10} width={4} height={n.h - 20} rx={2} fill={n.color ?? "var(--primary-600)"} pointerEvents="none" />}
       {lines.map((l, i) => (
@@ -284,7 +284,7 @@ const ListShape = memo(function ListShape({ n, selected }: { n: NoteEl; selected
     return { title, rows: rows.filter((r) => r.y + 10 <= n.h), seps: seps.filter((y) => y < n.h - 8) };
   }, [n.text, n.title, n.checklist, n.w, n.h]);
   return (
-    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note list${selected ? " sel" : ""}`} style={{ ["--lc" as string]: color }}>
+    <g data-id={n.id} data-role="note" role="button" aria-pressed={selected} aria-label={`${n.variant === "text" ? "Texto" : n.variant === "list" ? "Lista" : "Nota"}: ${(n.title ?? n.text ?? "").slice(0, 80)}`} transform={`translate(${n.x},${n.y})`} className={`note list${selected ? " sel" : ""}`} style={{ ["--lc" as string]: color }}>
       <rect className="note-body" width={n.w} height={n.collapsed && title ? 46 : n.h} rx={18} filter="url(#shadow)" />
       {title && <CollapseToggle id={n.id} x={n.w - 26} y={23} collapsed={!!n.collapsed} />}
       <path d={`M18 0.8H${n.w - 18}`} stroke={color} strokeWidth={3} strokeLinecap="round" pointerEvents="none" opacity={0.9} />
@@ -381,7 +381,7 @@ const ChecklistShape = memo(function ChecklistShape({ n, selected }: { n: NoteEl
   const cid = `cl-${n.id}`;
   const H = n.collapsed ? L.headH : n.h;
   return (
-    <g data-id={n.id} data-role="note" transform={`translate(${n.x},${n.y})`} className={`note list checklist${selected ? " sel" : ""}`} style={{ ["--lc" as string]: color }}>
+    <g data-id={n.id} data-role="note" role="button" aria-pressed={selected} aria-label={`${n.variant === "text" ? "Texto" : n.variant === "list" ? "Lista" : "Nota"}: ${(n.title ?? n.text ?? "").slice(0, 80)}`} transform={`translate(${n.x},${n.y})`} className={`note list checklist${selected ? " sel" : ""}`} style={{ ["--lc" as string]: color }}>
       <clipPath id={cid}>
         <rect width={n.w} height={H} rx={20} />
       </clipPath>
@@ -484,7 +484,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate }: { c: Co
   const { text, sub, w, h } = ls ?? { text: "", sub: undefined, w: 0, h: 0 };
   const showLabel = !!ls;
   return (
-    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
+    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${c.from} para ${c.to}`} className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={18} />
       {selected && <path d={d} className="edge-glow" fill="none" stroke={t.color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
       <path
