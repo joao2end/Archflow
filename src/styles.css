@@ -6,7 +6,7 @@
   --secondary: #f7f1e3;
   --ink: #25244a;
   --ink-2: #5a5883;
-  --ink-3: #7c7aa3;
+  --ink-3: #666490; /* AA (≥4,5:1) sobre o vidro claro */
   --glass: rgba(255, 255, 255, 0.52);
   --glass-strong: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(255, 255, 255, 0.78);
@@ -53,12 +53,12 @@
   --secondary: #2d2a2e;
   --ink: #fcfcfa;
   --ink-2: #c1c0c0;
-  --ink-3: #939293;
+  --ink-3: #b1b0b1; /* AA (≥4,5:1) sobre o vidro escuro */
   --glass: rgba(64, 62, 65, 0.6);
   --glass-strong: rgba(91, 89, 92, 0.6);
   --glass-border: rgba(252, 252, 250, 0.12);
   --hairline: rgba(252, 252, 250, 0.14);
-  --danger: #ff6188;
+  --danger: #ffa8be; /* AA sobre o vidro escuro */
   --ok: #a9dc76;
   --shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
   --s-solid: #403e41;
@@ -89,7 +89,8 @@
 :root[data-theme="dark"] .dock .tool.active {
   background: #ab9df2;
 }
-:root[data-theme="dark"] .btn.primary {
+:root[data-theme="dark"] .btn.primary,
+:root[data-theme="dark"] .chip.active {
   color: #221f22;
 }
 :root[data-theme="dark"] .primary-text,
