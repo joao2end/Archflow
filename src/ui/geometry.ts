@@ -258,6 +258,33 @@ export function labelPoint(pts: Pt[], t: number, offset = 0): Pt {
 }
 
 
+
+/** Projeta um ponto no traçado amostrado: posição `t` (0–1, por comprimento de arco) e deslocamento perpendicular com sinal (convenção de `labelPoint`). */
+export function projectOnPath(samples: Pt[], q: Pt): { t: number; offset: number } {
+  if (samples.length < 2) return { t: 0.5, offset: 0 };
+  const cum = [0];
+  for (let i = 1; i < samples.length; i++) cum.push(cum[i - 1] + Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y));
+  const total = cum[cum.length - 1] || 1;
+  let best = { d: Infinity, s: 0, i: 0, u: 0 };
+  for (let i = 0; i < samples.length - 1; i++) {
+    const a = samples[i];
+    const b = samples[i + 1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    const u = l2 ? Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / l2)) : 0;
+    const d = Math.hypot(q.x - (a.x + u * dx), q.y - (a.y + u * dy));
+    if (d < best.d) best = { d, s: cum[i] + u * (cum[i + 1] - cum[i]), i, u };
+  }
+  const t = best.s / total;
+  const p = pointAtFraction(samples, t);
+  const a = pointAtFraction(samples, Math.max(0, t - 0.02));
+  const b = pointAtFraction(samples, Math.min(1, t + 0.02));
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const offset = ((q.x - p.x) * -(b.y - a.y) + (q.y - p.y) * (b.x - a.x)) / len;
+  return { t, offset };
+}
+
 /**
  * Alça de cada trecho entre os pontos-guia: o meio do trecho medido *ao longo do traçado desenhado*
  * (a spline ou o ortogonal não passam pelo meio da corda). No trecho que contém o rótulo, a alça é o centro do texto.

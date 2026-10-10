@@ -3,7 +3,7 @@ import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { IconSvg } from "./icons";
-import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, sidePoint, type Pt, type Side } from "./geometry";
+import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, useStore, type View } from "./store";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
@@ -41,6 +41,7 @@ type Drag =
   | { kind: "marquee"; start: Pt; cur: Pt; additive: boolean; base: string[] }
   | { kind: "resize"; id: string; start: Pt; orig: { w: number; h: number } }
   | { kind: "waypoint"; id: string; idx: number }
+  | { kind: "label"; id: string }
   | { kind: "connect"; from: string; side: Side; cur: Pt }
   | { kind: "create"; tool: "group" | "note" | "text" | "list"; start: Pt; cur: Pt }
   | { kind: "ink"; id: string; pts: Pt[] }
@@ -485,7 +486,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
   const showLabel = !!ls;
   return (
     <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
-      <path d={d} fill="none" stroke="transparent" strokeWidth={18} />
+      <path d={d} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke" />
       {selected && <path d={d} className="edge-glow" fill="none" stroke={t.color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
       <path
         id={pid}
@@ -518,7 +519,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
           </circle>
         ))}
       {showLabel && (
-        <g transform={`translate(${mid.x},${mid.y})`} className="edge-label">
+        <g transform={`translate(${mid.x},${mid.y})`} className="edge-label" data-label-drag="1">
           <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={h / 2.4} />
           <text y={sub && text ? -4 : 0} className="edge-label-main">
             {text}
@@ -863,6 +864,13 @@ export function Canvas() {
       force((n) => n + 1);
       return;
     }
+    if (t?.role === "conn" && t.id && e.button === 0 && !e.shiftKey && (e.target as Element).closest("[data-label-drag]")) {
+      // arrastar o texto do conector reposiciona o rótulo ao longo (e ao lado) do traçado
+      select([t.id]);
+      beginTx();
+      drag.current = { kind: "label", id: t.id };
+      return;
+    }
     if (t && t.id && (t.role === "node" || t.role === "group" || t.role === "note" || t.role === "conn")) {
       let nextSel = s.sel;
       if (e.shiftKey) nextSel = s.sel.includes(t.id) ? s.sel.filter((x) => x !== t.id) : [...s.sel, t.id];
@@ -965,6 +973,15 @@ export function Canvas() {
         });
         break;
       }
+      case "label": {
+        const edge = edges.find((x) => x.c.id === d.id);
+        if (!edge) break;
+        const { t, offset } = projectOnPath(samplePath(edge.g.d), p);
+        // perto da linha, o texto "gruda" nela; o extremo é evitado para não encostar nos componentes
+        const off = Math.abs(offset) < 10 / s.view.z ? 0 : Math.round(offset);
+        live({ ...s.doc, connections: s.doc.connections.map((c) => (c.id === d.id ? { ...c, labelT: clamp(t, 0.06, 0.94), labelOffset: off || undefined } : c)) });
+        break;
+      }
       case "waypoint": {
         const pt = { x: snapV(p.x, s.snap), y: snapV(p.y, s.snap) };
         live({ ...s.doc, connections: s.doc.connections.map((c) => (c.id === d.id ? { ...c, waypoints: (c.waypoints ?? []).map((w, i) => (i === d.idx ? pt : w)) } : c)) });
@@ -1041,6 +1058,7 @@ export function Canvas() {
       }
       case "resize":
       case "waypoint":
+      case "label":
       case "ink":
       case "erase":
         endTx();

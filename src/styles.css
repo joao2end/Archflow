@@ -1064,6 +1064,7 @@ svg.canvas.drag-over {
 .edge {
   cursor: pointer;
 }
+.edge-label { cursor: grab; }
 .edge-label rect {
   fill: var(--s-strong);
   stroke: color-mix(in srgb, var(--ec) 45%, transparent);
