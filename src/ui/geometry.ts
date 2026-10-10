@@ -64,6 +64,8 @@ export interface EdgeGeom {
   label?: Pt;
   /** início, pontos de passagem e fim — base dos puxadores de edição */
   pts?: Pt[];
+  /** onde fica a alça de cada trecho de `pts` (um por trecho): sempre sobre o traçado desenhado; no trecho do rótulo, coincide com o texto */
+  anchors?: Pt[];
 }
 
 /** Lado do caixa voltado para um ponto qualquer. */
@@ -212,7 +214,11 @@ export function edgeGeoms(doc: Doc) {
     const n = pairCount.get(k)!;
     const lane = n > 1 ? (i - (n - 1) / 2) * 26 : 0;
     const g = edgeGeom(a, b, c.routing, lane, c.waypoints);
-    g.label = c.labelT != null ? labelPoint(samplePath(g.d), c.labelT, c.labelOffset) : g.mid;
+    // o rótulo fica sempre no traçado desenhado (meio do comprimento por padrão), nunca na corda reta entre pontos
+    const samples = samplePath(g.d);
+    const t = c.labelT ?? 0.5;
+    g.label = labelPoint(samples, t, c.labelOffset);
+    g.anchors = segmentAnchors(samples, g.pts ?? [g.start, g.end], t, g.label);
     return [{ c, g }];
   });
 }
@@ -249,6 +255,34 @@ export function labelPoint(pts: Pt[], t: number, offset = 0): Pt {
   const b = pointAtFraction(pts, Math.min(1, t + 0.02));
   const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
   return { x: p.x - ((b.y - a.y) / len) * offset, y: p.y + ((b.x - a.x) / len) * offset };
+}
+
+
+/**
+ * Alça de cada trecho entre os pontos-guia: o meio do trecho medido *ao longo do traçado desenhado*
+ * (a spline ou o ortogonal não passam pelo meio da corda). No trecho que contém o rótulo, a alça é o centro do texto.
+ */
+export function segmentAnchors(samples: Pt[], pts: Pt[], labelT: number, label: Pt): Pt[] {
+  if (pts.length < 3 || samples.length < 2) return [label];
+  const cum = [0];
+  for (let i = 1; i < samples.length; i++) cum.push(cum[i - 1] + Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y));
+  const total = cum[cum.length - 1] || 1;
+  // posição (comprimento de arco) de cada ponto-guia, buscando sempre à frente do anterior
+  const arc: number[] = [];
+  let from = 0;
+  pts.forEach((p, k) => {
+    if (k === pts.length - 1) return arc.push(total);
+    let best = from;
+    let bd = Infinity;
+    for (let i = from; i < samples.length; i++) {
+      const d = Math.hypot(samples[i].x - p.x, samples[i].y - p.y);
+      if (d < bd) (bd = d), (best = i);
+    }
+    from = best;
+    arc.push(cum[best]);
+  });
+  const sl = Math.min(1, Math.max(0, labelT)) * total;
+  return pts.slice(0, -1).map((_, k) => (sl >= arc[k] && sl <= arc[k + 1] ? label : pointAtFraction(samples, (arc[k] + arc[k + 1]) / 2 / total)));
 }
 
 /** Amostra um path gerado por `edgeGeom` (comandos M, L, C, Q) como polilinha. */

@@ -545,7 +545,7 @@ export const withWaypoints = (c: ConnectionEl, wps: Pt[]): ConnectionEl => {
 };
 
 /** Puxadores de uma conexão selecionada: pontos existentes (arraste; duplo clique remove) e "+" nos trechos para criar novos. */
-function EdgeHandles({ c, g, z }: { c: ConnectionEl; g: { pts?: Pt[]; mid: Pt }; z: number }) {
+function EdgeHandles({ c, g, z }: { c: ConnectionEl; g: { pts?: Pt[]; mid: Pt; anchors?: Pt[] }; z: number }) {
   const pts = g.pts ?? [];
   const wps = c.waypoints ?? [];
   const r = clamp(6 / z, 4.5, 14);
@@ -554,7 +554,7 @@ function EdgeHandles({ c, g, z }: { c: ConnectionEl; g: { pts?: Pt[]; mid: Pt };
     <g className="edge-handles" style={{ ["--ec" as string]: color }}>
       {pts.slice(0, -1).map((a, i) => {
         const b = pts[i + 1];
-        const m = pts.length === 2 ? g.mid : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const m = g.anchors?.[i] ?? (pts.length === 2 ? g.mid : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
         return (
           <g key={`add-${i}`} data-role="wp-add" data-id={c.id} data-idx={i} className="wp-add" transform={`translate(${m.x},${m.y})`}>
             <title>Arraste para curvar o conector</title>
