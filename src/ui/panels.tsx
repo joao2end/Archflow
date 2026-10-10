@@ -8,6 +8,7 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, GROUP_KINDS, NODE_KINDS, type C
 import { exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
+import { TechPicker } from "./typepicker";
 import { enterPresent } from "./present";
 import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
@@ -659,6 +660,7 @@ export function Inspector() {
             <b>{asset.name}</b> resolve: {asset.problem}
           </div>
         )}
+        <TechPicker node={node} patch={patch} />
         <label className="field">
           <span>Nome</span>
           <TextField id="insp-first" value={node.label} onCommit={(v) => patch({ label: v || node.label })} />
@@ -677,13 +679,21 @@ export function Inspector() {
         </label>
         <div className="grid2">
           <label className="field">
-            <span>Tipo</span>
-            <select className="input" value={node.kind} onChange={(e) => patch({ kind: e.target.value as NodeKind })}>
-              {Object.entries(NODE_KINDS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.split(" / ")[0].split(",")[0]}
-                </option>
-              ))}
+            <span>Categoria</span>
+            <select
+              className="input"
+              value={node.kind}
+              disabled={node.kind === "endpoint"}
+              title={node.kind === "endpoint" ? "Um endpoint pertence a um serviço e não muda de categoria" : NODE_KINDS[node.kind]}
+              onChange={(e) => patch({ kind: e.target.value as NodeKind })}
+            >
+              {Object.entries(NODE_KINDS)
+                .filter(([k]) => k !== "endpoint" || node.kind === "endpoint") // virar endpoint exigiria protocolo e dono: crie pela biblioteca
+                .map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v.split(" / ")[0].split(",")[0]}
+                  </option>
+                ))}
             </select>
           </label>
           <label className="field">

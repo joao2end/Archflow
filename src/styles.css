@@ -2653,3 +2653,25 @@ svg.canvas.drag-over {
 .mcp-check.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); }
 .mcp-check.bad { background: color-mix(in srgb, var(--danger) 14%, transparent); }
 .mcp-check pre.code { margin: 8px 0 0; max-height: 140px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+
+/* ───────── Trocar tecnologia / tipo do componente ───────── */
+.tech-picker { position: relative; }
+.tech-current {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px 6px 6px;
+  border: 1px solid var(--hairline); border-radius: 12px; background: var(--s-mid); color: var(--ink); text-align: left;
+}
+.tech-current:hover { border-color: var(--primary); }
+.tech-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tech-action { font-size: 12px; font-weight: 650; color: var(--primary-600); }
+:root[data-theme="dark"] .tech-action { color: var(--primary); }
+.tech-pop { margin-top: 6px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--s-strong); padding: 8px; }
+.tech-list { margin-top: 8px; max-height: 260px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.tech-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 8px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--ink); text-align: left;
+}
+.tech-opt.hi, .tech-opt:hover { background: var(--primary-100); }
+.tech-opt.cur { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.tech-opt-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.tech-opt-main b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tech-opt-main small { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

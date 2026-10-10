@@ -6,6 +6,7 @@ import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, toast, useStore, type View } from "./store";
+import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { inkPath, strokeAttrs } from "./ink";
@@ -1118,7 +1119,7 @@ export function Canvas() {
       setMenu(null);
       setPaneMenu(null);
       select([t.id]);
-      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 340), id: t.id });
+      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 390), id: t.id });
       return;
     }
     if (!t?.id || (t.role !== "conn" && t.role !== "wp" && t.role !== "wp-add")) {
@@ -1319,6 +1320,12 @@ export function Canvas() {
             Só quem depende dele
             <kbd>← a montante</kbd>
           </button>
+          {n.kind !== "endpoint" && (
+            <button role="menuitem" onClick={() => (setNodeMenu(null), select([n.id]), requestChangeType())}>
+              Alterar tipo / tecnologia…
+              <kbd>trocar ícone</kbd>
+            </button>
+          )}
           <hr />
           <button role="menuitem" onClick={() => (setNodeMenu(null), copySelection())}>
             Copiar
