@@ -2563,3 +2563,24 @@ svg.canvas.drag-over {
     flex-wrap: nowrap;
   }
 }
+
+/* ───────── Minimapa ───────── */
+.minimap {
+  right: 16px;
+  bottom: 16px;
+  padding: 6px;
+  border-radius: 14px;
+  line-height: 0;
+}
+.minimap svg {
+  cursor: pointer;
+  touch-action: none;
+  border-radius: 8px;
+}
+.mm-group { fill: var(--primary); fill-opacity: 0.14; stroke: var(--primary); stroke-opacity: 0.35; stroke-width: 0.6; }
+.mm-node { fill: var(--ink-3); fill-opacity: 0.85; }
+.mm-note { fill: #e0b341; fill-opacity: 0.8; }
+.mm-view { fill: var(--primary); fill-opacity: 0.1; stroke: var(--primary-600); stroke-width: 1.5; }
+@media (max-width: 700px) {
+  .minimap { display: none; }
+}

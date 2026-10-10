@@ -1,0 +1,71 @@
+import { useRef } from "react";
+import { set, useStore } from "./store";
+
+const W = 176;
+const H = 112;
+const PAD = 6;
+
+/** Minimapa: mostra o diagrama inteiro e a área visível; clicar ou arrastar leva a tela até ali. */
+export function Minimap() {
+  const doc = useStore((s) => s.doc);
+  const view = useStore((s) => s.view);
+  const sel = useStore((s) => s.sel);
+  const dragging = useRef(false);
+  const boxes = [...doc.groups, ...doc.nodes, ...doc.notes];
+  if (!boxes.length || sel.length) return null; // com seleção, o inspetor ocupa este canto
+
+  const x1 = Math.min(...boxes.map((b) => b.x));
+  const y1 = Math.min(...boxes.map((b) => b.y));
+  const x2 = Math.max(...boxes.map((b) => b.x + b.w));
+  const y2 = Math.max(...boxes.map((b) => b.y + b.h));
+  // área visível em coordenadas do quadro
+  const vx = -view.x / view.z;
+  const vy = -view.y / view.z;
+  const vw = window.innerWidth / view.z;
+  const vh = window.innerHeight / view.z;
+  const fits = vx <= x1 && vy <= y1 && vx + vw >= x2 && vy + vh >= y2;
+  if (fits) return null; // tudo já está à vista
+
+  // o mapa cobre o diagrama e a janela atual, para o retângulo da vista nunca sair dele
+  const mx1 = Math.min(x1, vx);
+  const my1 = Math.min(y1, vy);
+  const mx2 = Math.max(x2, vx + vw);
+  const my2 = Math.max(y2, vy + vh);
+  const k = Math.min((W - PAD * 2) / (mx2 - mx1), (H - PAD * 2) / (my2 - my1));
+  const ox = (W - (mx2 - mx1) * k) / 2 - mx1 * k;
+  const oy = (H - (my2 - my1) * k) / 2 - my1 * k;
+
+  const goTo = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const wx = (e.clientX - r.left - ox) / k;
+    const wy = (e.clientY - r.top - oy) / k;
+    set({ view: { z: view.z, x: window.innerWidth / 2 - wx * view.z, y: window.innerHeight / 2 - wy * view.z } });
+  };
+
+  return (
+    <div className="hud glass minimap" role="img" aria-label="Minimapa do diagrama. Clique para ir até uma região.">
+      <svg
+        width={W}
+        height={H}
+        onPointerDown={(e) => {
+          dragging.current = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          goTo(e);
+        }}
+        onPointerMove={(e) => dragging.current && goTo(e)}
+        onPointerUp={() => (dragging.current = false)}
+      >
+        {doc.groups.map((g) => (
+          <rect key={g.id} x={g.x * k + ox} y={g.y * k + oy} width={g.w * k} height={g.h * k} rx={2} className="mm-group" />
+        ))}
+        {doc.nodes.map((n) => (
+          <rect key={n.id} x={n.x * k + ox} y={n.y * k + oy} width={Math.max(2, n.w * k)} height={Math.max(2, n.h * k)} rx={1} className="mm-node" />
+        ))}
+        {doc.notes.map((n) => (
+          <rect key={n.id} x={n.x * k + ox} y={n.y * k + oy} width={Math.max(2, n.w * k)} height={Math.max(2, n.h * k)} rx={1} className="mm-note" />
+        ))}
+        <rect x={vx * k + ox} y={vy * k + oy} width={vw * k} height={vh * k} rx={2} className="mm-view" />
+      </svg>
+    </div>
+  );
+}
