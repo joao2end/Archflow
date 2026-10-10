@@ -4,6 +4,7 @@ import { Modals } from "./ui/modals";
 import { FilesPanel } from "./ui/files";
 import { Dock, Inspector, Library, Toast, TopBar, ZoomBar } from "./ui/panels";
 import { useHotkeys } from "./ui/keys";
+import { EmptyHint } from "./ui/emptyhint";
 import { Minimap } from "./ui/minimap";
 import { DrawBar } from "./ui/drawbar";
 import { PresentMode } from "./ui/present";
@@ -31,6 +32,7 @@ export default function App() {
           <Inspector />
           <ZoomBar />
           <Minimap />
+          <EmptyHint />
           <DrawBar />
         </>
       )}
