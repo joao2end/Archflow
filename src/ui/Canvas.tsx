@@ -5,7 +5,7 @@ import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, typ
 import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
-import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, useStore, type View } from "./store";
+import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, toast, useStore, type View } from "./store";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { inkPath, strokeAttrs } from "./ink";
@@ -1067,7 +1067,10 @@ export function Canvas() {
         const to = connectTarget(e.clientX, e.clientY, d.from);
         if (to) {
           const [r] = run([{ op: "add_connection", from: d.from, to, type: s.connType }]);
-          if (r.ok && r.id) select([r.id]);
+          if (r.ok && r.id) {
+            select([r.id]);
+            set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão
+          } else if (r.error) toast(r.error);
         }
         break;
       }

@@ -1064,6 +1064,14 @@ svg.canvas.drag-over {
 .edge {
   cursor: pointer;
 }
+/* destaque ao passar o mouse: mostra qual linha será pega, útil quando várias se cruzam */
+.edge:not(.sel):hover > path[id] {
+  stroke-width: 3.4px;
+  opacity: 1;
+}
+.edge:not(.sel):hover .edge-label rect {
+  stroke: var(--ec);
+}
 .edge-label { cursor: grab; }
 .edge-label rect {
   fill: var(--s-strong);
