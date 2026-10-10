@@ -6,7 +6,7 @@ import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, useStore, type View } from "./store";
-import { exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
+import { hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { inkPath, strokeAttrs } from "./ink";
 
@@ -670,11 +670,12 @@ export function Canvas() {
   const [panning, setPanning] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; conn: string; at: Pt; idx: number; onPoint: boolean } | null>(null);
+  const [paneMenu, setPaneMenu] = useState<{ x: number; y: number; at: Pt } | null>(null);
   const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
 
   useEffect(() => {
-    if (!menu && !nodeMenu) return;
-    const close = () => (setMenu(null), setNodeMenu(null));
+    if (!menu && !nodeMenu && !paneMenu) return;
+    const close = () => (setMenu(null), setNodeMenu(null), setPaneMenu(null));
     const esc = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("pointerdown", close);
     window.addEventListener("blur", close);
@@ -684,7 +685,7 @@ export function Canvas() {
       window.removeEventListener("blur", close);
       window.removeEventListener("keydown", esc);
     };
-  }, [menu, nodeMenu]);
+  }, [menu, nodeMenu, paneMenu]);
 
   const toWorld = useCallback((e: { clientX: number; clientY: number }): Pt => {
     const r = svgRef.current!.getBoundingClientRect();
@@ -1094,15 +1095,21 @@ export function Canvas() {
       // botão direito num componente: inspecionar o fluxo ligado a ele
       e.preventDefault();
       setMenu(null);
+      setPaneMenu(null);
       select([t.id]);
-      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 190), id: t.id });
+      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 290), id: t.id });
       return;
     }
     if (!t?.id || (t.role !== "conn" && t.role !== "wp" && t.role !== "wp-add")) {
       setMenu(null);
       setNodeMenu(null);
+      if (!t?.id && !getState().tool.match(/^(pen|highlight|eraser)$/)) {
+        e.preventDefault();
+        setPaneMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 140), at: toWorld(e) });
+      } else setPaneMenu(null);
       return;
     }
+    setPaneMenu(null);
     e.preventDefault();
     setNodeMenu(null);
     const at = toWorld(e);
@@ -1287,6 +1294,19 @@ export function Canvas() {
             Só quem depende dele
             <kbd>← a montante</kbd>
           </button>
+          <hr />
+          <button role="menuitem" onClick={() => (setNodeMenu(null), copySelection())}>
+            Copiar
+            <kbd>Ctrl+C</kbd>
+          </button>
+          <button role="menuitem" onClick={() => (setNodeMenu(null), duplicateSelection())}>
+            Duplicar
+            <kbd>Ctrl+D</kbd>
+          </button>
+          <button role="menuitem" className="danger" onClick={() => (setNodeMenu(null), deleteSelection())}>
+            Excluir
+            <kbd>Del</kbd>
+          </button>
           {focus && (
             <>
               <hr />
@@ -1299,6 +1319,22 @@ export function Canvas() {
         </div>
       );
     })()}
+    {paneMenu && (
+      <div className="glass ctx-menu" style={{ left: paneMenu.x, top: paneMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+        <button role="menuitem" disabled={!hasClipboard()} onClick={() => (setPaneMenu(null), pasteClipboard(paneMenu.at))}>
+          Colar aqui
+          <kbd>Ctrl+V</kbd>
+        </button>
+        <button role="menuitem" onClick={() => (setPaneMenu(null), select([...doc.nodes, ...doc.groups, ...doc.notes].map((x) => x.id)))}>
+          Selecionar tudo
+          <kbd>Ctrl+A</kbd>
+        </button>
+        <button role="menuitem" onClick={() => (setPaneMenu(null), fitView())}>
+          Ajustar à tela
+          <kbd>F</kbd>
+        </button>
+      </div>
+    )}
     {flow && focus && <FlowBar id={focus.id} mode={focus.mode} flow={flow} />}
     {menu && menuConn && (
       <div className="glass ctx-menu" style={{ left: menu.x, top: menu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>

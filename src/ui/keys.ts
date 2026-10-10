@@ -70,22 +70,27 @@ export function copySelection(): boolean {
   return true;
 }
 
-export function pasteClipboard() {
+export const hasClipboard = () => !!clip;
+
+/** Cola a cópia; com `at`, o canto superior esquerdo do conjunto cai nesse ponto do quadro. */
+export function pasteClipboard(at?: { x: number; y: number }) {
   if (!clip) return;
   const s = getState();
   const doc = structuredClone(s.doc);
-  const off = 32 * ++clip.pastes;
+  const items = [...clip.nodes, ...clip.notes];
+  const ox = at ? at.x - Math.min(...items.map((b) => b.x)) : 32 * ++clip.pastes;
+  const oy = at ? at.y - Math.min(...items.map((b) => b.y)) : ox;
   const map = new Map<string, string>();
   const created: string[] = [];
   for (const n of clip.nodes) {
     const nid = uniqueId(doc, n.id);
     map.set(n.id, nid);
-    doc.nodes.push({ ...structuredClone(n), id: nid, x: n.x + off, y: n.y + off, parent: doc.groups.some((g) => g.id === n.parent) ? n.parent : undefined });
+    doc.nodes.push({ ...structuredClone(n), id: nid, x: n.x + ox, y: n.y + oy, parent: doc.groups.some((g) => g.id === n.parent) ? n.parent : undefined });
     created.push(nid);
   }
   for (const nt of clip.notes) {
     const nid = uniqueId(doc, nt.id);
-    doc.notes.push({ ...structuredClone(nt), id: nid, x: nt.x + off, y: nt.y + off });
+    doc.notes.push({ ...structuredClone(nt), id: nid, x: nt.x + ox, y: nt.y + oy });
     created.push(nid);
   }
   for (const c of clip.connections) {

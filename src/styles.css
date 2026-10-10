@@ -1353,7 +1353,8 @@ svg.canvas.drag-over {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0;
   background: transparent; border-radius: 9px; text-align: left;
 }
-.ctx-menu button:hover { background: var(--primary-100); }
+.ctx-menu button:hover:not(:disabled) { background: var(--primary-100); }
+.ctx-menu button:disabled { opacity: 0.45; cursor: not-allowed; }
 .ctx-menu button.danger { color: var(--danger); }
 .ctx-menu hr { border: 0; height: 1px; background: var(--hairline); margin: 4px 6px; }
 .ctx-menu kbd { margin-left: auto; font: 600 11px var(--sans); color: var(--ink-3); }
