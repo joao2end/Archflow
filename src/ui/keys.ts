@@ -219,10 +219,11 @@ export function useHotkeys() {
       }
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        e.shiftKey ? redo() : undo();
+        if (e.shiftKey) (s.future.length ? (redo(), toast("Refeito")) : toast("Nada para refazer"));
+        else s.past.length ? (undo(), toast("Desfeito")) : toast("Nada para desfazer");
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
-        redo();
+        s.future.length ? (redo(), toast("Refeito")) : toast("Nada para refazer");
       } else if (mod && e.key.toLowerCase() === "o") {
         e.preventDefault();
         set({ modal: { type: "quick" } });
