@@ -1204,6 +1204,9 @@ export function Canvas() {
     <>
     <svg
       ref={svgRef}
+      role="application"
+      aria-label="Quadro de arquitetura. Setas movem a seleção; ? mostra os atalhos."
+      aria-roledescription="quadro branco"
       className={`canvas${dragOver ? " drag-over" : ""}`}
       style={{ cursor, ["--z" as string]: view.z }}
       onPointerDown={onPointerDown}
