@@ -476,7 +476,7 @@ function Marker({ type }: { type: ConnectionType }) {
   );
 }
 
-export const Edge = memo(function Edge({ c, d, mid, selected, animate }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean }) {
+export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string }) {
   const t = CONNECTION_TYPES[c.type];
   const pid = `p-${c.id}`;
   const motion = animate && c.animated !== false ? t.motion : "none";
@@ -484,7 +484,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate }: { c: Co
   const { text, sub, w, h } = ls ?? { text: "", sub: undefined, w: 0, h: 0 };
   const showLabel = !!ls;
   return (
-    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${c.from} para ${c.to}`} className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
+    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={18} />
       {selected && <path d={d} className="edge-glow" fill="none" stroke={t.color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
       <path
@@ -1194,6 +1194,7 @@ export function Canvas() {
   const bgStep = 24 * view.z;
   const bgPreset = presetById(bg.image);
   const groupsSorted = useMemo(() => sortedGroups(doc).filter((g) => !flow || flow.groups.has(g.id) || flow.nodes.has(g.id)), [doc.groups, flow]);
+  const names = useMemo(() => new Map<string, string>([...doc.groups, ...doc.nodes].map((e) => [e.id, e.label])), [doc.groups, doc.nodes]);
   const d = drag.current;
   const selSet = new Set(sel);
   const cursor = panning || tool === "hand" ? "grab" : tool === "text" ? "text" : tool === "eraser" ? ERASER_CURSOR : tool === "connect" || tool === "group" || tool === "note" || tool === "list" || tool === "pen" || tool === "highlight" ? "crosshair" : "default";
@@ -1245,7 +1246,7 @@ export function Canvas() {
           <path key={l.id} d={l.d} className="owner-link" />
         ))}
         {edges.map(({ c, g }) => (
-          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} animate={animate} />
+          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} />
         ))}
         {sel.length === 1 &&
           edges
