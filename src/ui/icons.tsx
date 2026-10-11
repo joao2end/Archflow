@@ -48,6 +48,10 @@ const GLYPHS: Record<string, string[]> = {
   folder: ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
   "folder-plus": ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M12 10.5v5", "M9.5 13h5"],
   file: ["M6 3h8l4 4v14H6z", "M14 3v4h4"],
+  // um ícone por tipo de diagrama (modo): arquitetura = caixas ligadas · domínio = hexágono com núcleo · lógica = decisão que se bifurca
+  "mode-architecture": ["M3 4h7v6H3z", "M14 14h7v6h-7z", "M6.5 10v4a2 2 0 0 0 2 2H14"],
+  "mode-domain": ["M12 3l8 4.5v9L12 21l-8-4.5v-9z", "M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"],
+  "mode-logic": ["M12 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4z", "M12 7v3", "M12 10l-5 4v3", "M12 10l5 4v3", "M7 17h.01", "M17 17h.01"],
   "arrow-up": ["M12 19V5", "M6 11l6-6 6 6"],
   home: ["M4 11l8-7 8 7", "M6 10v10h12V10"],
   sun: ["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z", "M12 2v2", "M12 20v2", "M4.9 4.9l1.4 1.4", "M17.7 17.7l1.4 1.4", "M2 12h2", "M20 12h2", "M4.9 19.1l1.4-1.4", "M17.7 6.3l1.4-1.4"],

@@ -74,7 +74,7 @@ const server = new McpServer(
     instructions:
       "Archflow é um quadro branco de arquitetura de software que o usuário vê em tempo real. Trabalhe com componentes, grupos e conexões (nunca pixels). " +
       "Fluxo: get_diagram → list_assets/search_assets (prefira assets do catálogo) → add_groups → add_components → add_endpoints → connect → auto_layout → validate_diagram. " +
-      "Diagramas têm modo: `architecture` (padrão) ou `domain` (DDD: contextos, aggregates, commands, eventos, casos de uso). No modo domain chame get_schema_guide antes: o vocabulário é outro (kind domain + ddd.role) e use add_use_cases, trace e domain_overview. " +
+      "Diagramas têm modo: `architecture` (padrão) ou `domain` (DDD: contextos, aggregates, commands, eventos, casos de uso) ou `logic` (regras de negócio em ordem, dados e exemplos verificáveis; chame get_schema_guide antes). No modo domain chame get_schema_guide antes: o vocabulário é outro (kind domain + ddd.role) e use add_use_cases, trace e domain_overview. " +
       "Leia o resource archflow://skill (ou get_schema_guide) para o guia completo. Nunca use clear_diagram sem pedido explícito.",
   },
 );
@@ -95,7 +95,27 @@ const ifaceSchema = z.object({
   ),
 });
 
-const modeEnum = z.enum(["architecture", "domain"]);
+const modeEnum = z.enum(["architecture", "domain", "logic"]);
+const logicValue: z.ZodType = z.lazy(() => z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(logicValue), z.record(z.string(), logicValue)]));
+const logicNodeSchema = z
+  .object({
+    role: z.enum(["start", "end", "rule", "decision", "switch", "loop", "fork", "join", "call", "fact", "scenario"]),
+    on: z.string().optional().describe("switch: expressão que escolhe o caminho"),
+    until: z.string().optional().describe("loop: condição de parada"),
+    max: z.number().int().min(1).max(1000).optional().describe("loop: no máximo N voltas"),
+    foreach: z.string().optional().describe("loop: expressão que devolve a lista"),
+    as: z.string().optional().describe("loop com foreach: nome do item"),
+    outcome: z.enum(["ok", "erro"]).optional().describe("end: desfecho"),
+    order: z.number().optional().describe("rule: posição na fila (1, 2, 3…)"),
+    text: z.string().optional().describe("rule/scenario/fact: a frase do negócio"),
+    when: z.string().optional().describe("rule: condição, ex.: tipo em [\"imagem\", \"trafego\"] e preco < 10"),
+    then: z.array(z.string()).optional().describe("rule: efeitos, ex.: [\"preco := max(preco, piso)\", \"travar preco\"]"),
+    examples: z.array(z.object({ name: z.string(), given: z.record(z.string(), logicValue), expect: z.record(z.string(), logicValue) })).optional().describe("rule: exemplos da regra sozinha · scenario: exemplos da fila inteira"),
+    key: z.string().optional().describe("fact: nome nas expressões (preco_atual, categoria.margem)"),
+    type: z.string().optional(),
+    value: logicValue.optional().describe("fact: valor fixo"),
+  })
+  .describe("modo logic: papel e campos (ver get_schema_guide)");
 const dddNodeSchema = z
   .object({
     role: z.enum(DDD_ROLE_KEYS as [string, ...string[]]).describe(DDD_ROLE_KEYS.map((r) => `${r}: ${DDD_ROLES[r].hint}`).join(" · ")),
@@ -197,15 +217,16 @@ server.registerTool(
 server.registerTool(
   "add_components",
   {
-    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset.",
+    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset; no modo logic, use `logic` (kind vira \"logic\").",
     inputSchema: {
       components: z.array(
         z.object({
           id: z.string().optional().describe("slug estável, ex.: orders-api"),
           label: z.string().optional(),
           asset: z.string().optional(),
-          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain"]).optional(),
+          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic"]).optional(),
           ddd: dddNodeSchema.optional(),
+          logic: logicNodeSchema.optional(),
           technology: z.string().optional().describe("stack/versão: 'Laravel 11 / PHP 8.3'"),
           description: z.string().optional().describe("responsabilidade do componente"),
           parent: z.string().optional(),
@@ -296,6 +317,12 @@ server.registerTool(
               foreach: z.string().optional().describe("fluxo: repete para cada elemento, ex.: 'item do pedido'"),
             })
             .optional(),
+          logic: z
+            .object({
+              branch: z.enum(["sim", "nao", "repete", "segue", "outros"]).optional().describe("modo logic: saída da decisão (sim/nao), do loop (repete/segue) ou da escolha (outros)"),
+              case: z.string().optional().describe('modo logic, seta que sai de uma escolha: o valor do caso como expressão, ex.: "\\"lucro\\"" ou 3'),
+            })
+            .optional(),
         }),
       ),
     },
@@ -353,7 +380,7 @@ server.registerTool(
     description:
       "Reorganiza automaticamente (camadas por fluxo de conexões; grupos dimensionados). `spacing` define a distância mínima entre componentes: compact (44px) | comfortable (80px, padrão) | spacious (120px); entre camadas é o dobro. `minGap` (px) sobrescreve o preset. Se o diagrama parecer apertado, use spacious. `gapX`/`gapY` (px) definem o espaçamento horizontal e vertical separadamente (sobrescrevem spacing/minGap). `routing` define o traçado de TODOS os conectores: curve (curva, padrão) | elbow (ortogonal) | straight (reta); omitido, preserva o traçado de cada conexão.",
     inputSchema: {
-      style: z.enum(["flow", "timeline"]).optional().describe("flow (padrão): camadas pelo fluxo das conexões. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step"),
+      style: z.enum(["flow", "timeline", "pipeline"]).optional().describe("flow (padrão): camadas pelo fluxo das conexões. pipeline: só no modo logic (padrão nele): a fila de regras de cima para baixo, entradas à esquerda, resultados à direita, cenários no fim. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step"),
       direction: z.enum(["LR", "TB"]).optional(),
       spacing: z.enum(["compact", "comfortable", "spacious"]).optional(),
       minGap: z.number().min(16).max(400).optional(),

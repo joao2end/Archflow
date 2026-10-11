@@ -225,6 +225,7 @@ Em desenvolvimento use `npx tsx server/mcp.ts` (o botão MCP mostra o comando ce
 
 `skills/archflow/SKILL.md` ensina o modelo a usar o Archflow (fluxo, tools, vocabulário, erros comuns). Ela fica disponível:
 
+- por **npx**, direto do GitHub: `npx skills add joao2end/Archflow --skill archflow` (acrescente `-a claude-code -y` para instalar sem perguntas no Claude Code); o comando também está na modal MCP;
 - na modal **MCP → Skill para os modelos**: instalar no Claude Code (`~/.claude/skills/archflow/`), copiar, baixar `SKILL.md` ou baixar como regra do Cursor (`.cursor/rules/archflow.mdc`);
 - pelo próprio MCP: resource `archflow://skill` + `instructions` enviadas ao cliente na conexão.
 
@@ -271,7 +272,11 @@ Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (
 - **Guia animado de DDD:** novo em DDD? O botão ▶ ao lado do selo de modo (ou **Guia de DDD** no quadro vazio e na modal do modo) abre *DDD em 8 passos*: cenas animadas de valor do negócio, bounded context, use case → command, aggregate, domain event, policy, context map e uma receita rápida do zero ao domínio.
 - **Exemplos prontos de DDD** (biblioteca, clínica, loja, banco): botão ✨ do explorador → *Instalar e abrir*, ou a pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
 
-Detalhes de projeto, regras e decisões: [docs/DOMAIN_MODE.md](docs/DOMAIN_MODE.md). Para testar a UI sem tocar nos seus diagramas: `node scripts/dev-sandbox.mjs` (cofre temporário, portas próprias).
+### Modo Logic (regras de negócio)
+
+Um terceiro modo, **Logic**, descreve uma regra de negócio específica (precificação, elegibilidade, frete…) como um **fluxo executável**: Start → regras, decisões sim/não, escolhas, laços e paralelos → End. As condições e efeitos são expressões curtas em português (`preco := max(preco, piso)`, `travar preco`) e o app mostra a explicação em português ao lado. Cada regra e cada cenário levam **exemplos que o app executa**: o ✔ ou ✘ aparece no quadro, a validação `L001–L024` aponta o que falha e a reprodução (▶) mostra o valor mudando passo a passo. Pelo MCP: `new_diagram` com `mode: "logic"`, `add_components` com `logic`, `connect` com `logic.branch` e `auto_layout` em `pipeline`. Exemplo completo (engine de precificação, 11 regras e 30 exemplos) em [`examples/exemplos-logic/`](examples/exemplos-logic/); desenho e decisões em [docs/LOGIC_MODE_DESIGN.md](docs/LOGIC_MODE_DESIGN.md).
+
+Detalhes de projeto, regras e decisões do modo Domain: [docs/DOMAIN_MODE.md](docs/DOMAIN_MODE.md). Para testar a UI sem tocar nos seus diagramas: `node scripts/dev-sandbox.mjs` (cofre temporário, portas próprias).
 
 ## Recursos
 

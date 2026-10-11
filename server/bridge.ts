@@ -164,6 +164,8 @@ interface FileNode {
   connections: number;
   /** diagramas que este arquivo referencia (nós "system" com ref) */
   refs: string[];
+  /** modo do diagrama (explorador: ícone e filtro) */
+  mode: DocMode;
 }
 interface FolderNode {
   type: "folder";
@@ -196,16 +198,18 @@ function buildTree(abs: string, rel: string, depth: number, budget: { n: number 
         let nodes = 0;
         let connections = 0;
         let refs: string[] = [];
+        let mode: DocMode = "architecture";
         try {
           const d = childRel === current ? doc : JSON.parse(readFileSync(join(abs, e.name), "utf8"));
           title = d.title || title;
+          mode = docMode(d);
           nodes = d.nodes?.length ?? 0;
           connections = d.connections?.length ?? 0;
           refs = Array.from(new Set<string>((d.nodes ?? []).filter((x: any) => x?.ref?.diagram).map((x: any) => String(x.ref.diagram))));
         } catch {
           title += " (inválido)";
         }
-        node.children.push({ type: "file", name: e.name, path: childRel, title, updatedAt: st.mtimeMs, size: st.size, nodes, connections, refs });
+        node.children.push({ type: "file", name: e.name, path: childRel, title, updatedAt: st.mtimeMs, size: st.size, nodes, connections, refs, mode });
       } catch {
         /* sumiu durante a leitura */
       }
@@ -768,8 +772,8 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     /* diagramas */
     if (path === "/api/diagrams" && m === "POST") {
       const b = await body(req);
-      if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain`);
-      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" ? "domain" : "architecture");
+      if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic`);
+      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" || b.mode === "logic" ? b.mode : "architecture");
       return ws(res, { name: rel });
     }
     if (path === "/api/diagrams/open" && m === "POST") {
@@ -941,7 +945,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     if (path === "/api/schema") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       const wanted = url.searchParams.get("mode");
-      return void res.end(schemaGuide(wanted === "domain" || wanted === "architecture" ? wanted : docMode(doc)));
+      return void res.end(schemaGuide(wanted === "domain" || wanted === "logic" || wanted === "architecture" ? wanted : docMode(doc)));
     }
     if (path === "/api/events") {
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });

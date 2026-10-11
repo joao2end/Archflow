@@ -1,6 +1,6 @@
 ---
 name: archflow
-description: Desenha e edita diagramas de arquitetura de software no Archflow (quadro branco com MCP). Use quando o usuário pedir para desenhar, documentar, revisar ou evoluir uma arquitetura — serviços, bancos, filas, APIs, endpoints, fronteiras de nuvem/rede — ou mencionar Archflow, "diagrama de arquitetura", cofre de diagramas ou as tools add_components/connect/auto_layout. Também modela o DOMÍNIO com DDD (bounded contexts, aggregates, commands, eventos, casos de uso, context map): use quando o usuário falar de DDD, domínio, casos de uso, event storming ou pedir para transformar requisitos em modelo.
+description: Desenha e edita diagramas de arquitetura de software no Archflow (quadro branco com MCP). Use quando o usuário pedir para desenhar, documentar, revisar ou evoluir uma arquitetura — serviços, bancos, filas, APIs, endpoints, fronteiras de nuvem/rede — ou mencionar Archflow, "diagrama de arquitetura", cofre de diagramas ou as tools add_components/connect/auto_layout. Também modela o DOMÍNIO com DDD (bounded contexts, aggregates, commands, eventos, casos de uso, context map): use quando o usuário falar de DDD, domínio, casos de uso, event storming ou pedir para transformar requisitos em modelo. Também modela REGRAS DE NEGÓCIO como fluxo executável (modo logic: regras em ordem, decisões, laços, dados e exemplos que o app executa): use quando o usuário falar de regra de negócio, engine de preço/cálculo, fluxo de decisão, elegibilidade, "se… então…" ou pedir exemplos verificáveis.
 ---
 
 # Archflow — como diagramar arquitetura via MCP
@@ -41,12 +41,13 @@ Agrupe chamadas: cada tool aceita **listas** (`components`, `connections`…) �
 | `remove_elements` | Remove por id (conexões ligadas somem; filhos de grupo sobem de nível). |
 | `add_note` | Nota de texto livre: decisões (ADR curto), riscos, TODOs. |
 | `add_asset` | Cadastra tecnologia própria/interna no diagrama (exige `problem`). |
-| `auto_layout` | Reorganiza. `direction` LR (padrão) ou TB; `spacing` compact / comfortable / spacious. No modo domain, `style: "timeline"` posiciona em raias de Event Storming. |
-| `set_diagram_info` | Título e descrição do diagrama. |
+| `auto_layout` | Reorganiza. `direction` LR (padrão) ou TB; `spacing` compact / comfortable / spacious. `style`: `flow` (padrão), `timeline` (só domain: raias de Event Storming) ou `pipeline` (só logic, padrão nele: fluxo de cima para baixo). |
+| `set_diagram_info` | Título, descrição e modo (`architecture` · `domain` · `logic`) do diagrama. |
 | `validate_diagram` | Aponta referências quebradas e componentes isolados. |
 | `clear_diagram` | **Destrutivo.** Só com pedido explícito do usuário. |
-| `list_diagrams` · `open_diagram` · `new_diagram` · `get_diagram_outline` | Navegar o cofre: listar, abrir, criar (opcionalmente em subpasta, com `mode`) e resumir outro diagrama sem abri-lo. |
+| `list_diagrams` · `open_diagram` · `new_diagram` · `get_diagram_outline` | Navegar o cofre: listar, abrir, criar (opcionalmente em subpasta, com `mode`: architecture, domain ou logic) e resumir outro diagrama sem abri-lo. |
 | `add_use_cases` · `trace` · `domain_overview` · `generate_code` | **Modo domain**: criar casos de uso, rastreá-los até o evento, ver o domínio inteiro do cofre e gerar o esqueleto de código. Ver a seção abaixo. |
+| `add_components` com `logic` · `connect` com `logic` | **Modo logic**: passos do fluxo (`logic.role`) e saídas das setas (`logic.branch` / `logic.case`). Ver a seção "Modo logic". |
 
 Resources: `archflow://diagram` (diagrama atual em markdown), `archflow://schema` (guia do schema) e `archflow://skill` (este guia).
 
@@ -71,7 +72,7 @@ Com `asset`, o `kind` já vem do catálogo — não repita.
 
 ## Modo domain (DDD): do caso de uso ao modelo
 
-Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas) ou `domain` (o negócio). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
+Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio) ou `logic` (as regras do negócio, ver mais abaixo). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
 
 Estrutura no cofre: **um diagrama por bounded context** + um **mapa de contextos** (visão geral), tudo em `dominio/`.
 
@@ -89,6 +90,25 @@ Heurísticas (sempre como sugestão, marque em `description`): verbo no imperati
 **Decisões, condições e loops (só modo domain):** use o papel `decision` (`question`, `gate`: exclusive | parallel | join) entre um evento/policy/saga e os commands que seguem; cada saída é uma conexão `triggers` com `ddd.condition` (ou `ddd.otherwise` para o *senão*). Command com dois desfechos: duas conexões `emits`, uma com `condition` e outra com `otherwise`. **Loop**: a conexão que VOLTA a um passo anterior leva `ddd.loop: { until, max }` (sem parada é erro D029). **Iteração**: `ddd.foreach`. Regras D024 a D032 (decisão com 2+ ramos e um senão, junção com 2+ entradas, ciclo por decisão exige loop). Nada disso existe no modo architecture.
 
 Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do cofre do usuário (botão ✨ do explorador) ou `examples/` do projeto (biblioteca, clínica, loja, banco); o guia conceitual é `docs/DDD.md`. Ao explicar DDD ao usuário, use um deles como referência concreta.
+
+## Modo logic: regras de negócio como fluxo executável
+
+Terceiro modo (`mode: "logic"`): descreve **uma lógica específica** (precificação, elegibilidade, frete, comissão…) como um fluxo **Start → passos → End** que o app **executa** com os dados de cada exemplo e confere. Negócio lê a frase e a explicação em português que o app gera; dev e IA usam a expressão exata. **Chame `get_schema_guide` antes** (devolve o guia do modo do diagrama aberto; é a fonte de verdade da sintaxe) e não use assets de tecnologia nem `ddd`.
+
+Papéis (`add_components` com `logic: { role, ... }`; kind vira `logic`): `start` · `end` (`outcome: ok|erro`) · `rule` (ação: efeitos em `then`) · `decision` (IF sim/não, `when`) · `switch` (escolha por `on`, ou por faixas) · `loop` (`until`/`max` ou `foreach` + `as`) · `fork`/`join` (paralelo) · `call` (outro diagrama, `ref`) · `fact` (dado, com `key`, e `value` se constante) · `scenario` (roda o fluxo inteiro e confere o resultado).
+
+Setas: `connect` passo → passo, sem `type`. Quem sai de decisão, escolha ou laço diz a saída: `logic: { branch: "sim" | "nao" | "repete" | "segue" | "outros" }`; na escolha por valor, `logic: { case: "\"lucro\"" }` (o valor como expressão) mais uma seta `outros`. Dados não têm setas: as expressões os leem pelo `key`.
+
+Expressões (pequenas, em português): números `10`, `0.09`, `5%`; texto `"imagem"`; `verdadeiro`/`falso`/`nulo`; `+ - * / %`; `= != < <= > >=`, `em [...]`, `nao em [...]`; `e`/`ou`/`nao`; `se c entao A senao B`; funções `min max abs piso teto arredondar entre vazio contem tamanho`. Efeitos em `then`: `preco := expr`, `travar preco` (os passos seguintes não o reescrevem), `destravar preco`.
+
+Fluxo (siga a ordem):
+1. `new_diagram` com `mode: "logic"` (um diagrama por lógica). **Pergunte os números** (limites, faixas, percentuais) ao usuário: não invente.
+2. `add_components`: um `start`, um ou mais `end`, um `fact` por dado e os passos. **Condições viram nós `decision`**, não `when` dentro de `rule`, para o desvio aparecer no quadro.
+3. `connect` com `logic.branch`/`logic.case` onde houver desvio; laços voltam ao início do corpo pela seta `repete`.
+4. **Exemplos em tudo que decide ou calcula**: `examples: [{ name, given: { dado: valor }, expect: { dado: valor } }]` em cada regra, decisão e escolha (em decisão/escolha, `expect: { caminho: "sim" }` confere a saída). `scenario` roda o fluxo todo (`expect.desfecho: "ok"|"erro"`).
+5. `auto_layout` (padrão `pipeline`) e `validate_diagram`: ele **executa os exemplos de verdade** (L004 = exemplo que falha) e checa o fluxo (L012–L024). Corrija até limpar; se um número esperado parecer errado, pergunte ao usuário qual é o certo em vez de ajustar o exemplo para passar.
+
+Modelo pronto para consultar: `examples/exemplos-logic/` (engine de precificação com 11 regras, 7 cenários e 30 exemplos) e o desenho do modo em `docs/LOGIC_MODE_DESIGN.md`. No app, a reprodução de um `scenario` anima o valor passo a passo pelo quadro.
 
 ## Convenções que evitam retrabalho
 
@@ -140,6 +160,8 @@ validate_diagram → "sem problemas"
 - **Tudo como `sync`** → fila/evento é `async`; acesso a banco é `data`.
 - **Recriar do zero** quando só precisava ajustar → prefira `update_element`; nunca `clear_diagram` sem o usuário pedir.
 - **Usar tecnologia (asset) no modo domain**, ou `ddd` num diagrama `architecture` → a tool recusa; crie o diagrama com `mode: "domain"`.
+- **Misturar vocabulários**: `logic` só em diagrama `logic`, `ddd` só em `domain`. Em lógica, regra com condição embutida (`when` dentro de `rule`) esconde o desvio: use `decision`.
+- **Regra sem exemplo** no modo logic → o app não consegue provar nada; escreva ao menos um `examples` por passo que decide ou calcula.
 - **Inventar componentes** que o usuário não mencionou sem avisar → registre as suposições numa `add_note` ou no resumo final.
 
 ## Ao editar um diagrama existente

@@ -38,6 +38,10 @@ const PLACEHOLDER: McpInfo = {
 };
 
 const copy = (t: string, msg = "Copiado") => navigator.clipboard.writeText(t).then(() => toast(msg));
+/** Instalação da skill pelo CLI `skills` (lê skills/archflow/SKILL.md do repositório no GitHub). */
+const SKILL_NPX = "npx skills add joao2end/Archflow --skill archflow";
+const SKILL_NPX_CC = "npx skills add joao2end/Archflow --skill archflow -a claude-code -y";
+
 const q = (s: string) => (/[\s"]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s);
 const b64 = (s: string) => btoa(unescape(encodeURIComponent(s)));
 
@@ -61,6 +65,18 @@ async function post(path: string, body?: unknown) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error ?? `erro ${r.status}`);
   return j;
+}
+
+/** Bloco de código com o botão de copiar embutido no canto superior direito. */
+function CodeBox({ text }: { text: string }) {
+  return (
+    <div className="codebox">
+      <pre className="code">{text}</pre>
+      <button className="btn sm codebox-copy" onClick={() => copy(text, "Comando copiado")} aria-label="Copiar" data-tip="Copiar">
+        <Glyph name="copy" size={14} /> Copiar
+      </button>
+    </div>
+  );
 }
 
 export function McpBody() {
@@ -218,63 +234,75 @@ export function McpBody() {
             </div>
           )}
 
-          <ol className="steps">
-            <li>
-              <b>Claude Code</b> — rode no terminal:
-              <pre className="code" style={{ marginTop: 6 }}>{cliCmd}</pre>
-              <button className="btn sm" onClick={() => copy(cliCmd)}>
-                <Glyph name="copy" size={14} /> Copiar
-              </button>
-            </li>
-            <li>
-              <b>VS Code (Copilot)</b>, via terminal:
-              <pre className="code" style={{ marginTop: 6 }}>{vscodeCmd}</pre>
-              <button className="btn sm" onClick={() => copy(vscodeCmd)}>
-                <Glyph name="copy" size={14} /> Copiar
-              </button>
-            </li>
-            <li>
-              <b>Qualquer outro cliente MCP</b> (Claude Desktop, Cursor, Windsurf, Zed, Cline…) — adicione ao JSON de configuração:
-              <pre className="code" style={{ marginTop: 6 }}>{json}</pre>
-              <button className="btn sm" onClick={() => copy(json)}>
-                <Glyph name="copy" size={14} /> Copiar
-              </button>
-            </li>
-            <li>
-              Instale a <a href="#skill" onClick={(e) => (e.preventDefault(), setTab("skill"))}>skill</a> para os modelos saberem usar o Archflow e peça: <i>“Use o archflow para desenhar uma arquitetura de pedidos com Laravel, Postgres e SQS.”</i>
-            </li>
-          </ol>
-          <div className="callout">
-            <b>Ferramentas:</b> get_schema_guide · list_assets · search_assets · get_diagram · add_components · add_endpoints · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram · list_diagrams · get_diagram_outline · open_diagram · new_diagram · add_use_cases · trace · domain_overview (modo domain). <br />
+          <details className="mcp-more" open={info.clients.length === 0}>
+            <summary>Configuração manual</summary>
+            <ol className="steps">
+              <li>
+                <b>Claude Code</b> — rode no terminal:
+                <CodeBox text={cliCmd} />
+              </li>
+              <li>
+                <b>VS Code (Copilot)</b>, via terminal:
+                <CodeBox text={vscodeCmd} />
+              </li>
+              <li>
+                <b>Qualquer outro cliente MCP</b> (Claude Desktop, Cursor, Windsurf, Zed, Cline…) — adicione ao JSON de configuração:
+                <CodeBox text={json} />
+              </li>
+              <li>
+                Instale a <a href="#skill" onClick={(e) => (e.preventDefault(), setTab("skill"))}>skill</a> para os modelos saberem usar o Archflow e peça: <i>“Use o archflow para desenhar uma arquitetura de pedidos com Laravel, Postgres e SQS.”</i>
+              </li>
+            </ol>
+          </details>
+          <details className="mcp-more">
+            <summary>Ferramentas e recursos</summary>
+            <p className="mcp-hint">
+            <b>Ferramentas:</b> get_schema_guide · list_assets · search_assets · get_diagram · add_components · add_endpoints · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram · list_diagrams · get_diagram_outline · open_diagram · new_diagram · add_use_cases · trace · domain_overview · generate_code (modo domain). No modo logic use <code>add_components</code> com <code>logic</code>, <code>connect</code> com <code>logic.branch</code> e <code>auto_layout</code> em <code>pipeline</code>. <br />
             <b>Recursos:</b> archflow://diagram · archflow://schema · archflow://skill. O protocolo completo está em <code>docs/PROTOCOL.md</code>.
-          </div>
+          </p>
+          </details>
         </>
       ) : (
         <>
-          <p className="mcp-lead">
-            A skill ensina o modelo a usar o Archflow: o fluxo certo (ler → assets → grupos → componentes → conexões → layout → validar), o vocabulário, convenções de ids e erros comuns. O servidor também a entrega como recurso <code>archflow://skill</code> e resumo nas instruções do MCP.
-          </p>
-          <div className="mcp-actions">
-            {live && (
-              <button className="btn primary sm" disabled={busy === "skill"} onClick={installSkill} data-tip={info.skill.file}>
-                {info.skill.installed ? "Reinstalar no Claude Code" : "Instalar no Claude Code"}
-              </button>
-            )}
-            <button className="btn sm" onClick={() => copy(SKILL_MD, "Skill copiada")}>
-              <Glyph name="copy" size={14} /> Copiar SKILL.md
-            </button>
-            <button className="btn sm" onClick={() => saveFile("SKILL.md", SKILL_MD)}>
-              Baixar SKILL.md
-            </button>
-            <button className="btn sm" onClick={() => saveFile("archflow.mdc", cursorRule())} data-tip="Salve em .cursor/rules/ do seu projeto">
-              Baixar regra do Cursor
+          <p className="mcp-lead">A skill ensina o modelo a usar o Archflow nos três modos: arquitetura, domínio (DDD) e lógica.</p>
+          <div className="mcp-cmd">
+            <code>{SKILL_NPX}</code>
+            <button className="btn primary sm" onClick={() => copy(SKILL_NPX, "Comando copiado")}>
+              <Glyph name="copy" size={14} /> Copiar
             </button>
           </div>
-          {info.skill.installed && <p className="mcp-hint">✓ Instalada em <code>{info.skill.file}</code> — vale para todos os projetos do Claude Code.</p>}
-          <p className="mcp-hint">
-            Claude Code: <code>~/.claude/skills/archflow/SKILL.md</code> (global) ou <code>.claude/skills/archflow/SKILL.md</code> (projeto). Claude.ai/Desktop: Configurações → Skills → enviar o SKILL.md. Cursor: <code>.cursor/rules/archflow.mdc</code>. Outros agentes: cole no prompt de sistema ou em AGENTS.md.
-          </p>
-          <pre className="code">{SKILL_MD}</pre>
+          <p className="mcp-hint">Rode no terminal. O CLI pergunta em qual agente instalar (Claude Code, Cursor, Codex…).</p>
+          {info.skill.installed && <p className="mcp-hint">✓ Também instalada no Claude Code em <code>{info.skill.file}</code>.</p>}
+
+          <details className="mcp-more">
+            <summary>Outras formas de instalar</summary>
+            <div className="mcp-actions">
+              {live && (
+                <button className="btn sm" disabled={busy === "skill"} onClick={installSkill} data-tip={info.skill.file}>
+                  {info.skill.installed ? "Reinstalar no Claude Code" : "Instalar no Claude Code"}
+                </button>
+              )}
+              <button className="btn sm" onClick={() => copy(SKILL_MD, "Skill copiada")}>
+                <Glyph name="copy" size={14} /> Copiar SKILL.md
+              </button>
+              <button className="btn sm" onClick={() => saveFile("SKILL.md", SKILL_MD)}>
+                Baixar SKILL.md
+              </button>
+              <button className="btn sm" onClick={() => saveFile("archflow.mdc", cursorRule())} data-tip="Salve em .cursor/rules/ do seu projeto">
+                Baixar regra do Cursor
+              </button>
+            </div>
+            <p className="mcp-hint">
+              Só no Claude Code, sem perguntas: <code>{SKILL_NPX_CC}</code>
+            </p>
+            <p className="mcp-hint">
+              Manual — Claude Code: <code>~/.claude/skills/archflow/SKILL.md</code> (global) ou <code>.claude/skills/archflow/SKILL.md</code> (projeto). Claude.ai/Desktop: Configurações → Skills → enviar o SKILL.md. Cursor: <code>.cursor/rules/archflow.mdc</code>. Outros agentes: cole em AGENTS.md.
+            </p>
+          </details>
+          <details className="mcp-more">
+            <summary>Ver o conteúdo da skill</summary>
+            <pre className="code">{SKILL_MD}</pre>
+          </details>
         </>
       )}
     </>

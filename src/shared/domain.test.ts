@@ -135,7 +135,7 @@ test("update valida o patch de ddd e subdomain", () => {
   assert.equal(t({ subdomain: "generic" }, "criar-pedido").results[0].ok, false);
   const removed = t({ ddd: null }).doc.nodes.find((n) => n.id === "criar-pedido")!;
   assert.equal("ddd" in removed, false);
-  assert.equal(applyOps(build([{ op: "add_node", id: "s", label: "S" }]), [{ op: "update", id: "s", patch: { kind: "domain" } }]).results[0].ok, false);
+  assert.equal(applyOps(build([{ op: "add_node", id: "s", label: "S", kind: "actor" }]), [{ op: "update", id: "s", patch: { kind: "domain" } }]).results[0].ok, false);
 });
 
 test("set_meta troca o modo e voltar para architecture remove o campo", () => {

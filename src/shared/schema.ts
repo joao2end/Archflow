@@ -24,7 +24,8 @@ export type NodeKind =
   | "library"
   | "endpoint"
   | "system"
-  | "domain";
+  | "domain"
+  | "logic";
 
 export const NODE_KINDS: Record<NodeKind, string> = {
   service: "Serviço / API / aplicação backend",
@@ -41,6 +42,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   endpoint: "Ponto de comunicação de um serviço (endpoint REST, canal WebSocket, operação GraphQL, método gRPC, webhook, evento)",
   system: "Sistema descrito em OUTRO diagrama do cofre (referência, campo `ref`)",
   domain: "Elemento do modelo de domínio (DDD): o papel (aggregate-root, command, domain-event...) está em `ddd.role`. Só existe em diagramas de modo `domain`",
+  logic: "Elemento da lógica de negócio: o papel (rule, fact, scenario) está em `logic.role`. Só existe em diagramas de modo `logic`",
 };
 
 export type GroupKind =
@@ -180,14 +182,15 @@ export const CONNECTION_TYPE_KEYS = Object.keys(CONNECTION_TYPES) as ConnectionT
 /* ───────── modo domínio (DDD) ───────── */
 
 /** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD). */
-export type DocMode = "architecture" | "domain";
+export type DocMode = "architecture" | "domain" | "logic";
 
 export const DOC_MODES: Record<DocMode, { label: string; hint: string }> = {
   architecture: { label: "Architecture", hint: "Arquitetura: serviços, bancos, filas, nuvem e rede." },
   domain: { label: "Domain", hint: "Domínio (DDD): bounded contexts, aggregates, commands, eventos e casos de uso." },
+  logic: { label: "Logic", hint: "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos." },
 };
 
-export const docMode = (doc: { mode?: DocMode }): DocMode => (doc.mode === "domain" ? "domain" : "architecture");
+export const docMode = (doc: { mode?: DocMode }): DocMode => (doc.mode === "domain" ? "domain" : doc.mode === "logic" ? "logic" : "architecture");
 
 export type DddRole =
   | "aggregate-root"
@@ -300,6 +303,89 @@ export const DDD_BADGES: Record<DddRole, string> = {
   "process-manager": "SAGA",
   decision: "DEC",
 };
+
+/* ───────── modo lógica (regras de negócio) ───────── */
+
+export type LogicRole = "rule" | "fact" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call";
+
+/** Valor JSON simples usado em dados e exemplos. */
+export type LogicValue = string | number | boolean | null | LogicValue[] | { [campo: string]: LogicValue };
+
+/** Um caso concreto: dados de entrada e o que deve valer depois. Fica ao lado da regra e é verificado pelo app. */
+export interface LogicExample {
+  name: string;
+  given: Record<string, LogicValue>;
+  /** dados esperados depois. Em decisão/escolha, a chave especial "caminho" confere por onde o fluxo sai ("sim", "nao", valor do caso, "outros") */
+  expect: Record<string, LogicValue>;
+  /** cenário: o caminho gravado, os ids dos passos na ordem em que o fluxo os percorre. Se o fluxo passar a andar por outro caminho, o exemplo falha */
+  path?: string[];
+}
+
+export interface LogicNodeSpec {
+  role: LogicRole;
+  /** rule: posição na fila quando o diagrama não tem setas (1, 2, 3…). Com setas, o fluxo manda */
+  order?: number;
+  /** todos os papéis: o que é, em uma frase de negócio (na decisão, a pergunta) */
+  text?: string;
+  /** rule: condição opcional de guarda (sem ela, sempre roda) · decision: a condição (sim/não) */
+  when?: string;
+  /** rule: efeitos em ordem: "preco := ..." , "travar preco" e "destravar preco" */
+  then?: string[];
+  /** switch: expressão cujo valor escolhe o caminho (cada seta leva o valor do caso). Sem `on`, cada seta leva uma CONDIÇÃO (faixa) e vale a primeira verdadeira, na ordem das setas */
+  on?: string;
+  /** loop: condição de parada (a repetição para quando vale) */
+  until?: string;
+  /** loop: no máximo N voltas (1 a 1000) */
+  max?: number;
+  /** loop: "para cada" item de uma lista (expressão que devolve a lista) */
+  foreach?: string;
+  /** loop com foreach: nome do item em cada volta (padrão "item") */
+  as?: string;
+  /** end: desfecho do fluxo */
+  outcome?: "ok" | "erro";
+  /** rule, decision, switch: exemplos verificáveis · scenario: exemplos da fila inteira */
+  examples?: LogicExample[];
+  /** fact: nome usado nas expressões (letras, números, `_` e pontos): "preco_atual" */
+  key?: string;
+  /** fact: tipo em texto livre ("dinheiro", "texto", "lista") */
+  type?: string;
+  /** fact: valor fixo (constante) usado quando o exemplo não informa */
+  value?: LogicValue;
+}
+export type LogicField = Exclude<keyof LogicNodeSpec, "role">;
+
+export const LOGIC_ROLES: Record<LogicRole, { label: string; hint: string; color: string; badge: string; fields: LogicField[] }> = {
+  start: { label: "Start", hint: "Início do fluxo: o que entra e quando a lógica começa (um por diagrama).", color: "#3aa76d", badge: "START", fields: ["text"] },
+  end: { label: "End", hint: "Fim do fluxo: o que a lógica devolve. O desfecho pode ser ok ou erro; pode haver vários fins.", color: "#8a6fd0", badge: "END", fields: ["text", "outcome"] },
+  rule: { label: "Rule", hint: "Regra de negócio (ação): o que muda nos dados, com exemplos que provam. Sem condição própria, roda sempre que o fluxo chega nela.", color: "#706fd3", badge: "RULE", fields: ["order", "text", "when", "then", "examples"] },
+  decision: { label: "Decision", hint: "Decisão sim/não: avalia uma condição e segue por uma de duas setas, \"sim\" ou \"não\".", color: "#0e9aa7", badge: "IF", fields: ["text", "when", "examples"] },
+  switch: { label: "Switch", hint: "Escolha entre vários caminhos. Com `on`, pelo valor de uma expressão (uma seta por valor). Sem `on`, por condições, como faixas: vale a primeira seta cuja condição for verdadeira. Sempre com uma seta \"outros\" para o resto.", color: "#0e9aa7", badge: "CASE?", fields: ["text", "on", "examples"] },
+  loop: { label: "Loop", hint: "Repetição: volta por uma seta \"repete\" até a condição de parada valer (`until`), no máximo `max` vezes, ou para cada item de uma lista (`foreach`); sai pela seta \"segue\".", color: "#c2548b", badge: "LOOP", fields: ["text", "until", "max", "foreach", "as"] },
+  fork: { label: "Fork", hint: "Paralelo: o fluxo se divide e segue por todas as setas de saída ao mesmo tempo.", color: "#e0a526", badge: "FORK", fields: ["text"] },
+  join: { label: "Join", hint: "Junção: espera todos os caminhos paralelos chegarem antes de seguir.", color: "#e0a526", badge: "JOIN", fields: ["text"] },
+  call: { label: "Call", hint: "Chama outra lógica: outro diagrama do cofre (campo ref). A simulação não entra nele.", color: "#6c7a89", badge: "CALL", fields: ["text"] },
+  fact: { label: "Fact", hint: "Dado que o fluxo lê ou escreve (preço atual, margem, tipo da categoria). O `key` é o nome usado nas expressões.", color: "#7fb3d5", badge: "DATA", fields: ["key", "type", "text", "value"] },
+  scenario: { label: "Scenario", hint: "Caso completo: roda o fluxo inteiro com os dados do exemplo e confere o resultado final.", color: "#4caf7d", badge: "CASE", fields: ["text", "examples"] },
+};
+export const LOGIC_ROLE_KEYS = Object.keys(LOGIC_ROLES) as LogicRole[];
+
+/** Saídas de decisão, escolha e laço. */
+export type LogicBranch = "sim" | "nao" | "repete" | "segue" | "outros";
+export const LOGIC_BRANCHES: Record<LogicBranch, { label: string; hint: string; from: LogicRole[] }> = {
+  sim: { label: "sim", hint: "Seta da decisão quando a condição vale.", from: ["decision"] },
+  nao: { label: "não", hint: "Seta da decisão quando a condição não vale.", from: ["decision"] },
+  repete: { label: "repete", hint: "Seta do laço que volta ao início do corpo da repetição.", from: ["loop"] },
+  segue: { label: "segue", hint: "Seta do laço quando termina e o fluxo continua.", from: ["loop"] },
+  outros: { label: "outros", hint: "Seta da escolha para qualquer valor que nenhum caso cobre.", from: ["switch"] },
+};
+export const LOGIC_BRANCH_KEYS = Object.keys(LOGIC_BRANCHES) as LogicBranch[];
+
+/** Semântica de uma seta do fluxo: por qual saída ela sai. */
+export interface LogicConnSpec {
+  branch?: LogicBranch;
+  /** switch: valor deste caso (expressão literal: "lucro", 3, verdadeiro) */
+  case?: string;
+}
 
 export type Subdomain = "core" | "supporting" | "generic";
 export const SUBDOMAINS: Record<Subdomain, string> = {
@@ -468,6 +554,8 @@ export interface Asset {
   endpoint?: EndpointSpec;
   /** valores padrão quando o asset é um papel de domínio (DDD); só entra em diagramas de modo domain */
   ddd?: DddNodeSpec;
+  /** valores padrão quando o asset é um papel de lógica; só entra em diagramas de modo logic */
+  logic?: LogicNodeSpec;
   icon: string;
   color: string;
   /** Qual problema a tecnologia resolve */
@@ -519,6 +607,8 @@ export interface NodeEl extends Base, Box {
   props?: Record<string, string>;
   /** modelo de domínio (kind "domain"): papel DDD e campos do papel */
   ddd?: DddNodeSpec;
+  /** lógica de negócio (kind "logic"): papel e campos do papel */
+  logic?: LogicNodeSpec;
 }
 
 export interface GroupEl extends Base, Box {
@@ -529,6 +619,8 @@ export interface GroupEl extends Base, Box {
   auto?: boolean;
   /** só em grupos kind "context": classificação estratégica do subdomínio */
   subdomain?: Subdomain;
+  /** legenda curta no topo do grupo, no lugar do tipo (ex.: DADOS) */
+  tag?: string;
 }
 
 export type NoteVariant = "note" | "text" | "list";
@@ -588,6 +680,8 @@ export interface ConnectionEl {
   animated?: boolean;
   /** semântica de domínio (modo domain): relação DDD e, entre contextos, o padrão do Context Map */
   ddd?: DddConnSpec;
+  /** semântica de fluxo (modo logic): por qual saída da decisão, escolha ou laço a seta sai */
+  logic?: LogicConnSpec;
 }
 
 export interface Doc {
@@ -618,7 +712,7 @@ export function emptyDoc(title = "Novo diagrama", mode: DocMode = "architecture"
     id: "diagram-" + Math.random().toString(36).slice(2, 8),
     title,
     description: "",
-    ...(mode === "domain" ? { mode } : {}),
+    ...(mode === "domain" || mode === "logic" ? { mode } : {}),
     groups: [],
     nodes: [],
     notes: [],

@@ -435,30 +435,39 @@ export function SubdomainField({ group, patch }: { group: GroupEl; patch: Patch 
 
 /* ───────── switch de modo na barra superior ───────── */
 
-/** Troca o modo do diagrama. Nada é apagado; desfazer (Ctrl+Z) volta ao modo anterior. */
+/**
+ * Escolhe o tipo de diagrama no switch. NÃO converte o arquivo aberto: o explorador passa a mostrar só os diagramas do tipo
+ * escolhido e abre a criação de um diagrama novo desse tipo. Voltar ao tipo do arquivo aberto só limpa o filtro.
+ */
 export function switchMode(mode: DocMode) {
-  const doc = getState().doc;
-  if (docMode(doc) === mode) return;
-  run([{ op: "set_meta", mode }]);
-  toast(mode === "domain" ? "Modo Domain (DDD): paleta, regras e layout de domínio" : doc.nodes.some((n) => n.ddd) ? "Modo Architecture: os elementos de domínio ficam no arquivo, sem validação. Ctrl+Z desfaz" : "Modo Architecture");
+  const s = getState();
+  if (docMode(s.doc) === mode) return set({ modeFilter: null, newDiagramFor: null });
+  set({ modeFilter: mode, panel: "files", newDiagramFor: mode });
 }
 
 /** Switch Arch | Domain; no modo Domain, atalho para a validação (com a contagem de erros/avisos). */
 export function ModeSwitch() {
   const doc = useStore((s) => s.doc);
+  const file = useStore((s) => s.file);
+  const filter = useStore((s) => s.modeFilter);
   const mode = docMode(doc);
-  const issues = mode === "domain" ? validateDetailed(doc) : [];
+  const shown = filter ?? mode;
+  // abrir outro diagrama devolve o switch ao tipo dele
+  useEffect(() => set({ modeFilter: null }), [file]);
+  const issues = mode !== "architecture" ? validateDetailed(doc) : [];
   const errors = issues.filter((i) => i.severity === "erro").length;
   const warns = issues.filter((i) => i.severity === "aviso").length;
   const MODES: [DocMode, string, string][] = [
     ["architecture", "Arch", "Arquitetura: serviços, bancos, filas, nuvem e rede"],
     ["domain", "Domain", "Domínio (DDD): contextos, aggregates, commands, eventos e casos de uso"],
+    ["logic", "Logic", "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos"],
   ];
   return (
     <>
       <div className="mode-switch" role="radiogroup" aria-label="Modo do diagrama">
         {MODES.map(([m, label, tip]) => (
-          <button key={m} role="radio" aria-checked={mode === m} className={`${mode === m ? "active" : ""} ${m}`} onClick={() => switchMode(m)} data-tip={tip} data-tip-pos="bottom">
+          <button key={m} role="radio" aria-checked={shown === m} className={`${shown === m ? "active" : ""} ${m}`} onClick={() => switchMode(m)} data-tip={tip} data-tip-pos="bottom">
+            <Glyph name={`mode-${m}`} size={12} style={{ marginRight: 5, verticalAlign: "-2px" }} />
             {label}
           </button>
         ))}
@@ -467,12 +476,13 @@ export function ModeSwitch() {
       {(
         <button
           className="mode-issues"
-          style={mode === "domain" ? undefined : { visibility: "hidden" }}
-          disabled={mode !== "domain"}
-          tabIndex={mode === "domain" ? 0 : -1}
-          aria-hidden={mode !== "domain"}
-          onClick={() => set({ modal: { type: "domain", tab: "issues" } })}
-          data-tip={`Validação, visão geral do cofre e código
+          style={mode !== "architecture" ? undefined : { visibility: "hidden" }}
+          disabled={mode === "architecture"}
+          tabIndex={mode !== "architecture" ? 0 : -1}
+          aria-hidden={mode === "architecture"}
+          onClick={() => set({ modal: mode === "logic" ? { type: "logic", tab: "issues" } : { type: "domain", tab: "issues" } })}
+          data-tip={mode === "logic" ? `Validação das regras (roda os exemplos) e texto para IA
+${errors} erro(s), ${warns} aviso(s)` : `Validação, visão geral do cofre e código
 ${errors} erro(s), ${warns} aviso(s)`}
           data-tip-pos="bottom"
           aria-label={`Validação do domínio: ${errors} erros, ${warns} avisos`}
@@ -502,5 +512,5 @@ ${errors} erro(s), ${warns} aviso(s)`}
 export const severityOrder = { erro: 0, aviso: 1, dica: 2 } as const;
 export const useDomainIssues = () => {
   const doc = useStore((s) => s.doc);
-  return docMode(doc) === "domain" ? validateDetailed(doc).sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]) : [];
+  return docMode(doc) !== "architecture" ? validateDetailed(doc).sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]) : [];
 };

@@ -226,7 +226,7 @@ function Hero() {
           ))}
         </h1>
         <p className="lp-lead lp-fade" style={style({ animationDelay: "900ms" })}>
-          O Archflow transforma diagramas em um modelo que humanos e LLMs entendem: componentes, grupos e conexões tipadas, do servidor ao modelo de negócio com DDD — e um servidor MCP para que agentes desenhem ao seu lado, em tempo real.
+          O Archflow transforma diagramas em um modelo que humanos e LLMs entendem: componentes, grupos e conexões tipadas, do servidor ao modelo de negócio com DDD e às regras executáveis com exemplos — e um servidor MCP para que agentes desenhem ao seu lado, em tempo real.
         </p>
         <div className="lp-cta lp-fade" style={style({ animationDelay: "1100ms" })}>
           <a className="btn primary lg shine" href="/app">
@@ -513,7 +513,7 @@ function Tools() {
         </h2>
       </Reveal>
       <Reveal delay={100}>
-        <p className="lp-sub">Do modo Domain ao código gerado: veja o que cada recurso novo faz no quadro — o mesmo que você e o seu agente têm na mão.</p>
+        <p className="lp-sub">Dos modos Domain e Logic ao código gerado: veja o que cada recurso novo faz no quadro — o mesmo que você e o seu agente têm na mão.</p>
       </Reveal>
       <Reveal delay={120}>
         <MotionGallery />
@@ -598,6 +598,7 @@ const FEATURES: { icon: string; title: string; text: string }[] = [
   { icon: "sparkle", title: "Visão LLM", text: "Veja o diagrama como um modelo o enxerga: Markdown, Mermaid e JSON — pronto para colar no chat." },
   { icon: "moon", title: "Claro, escuro e vidro", text: "Interface glassmorphism limpa, com tema claro, escuro ou automático e atalhos para tudo." },
   { icon: "layers", title: "Modo Domain (DDD)", text: "Aggregates, commands, eventos, policies, sagas e Context Map. Alterne entre Arch e Domain com um clique, sem perder nada." },
+  { icon: "mode-logic", title: "Modo Logic (regras)", text: "Regras de negócio como fluxo executável: decisões, laços, dados e exemplos que o app roda e confere. Negócio lê a frase em português; dev e IA usam a expressão exata." },
   { icon: "check", title: "Validação e código", text: "Regras D001–D032 apontam o que falta no modelo; depois gere o esqueleto TypeScript, que compila em modo estrito." },
   { icon: "present", title: "Passo a passo e propriedades", text: "Apresente cada caso de uso como uma história e descreva os campos de cada elemento — colando JSON, se quiser." },
 ];
@@ -660,6 +661,8 @@ const COMPARE_ROWS: { feat: string; ex: Mark; exNote: string; af: Mark; afNote: 
   { feat: "Endpoints como componentes (GET/POST, WebSocket, GraphQL, gRPC)", ex: "no", exNote: "texto dentro de caixas", af: "yes", afNote: "selos por método, presos ao serviço" },
   { feat: "Referência entre diagramas, com visualização em modal", ex: "part", exNote: "links por URL, sem pré-visualização", af: "yes", afNote: "modal navegável, backlinks, links que se atualizam" },
   { feat: "Modelagem DDD (aggregates, eventos, Context Map) com validação", ex: "no", exNote: "só formas e texto", af: "yes", afNote: "13 papéis, 7 relações, regras D001–D032" },
+  { feat: "Regras de negócio executáveis, com exemplos que o app roda", ex: "no", exNote: "caixas e texto, sem execução", af: "yes", afNote: "modo Logic: fluxo, expressões e L001–L024" },
+  { feat: "Reprodução passo a passo de um cenário (valor a cada regra)", ex: "no", exNote: "", af: "yes", afNote: "play/pausa e velocidade no quadro" },
   { feat: "Linha do tempo de Event Storming automática", ex: "no", exNote: "post-its posicionados à mão", af: "yes", afNote: "raias por papel, colunas por tempo" },
   { feat: "Narrativa passo a passo do modelo na apresentação", ex: "no", exNote: "", af: "yes", afNote: "o que é, por que está aqui, regras" },
   { feat: "Código TypeScript gerado a partir do modelo", ex: "no", exNote: "", af: "yes", afNote: "aggregates, eventos, handlers, sagas" },
@@ -778,6 +781,19 @@ const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: s
     keys: ["B", "L"],
     ex: "Aggregates e eventos viram retângulos; nada impede um command de apontar para um evento nem avisa que falta um produtor.",
     af: "Cada elemento tem papel, campos e relações válidas. O modelo é validado, rastreado (caso de uso → command → evento) e vira código.",
+  },
+  {
+    id: "logic", icon: "mode-logic", title: "Modo Logic",
+    steps: [
+      "Clique no selo ao lado do título e escolha Logic (ou crie um diagrama Logic pelo explorador). Nada é apagado e Ctrl+Z desfaz.",
+      "Monte o fluxo: Start, regras (RULE), decisões sim/não (IF), escolhas (CASE?), laços (LOOP), paralelos (FORK/JOIN) e End. Os dados entram como DATA e são lidos pelo nome nas expressões.",
+      "Escreva as condições e os efeitos em expressões curtas em português (preco := max(preco, piso), travar preco). O app mostra a explicação em português ao lado.",
+      "Dê exemplos a cada regra e cenários ao fluxo inteiro: o app executa tudo e marca ✔ ou ✘. Mude um número esperado e o erro (L004) aparece na regra e na validação.",
+      "Reproduza um cenário (▶) para ver o valor mudar passo a passo. Sem saber por onde começar? O ✨ do explorador instala o exemplo de precificação, com 11 regras.",
+    ],
+    keys: ["L"],
+    ex: "Regra de negócio vira texto numa caixa ou código espalhado; ninguém consegue conferir se ela está certa com números reais.",
+    af: "A regra é dado estruturado e executável: exemplos viram teste, o fluxo é validado e a explicação em português nasce da própria expressão.",
   },
   {
     id: "story", icon: "present", title: "Passo a passo",

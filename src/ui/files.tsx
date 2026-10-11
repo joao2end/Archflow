@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { DocMode } from "../shared/schema";
+import { docMode, type DocMode } from "../shared/schema";
 import { Glyph } from "./icons";
 import { exportJson, importJson } from "./export";
 import {
@@ -26,6 +26,25 @@ function Sheet({ title, onClose, children, foot, wide }: { title: string; onClos
   );
 }
 const closeModal = () => set({ modal: null });
+
+/** Ícone e cor de cada tipo de diagrama (modo). */
+export const MODE_ICON: Record<DocMode, { glyph: string; color: string; label: string }> = {
+  architecture: { glyph: "mode-architecture", color: "#706fd3", label: "Arquitetura" },
+  domain: { glyph: "mode-domain", color: "#b7791f", label: "Domínio (DDD)" },
+  logic: { glyph: "mode-logic", color: "#0e8f9a", label: "Lógica" },
+};
+const fileMode = (f: { mode?: DocMode }): DocMode => f.mode ?? "architecture";
+const FileIcon = ({ mode, size = 16 }: { mode: DocMode; size?: number }) => <Glyph name={MODE_ICON[mode].glyph} size={size} className="tree-ico" style={{ color: MODE_ICON[mode].color }} />;
+
+/** Só os diagramas do modo escolhido; pastas que ficariam sem nenhum diagrama somem (pastas vazias de verdade continuam). */
+function pruneTree(n: FolderNode, mode: DocMode): FolderNode {
+  const children = n.children.flatMap((c): (FileNode | FolderNode)[] => {
+    if (c.type === "file") return fileMode(c) === mode ? [c] : [];
+    const p = pruneTree(c, mode);
+    return p.children.length || !c.children.some((x) => x.type === "file" || x.children.length) ? [p] : [];
+  });
+  return { ...n, children };
+}
 
 const rtf = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
 function ago(ms: number) {
@@ -87,11 +106,21 @@ export function FilesPanel() {
     };
   }, [menu]);
 
+  const mode = useStore((s) => s.modeFilter ?? docMode(s.doc));
+  const request = useStore((s) => s.newDiagramFor);
+  const filterMode = mode;
   const matches = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t || !ws) return [];
-    return ws.files.filter((f) => `${f.title} ${f.path}`.toLowerCase().includes(t));
-  }, [q, ws]);
+    return ws.files.filter((f) => fileMode(f) === mode && `${f.title} ${f.path}`.toLowerCase().includes(t));
+  }, [q, ws, mode]);
+  const tree = useMemo(() => (ws ? pruneTree(ws.tree, mode) : null), [ws, mode]);
+  // o switch de modo pede a criação de um diagrama novo do tipo escolhido (nunca converte o aberto)
+  useEffect(() => {
+    if (!request || !ws) return;
+    setEdit({ kind: "new-file", path: "", mode: request });
+    set({ newDiagramFor: null });
+  }, [request, ws]);
 
   if (!online || !ws) {
     return (
@@ -123,7 +152,7 @@ export function FilesPanel() {
 
   const startNew = (kind: "new-file" | "new-folder", folder: string, mode?: DocMode) => {
     if (folder) toggleFolder(folder, true);
-    setEdit({ kind, path: folder, mode });
+    setEdit({ kind, path: folder, mode: mode ?? (kind === "new-file" ? filterMode : undefined) }); // sem tipo explícito, o novo diagrama é do tipo mostrado
   };
 
   const commitEdit = (value: string) => {
@@ -188,7 +217,7 @@ export function FilesPanel() {
           if (e.key === "F2") setEdit({ kind: "rename-file", path: f.path });
         }}
       >
-        <Glyph name="file" size={16} className="tree-ico" />
+        <FileIcon mode={fileMode(f)} />
         {renaming ? inlineInput(f.title, "Título") : <span className="tree-name">{f.title}</span>}
         {!renaming && (
           <button className="tree-more" aria-label="Mais ações" onClick={(e) => openMenu(e, { kind: "file", path: f.path, title: f.title })}>
@@ -244,15 +273,16 @@ export function FilesPanel() {
     <>
       {edit && (edit.kind === "new-file" || edit.kind === "new-folder") && edit.path === n.path && (
         <div key="new-row" className="tree-row" style={{ paddingLeft: 10 + depth * 16 }}>
-          <Glyph name={edit.kind === "new-file" ? "file" : "folder"} size={16} className="tree-ico" />
-          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : "Título do diagrama") : "Nome da pasta")}
+          {edit.kind === "new-file" ? <FileIcon mode={edit.mode ?? mode} /> : <Glyph name="folder" size={16} className="tree-ico" />}
+          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : edit.mode === "logic" ? "Título do diagrama de lógica" : "Título do diagrama") : "Nome da pasta")}
         </div>
       )}
       {n.children.map((c) => (c.type === "folder" ? folderRow(c, depth) : fileRow(c, depth)))}
     </>
   );
 
-  const total = ws.files.length;
+  const total = ws.files.filter((f) => fileMode(f) === mode).length;
+  const hidden = ws.files.length - total;
 
   return (
     <aside className="hud glass library files-panel" aria-label="Arquivos do cofre">
@@ -268,6 +298,9 @@ export function FilesPanel() {
           </button>
           <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "domain")} aria-label="Novo diagrama de domínio" data-tip="Novo diagrama de domínio (DDD)" data-tip-pos="bottom">
             <Glyph name="layers" size={17} />
+          </button>
+          <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "logic")} aria-label="Novo diagrama de lógica" data-tip="Novo diagrama de lógica (regras)" data-tip-pos="bottom">
+            <Glyph name="mode-logic" size={17} />
           </button>
           <button className="btn ghost icon sm" onClick={() => set({ modal: { type: "examples" } })} aria-label="Exemplos de DDD" data-tip="Exemplos de DDD (modelos prontos)" data-tip-pos="bottom">
             <Glyph name="sparkle" size={17} />
@@ -306,8 +339,13 @@ export function FilesPanel() {
           )
         ) : (
           <>
-            {childrenOf(ws.tree, 0)}
-            {!total && !edit && <div className="empty">Cofre vazio. Crie seu primeiro diagrama com o botão acima.</div>}
+            {childrenOf(tree!, 0)}
+            {!total && !edit && <div className="empty">{ws.files.length ? `Nenhum diagrama de ${MODE_ICON[mode].label} neste cofre. Crie um com o botão acima.` : "Cofre vazio. Crie seu primeiro diagrama com o botão acima."}</div>}
+            {hidden > 0 && (
+              <div className="empty" style={{ fontSize: 11.5 }}>
+                Mostrando só {MODE_ICON[mode].label}: {hidden} diagrama(s) de outros modos ocultos. Troque o modo no switch para vê-los.
+              </div>
+            )}
           </>
         )}
       </div>
@@ -319,7 +357,7 @@ export function FilesPanel() {
             .filter((f) => f.refs?.includes(ws.current))
             .map((f) => (
               <button key={f.path} onClick={() => void openDiagram(f.path)}>
-                <Glyph name="layers" size={14} /> {f.title}
+                <Glyph name={MODE_ICON[fileMode(f)].glyph} size={14} style={{ color: MODE_ICON[fileMode(f)].color }} /> {f.title}
               </button>
             ))}
         </div>
@@ -392,6 +430,9 @@ export function FilesPanel() {
               </button>
               <button onClick={() => (startNew("new-file", menu.path, "domain"), setMenu(null))}>
                 <Glyph name="layers" size={16} /> Novo diagrama de domínio {menu.kind === "folder" ? "aqui" : ""}
+              </button>
+              <button onClick={() => (startNew("new-file", menu.path, "logic"), setMenu(null))}>
+                <Glyph name="mode-logic" size={16} /> Novo diagrama de lógica {menu.kind === "folder" ? "aqui" : ""}
               </button>
               <button onClick={() => (startNew("new-folder", menu.path), setMenu(null))}>
                 <Glyph name="folder-plus" size={16} /> Nova pasta {menu.kind === "folder" ? "aqui" : ""}
@@ -639,7 +680,7 @@ export function QuickSwitcher() {
         <div className="quick-list" ref={listRef} role="listbox">
           {results.map((f, idx) => (
             <button key={f.path} data-i={idx} role="option" aria-selected={idx === i} className={`quick-row ${idx === i ? "sel" : ""}`} onMouseMove={() => setI(idx)} onClick={() => pick(idx)}>
-              <Glyph name="file" size={17} className="tree-ico" />
+              <FileIcon mode={fileMode(f)} size={17} />
               <span className="quick-title">{f.title}</span>
               <span className="quick-path">{f.path}</span>
               {f.path === ws?.current && <span className="pill">aberto</span>}

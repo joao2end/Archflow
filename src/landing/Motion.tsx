@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { BUILTIN_ASSETS } from "../shared/catalog";
-import { DDD_BADGES, DDD_ROLES, type DddRole } from "../shared/schema";
+import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, type DddRole, type LogicRole } from "../shared/schema";
 import { Glyph, IconSvg } from "../ui/icons";
 import "./motion.css";
 
@@ -739,6 +739,79 @@ function CodeMotion() {
   );
 }
 
+/* ───────── 9 · Modo Logic: regra executável com exemplo ───────── */
+
+const LSTEPS: { role: LogicRole; label: string; sub: string; preco: string }[] = [
+  { role: "start", label: "Calcular preço", sub: "preço atual 9,50", preco: "9,50" },
+  { role: "decision", label: "Abaixo do piso?", sub: "preço < piso", preco: "9,50" },
+  { role: "rule", label: "Subir ao piso", sub: "preco := piso", preco: "10,67" },
+  { role: "end", label: "Preço final", sub: "desfecho ok", preco: "10,67" },
+];
+
+function LogicMotion() {
+  const [ref, t] = useClock(9000, 0.92);
+  const k = Math.min(LSTEPS.length - 1, Math.floor(seg(t, 0.08, 0.8) * LSTEPS.length));
+  const done = t > 0.82;
+  const w = 86;
+  const h = 62;
+  const gap = 16;
+  const x0 = (VW - (LSTEPS.length * w + (LSTEPS.length - 1) * gap)) / 2;
+  const y = 40;
+  return (
+    <Frame
+      stageRef={ref}
+      icon="mode-logic"
+      tag="Modo Logic"
+      title="Regras de negócio que o app executa e confere"
+      text="Decisões, laços e regras em ordem, com expressões curtas em português. Cada exemplo roda de verdade: o valor muda passo a passo e o ✔ só aparece se o resultado esperado bate."
+      cap={done ? "✔ exemplo: 9,50 → 10,67 confere" : `passo ${k + 1} de ${LSTEPS.length} · preço ${LSTEPS[k].preco}`}
+      ok={done}
+    >
+      <svg viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label="Um fluxo com início, decisão, regra e fim calcula o preço passo a passo e confere o exemplo">
+        {LSTEPS.slice(1).map((_, i) => (
+          <Poly key={i} pts={[[x0 + i * (w + gap) + w, y + h / 2], [x0 + (i + 1) * (w + gap), y + h / 2]]} color="var(--c-dep)" p={ease(seg(k - i, 0, 1))} />
+        ))}
+        {LSTEPS.map((st, i) => {
+          const c = LOGIC_ROLES[st.role].color;
+          const bw = LOGIC_ROLES[st.role].badge.length * 5.6 + 10;
+          const on = i === k ? 1 : 0;
+          return (
+            <g key={i} transform={`translate(${x0 + i * (w + gap)} ${y})`} opacity={i <= k ? 1 : 0.35}>
+              {on > 0 && <rect x={-4} y={-4} width={w + 8} height={h + 8} rx={13} fill="none" stroke={c} strokeWidth={2} opacity={0.55} />}
+              <rect width={w} height={h} rx={9} style={{ fill: `color-mix(in srgb, ${c} 22%, var(--s-solid))`, stroke: c }} strokeWidth={1.4} />
+              <rect x={6} y={6} width={bw} height={12} rx={6} fill={c} />
+              <text x={6 + bw / 2} y={15} textAnchor="middle" className="mo-badge">
+                {LOGIC_ROLES[st.role].badge}
+              </text>
+              <text x={7} y={37} className="mo-t" style={{ fontSize: 9.6, fontWeight: 650 }}>
+                {st.label}
+              </text>
+              <text x={7} y={52} className="mo-t2" style={{ fontSize: 8.4 }}>
+                {st.sub}
+              </text>
+            </g>
+          );
+        })}
+        <g transform="translate(60 138)">
+          <rect width={280} height={34} rx={17} className="mo-pill" />
+          <text x={16} y={21.5} className="mo-t2" style={{ fontSize: 11 }}>
+            preco
+          </text>
+          <text x={140} y={22} textAnchor="middle" className="mo-t" style={{ fontSize: 15, fontWeight: 700 }}>
+            R$ {LSTEPS[k].preco}
+          </text>
+          <text x={264} y={21.5} textAnchor="end" className="mo-t" style={{ fontSize: 11, fontWeight: 700, fill: done ? "var(--ok)" : "var(--ink-3)" }}>
+            {done ? "✔ confere" : "executando…"}
+          </text>
+        </g>
+        <text x={200} y={200} textAnchor="middle" className="mo-t2" style={{ fontSize: 10 }}>
+          dado: custo 8,00 · margem mínima 25% → piso 10,67
+        </text>
+      </svg>
+    </Frame>
+  );
+}
+
 /* ───────── MCP: 24 ferramentas ───────── */
 
 const TOOLS: { n: string; g: 0 | 1 | 2 | 3; d: string }[] = [
@@ -748,21 +821,21 @@ const TOOLS: { n: string; g: 0 | 1 | 2 | 3; d: string }[] = [
   { n: "get_diagram", g: 0, d: "lê o diagrama como texto, Mermaid e avisos" },
   { n: "get_diagram_outline", g: 0, d: "resumo para diagramas grandes" },
   { n: "list_diagrams", g: 0, d: "lista os diagramas do cofre" },
-  { n: "new_diagram", g: 2, d: "cria um diagrama de arquitetura ou de domínio" },
+  { n: "new_diagram", g: 2, d: "cria um diagrama de arquitetura, domínio ou lógica" },
   { n: "open_diagram", g: 2, d: "abre um diagrama do cofre no quadro" },
-  { n: "set_diagram_info", g: 2, d: "título, descrição e modo (Arch ou Domain)" },
+  { n: "set_diagram_info", g: 2, d: "título, descrição e modo (Arch, Domain ou Logic)" },
   { n: "add_groups", g: 1, d: "nuvem, rede, camadas e bounded contexts" },
-  { n: "add_components", g: 1, d: "serviços, bancos e papéis DDD com propriedades" },
+  { n: "add_components", g: 1, d: "serviços, bancos, papéis DDD e passos de lógica" },
   { n: "add_endpoints", g: 1, d: "GET, POST, WebSocket e gRPC presos ao serviço" },
   { n: "add_use_cases", g: 1, d: "casos de uso e atores, sem duplicar" },
   { n: "add_note", g: 1, d: "anotações no quadro" },
   { n: "add_asset", g: 1, d: "tecnologia própria no catálogo" },
-  { n: "connect", g: 1, d: "conexões tipadas e relações DDD" },
+  { n: "connect", g: 1, d: "conexões tipadas, relações DDD e saídas sim/não/repete" },
   { n: "update_element", g: 1, d: "ajusta qualquer elemento" },
   { n: "remove_elements", g: 1, d: "remove elementos e conexões" },
-  { n: "auto_layout", g: 2, d: "fluxo em camadas ou linha do tempo" },
+  { n: "auto_layout", g: 2, d: "fluxo em camadas, linha do tempo ou pipeline de regras" },
   { n: "clear_diagram", g: 2, d: "limpa o quadro — só sob pedido" },
-  { n: "validate_diagram", g: 3, d: "regras de arquitetura e D001–D032" },
+  { n: "validate_diagram", g: 3, d: "regras de arquitetura, D001–D032 e L001–L024 (roda os exemplos)" },
   { n: "trace", g: 3, d: "caso de uso → command → aggregate → evento" },
   { n: "domain_overview", g: 3, d: "visão consolidada dos contextos do cofre" },
   { n: "generate_code", g: 3, d: "esqueleto TypeScript do domínio" },
@@ -818,6 +891,7 @@ export function MotionGallery() {
       <PropsMotion />
       <StoryMotion />
       <CodeMotion />
+      <LogicMotion />
     </div>
   );
 }

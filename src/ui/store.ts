@@ -2,15 +2,28 @@ import { useSyncExternalStore } from "react";
 import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, examplePath, type DddExample } from "../shared/examples";
+import { runFlow, runPipeline, hasFlow, type Run } from "../shared/logic";
 import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode } from "../shared/schema";
 
 export type Theme = "system" | "light" | "dark";
+
+/** Reprodução de um exemplo de cenário: `k` é o passo atual do percurso (índice em `run.steps` com id). */
+export interface Play {
+  scenario: string;
+  example: number;
+  run: Run;
+  k: number;
+  playing: boolean;
+  /** valores antes do passo atual ficam no próprio run; `given` mostra a entrada */
+  given: Record<string, unknown>;
+}
 export type Tool = "select" | "hand" | "group" | "note" | "connect" | "pen" | "highlight" | "eraser" | "text" | "list";
 export type Modal =
   | { type: "asset"; id?: string }
   | { type: "interface"; id: string }
   | { type: "llm" }
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
+  | { type: "logic"; tab?: "issues" | "text" }
   | { type: "examples" }
   | { type: "ddd-guide" }
   | { type: "mcp" }
@@ -32,6 +45,8 @@ export interface FileNode {
   nodes: number;
   connections: number;
   refs: string[];
+  /** modo do diagrama (ausente = architecture) */
+  mode?: DocMode;
 }
 export interface FolderNode {
   type: "folder";
@@ -87,6 +102,14 @@ export interface State {
   view: View;
   connType: ConnectionType;
   panel: "assets" | "files" | "bg" | null;
+  /** modo escolhido no switch para filtrar o explorador; null = o do diagrama aberto. Nunca converte o arquivo. */
+  modeFilter: DocMode | null;
+  /** pedido para o explorador abrir a criação de um diagrama novo deste modo */
+  newDiagramFor: DocMode | null;
+  /** modo Logic: reprodução de um cenário (o caminho percorrido no fluxo, passo a passo) */
+  play: Play | null;
+  /** velocidade da reprodução de cenários (1 = um passo a cada 0,85 s); lembrada entre sessões */
+  playSpeed: number;
   expanded: Record<string, boolean>;
   modal: Modal;
   theme: Theme;
@@ -122,6 +145,10 @@ export interface State {
 const LS_DOC = "archflow.doc.v1";
 const LS_LIB = "archflow.library.v1";
 const LS_PREFS = "archflow.prefs.v1";
+const LS_PLAY_SPEED = "archflow.play-speed.v1";
+/** Velocidades oferecidas na reprodução (múltiplos de 1x). */
+export const PLAY_SPEEDS = [0.25, 0.5, 1, 1.5, 2, 4];
+export const PLAY_STEP_MS = 850;
 const LS_TREE = "archflow.tree.v1";
 const LS_WELCOME = "archflow.welcome.v1";
 
@@ -184,6 +211,10 @@ function init(): State {
     view: { x: 120, y: 120, z: 1 },
     connType: "sync",
     panel: null,
+    modeFilter: null,
+    newDiagramFor: null,
+    play: null,
+    playSpeed: PLAY_SPEEDS.includes(read<number>(LS_PLAY_SPEED) ?? 0) ? read<number>(LS_PLAY_SPEED)! : 1,
     expanded: read<Record<string, boolean>>(LS_TREE) ?? {},
     modal: null,
     theme: prefs.theme ?? "system",
@@ -643,3 +674,70 @@ export const importLocalVault = (file: File) =>
     toast("Cofre importado");
     return true;
   });
+
+/* ───────── modo Logic: reproduzir um cenário (o caminho percorrido no fluxo) ───────── */
+
+let playTimer: ReturnType<typeof setInterval> | undefined;
+const stopTimer = () => {
+  if (playTimer) clearInterval(playTimer);
+  playTimer = undefined;
+};
+/** Quantos passos o percurso tem (só os que têm id). */
+export const playLength = (p: Play) => p.run.steps.filter((s) => s.rule).length;
+
+/** Roda o exemplo `idx` do cenário e começa a reproduzir o caminho a partir do primeiro passo. */
+export function startPlay(scenarioId: string, idx = 0, autoplay = true) {
+  const doc = state.doc;
+  const n = doc.nodes.find((x) => x.id === scenarioId);
+  const ex = n?.logic?.examples?.[idx];
+  if (!n || !ex) return toast("Este cenário ainda não tem exemplo para reproduzir");
+  stopTimer();
+  const run = hasFlow(doc) ? runFlow(doc, ex.given) : runPipeline(doc, ex.given);
+  set({ play: { scenario: scenarioId, example: idx, run, k: 0, playing: false, given: ex.given }, sel: [scenarioId] });
+  if (autoplay) playToggle();
+}
+
+export function playGo(k: number) {
+  const p = state.play;
+  if (!p) return;
+  const last = playLength(p) - 1;
+  const next = Math.max(0, Math.min(last, k));
+  set({ play: { ...p, k: next, playing: p.playing && next < last } });
+  if (next >= last) stopTimer();
+}
+
+export function playToggle() {
+  const p = state.play;
+  if (!p) return;
+  if (p.playing) {
+    stopTimer();
+    return set({ play: { ...p, playing: false } });
+  }
+  const last = playLength(p) - 1;
+  const from = p.k >= last ? 0 : p.k;
+  set({ play: { ...p, k: from, playing: true } });
+  startTimer();
+}
+
+/** (Re)liga o relógio da reprodução com a velocidade atual. */
+function startTimer() {
+  stopTimer();
+  playTimer = setInterval(() => {
+    const cur = state.play;
+    if (!cur || !cur.playing) return stopTimer();
+    playGo(cur.k + 1);
+  }, Math.round(PLAY_STEP_MS / state.playSpeed));
+}
+
+/** Muda a velocidade da reprodução; vale na hora, mesmo com o cenário tocando. */
+export function setPlaySpeed(v: number) {
+  if (!PLAY_SPEEDS.includes(v)) return;
+  set({ playSpeed: v });
+  write(LS_PLAY_SPEED, v);
+  if (state.play?.playing) startTimer();
+}
+
+export function stopPlay() {
+  stopTimer();
+  set({ play: null });
+}

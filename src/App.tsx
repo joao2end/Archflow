@@ -8,6 +8,7 @@ import { EmptyHint } from "./ui/emptyhint";
 import { Minimap } from "./ui/minimap";
 import { DrawBar } from "./ui/drawbar";
 import { PresentMode } from "./ui/present";
+import { PlayPanel } from "./ui/logic";
 import { startSync, useStore } from "./ui/store";
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
           <Minimap />
           <EmptyHint />
           <DrawBar />
+          <PlayPanel />
         </>
       )}
       <Toast />

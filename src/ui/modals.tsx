@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ASSET_CATEGORIES } from "../shared/catalog";
-import { SPACING_GAP, describe, schemaGuide, toMermaid } from "../shared/ops";
+import { SPACING_GAP, describe, schemaGuide, toMermaid, validateDetailed } from "../shared/ops";
 import { filesToMarkdown, generateCode } from "../shared/codegen";
 import { domainOverview, issueText, type Issue } from "../shared/domain";
 import { NODE_KINDS, docMode, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind, type Routing } from "../shared/schema";
@@ -10,7 +10,7 @@ import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
 import { McpBody } from "./mcp";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
-import { useDomainIssues } from "./domain";
+import { severityOrder, useDomainIssues } from "./domain";
 import { EXAMPLES_DIR } from "../shared/examples";
 import { allKnownAssets, dddExamples, examplePath, fetchVaultDocs, getState, lookupAsset, installExample, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
 
@@ -462,6 +462,55 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
   );
 }
 
+/* ───────── lógica: validação (com os exemplos rodando) e descrição ───────── */
+
+function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
+  const doc = useStore((s) => s.doc);
+  const [tab, setTab] = useState<"issues" | "text">(initial ?? "issues");
+  const issues = useMemo(() => (docMode(doc) === "logic" ? validateDetailed(doc).sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]) : []), [doc]);
+  const text = tab === "text" ? describe(doc) : issues.map(issueText).join("\n");
+  const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
+  return (
+    <Modal
+      wide
+      title="Lógica (regras de negócio)"
+      onClose={close}
+      foot={
+        <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+          <Glyph name="copy" size={16} /> Copiar
+        </button>
+      }
+    >
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação das regras: cada exemplo é executado de verdade e comparado com o esperado. A aba Texto é o que uma IA lê (a fila com a explicação em português).</p>
+      <div className="tabs seg" role="tablist">
+        <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
+          Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
+        </button>
+        <button role="tab" aria-selected={tab === "text"} className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>
+          Texto (para IA)
+        </button>
+      </div>
+      {tab === "issues" &&
+        (issues.length ? (
+          <ul className="issue-list" aria-label="Avisos de validação">
+            {issues.map((i, k) => (
+              <li key={k}>
+                <button className={`issue ${i.severity}`} disabled={!i.target} onClick={() => i.target && (select([i.target]), close())} data-tip={i.target ? "Selecionar no quadro" : undefined} data-tip-pos="left">
+                  <span className="issue-rule">{i.rule}</span>
+                  <span className="issue-sev">{i.severity}</span>
+                  <span className="issue-msg">{i.message}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="callout">Nenhum problema: todas as regras têm exemplos e todos os exemplos batem.</div>
+        ))}
+      {tab === "text" && <pre className="code">{text}</pre>}
+    </Modal>
+  );
+}
+
 /* ───────── exemplos de DDD ───────── */
 
 function ExamplesModal() {
@@ -751,6 +800,8 @@ export function Modals() {
       return <LlmModal />;
     case "domain":
       return <DomainModal tab={m.tab} />;
+    case "logic":
+      return <LogicModal tab={m.tab} />;
     case "examples":
       return <ExamplesModal />;
     case "mcp":

@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { assetsForMode, searchAssets } from "../shared/catalog";
 import { ASSET_CATEGORIES } from "../shared/catalog";
-import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KINDS, INFRA_CONNECTION_TYPES, NODE_KINDS, docMode, type ConnectionType, type GroupKind, type NodeKind, type Routing } from "../shared/schema";
+import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KINDS, LOGIC_ROLES, INFRA_CONNECTION_TYPES, NODE_KINDS, docMode, type ConnectionType, type GroupKind, type NodeKind, type Routing } from "../shared/schema";
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
+import { LogicConnFields, LogicFields } from "./logic";
 import { exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
@@ -454,15 +455,14 @@ export function Library() {
   useStore((s) => s.library);
   const customDoc = useStore((s) => s.doc.customAssets);
   const mode = useStore((s) => docMode(s.doc));
-  const [showAll, setShowAll] = useState(false);
   // cada modo mostra a sua paleta: Domain só no modo domain, tecnologias só no modo architecture (a menos que se peça tudo)
-  const all = assetsForMode(allKnownAssets(), mode, showAll);
-  const list = useMemo(() => searchAssets(all, q, cat), [q, cat, all.length, customDoc, mode, showAll]);
+  const all = assetsForMode(allKnownAssets(), mode); // domain e logic só carregam o que é compatível com o modo
+  const list = useMemo(() => searchAssets(all, q, cat), [q, cat, all.length, customDoc, mode]);
   const cats = useMemo(() => {
     const present = ["Personalizados", ...ASSET_CATEGORIES].filter((c) => c === "Personalizados" || all.some((a) => a.category === c));
-    return mode === "domain" && !showAll ? [...present.filter((c) => c === "Domain"), ...present.filter((c) => c !== "Domain")] : present;
-  }, [all.length, mode, showAll]);
-  useEffect(() => setCat(undefined), [mode, showAll]);
+    return mode === "domain" ? [...present.filter((c) => c === "Domain"), ...present.filter((c) => c !== "Domain")] : present;
+  }, [all.length, mode]);
+  useEffect(() => setCat(undefined), [mode]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, typeof list>();
@@ -502,12 +502,6 @@ export function Library() {
         </label>
       </div>
       <CategoryCarousel cats={cats} value={cat} onChange={setCat} />
-      {mode === "domain" && (
-        <label className="field check-field lib-all">
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-          <span>Mostrar também as tecnologias</span>
-        </label>
-      )}
       <div className="lib-list">
         {grouped.map(([c, items]) => (
           <section key={c}>
@@ -661,15 +655,17 @@ export function Inspector() {
   if (node) {
     const asset = lookupAsset(node.asset);
     const groups = doc.groups;
-    const isDomain = node.kind === "domain" && !!node.ddd;
+    const isLogic = node.kind === "logic" && !!node.logic;
+    const isDomain = (node.kind === "domain" && !!node.ddd) || isLogic;
     const role = node.ddd ? DDD_ROLES[node.ddd.role] : undefined;
-    const badgeAsset = isDomain && role ? { icon: `t:${DDD_BADGES[node.ddd!.role]}`, color: role.color, name: role.label } : asset;
+    const lrole = node.logic ? LOGIC_ROLES[node.logic.role] : undefined;
+    const badgeAsset = isLogic && lrole ? { icon: `t:${lrole.badge}`, color: lrole.color, name: lrole.label } : isDomain && role ? { icon: `t:${DDD_BADGES[node.ddd!.role]}`, color: role.color, name: role.label } : asset;
     return (
       <aside className="hud glass inspector" aria-label="Propriedades do componente">
         <div className="insp-head">
           {badgeAsset ? <AssetBadge asset={badgeAsset} size={46} /> : <AssetBadge asset={{ icon: `t:${node.label.slice(0, 2).toUpperCase()}`, color: "#706fd3", name: node.label }} size={46} />}
           <div>
-            <div className="kicker">{isDomain && role ? `Domain · ${role.label}` : NODE_KINDS[node.kind].split(" / ")[0]}</div>
+            <div className="kicker">{isLogic && lrole ? `Logic · ${lrole.label}` : isDomain && role ? `Domain · ${role.label}` : NODE_KINDS[node.kind].split(" / ")[0]}</div>
             <div className="ttl">{node.label}</div>
           </div>
         </div>
@@ -683,7 +679,8 @@ export function Inspector() {
           <span>Nome</span>
           <TextField id="insp-first" value={node.label} onCommit={(v) => patch({ label: v || node.label })} />
         </label>
-        {isDomain && <DomainFields node={node} patch={patch} />}
+        {isDomain && !isLogic && <DomainFields node={node} patch={patch} />}
+        {isLogic && <LogicFields node={node} patch={patch} />}
         {node.kind === "endpoint" ? (
           <EndpointFields node={node} patch={patch} />
         ) : isDomain ? null : (
@@ -707,7 +704,7 @@ export function Inspector() {
               onChange={(e) => patch({ kind: e.target.value as NodeKind })}
             >
               {Object.entries(NODE_KINDS)
-                .filter(([k]) => (k !== "endpoint" || node.kind === "endpoint") && (k !== "domain" || node.kind === "domain")) // endpoint exigiria protocolo e dono; domain exigiria um papel DDD: ambos nascem na biblioteca
+                .filter(([k]) => (k !== "endpoint" || node.kind === "endpoint") && (k !== "domain" || node.kind === "domain") && (k !== "logic" || node.kind === "logic")) // endpoint exigiria protocolo e dono; domain exigiria um papel DDD: ambos nascem na biblioteca
                 .map(([k, v]) => (
                   <option key={k} value={k}>
                     {v.split(" / ")[0].split(",")[0]}
@@ -729,7 +726,7 @@ export function Inspector() {
         </div>
         <FillControls el={node} patch={patch} />
         {(node.kind === "system" || node.ref) && <RefPicker node={node} patch={patch} />}
-        {node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && !node.ref && <EndpointsSection node={node} />}
+        {node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && node.kind !== "logic" && !node.ref && <EndpointsSection node={node} />}
         <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />
         <div className="callout" style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5 }}>
           id: {node.id}
@@ -754,7 +751,7 @@ export function Inspector() {
           </div>
         </div>
         {domainConn && conn.ddd && <div className="callout">O tipo <b>{t.label}</b> é definido pela relação <b>{conn.ddd.rel}</b>. Para escolher outro tipo UML, remova a relação.</div>}
-        <div className="type-grid" role="radiogroup" aria-label="Tipo" style={domainConn && conn.ddd ? { display: "none" } : undefined}>
+        <div className="type-grid" role="radiogroup" aria-label="Tipo" style={(domainConn && conn.ddd) || docMode(doc) === "logic" ? { display: "none" } : undefined}>
           {CONNECTION_TYPE_KEYS.filter((k) => !domainConn || !INFRA_CONNECTION_TYPES.includes(k)).map((k) => (
             <button key={k} role="radio" aria-checked={conn.type === k} className={`type-btn ${conn.type === k ? "active" : ""}`} style={{ ["--tc" as string]: CONNECTION_TYPES[k].color }} onClick={() => (patch({ type: k }), set({ connType: k }))} data-tip={CONNECTION_TYPES[k].semantics} data-tip-pos="left">
               <ConnSample type={k} />
@@ -764,6 +761,7 @@ export function Inspector() {
         </div>
         <div className="callout">{t.semantics}</div>
         {docMode(doc) === "domain" && <DddConnFields conn={conn} patch={patch} />}
+        {docMode(doc) === "logic" && <LogicConnFields conn={conn} patch={patch} />}
         <label className="field">
           <span>Rótulo</span>
           <TextField id="insp-first" value={conn.label ?? ""} placeholder="ex.: cria pedido" onCommit={(v) => patch({ label: v || undefined })} />

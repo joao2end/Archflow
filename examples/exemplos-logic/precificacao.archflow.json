@@ -1,0 +1,3567 @@
+{
+  "schema": "archflow/1",
+  "id": "engine-de-precificacao",
+  "title": "Engine de precificação",
+  "description": "Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze regras em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada regra e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Dados de entrada",
+      "kind": "layer",
+      "tag": "Dados",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 1172,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Dados",
+      "x": 3852,
+      "y": -10,
+      "w": 306,
+      "h": 244,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 3852,
+      "y": 224,
+      "w": 376,
+      "h": 621,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 3852,
+      "y": 839,
+      "w": 376,
+      "h": 383,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "grupo",
+      "label": "Produtos do grupo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "grupo",
+        "type": "lista",
+        "text": "Os produtos do grupo, da maior receita de 1 mês para a menor (empate: maior custo). O primeiro é a referência."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tipo-grupo",
+      "label": "Tipo do grupo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "tipo_grupo",
+        "type": "texto",
+        "text": "Estratégia do produto: \"lucro\", \"imagem\" ou \"trafego\"."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "custo",
+      "label": "Custo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "custo",
+        "type": "dinheiro",
+        "text": "Custo do produto."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "margem-objetivo",
+      "label": "Margem objetivo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "margem_objetivo",
+        "type": "percentual",
+        "text": "Margem objetivo da categoria (herdada da árvore divisão → departamento → categoria)."
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "preco-concorrente",
+      "label": "Preço do concorrente",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "preco_concorrente",
+        "type": "dinheiro",
+        "text": "Preço de referência do concorrente (mínimo, médio ou máximo, conforme a configuração)."
+      },
+      "x": -380,
+      "y": 276,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "indice-notabilidade",
+      "label": "Índice da notabilidade",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "indice_notabilidade",
+        "type": "número",
+        "text": "Multiplica o preço do concorrente em imagem e tráfego."
+      },
+      "x": -380,
+      "y": 334,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "margem-minima",
+      "label": "Margem mínima",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "margem_minima",
+        "type": "percentual",
+        "text": "Margem mínima da notabilidade (piso de imagem e tráfego)."
+      },
+      "x": -380,
+      "y": 392,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "preco-atual",
+      "label": "Preço atual",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "preco_atual",
+        "type": "dinheiro",
+        "text": "Preço praticado hoje."
+      },
+      "x": -380,
+      "y": 450,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "variacao-minima",
+      "label": "Variação mínima",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "variacao_minima",
+        "type": "percentual",
+        "text": "Diferença abaixo da qual o preço atual é mantido.",
+        "value": 0.02
+      },
+      "x": -380,
+      "y": 508,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "aumento-maximo",
+      "label": "Aumento máximo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "aumento_maximo",
+        "type": "percentual",
+        "text": "Teto de aumento sobre o preço atual.",
+        "value": 0.2
+      },
+      "x": -380,
+      "y": 566,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "reducao-maxima",
+      "label": "Redução máxima",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "reducao_maxima",
+        "type": "percentual",
+        "text": "Piso de redução sobre o preço atual.",
+        "value": 0.2
+      },
+      "x": -380,
+      "y": 624,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "grupo-remarcacao",
+      "label": "Grupo de remarcação",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "grupo_remarcacao",
+        "type": "lógico",
+        "text": "O produto está num grupo de remarcação (vale o menor PMC)."
+      },
+      "x": -380,
+      "y": 682,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "pmc",
+      "label": "Menor PMC do grupo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "pmc",
+        "type": "dinheiro",
+        "text": "Menor preço máximo ao consumidor do grupo de remarcação (0 = sem PMC)."
+      },
+      "x": -380,
+      "y": 740,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ancora",
+      "label": "Âncora no preço atual",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "ancora",
+        "type": "lógico",
+        "text": "PBM, farmácia popular ou marca própria."
+      },
+      "x": -380,
+      "y": 798,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "eh-referencia",
+      "label": "É a referência do grupo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "eh_referencia",
+        "type": "lógico",
+        "text": "Primeiro do grupo no cluster."
+      },
+      "x": -380,
+      "y": 856,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "preco-referencia-grupo",
+      "label": "Preço da referência do grupo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "preco_referencia_grupo",
+        "type": "dinheiro",
+        "text": "Preço final já calculado da referência do grupo."
+      },
+      "x": -380,
+      "y": 914,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "preco-fixo",
+      "label": "Preço fixo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "preco_fixo",
+        "type": "dinheiro",
+        "text": "Preço fixo cadastrado; vale quando maior que zero."
+      },
+      "x": -380,
+      "y": 972,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "reaplicar",
+      "label": "Reaplicar ajustes",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "reaplicar_ajustes",
+        "type": "lógico",
+        "text": "Restaura o preço digitado gravado, sem propagar de novo.",
+        "value": false
+      },
+      "x": -380,
+      "y": 1030,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "preco-digitado",
+      "label": "Preço digitado",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "fact",
+        "key": "preco_digitado",
+        "type": "dinheiro",
+        "text": "Preço digitado pelo usuário e gravado.",
+        "value": 0
+      },
+      "x": -380,
+      "y": 1088,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "preco",
+      "label": "Preço",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "fact",
+        "key": "preco",
+        "type": "dinheiro",
+        "text": "O preço que o fluxo vai calculando: cada regra pode reescrevê-lo."
+      },
+      "x": 3880,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "recomendacao",
+      "label": "Recomendação",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "fact",
+        "key": "recomendacao",
+        "type": "texto",
+        "text": "Resultado: \"keep\", \"raise\" ou \"reduce\"."
+      },
+      "x": 3880,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "alerta",
+      "label": "Alerta pendente",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "fact",
+        "key": "alerta_pendente",
+        "type": "lógico",
+        "text": "Há alerta pendente quando o preço muda."
+      },
+      "x": 3880,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Calcular preços do grupo",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entra o grupo de produtos de um cluster, com as configurações de margem, variação e PMC."
+      },
+      "x": 1700,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "para-cada-produto",
+      "label": "Para cada produto do grupo",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "grupo",
+        "as": "produto",
+        "text": "Da maior receita para a menor; o primeiro é a referência."
+      },
+      "x": 1670,
+      "y": 124,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "carregar",
+      "label": "Carregar o produto",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Copia os dados do produto da vez e solta qualquer trava do produto anterior.",
+        "then": [
+          "destravar preco",
+          "tipo_grupo := produto.tipo_grupo",
+          "custo := produto.custo",
+          "margem_objetivo := produto.margem_objetivo",
+          "preco_concorrente := produto.preco_concorrente",
+          "indice_notabilidade := produto.indice_notabilidade",
+          "margem_minima := produto.margem_minima",
+          "preco_atual := produto.preco_atual",
+          "grupo_remarcacao := produto.grupo_remarcacao",
+          "pmc := produto.pmc",
+          "ancora := produto.ancora",
+          "eh_referencia := produto.eh_referencia",
+          "preco_fixo := produto.preco_fixo"
+        ],
+        "examples": [
+          {
+            "name": "copia os dados",
+            "given": {
+              "produto": {
+                "tipo_grupo": "lucro",
+                "custo": 33,
+                "margem_objetivo": 0.4,
+                "preco_concorrente": 0,
+                "indice_notabilidade": 1,
+                "margem_minima": 0.3,
+                "preco_atual": 90,
+                "grupo_remarcacao": false,
+                "pmc": 0,
+                "ancora": true,
+                "eh_referencia": true,
+                "preco_fixo": 0
+              }
+            },
+            "expect": {
+              "custo": 33,
+              "ancora": true,
+              "tipo_grupo": "lucro"
+            }
+          }
+        ]
+      },
+      "x": 1445,
+      "y": 275,
+      "w": 440,
+      "h": 286
+    },
+    {
+      "id": "custo-valido",
+      "label": "O custo é válido?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "custo > 0",
+        "text": "Sem um custo positivo não há como calcular o preço.",
+        "examples": [
+          {
+            "name": "válido",
+            "given": {
+              "custo": 60
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "zerado",
+            "given": {
+              "custo": 0
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 625,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "margem-valida",
+      "label": "A margem objetivo é válida?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "margem_objetivo >= 0 e margem_objetivo < 1",
+        "text": "A margem fica entre 0% e 100%: com 100% ou mais, custo ÷ (1 − margem) perde o sentido.",
+        "examples": [
+          {
+            "name": "40%",
+            "given": {
+              "margem_objetivo": 0.4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "120%",
+            "given": {
+              "margem_objetivo": 1.2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 790,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "dados-invalidos",
+      "label": "Dados do produto inválidos",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "O produto tem um dado que impede o cálculo: o fluxo para e avisa."
+      },
+      "x": 1925,
+      "y": 982.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "tipo-do-grupo",
+      "label": "Qual o tipo do grupo?",
+      "kind": "logic",
+      "logic": {
+        "role": "switch",
+        "on": "tipo_grupo",
+        "text": "Lucro parte do custo; imagem e tráfego partem do concorrente.",
+        "examples": [
+          {
+            "name": "lucro",
+            "given": {
+              "tipo_grupo": "lucro"
+            },
+            "expect": {
+              "caminho": "lucro"
+            }
+          },
+          {
+            "name": "imagem",
+            "given": {
+              "tipo_grupo": "imagem"
+            },
+            "expect": {
+              "caminho": "imagem"
+            }
+          },
+          {
+            "name": "tipo desconhecido",
+            "given": {
+              "tipo_grupo": "outro"
+            },
+            "expect": {
+              "caminho": "outros"
+            }
+          }
+        ]
+      },
+      "x": 1475,
+      "y": 969,
+      "w": 380,
+      "h": 87
+    },
+    {
+      "id": "partida-lucro",
+      "label": "Partida: custo e margem",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Lucro: custo ÷ (1 − margem objetivo da categoria).",
+        "then": [
+          "preco := custo / (1 - margem_objetivo)"
+        ],
+        "examples": [
+          {
+            "name": "custo 60, margem 40%",
+            "given": {
+              "custo": 60,
+              "margem_objetivo": 0.4
+            },
+            "expect": {
+              "preco": 100
+            }
+          }
+        ]
+      },
+      "x": 1190,
+      "y": 1132,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "partida-concorrente",
+      "label": "Partida: concorrente × índice",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Imagem e tráfego: preço do concorrente × índice da notabilidade.",
+        "then": [
+          "preco := preco_concorrente * indice_notabilidade"
+        ],
+        "examples": [
+          {
+            "name": "80 × 0,95",
+            "given": {
+              "preco_concorrente": 80,
+              "indice_notabilidade": 0.95
+            },
+            "expect": {
+              "preco": 76
+            }
+          }
+        ]
+      },
+      "x": 1700,
+      "y": 1120,
+      "w": 440,
+      "h": 160
+    },
+    {
+      "id": "grupo-desconhecido",
+      "label": "Tipo de grupo desconhecido",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Não há como partir o preço: a engine para e avisa."
+      },
+      "x": 2210,
+      "y": 1170,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "partida-zerou",
+      "label": "O preço de partida deu zero?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "preco <= 0",
+        "text": "Se o produto der zero, fica o preço atual.",
+        "examples": [
+          {
+            "name": "zero",
+            "given": {
+              "preco": 0
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "positivo",
+            "given": {
+              "preco": 76
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 1344,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "manter-atual",
+      "label": "Manter o preço atual",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Sem preço de partida, fica o preço atual.",
+        "then": [
+          "preco := preco_atual"
+        ],
+        "examples": [
+          {
+            "name": "volta ao atual",
+            "given": {
+              "preco": 0,
+              "preco_atual": 70
+            },
+            "expect": {
+              "preco": 70
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 1509,
+      "w": 330,
+      "h": 121
+    },
+    {
+      "id": "abaixo-do-piso",
+      "label": "Imagem ou tráfego abaixo do piso?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tipo_grupo em [\"imagem\", \"trafego\"] e preco < custo / (1 - margem_minima)",
+        "text": "Margem mínima: só imagem e tráfego; lucro não passa aqui.",
+        "examples": [
+          {
+            "name": "imagem abaixo",
+            "given": {
+              "tipo_grupo": "imagem",
+              "preco": 60,
+              "custo": 50,
+              "margem_minima": 0.3
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "lucro não passa",
+            "given": {
+              "tipo_grupo": "lucro",
+              "preco": 60,
+              "custo": 50,
+              "margem_minima": 0.3
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 1694,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "subir-ao-piso",
+      "label": "Subir até o piso",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O piso é custo ÷ (1 − margem mínima da notabilidade).",
+        "then": [
+          "preco := custo / (1 - margem_minima)"
+        ],
+        "examples": [
+          {
+            "name": "sobe ao piso",
+            "given": {
+              "custo": 50,
+              "margem_minima": 0.3
+            },
+            "expect": {
+              "preco": 71.42857142857143
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 1874,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "diferenca-pequena",
+      "label": "A diferença é menor que a mínima?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "preco_atual > 0 e abs(preco / preco_atual - 1) < variacao_minima",
+        "text": "Diferença menor que o mínimo configurado mantém o preço atual.",
+        "examples": [
+          {
+            "name": "1% < 2%",
+            "given": {
+              "preco": 99,
+              "preco_atual": 100
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "11% ≥ 2%",
+            "given": {
+              "preco": 100,
+              "preco_atual": 90
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 2074,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "manter-por-variacao",
+      "label": "Manter o preço atual",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A diferença é pequena demais para valer a troca.",
+        "then": [
+          "preco := preco_atual"
+        ],
+        "examples": [
+          {
+            "name": "mantém",
+            "given": {
+              "preco": 99,
+              "preco_atual": 100
+            },
+            "expect": {
+              "preco": 100
+            }
+          }
+        ]
+      },
+      "x": 1475,
+      "y": 2254,
+      "w": 330,
+      "h": 121
+    },
+    {
+      "id": "tem-preco-atual",
+      "label": "Já existe preço atual?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "preco_atual > 0",
+        "text": "Sem preço atual não há o que comparar nem cortar.",
+        "examples": [
+          {
+            "name": "tem",
+            "given": {
+              "preco_atual": 70
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "novo produto",
+            "given": {
+              "preco_atual": 0
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1875,
+      "y": 2264,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "cortar-variacao",
+      "label": "Cortar no teto e no piso",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Aumento ou redução acima do máximo é cortado no teto ou no piso.",
+        "then": [
+          "preco := min(preco, preco_atual * (1 + aumento_maximo))",
+          "preco := max(preco, preco_atual * (1 - reducao_maxima))"
+        ],
+        "examples": [
+          {
+            "name": "aumento cortado",
+            "given": {
+              "preco": 100,
+              "preco_atual": 70
+            },
+            "expect": {
+              "preco": 84
+            }
+          },
+          {
+            "name": "redução cortada",
+            "given": {
+              "preco": 40,
+              "preco_atual": 70
+            },
+            "expect": {
+              "preco": 56
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 2439,
+      "w": 440,
+      "h": 190
+    },
+    {
+      "id": "preco-mudou",
+      "label": "O preço mudou?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "preco != preco_atual",
+        "text": "O arredondamento só vale quando o preço mudou.",
+        "examples": [
+          {
+            "name": "mudou",
+            "given": {
+              "preco": 100,
+              "preco_atual": 90
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "igual",
+            "given": {
+              "preco": 90,
+              "preco_atual": 90
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 2693,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "faixa-do-preco",
+      "label": "Em que faixa está o preço?",
+      "kind": "logic",
+      "description": "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a regra de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.",
+      "logic": {
+        "role": "switch",
+        "text": "Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo.",
+        "examples": [
+          {
+            "name": "faixa de 100",
+            "given": {
+              "preco": 100
+            },
+            "expect": {
+              "caminho": "entre(preco, 100, 101)"
+            }
+          },
+          {
+            "name": "acima de 202",
+            "given": {
+              "preco": 250.4
+            },
+            "expect": {
+              "caminho": "preco > 202.01"
+            }
+          },
+          {
+            "name": "de 50 a 100",
+            "given": {
+              "preco": 84
+            },
+            "expect": {
+              "caminho": "outros"
+            }
+          }
+        ]
+      },
+      "x": 1650,
+      "y": 2858,
+      "w": 380,
+      "h": 101
+    },
+    {
+      "id": "faixa-minima",
+      "label": "Abaixo de R$ 0,10",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Vira R$ 0,09.",
+        "then": [
+          "preco := 0.09"
+        ],
+        "examples": [
+          {
+            "name": "0,05",
+            "given": {
+              "preco": 0.05
+            },
+            "expect": {
+              "preco": 0.09
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 3030.5,
+      "w": 330,
+      "h": 121
+    },
+    {
+      "id": "faixa-alta",
+      "label": "Acima de R$ 202,01",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Vai ao inteiro anterior menos um centavo.",
+        "then": [
+          "preco := piso(preco) - 0.01"
+        ],
+        "examples": [
+          {
+            "name": "250,40",
+            "given": {
+              "preco": 250.4
+            },
+            "expect": {
+              "preco": 249.99
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 3023,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "faixa-200",
+      "label": "De R$ 200 a R$ 202",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Vira R$ 199,99.",
+        "then": [
+          "preco := 199.99"
+        ],
+        "examples": [
+          {
+            "name": "201",
+            "given": {
+              "preco": 201
+            },
+            "expect": {
+              "preco": 199.99
+            }
+          }
+        ]
+      },
+      "x": 910,
+      "y": 3030.5,
+      "w": 330,
+      "h": 121
+    },
+    {
+      "id": "faixa-100",
+      "label": "De R$ 100 a R$ 101",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Vira R$ 99,99.",
+        "then": [
+          "preco := 99.99"
+        ],
+        "examples": [
+          {
+            "name": "100",
+            "given": {
+              "preco": 100
+            },
+            "expect": {
+              "preco": 99.99
+            }
+          }
+        ]
+      },
+      "x": 1310,
+      "y": 3030.5,
+      "w": 330,
+      "h": 121
+    },
+    {
+      "id": "faixa-ate-10",
+      "label": "Até R$ 10",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Termina em 9.",
+        "then": [
+          "preco := piso(preco * 10) / 10 - 0.01"
+        ],
+        "examples": [
+          {
+            "name": "7,34",
+            "given": {
+              "preco": 7.34
+            },
+            "expect": {
+              "preco": 7.29
+            }
+          }
+        ]
+      },
+      "x": 1710,
+      "y": 3023,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "faixa-ate-50-cima",
+      "label": "Até R$ 50, com 50 centavos ou mais",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Termina em 49.",
+        "then": [
+          "preco := piso(preco) + 0.49"
+        ],
+        "examples": [
+          {
+            "name": "23,70",
+            "given": {
+              "preco": 23.7
+            },
+            "expect": {
+              "preco": 23.49
+            }
+          }
+        ]
+      },
+      "x": 2220,
+      "y": 3023,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "faixa-ate-50-baixo",
+      "label": "Até R$ 50, com menos de 50 centavos",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Termina em 99, do real anterior.",
+        "then": [
+          "preco := piso(preco) - 0.01"
+        ],
+        "examples": [
+          {
+            "name": "23,20",
+            "given": {
+              "preco": 23.2
+            },
+            "expect": {
+              "preco": 22.99
+            }
+          }
+        ]
+      },
+      "x": 2730,
+      "y": 3023,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "faixa-resto",
+      "label": "Acima disso",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Termina em 99.",
+        "then": [
+          "preco := piso(preco) + 0.99"
+        ],
+        "examples": [
+          {
+            "name": "84",
+            "given": {
+              "preco": 84
+            },
+            "expect": {
+              "preco": 84.99
+            }
+          }
+        ]
+      },
+      "x": 3240,
+      "y": 3023,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "passou-do-pmc",
+      "label": "Passou do PMC do grupo?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "grupo_remarcacao e pmc > 0 e preco > pmc",
+        "text": "No grupo de remarcação vale o menor PMC.",
+        "examples": [
+          {
+            "name": "passou",
+            "given": {
+              "grupo_remarcacao": true,
+              "pmc": 12.34,
+              "preco": 12.49
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "sem PMC",
+            "given": {
+              "grupo_remarcacao": true,
+              "pmc": 0,
+              "preco": 12.49
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 3223,
+      "w": 330,
+      "h": 87
+    },
+    {
+      "id": "descer-ao-pmc",
+      "label": "Descer para o PMC",
+      "kind": "logic",
+      "description": "A confirmar: \"desce um centavo além do último dígito de centavo do PMC\" foi entendido como PMC menos R$ 0,01.",
+      "logic": {
+        "role": "rule",
+        "text": "Desce um centavo além do último dígito de centavo do PMC.",
+        "then": [
+          "preco := pmc - 0.01"
+        ],
+        "examples": [
+          {
+            "name": "12,34 → 12,33",
+            "given": {
+              "pmc": 12.34
+            },
+            "expect": {
+              "preco": 12.33
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 3374,
+      "w": 440,
+      "h": 121
+    },
+    {
+      "id": "segue-a-referencia",
+      "label": "Imagem ou tráfego que segue a referência?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tipo_grupo em [\"imagem\", \"trafego\"] e nao eh_referencia e nao ancora",
+        "text": "A referência é o primeiro do grupo; PBM, farmácia popular e marca própria ancoram no preço atual.",
+        "examples": [
+          {
+            "name": "segue",
+            "given": {
+              "tipo_grupo": "imagem",
+              "eh_referencia": false,
+              "ancora": false
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "é a referência",
+            "given": {
+              "tipo_grupo": "imagem",
+              "eh_referencia": true,
+              "ancora": false
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 3559,
+      "w": 330,
+      "h": 130
+    },
+    {
+      "id": "igualar-referencia",
+      "label": "Igualar à referência",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Os demais do grupo igualam o preço da referência.",
+        "then": [
+          "preco := preco_referencia_grupo"
+        ],
+        "examples": [
+          {
+            "name": "acompanha",
+            "given": {
+              "preco": 76.99,
+              "preco_referencia_grupo": 74.99
+            },
+            "expect": {
+              "preco": 74.99
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 3753,
+      "w": 440,
+      "h": 121
+    },
+    {
+      "id": "e-ancora",
+      "label": "É PBM, popular ou marca própria?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "ancora",
+        "text": "Esses produtos ficam no preço atual.",
+        "examples": [
+          {
+            "name": "âncora",
+            "given": {
+              "ancora": true
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "comum",
+            "given": {
+              "ancora": false
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 3938,
+      "w": 330,
+      "h": 102
+    },
+    {
+      "id": "ancorar",
+      "label": "Voltar ao preço atual e travar",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O preço volta ao atual e as regras seguintes não o reescrevem.",
+        "then": [
+          "preco := preco_atual",
+          "travar preco"
+        ],
+        "examples": [
+          {
+            "name": "volta e trava",
+            "given": {
+              "preco": 80,
+              "preco_atual": 70
+            },
+            "expect": {
+              "preco": 70
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 4104,
+      "w": 440,
+      "h": 136
+    },
+    {
+      "id": "tem-preco-fixo",
+      "label": "Existe preço fixo?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "preco_fixo > 0",
+        "text": "Se for maior que zero, vence tudo o que veio antes.",
+        "examples": [
+          {
+            "name": "fixo",
+            "given": {
+              "preco_fixo": 55
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "sem fixo",
+            "given": {
+              "preco_fixo": 0
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 4304,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "aplicar-preco-fixo",
+      "label": "Aplicar o preço fixo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Vence tudo o que veio antes, inclusive a trava da âncora.",
+        "then": [
+          "destravar preco",
+          "preco := preco_fixo",
+          "travar preco"
+        ],
+        "examples": [
+          {
+            "name": "vence a âncora",
+            "given": {
+              "preco": 70,
+              "preco_fixo": 55
+            },
+            "expect": {
+              "preco": 55
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 4469,
+      "w": 440,
+      "h": 151
+    },
+    {
+      "id": "segue-referencia-lucro",
+      "label": "Lucro que não é a referência?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tipo_grupo = \"lucro\" e nao eh_referencia",
+        "text": "A referência é a de maior receita no grupo; quem já ficou travado não é reescrito.",
+        "examples": [
+          {
+            "name": "seguidor",
+            "given": {
+              "tipo_grupo": "lucro",
+              "eh_referencia": false
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "referência",
+            "given": {
+              "tipo_grupo": "lucro",
+              "eh_referencia": true
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 4684,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "igualar-referencia-lucro",
+      "label": "Igualar à referência",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Quem já ficou travado na âncora ou no preço fixo não é reescrito (a trava impede).",
+        "then": [
+          "preco := preco_referencia_grupo"
+        ],
+        "examples": [
+          {
+            "name": "segue",
+            "given": {
+              "preco": 105.99,
+              "preco_referencia_grupo": 99.99
+            },
+            "expect": {
+              "preco": 99.99
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 4863,
+      "w": 440,
+      "h": 121
+    },
+    {
+      "id": "recomendar",
+      "label": "Recomendar",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Keep se os preços coincidem nos centavos; senão raise ou reduce. O alerta fica pendente quando o preço muda.",
+        "then": [
+          "recomendacao := se arredondar(preco, 2) = arredondar(preco_atual, 2) entao \"keep\" senao (se preco > preco_atual entao \"raise\" senao \"reduce\")",
+          "alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"
+        ],
+        "examples": [
+          {
+            "name": "sobe",
+            "given": {
+              "preco": 99.99,
+              "preco_atual": 90
+            },
+            "expect": {
+              "recomendacao": "raise",
+              "alerta_pendente": true
+            }
+          },
+          {
+            "name": "cai",
+            "given": {
+              "preco": 80,
+              "preco_atual": 90
+            },
+            "expect": {
+              "recomendacao": "reduce",
+              "alerta_pendente": true
+            }
+          },
+          {
+            "name": "igual",
+            "given": {
+              "preco": 90,
+              "preco_atual": 90
+            },
+            "expect": {
+              "recomendacao": "keep",
+              "alerta_pendente": false
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 5048,
+      "w": 440,
+      "h": 280
+    },
+    {
+      "id": "reaplicar-ajustes",
+      "label": "Reaplicar ajustes gravados?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "reaplicar_ajustes e preco_digitado > 0",
+        "text": "Depois do cálculo, restaura o preço digitado, sem propagar de novo.",
+        "examples": [
+          {
+            "name": "reaplica",
+            "given": {
+              "reaplicar_ajustes": true,
+              "preco_digitado": 88.5
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não",
+            "given": {
+              "reaplicar_ajustes": false,
+              "preco_digitado": 88.5
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 5392,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "restaurar-digitado",
+      "label": "Restaurar o preço digitado",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Volta o preço que o usuário digitou.",
+        "then": [
+          "preco := preco_digitado"
+        ],
+        "examples": [
+          {
+            "name": "restaura",
+            "given": {
+              "preco_digitado": 88.5,
+              "preco": 99.99
+            },
+            "expect": {
+              "preco": 88.5
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 5557,
+      "w": 330,
+      "h": 121
+    },
+    {
+      "id": "e-a-referencia",
+      "label": "É a referência do grupo?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "eh_referencia",
+        "text": "A referência guarda o preço final para os demais seguirem.",
+        "examples": [
+          {
+            "name": "sim",
+            "given": {
+              "eh_referencia": true
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não",
+            "given": {
+              "eh_referencia": false
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1675,
+      "y": 5742,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "guardar-referencia",
+      "label": "Guardar o preço da referência",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Os próximos produtos do grupo usam este preço.",
+        "then": [
+          "preco_referencia_grupo := preco"
+        ],
+        "examples": [
+          {
+            "name": "guarda",
+            "given": {
+              "preco": 99.99
+            },
+            "expect": {
+              "preco_referencia_grupo": 99.99
+            }
+          }
+        ]
+      },
+      "x": 1620,
+      "y": 5907,
+      "w": 440,
+      "h": 121
+    },
+    {
+      "id": "fim",
+      "label": "Decisão de preço pronta",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Cada produto sai com preço, recomendação (keep, raise, reduce) e alerta."
+      },
+      "x": 1955,
+      "y": 388,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-lucro",
+      "label": "Lucro: a referência abre e o seguidor acompanha",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "A referência (custo 60) sai em 99,99; o seguidor, que sozinho iria a 64,99, iguala a referência.",
+        "examples": [
+          {
+            "name": "lucro",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                },
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 30,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 80,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": false,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "preco_referencia_grupo": 99.99,
+              "preco": 99.99,
+              "recomendacao": "raise",
+              "alerta_pendente": true,
+              "desfecho": "ok"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-100",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-resto",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "igualar-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 278,
+      "w": 320,
+      "h": 70
+    },
+    {
+      "id": "caso-ancora",
+      "label": "Marca própria ancora",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "O seguidor é marca própria: volta ao preço atual e a igualação à referência não o reescreve.",
+        "examples": [
+          {
+            "name": "ancorado",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                },
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 85,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": true,
+                  "eh_referencia": false,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "preco": 85,
+              "recomendacao": "keep",
+              "alerta_pendente": false
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-100",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-100",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "ancorar",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "igualar-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 360,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-fixo",
+      "label": "Preço fixo vence a âncora",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "A âncora travou o preço, mas o preço fixo destrava e vence.",
+        "examples": [
+          {
+            "name": "fixo",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                },
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 85,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": true,
+                  "eh_referencia": false,
+                  "preco_fixo": 55
+                }
+              ]
+            },
+            "expect": {
+              "preco": 55,
+              "recomendacao": "reduce"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-100",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-100",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "ancorar",
+              "tem-preco-fixo",
+              "aplicar-preco-fixo",
+              "segue-referencia-lucro",
+              "igualar-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 427,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-imagem",
+      "label": "Imagem acompanha a referência",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Em imagem, a referência parte do concorrente (76,99); o seguidor iria a 85,99 e iguala a referência.",
+        "examples": [
+          {
+            "name": "imagem",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "imagem",
+                  "custo": 50,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 80,
+                  "indice_notabilidade": 0.95,
+                  "margem_minima": 0.3,
+                  "preco_atual": 70,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                },
+                {
+                  "tipo_grupo": "imagem",
+                  "custo": 50,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 90,
+                  "indice_notabilidade": 0.95,
+                  "margem_minima": 0.3,
+                  "preco_atual": 75,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": false,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "preco_referencia_grupo": 76.99,
+              "preco": 76.99,
+              "recomendacao": "raise"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-concorrente",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-resto",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-concorrente",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-resto",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "igualar-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 494,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-variacao-minima",
+      "label": "Diferença pequena",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "O novo preço difere menos que o mínimo: fica o preço atual, sem alerta.",
+        "examples": [
+          {
+            "name": "mantém",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 99,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "preco": 99,
+              "recomendacao": "keep",
+              "alerta_pendente": false
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "manter-por-variacao",
+              "preco-mudou",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 561,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-teto",
+      "label": "Aumento cortado no teto",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "A partida pede +43%, mas o teto é +20%: sobe até 84 e arredonda para 84,99.",
+        "examples": [
+          {
+            "name": "teto de 20%",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 70,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "preco": 84.99,
+              "recomendacao": "raise"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-resto",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 628,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-pmc",
+      "label": "Remarcação passa do PMC",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Calculou 12,50, arredondou para 12,49 e o PMC de 12,34 puxa para 12,33.",
+        "examples": [
+          {
+            "name": "PMC",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 10,
+                  "margem_objetivo": 0.2,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 12,
+                  "grupo_remarcacao": true,
+                  "pmc": 12.34,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "preco": 12.33
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-ate-50-cima",
+              "passou-do-pmc",
+              "descer-ao-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 695,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-erro",
+      "label": "Tipo de grupo desconhecido",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Um tipo que a engine não conhece termina em erro, sem calcular nada.",
+        "examples": [
+          {
+            "name": "erro",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "outro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "grupo-desconhecido"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 893,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-custo-invalido",
+      "label": "Custo zerado interrompe o cálculo",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Sem custo positivo o fluxo para no primeiro produto, com erro.",
+        "examples": [
+          {
+            "name": "custo zerado",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 0,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "dados-invalidos"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 960,
+      "w": 320,
+      "h": 70
+    },
+    {
+      "id": "caso-margem-invalida",
+      "label": "Margem de 100% ou mais é recusada",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Uma margem objetivo fora de 0% a 100% termina em erro antes de calcular o preço.",
+        "examples": [
+          {
+            "name": "margem de 120%",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 1.2,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "dados-invalidos"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 1042,
+      "w": 320,
+      "h": 70
+    },
+    {
+      "id": "caso-falha-no-meio",
+      "label": "Um produto inválido para o grupo no meio",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "A referência já foi calculada (99,99); o segundo produto tem custo negativo e o fluxo termina em erro.",
+        "examples": [
+          {
+            "name": "falha no segundo",
+            "given": {
+              "grupo": [
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": 60,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": true,
+                  "preco_fixo": 0
+                },
+                {
+                  "tipo_grupo": "lucro",
+                  "custo": -5,
+                  "margem_objetivo": 0.4,
+                  "preco_concorrente": 0,
+                  "indice_notabilidade": 1,
+                  "margem_minima": 0.3,
+                  "preco_atual": 90,
+                  "grupo_remarcacao": false,
+                  "pmc": 0,
+                  "ancora": false,
+                  "eh_referencia": false,
+                  "preco_fixo": 0
+                }
+              ]
+            },
+            "expect": {
+              "desfecho": "erro",
+              "preco_referencia_grupo": 99.99
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "margem-valida",
+              "tipo-do-grupo",
+              "partida-lucro",
+              "partida-zerou",
+              "abaixo-do-piso",
+              "diferenca-pequena",
+              "tem-preco-atual",
+              "cortar-variacao",
+              "preco-mudou",
+              "faixa-do-preco",
+              "faixa-100",
+              "passou-do-pmc",
+              "segue-a-referencia",
+              "e-ancora",
+              "tem-preco-fixo",
+              "segue-referencia-lucro",
+              "recomendar",
+              "reaplicar-ajustes",
+              "e-a-referencia",
+              "guardar-referencia",
+              "para-cada-produto",
+              "carregar",
+              "custo-valido",
+              "dados-invalidos"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 1124,
+      "w": 320,
+      "h": 70
+    },
+    {
+      "id": "caso-grupo-vazio",
+      "label": "Grupo sem produtos",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Sem produtos, o laço não repete nenhuma vez e o fluxo termina bem, sem calcular nada.",
+        "examples": [
+          {
+            "name": "vazio",
+            "given": {
+              "grupo": []
+            },
+            "expect": {
+              "desfecho": "ok"
+            },
+            "path": [
+              "inicio",
+              "para-cada-produto",
+              "fim"
+            ]
+          }
+        ]
+      },
+      "x": 3880,
+      "y": 762,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-para-cada-produto",
+      "from": "inicio",
+      "to": "para-cada-produto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "para-cada-produto-to-carregar",
+      "from": "para-cada-produto",
+      "to": "carregar",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "carregar-to-custo-valido",
+      "from": "carregar",
+      "to": "custo-valido",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "custo-valido-to-margem-valida",
+      "from": "custo-valido",
+      "to": "margem-valida",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "custo-valido-to-dados-invalidos",
+      "from": "custo-valido",
+      "to": "dados-invalidos",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2251,
+          "y": 675.5
+        },
+        {
+          "x": 2251,
+          "y": 950.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "margem-valida-to-tipo-do-grupo",
+      "from": "margem-valida",
+      "to": "tipo-do-grupo",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "margem-valida-to-dados-invalidos",
+      "from": "margem-valida",
+      "to": "dados-invalidos",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tipo-do-grupo-to-partida-lucro",
+      "from": "tipo-do-grupo",
+      "to": "partida-lucro",
+      "type": "data",
+      "label": "= \"lucro\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"lucro\""
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tipo-do-grupo-to-partida-concorrente",
+      "from": "tipo-do-grupo",
+      "to": "partida-concorrente",
+      "type": "data",
+      "label": "= \"imagem\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"imagem\""
+      },
+      "labelT": 0.21999999999999997
+    },
+    {
+      "id": "tipo-do-grupo-to-partida-concorrente-2",
+      "from": "tipo-do-grupo",
+      "to": "partida-concorrente",
+      "type": "data",
+      "label": "= \"trafego\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"trafego\""
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tipo-do-grupo-to-grupo-desconhecido",
+      "from": "tipo-do-grupo",
+      "to": "grupo-desconhecido",
+      "type": "data",
+      "label": "outros",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "outros"
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "partida-lucro-to-partida-zerou",
+      "from": "partida-lucro",
+      "to": "partida-zerou",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "partida-concorrente-to-partida-zerou",
+      "from": "partida-concorrente",
+      "to": "partida-zerou",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "partida-zerou-to-manter-atual",
+      "from": "partida-zerou",
+      "to": "manter-atual",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "partida-zerou-to-abaixo-do-piso",
+      "from": "partida-zerou",
+      "to": "abaixo-do-piso",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2069,
+          "y": 1394.5
+        },
+        {
+          "x": 2069,
+          "y": 1662
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "manter-atual-to-abaixo-do-piso",
+      "from": "manter-atual",
+      "to": "abaixo-do-piso",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "abaixo-do-piso-to-subir-ao-piso",
+      "from": "abaixo-do-piso",
+      "to": "subir-ao-piso",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "abaixo-do-piso-to-diferenca-pequena",
+      "from": "abaixo-do-piso",
+      "to": "diferenca-pequena",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2142,
+          "y": 1752
+        },
+        {
+          "x": 2142,
+          "y": 2042
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "subir-ao-piso-to-diferenca-pequena",
+      "from": "subir-ao-piso",
+      "to": "diferenca-pequena",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "diferenca-pequena-to-manter-por-variacao",
+      "from": "diferenca-pequena",
+      "to": "manter-por-variacao",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "diferenca-pequena-to-tem-preco-atual",
+      "from": "diferenca-pequena",
+      "to": "tem-preco-atual",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "manter-por-variacao-to-preco-mudou",
+      "from": "manter-por-variacao",
+      "to": "preco-mudou",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 2251,
+          "y": 2314.5
+        },
+        {
+          "x": 2251,
+          "y": 2661
+        }
+      ]
+    },
+    {
+      "id": "tem-preco-atual-to-cortar-variacao",
+      "from": "tem-preco-atual",
+      "to": "cortar-variacao",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tem-preco-atual-to-preco-mudou",
+      "from": "tem-preco-atual",
+      "to": "preco-mudou",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2269,
+          "y": 2314.5
+        },
+        {
+          "x": 2269,
+          "y": 2661
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "cortar-variacao-to-preco-mudou",
+      "from": "cortar-variacao",
+      "to": "preco-mudou",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "preco-mudou-to-faixa-do-preco",
+      "from": "preco-mudou",
+      "to": "faixa-do-preco",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "preco-mudou-to-passou-do-pmc",
+      "from": "preco-mudou",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 3762,
+          "y": 2743.5
+        },
+        {
+          "x": 3762,
+          "y": 3191
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-minima",
+      "from": "faixa-do-preco",
+      "to": "faixa-minima",
+      "type": "data",
+      "label": "preço < 0,1",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "preco < 0.1"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-alta",
+      "from": "faixa-do-preco",
+      "to": "faixa-alta",
+      "type": "data",
+      "label": "preço > 202,01",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "preco > 202.01"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-200",
+      "from": "faixa-do-preco",
+      "to": "faixa-200",
+      "type": "data",
+      "label": "preço está entre 200 e 202",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "entre(preco, 200, 202)"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-100",
+      "from": "faixa-do-preco",
+      "to": "faixa-100",
+      "type": "data",
+      "label": "preço está entre 100 e 101",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "entre(preco, 100, 101)"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-ate-10",
+      "from": "faixa-do-preco",
+      "to": "faixa-ate-10",
+      "type": "data",
+      "label": "preço < 10",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "preco < 10"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-ate-50-cima",
+      "from": "faixa-do-preco",
+      "to": "faixa-ate-50-cima",
+      "type": "data",
+      "label": "preço < 50 e preço − piso(preço) …",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "preco < 50 e preco - piso(preco) >= 0.5"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-ate-50-baixo",
+      "from": "faixa-do-preco",
+      "to": "faixa-ate-50-baixo",
+      "type": "data",
+      "label": "preço < 50",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "preco < 50"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-do-preco-to-faixa-resto",
+      "from": "faixa-do-preco",
+      "to": "faixa-resto",
+      "type": "data",
+      "label": "outros",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "outros"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "faixa-minima-to-passou-do-pmc",
+      "from": "faixa-minima",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-alta-to-passou-do-pmc",
+      "from": "faixa-alta",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-200-to-passou-do-pmc",
+      "from": "faixa-200",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-100-to-passou-do-pmc",
+      "from": "faixa-100",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-ate-10-to-passou-do-pmc",
+      "from": "faixa-ate-10",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-ate-50-cima-to-passou-do-pmc",
+      "from": "faixa-ate-50-cima",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-ate-50-baixo-to-passou-do-pmc",
+      "from": "faixa-ate-50-baixo",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "faixa-resto-to-passou-do-pmc",
+      "from": "faixa-resto",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "passou-do-pmc-to-descer-ao-pmc",
+      "from": "passou-do-pmc",
+      "to": "descer-ao-pmc",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "passou-do-pmc-to-segue-a-referencia",
+      "from": "passou-do-pmc",
+      "to": "segue-a-referencia",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2106,
+          "y": 3266.5
+        },
+        {
+          "x": 2106,
+          "y": 3527
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "descer-ao-pmc-to-segue-a-referencia",
+      "from": "descer-ao-pmc",
+      "to": "segue-a-referencia",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "segue-a-referencia-to-igualar-referencia",
+      "from": "segue-a-referencia",
+      "to": "igualar-referencia",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "segue-a-referencia-to-e-ancora",
+      "from": "segue-a-referencia",
+      "to": "e-ancora",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2124,
+          "y": 3624
+        },
+        {
+          "x": 2124,
+          "y": 3906
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "igualar-referencia-to-e-ancora",
+      "from": "igualar-referencia",
+      "to": "e-ancora",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "e-ancora-to-ancorar",
+      "from": "e-ancora",
+      "to": "ancorar",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "e-ancora-to-tem-preco-fixo",
+      "from": "e-ancora",
+      "to": "tem-preco-fixo",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2142,
+          "y": 3989
+        },
+        {
+          "x": 2142,
+          "y": 4272
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "ancorar-to-tem-preco-fixo",
+      "from": "ancorar",
+      "to": "tem-preco-fixo",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "tem-preco-fixo-to-aplicar-preco-fixo",
+      "from": "tem-preco-fixo",
+      "to": "aplicar-preco-fixo",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tem-preco-fixo-to-segue-referencia-lucro",
+      "from": "tem-preco-fixo",
+      "to": "segue-referencia-lucro",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2106,
+          "y": 4354.5
+        },
+        {
+          "x": 2106,
+          "y": 4652
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "aplicar-preco-fixo-to-segue-referencia-l",
+      "from": "aplicar-preco-fixo",
+      "to": "segue-referencia-lucro",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "segue-referencia-lucro-to-igualar-refere",
+      "from": "segue-referencia-lucro",
+      "to": "igualar-referencia-lucro",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "segue-referencia-lucro-to-recomendar",
+      "from": "segue-referencia-lucro",
+      "to": "recomendar",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2124,
+          "y": 4741.5
+        },
+        {
+          "x": 2124,
+          "y": 5016
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "igualar-referencia-lucro-to-recomendar",
+      "from": "igualar-referencia-lucro",
+      "to": "recomendar",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "recomendar-to-reaplicar-ajustes",
+      "from": "recomendar",
+      "to": "reaplicar-ajustes",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "reaplicar-ajustes-to-restaurar-digitado",
+      "from": "reaplicar-ajustes",
+      "to": "restaurar-digitado",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "reaplicar-ajustes-to-e-a-referencia",
+      "from": "reaplicar-ajustes",
+      "to": "e-a-referencia",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 2087,
+          "y": 5442.5
+        },
+        {
+          "x": 2087,
+          "y": 5710
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "restaurar-digitado-to-e-a-referencia",
+      "from": "restaurar-digitado",
+      "to": "e-a-referencia",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "e-a-referencia-to-guardar-referencia",
+      "from": "e-a-referencia",
+      "to": "guardar-referencia",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "e-a-referencia-to-para-cada-produto",
+      "from": "e-a-referencia",
+      "to": "para-cada-produto",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 5792.5
+        },
+        {
+          "x": -46,
+          "y": 167.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "guardar-referencia-to-para-cada-produto",
+      "from": "guardar-referencia",
+      "to": "para-cada-produto",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 5967.5
+        },
+        {
+          "x": -64,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "para-cada-produto-to-fim",
+      "from": "para-cada-produto",
+      "to": "fim",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

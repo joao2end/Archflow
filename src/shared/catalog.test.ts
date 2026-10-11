@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ASSET_CATEGORIES, BUILTIN_ASSETS, DOMAIN_CATEGORY, assetsForMode, searchAssets } from "./catalog";
+import { ASSET_CATEGORIES, BUILTIN_ASSETS, DOMAIN_CATEGORY, LOGIC_CATEGORY, assetsForMode, searchAssets } from "./catalog";
 import { applyOps } from "./ops";
-import { DDD_ROLES, DDD_ROLE_KEYS, emptyDoc, type Asset } from "./schema";
+import { DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLE_KEYS, emptyDoc, type Asset } from "./schema";
 
 const domainAssets = BUILTIN_ASSETS.filter((a) => a.category === DOMAIN_CATEGORY);
 
@@ -29,7 +29,11 @@ test("catálogo: ids únicos e a categoria Domain existe", () => {
 test("assetsForMode: architecture esconde Domain; domain mostra só Domain + Genéricos; all ignora o filtro", () => {
   const arch = assetsForMode(BUILTIN_ASSETS, "architecture");
   assert.equal(arch.some((a) => a.category === DOMAIN_CATEGORY), false);
-  assert.equal(arch.length, BUILTIN_ASSETS.length - domainAssets.length);
+  const logicAssets = BUILTIN_ASSETS.filter((a) => a.category === LOGIC_CATEGORY);
+  assert.equal(arch.length, BUILTIN_ASSETS.length - domainAssets.length - logicAssets.length, "architecture também esconde Logic");
+  const lg = assetsForMode(BUILTIN_ASSETS, "logic");
+  assert.deepEqual(lg.map((a) => a.id), [...LOGIC_ROLE_KEYS.map((r) => `logic-${r}`), "diagram-ref"], "Logic primeiro, depois a referência a outro diagrama");
+  assert.equal(assetsForMode(BUILTIN_ASSETS, "domain").some((a) => a.category === LOGIC_CATEGORY), false);
   const dom = assetsForMode(BUILTIN_ASSETS, "domain");
   assert.deepEqual(dom.map((a) => a.id), [...DDD_ROLE_KEYS.map((r) => `ddd-${r}`), "user", "diagram-ref"], "Domain primeiro, depois ator e referência");
   assert.ok(dom.some((a) => a.id === "user" && a.kind === "actor"), "ator continua disponível");

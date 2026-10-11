@@ -11,6 +11,7 @@ import {
   NODE_W,
   DDD_RELS,
   DDD_ROLES,
+  LOGIC_ROLES,
   SCHEMA_VERSION,
   SUBDOMAINS,
   docMode,
@@ -22,6 +23,8 @@ import {
   type ConnectionType,
   type DddConnSpec,
   type DddNodeSpec,
+  type LogicConnSpec,
+  type LogicNodeSpec,
   type DddRel,
   type DiagramRef,
   type Doc,
@@ -38,20 +41,29 @@ import {
 } from "./schema";
 import { layeredLayout, shelfPack } from "./layout";
 import { stormLayout } from "./storm";
+import { logicLayout } from "./logiclayout";
+import { pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, factNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
+import { logicSize } from "./logiccard";
 import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, schemaGuideDomain, suggestRels, type Issue } from "./domain";
+
+/** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain e Logic só carregam o que é compatível com o modo. */
+export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
+  domain: ["domain", "actor", "system", "external"],
+  logic: ["logic", "system"],
+};
 
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; subdomain?: Subdomain; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean }
-  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec }
+  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
-  | { op: "layout"; style?: "flow" | "timeline"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
+  | { op: "layout"; style?: "flow" | "timeline" | "pipeline"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
   | { op: "set_meta"; title?: string; description?: string; mode?: DocMode }
   | { op: "clear" };
 
@@ -210,13 +222,24 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (bad) return { ok: false, error: bad };
         if (op.kind && op.kind !== "domain") return { ok: false, error: `um nó com ddd tem kind "domain" (recebeu "${op.kind}")` };
       }
-      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : asset?.name) ?? "Componente";
+      const logic: LogicNodeSpec | undefined = op.logic ?? (asset?.logic ? { ...asset.logic } : undefined);
+      if (logic !== undefined || op.kind === "logic") {
+        if (docMode(doc) !== "logic") return { ok: false, error: `papéis de lógica (kind "logic" / logic) só existem em diagramas de modo "logic"; crie o diagrama com new_diagram mode "logic" ou troque o modo em set_diagram_info` };
+        const bad = checkLogicNode(logic);
+        if (bad) return { ok: false, error: bad };
+        if (op.kind && op.kind !== "logic") return { ok: false, error: `um nó com logic tem kind "logic" (recebeu "${op.kind}")` };
+        if (ddd) return { ok: false, error: "um nó tem ddd OU logic, não os dois" };
+      }
+      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : logic ? LOGIC_ROLES[logic.role].label : asset?.name) ?? "Componente";
       const id = uniqueId(doc, op.id ?? (endpoint && owner ? `${owner.id}-${label}` : label));
       const parent = owner ? owner.parent : op.parent && doc.groups.some((g) => g.id === op.parent) ? op.parent : undefined;
-      const kind: NodeKind = op.kind ?? (ddd ? "domain" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
+      const kind: NodeKind = op.kind ?? (ddd ? "domain" : logic ? "logic" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
+      const allowed = MODE_KINDS[docMode(doc)];
+      if (allowed && !allowed.includes(kind)) return { ok: false, error: `componente "${kind}"${asset ? ` (asset "${asset.id}")` : ""} não existe no modo ${docMode(doc)}. Neste modo só entram: ${allowed.join(", ")}. Crie um diagrama de arquitetura para componentes de infraestrutura.` };
       const isEp = kind === "endpoint";
-      const w = isEp ? ENDPOINT_W : NODE_W;
-      const h = isEp ? ENDPOINT_H : NODE_H;
+      const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic } as NodeEl, factNames(doc)) : undefined;
+      const w = lsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
+      const h = lsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
       let pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : undefined;
       if (!pos && owner && isEp) pos = stackPos(doc, owner);
       if (!pos) {
@@ -236,6 +259,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         owner: owner?.id,
         ref: op.ref,
         ...(ddd ? { ddd } : {}),
+        ...(logic ? { logic } : {}),
         x: pos.x,
         y: pos.y,
         w,
@@ -291,6 +315,11 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         const bad = checkDddConn(op.ddd);
         if (bad) return { ok: false, error: bad };
       }
+      if (op.logic !== undefined) {
+        if (docMode(doc) !== "logic") return { ok: false, error: `logic (saída da decisão, escolha ou laço) só existe em diagramas de modo "logic"` };
+        const bad = checkLogicConn(op.logic);
+        if (bad) return { ok: false, error: bad };
+      }
       // modo domain: o tipo do conector vem da relação de domínio; infraestrutura (sync/async/stream/data) não existe aqui
       let ddd = op.ddd;
       const domainMode = docMode(doc) === "domain";
@@ -302,7 +331,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
           if (only.length === 1) ddd = { rel: only[0] }; // um par de elementos de domínio com uma única relação possível: já nasce com ela
         }
       }
-      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : domainMode ? "association" : "sync");
+      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : domainMode ? "association" : docMode(doc) === "logic" ? "data" : "sync");
       if (!CONNECTION_TYPES[type]) return { ok: false, error: `type inválido "${type}". Válidos: ${Object.keys(CONNECTION_TYPES).join(", ")}` };
       const id = uniqueId(doc, op.id ?? `${op.from}-to-${op.to}`);
       const c: ConnectionEl = {
@@ -310,7 +339,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         from: op.from,
         to: op.to,
         type,
-        label: ddd ? composeDddLabel(ddd, op.label) : op.label,
+        label: ddd ? composeDddLabel(ddd, op.label) : docMode(doc) === "logic" ? op.label ?? (op.logic?.case !== undefined ? caseLabel(doc, op.from, op.logic.case) : branchLabel(op.logic)) ?? "" : op.label,
         protocol: op.protocol,
         description: op.description,
         interface: op.interface,
@@ -318,6 +347,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ...(op.waypoints?.length ? { waypoints: op.waypoints } : {}),
         animated: op.animated ?? true,
         ...(ddd ? { ddd } : {}),
+        ...(op.logic ? { logic: op.logic } : {}),
       };
       doc.connections.push(c);
       return { ok: true, id };
@@ -341,6 +371,19 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         // ao definir a relação sem dizer o tipo, o tipo acompanha a relação
         if (rel && "ddd" in patch && patch.ddd != null && patch.type === undefined) patch.type = DDD_RELS[rel].type;
       }
+      if (!isConn && "logic" in patch && patch.logic != null) {
+        if (docMode(doc) !== "logic") return { ok: false, error: `logic só existe em diagramas de modo "logic"` };
+        const bad = isNode ? checkLogicNode(patch.logic) : "logic só se aplica a componentes";
+        if (bad) return { ok: false, error: bad };
+        if (isNode && (patch.kind ?? el.kind) !== "logic") return { ok: false, error: `um nó com logic tem kind "logic"; inclua kind: "logic" no patch` };
+      }
+      if (isConn && "logic" in patch && patch.logic != null) {
+        if (docMode(doc) !== "logic") return { ok: false, error: `logic só existe em diagramas de modo "logic"` };
+        const bad = checkLogicConn(patch.logic);
+        if (bad) return { ok: false, error: bad };
+        if (patch.label === undefined) patch.label = (patch.logic as LogicConnSpec).case !== undefined ? caseLabel(doc, el.from, (patch.logic as LogicConnSpec).case!) : branchLabel(patch.logic as LogicConnSpec) ?? "";
+      }
+      if (isNode && patch.kind === "logic" && !(patch.logic ?? el.logic)) return { ok: false, error: `kind "logic" exige logic.role` };
       if (isNode && patch.kind === "domain" && !(patch.ddd ?? el.ddd)) return { ok: false, error: `kind "domain" exige ddd.role` };
       if ("subdomain" in patch && patch.subdomain != null) {
         if (!doc.groups.includes(el) || el.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
@@ -353,6 +396,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       // trocar a relação/fluxo (ddd) sem dizer o rótulo: o rótulo automático acompanha, preservando o texto livre
       if (isConn && "ddd" in patch && patch.ddd != null && patch.label === undefined && docMode(doc) === "domain") el.label = composeDddLabel(el.ddd as DddConnSpec, dddLabelVia(prevDdd, prevLabel));
       if ("ddd" in patch && patch.ddd == null) delete el.ddd;
+      if ("logic" in patch && patch.logic == null) delete el.logic;
+      if (isNode && "logic" in patch && el.logic) Object.assign(el, logicSize(el, factNames(doc))); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("parent" in patch) {
         if (el.parent && (!doc.groups.some((g) => g.id === el.parent) || el.parent === el.id || isContainerOf(doc, el.id, el.parent))) {
@@ -402,6 +447,39 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       return { ok: true, id };
     }
     case "layout":
+      if (op.style === "pipeline" || (docMode(doc) === "logic" && op.style === undefined)) {
+        if (docMode(doc) !== "logic") return { ok: false, error: `o layout "pipeline" (fila de regras) só existe em diagramas de modo "logic"` };
+        if (!hasFlow(doc)) {
+          // sem setas: o layout liga início → regras (na ordem) → fim, para o fluxo ficar explícito
+          const seq = pipelineSequence(doc);
+          for (let i = 0; i + 1 < seq.length; i++) applyOne(doc, { op: "add_connection", from: seq[i].id, to: seq[i + 1].id }, touched);
+        }
+        const plan = logicLayout(doc);
+        for (const n of doc.nodes) {
+          const p = plan.pos.get(n.id);
+          if (p) Object.assign(n, p, plan.size.get(n.id) ?? {});
+        }
+        // dados e cenários ficam agrupados (um grupo por tipo), em vez de soltos
+        for (const g of plan.groups) {
+          if (!doc.groups.some((x) => x.id === g.id)) doc.groups.push({ id: g.id, label: g.label, kind: "layer", tag: g.tag, x: 0, y: 0, w: 200, h: 120, auto: true });
+          for (const m of g.members) doc.nodes.find((n) => n.id === m)!.parent = g.id;
+        }
+        for (const g of doc.groups) if (g.auto && plan.groups.some((x) => x.id === g.id)) fitGroup(doc, g.id);
+        for (const c of doc.connections) {
+          delete c.labelT;
+          delete c.labelOffset;
+          const wp = plan.waypoints.get(c.id);
+          if (wp) {
+            c.waypoints = wp;
+            c.routing = "elbow";
+          } else if (plan.pos.has(c.from) && plan.pos.has(c.to)) {
+            delete c.waypoints;
+            c.routing = op.routing ?? (doc.nodes.find((n) => n.id === c.from)?.logic?.role === "switch" ? "elbow" : "straight"); // o leque da escolha sai em ângulos retos
+          }
+        }
+        placeLabels(doc);
+        return { ok: true };
+      }
       if (op.style === "timeline") {
         if (docMode(doc) !== "domain") return { ok: false, error: `o layout "timeline" (Event Storming) só existe em diagramas de modo "domain"` };
         timelineLayout(doc, op.routing);
@@ -413,8 +491,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (op.title != null) doc.title = op.title;
       if (op.description != null) doc.description = op.description;
       if (op.mode != null) {
-        if (op.mode !== "architecture" && op.mode !== "domain") return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain` };
-        if (op.mode === "domain") doc.mode = "domain";
+        if (op.mode !== "architecture" && op.mode !== "domain" && op.mode !== "logic") return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain, logic` };
+        if (op.mode === "domain" || op.mode === "logic") doc.mode = op.mode;
         else delete doc.mode;
       }
       return { ok: true };
@@ -741,6 +819,7 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
   const issues: Issue[] = [];
   const base = (message: string, target?: string) => issues.push({ rule: "BASE", severity: "aviso", message, target });
   const domain = docMode(doc) === "domain";
+  const logicMode = docMode(doc) === "logic";
   const endpoints = new Set([...doc.nodes.map((n) => n.id), ...doc.groups.map((g) => g.id)]);
   const groups = new Set(doc.groups.map((g) => g.id));
   for (const c of doc.connections) {
@@ -755,9 +834,10 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
     if (n.kind === "endpoint" && !n.endpoint) base(`${n.id}: endpoint sem definição (protocol/method/path)`, n.id);
     if (n.kind === "system" && !n.ref) base(`${n.id}: componente "system" sem ref (aponte para outro diagrama)`, n.id);
     if (n.owner || n.kind === "endpoint") continue; // endpoints são expostos pelo serviço dono
-    if (!domain && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
+    if (!domain && !logicMode && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
   }
   if (domain) issues.push(...domainIssues(doc, opts));
+  if (logicMode) issues.push(...logicIssues(doc));
   return issues;
 }
 
@@ -795,6 +875,7 @@ export function toMermaid(doc: Doc): string {
 
 /** Descrição textual determinística do diagrama — o formato que um LLM deve ler. */
 export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): string {
+  if (docMode(doc) === "logic") return describeLogic(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "domain") return describeDomain(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   const L: string[] = [];
   L.push(`# ${doc.title}`);
@@ -859,6 +940,7 @@ export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } 
 
 export function schemaGuide(mode: DocMode = "architecture"): string {
   if (mode === "domain") return schemaGuideDomain();
+  if (mode === "logic") return schemaGuideLogic();
   return [
     `# Archflow ${SCHEMA_VERSION} — guia para LLMs`,
     "",
@@ -866,7 +948,7 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
     "o app calcula posições (use a operação `layout`).",
     "",
     "## Tipos de componente (`kind`)",
-    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain").map(([k, v]) => `- \`${k}\`: ${v}`),
+    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain" && k !== "logic").map(([k, v]) => `- \`${k}\`: ${v}`),
     "",
     "## Tipos de grupo (`kind`)",
     ...Object.entries(GROUP_KINDS).map(([k, v]) => `- \`${k}\`: ${v}`),
@@ -896,10 +978,10 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
 export function normalizeDoc(raw: any): Doc {
   const d = emptyDoc(raw?.title ?? "Importado");
   const { mode: _mode, ...rest } = raw ?? {};
-  return {
+  const out = {
     ...d,
     ...rest,
-    ...(raw?.mode === "domain" ? { mode: "domain" as const } : {}),
+    ...(raw?.mode === "domain" || raw?.mode === "logic" ? { mode: raw.mode as "domain" | "logic" } : {}),
     schema: SCHEMA_VERSION,
     groups: Array.isArray(raw?.groups) ? raw.groups : [],
     nodes: Array.isArray(raw?.nodes) ? raw.nodes : [],
@@ -908,4 +990,13 @@ export function normalizeDoc(raw: any): Doc {
     ink: Array.isArray(raw?.ink) ? raw.ink : [],
     customAssets: Array.isArray(raw?.customAssets) ? raw.customAssets : [],
   };
+  // modo Logic: o tamanho dos elementos vem do conteúdo; arquivos gravados por versões anteriores são ajustados ao abrir
+  if (out.mode === "logic" && out.nodes.some((n: NodeEl) => n.logic)) {
+    const names = factNames(out);
+    for (const n of out.nodes as NodeEl[]) {
+      const s = n.logic ? logicSize(n, names) : undefined;
+      if (s) Object.assign(n, s);
+    }
+  }
+  return out;
 }

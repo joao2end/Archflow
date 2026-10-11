@@ -1,13 +1,16 @@
-import { createContext, memo, type CSSProperties, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, memo, type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
-import { DDD_BADGES, DDD_ROLES, DECISION_GATES, docMode } from "../shared/schema";
+import { DDD_BADGES, DDD_ROLES, DECISION_GATES, LOGIC_ROLES, docMode } from "../shared/schema";
+import { explain, parseExpr } from "../shared/expr";
+import { edgeIdsOf, factNames, logicStatus, relatedTo } from "../shared/logic";
+import { CARD_X, HEAD_H, LOGIC_ICON, figureText, isFailureScenario, ruleCard, scenarioTitle } from "../shared/logiccard";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { truncate, wrapLabel } from "../shared/text";
 import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
-import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, toast, useStore, type View } from "./store";
+import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, startPlay, toast, useStore, type View } from "./store";
 import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
@@ -140,6 +143,230 @@ const DomainShape = memo(function DomainShape({ n, selected, hot, hovered }: { n
   );
 });
 
+const NO_NAMES: Record<string, string> = {};
+
+/** Estilo das setas do fluxo (modo Logic): a cor diz por qual saída a seta sai. */
+const FLOW_EDGE: Record<string, { color: string; dash?: string }> = {
+  n: { color: "var(--ink-3)" },
+  ok: { color: "#14a38b" },
+  no: { color: "#e0605a" },
+  loop: { color: "#c2548b", dash: "5 5" },
+  case: { color: "#706fd3" },
+};
+const flowKey = (c: ConnectionEl) => (c.logic?.branch === "sim" ? "ok" : c.logic?.branch === "nao" ? "no" : c.logic?.branch === "repete" ? "loop" : c.logic?.case !== undefined ? "case" : "n");
+
+/** Destaque de um elemento do fluxo: passo atual da reprodução, já percorrido, apagado ou relacionado ao selecionado. */
+export type Viz = "cur" | "vis" | "dim" | "rel";
+
+/** Legenda de cada elemento do fluxo (a primeira linha pequena do cartão). */
+const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Regra", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", fact: "Dado", scenario: "Cenário" };
+
+/** Ícone no azulejo colorido do cartão (viewBox 24). */
+function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: number; y: number; size: number; color: string; round?: boolean }) {
+  const s = (size * 0.54) / 24;
+  const off = (size - 24 * s) / 2;
+  return (
+    <g transform={`translate(${x},${y})`} pointerEvents="none">
+      <rect width={size} height={size} rx={round ? size / 2 : size * 0.3} fill={color} />
+      <rect width={size} height={size / 2} rx={round ? size / 2 : size * 0.3} fill="#fff" opacity={0.14} />
+      <g transform={`translate(${off},${off}) scale(${s})`} fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+        {paths.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
+    </g>
+  );
+}
+
+/**
+ * Elementos do modo Logic. Linguagem visual única, no vidro do app: cartão arredondado com azulejo de ícone na cor do papel,
+ * legenda pequena e título; a condição ou o efeito em português logo abaixo; dados como etiquetas; estado dos exemplos como
+ * um selo redondo. Sem losangos nem caixas de fluxograma antigo: o tipo do elemento vem do ícone, da legenda e da cor.
+ */
+const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; names: Record<string, string>; viz?: Viz; badge?: number }) {
+  const l = n.logic!;
+  const role = LOGIC_ROLES[l.role];
+  const color = (l.role === "end" && l.outcome === "erro") || isFailureScenario(n) ? "#d6453d" : role.color;
+  const icon = l.role === "end" ? (l.outcome === "erro" ? LOGIC_ICON["end-erro"] : LOGIC_ICON.end) : LOGIC_ICON[l.role];
+  const caption = l.role === "end" && l.outcome === "erro" ? "Fim com erro" : isFailureScenario(n) ? "Cenário de falha" : LOGIC_CAPTION[l.role];
+  const w = n.w;
+  const h = n.h;
+  const dashed = l.role === "loop" || l.role === "call";
+  const R = l.role === "start" || l.role === "end" ? h / 2 : l.role === "fact" ? 14 : 16;
+  const seal = (x: number, y: number) =>
+    status === "ok" || status === "fail" ? (
+      <g transform={`translate(${x},${y})`} pointerEvents="none" className="logic-seal">
+        <title>{status === "ok" ? "Os exemplos batem" : "Algum exemplo não bate"}</title>
+        <circle r={9} fill={status === "ok" ? "#2f9e6b" : "#d6453d"} />
+        <path d={status === "ok" ? "M-4,0.5 L-1,3.5 L4.5,-3" : "M-3.5,-3.5 L3.5,3.5 M3.5,-3.5 L-3.5,3.5"} fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    ) : null;
+  const g = (children: ReactNode) => (
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${role.label}: ${n.label}`} transform={`translate(${n.x},${n.y})`} className={`node domain logic logic-${l.role}${viz ? ` logic-viz-${viz}` : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
+      <title>{[n.label, `${role.label} — ${role.hint}`, l.text, n.description].filter(Boolean).join("\n")}</title>
+      <rect className="node-body" width={w} height={h} rx={R} filter="url(#shadow)" style={fillStyle(n)} />
+      <rect className="logic-wash" width={w} height={h} rx={R} fill={color} pointerEvents="none" />
+      <rect className="node-sheen" width={w} height={h} rx={R} fill="url(#sheen)" pointerEvents="none" />
+      <rect className="node-ring" width={w} height={h} rx={R} pointerEvents="none" strokeDasharray={dashed ? "6 5" : undefined} />
+      {children}
+      {badge ? (
+        <g pointerEvents="none" transform="translate(-4,-4)">
+          <circle r={11} fill="#706fd3" stroke="#fff" strokeWidth={2} />
+          <text y={4} textAnchor="middle" className="logic-badge">
+            {badge}
+          </text>
+        </g>
+      ) : null}
+      {(hovered || selected) && <Handles id={n.id} w={w} h={h} />}
+    </g>
+  );
+  const cap = (x: number, y: number) => (
+    <text x={x} y={y} className="logic-cap" fill={color} pointerEvents="none">
+      {caption}
+    </text>
+  );
+
+  /* início / fim: cápsula com ícone redondo */
+  if (l.role === "start" || l.role === "end") {
+    return g(
+      <>
+        <LogicIcon paths={icon} x={10} y={h / 2 - 18} size={36} color={color} round />
+        {cap(58, h / 2 - 5)}
+        <text x={58} y={h / 2 + 13} className="logic-title" pointerEvents="none">
+          {wrapLabel(n.label, 27, 1)[0]}
+        </text>
+      </>,
+    );
+  }
+
+  /* fork / join: barra fina */
+  if (l.role === "fork" || l.role === "join") {
+    return g(
+      <>
+        <rect width={w} height={h} rx={h / 2} fill={color} opacity={0.88} pointerEvents="none" />
+        <text x={w / 2} y={h / 2 + 3.6} textAnchor="middle" className="logic-bar" pointerEvents="none">
+          {caption.toUpperCase()}
+        </text>
+      </>,
+    );
+  }
+
+  /* dado: etiqueta compacta */
+  if (l.role === "fact") {
+    const sub = l.key ?? n.id.replace(/-/g, "_");
+    return g(
+      <>
+        <circle cx={18} cy={h / 2} r={5.5} fill={color} pointerEvents="none" />
+        <text x={32} y={h / 2 - 3} className="logic-title" style={{ fontSize: 12.5 }} pointerEvents="none">
+          {wrapLabel(n.label, Math.floor((w - 44) / 7), 1)[0]}
+        </text>
+        <text x={32} y={h / 2 + 12} className="logic-mono" pointerEvents="none">
+          {truncate(sub, Math.floor((w - 44) / 6))}
+        </text>
+      </>,
+    );
+  }
+
+  /* cenário: botão de reproduzir + resumo */
+  if (l.role === "scenario") {
+    const canPlay = (l.examples?.length ?? 0) > 0;
+    return g(
+      <>
+        <g className={canPlay ? "logic-play" : undefined} role={canPlay ? "button" : undefined} aria-label={canPlay ? `Reproduzir o cenário ${n.label}` : undefined} onPointerDown={canPlay ? (e) => e.stopPropagation() : undefined} onClick={canPlay ? (e) => (e.stopPropagation(), startPlay(n.id)) : undefined} style={canPlay ? { cursor: "pointer" } : undefined}>
+          <title>{canPlay ? "Reproduzir: mostra o caminho percorrido no fluxo" : "Sem exemplo para reproduzir"}</title>
+          <circle cx={30} cy={h / 2} r={18} fill={color} />
+          <path d={`M${25},${h / 2 - 8} L${37},${h / 2} L${25},${h / 2 + 8} Z`} fill="#fff" />
+        </g>
+        {cap(58, 20)}
+        {scenarioTitle(n).map((t, k) => (
+          <text key={k} x={58} y={37 + k * 15} className="logic-title" style={{ fontSize: 12.5 }} pointerEvents="none">
+            {t}
+          </text>
+        ))}
+        {seal(w - 22, 20)}
+      </>,
+    );
+  }
+
+  /* decisão, escolha, laço, chamada: cartão com a condição em português */
+  if (l.role !== "rule") {
+    const f = figureText(n, names);
+    const tx = 54;
+    return g(
+      <>
+        <LogicIcon paths={icon} x={12} y={12} size={32} color={color} />
+        {cap(tx, 22)}
+        {f.title.map((t, k) => (
+          <text key={k} x={tx} y={39 + k * 15} className="logic-title" pointerEvents="none">
+            {t}
+          </text>
+        ))}
+        {f.body.map((t, k) => (
+          <text key={k} x={tx} y={39 + f.title.length * 15 + 4 + k * 14} className="logic-line" pointerEvents="none">
+            {t}
+          </text>
+        ))}
+        {seal(w - 22, 22)}
+      </>,
+    );
+  }
+
+  /* regra: cartão de ação */
+  const card = ruleCard(n, names);
+  let y = HEAD_H;
+  return g(
+    <>
+      <LogicIcon paths={icon} x={12} y={11} size={32} color={color} />
+      {cap(54, 23)}
+      <text x={54} y={40} className="logic-title" style={{ fontSize: 13.5 }} pointerEvents="none">
+        {wrapLabel(n.label, Math.floor((w - 54 - 46) / 7.6), 1)[0]}
+      </text>
+      {seal(w - 22, 24)}
+      {card.sections.map((sec) => {
+        const top = y;
+        const pill = (
+          <g pointerEvents="none">
+            <rect x={12} y={top + 1} width={sec.label.length * 6.6 + 14} height={17} rx={8.5} fill={color} opacity={0.13} />
+            <text x={12 + (sec.label.length * 6.6 + 14) / 2} y={top + 13} textAnchor="middle" className="logic-sec" fill={color}>
+              {sec.label}
+            </text>
+          </g>
+        );
+        if (sec.chips) {
+          y += sec.rows! * 24 + 10;
+          return (
+            <g key="dados" pointerEvents="none">
+              <line x1={14} x2={w - 14} y1={top - 6} y2={top - 6} className="logic-rule-line" />
+              {pill}
+              {sec.chips.map((c, k) => (
+                <g key={k} transform={`translate(${CARD_X + c.x},${top + c.row * 24})`} className={`logic-chip${c.write ? " write" : ""}`}>
+                  <rect width={c.w} height={19} rx={9.5} />
+                  <text x={c.w / 2} y={13} textAnchor="middle">
+                    {c.text}
+                  </text>
+                </g>
+              ))}
+            </g>
+          );
+        }
+        const el = (
+          <g key={sec.kind + top} pointerEvents="none">
+            <line x1={14} x2={w - 14} y1={top - 6} y2={top - 6} className="logic-rule-line" />
+            {pill}
+            {sec.lines.map((ln, k) => (
+              <text key={k} x={CARD_X + (ln.indent ? 14 : 0)} y={top + 13 + k * 15} className={`logic-line${ln.cond ? " logic-cond" : ""}`}>
+                {ln.text}
+              </text>
+            ))}
+          </g>
+        );
+        y += sec.lines.length * 15 + 14;
+        return el;
+      })}
+    </>,
+  );
+});
+
 /** Estilo inline do fundo (cor + transparência) de nós e grupos; vazio mantém o padrão do tema. */
 const fillStyle = (e: { fill?: string; fillOpacity?: number }): CSSProperties | undefined =>
   e.fill || e.fillOpacity != null ? { ...(e.fill ? { fill: e.fill } : {}), ...(e.fillOpacity != null ? { fillOpacity: e.fillOpacity } : {}) } : undefined;
@@ -152,12 +379,13 @@ const refName = (n: NodeEl) => {
 /** Assets personalizados do diagrama exibido (no visualizador, o diagrama é outro). */
 export const ViewerAssets = createContext<Asset[] | null>(null);
 
-export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
+export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; names?: Record<string, string>; viz?: Viz; badge?: number }) {
   const extra = useContext(ViewerAssets);
   const asset = extra?.find((a) => a.id === n.asset) ?? lookupAsset(n.asset);
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
+  if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} names={names ?? NO_NAMES} viz={viz} badge={badge} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
@@ -202,7 +430,7 @@ export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered }
       <rect className="group-edge" width={g.w} height={g.h} rx={26} pointerEvents="none" />
       <g pointerEvents="none">
         <text className="group-kind" x={20} y={24}>
-          {g.kind.toUpperCase()}
+          {(g.tag ?? g.kind).toUpperCase()}
           {g.subdomain ? ` · ${g.subdomain.toUpperCase()}` : ""}
         </text>
         <text className="group-label" x={20} y={44}>
@@ -572,33 +800,35 @@ function LabelPill({ c, mid }: { c: ConnectionEl; mid: Pt }) {
 }
 
 /** Rótulo desenhado por cima dos nós e das notas, para nunca ficar escondido atrás de um componente; clicar ou arrastar seleciona a conexão como antes. */
-export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected }: { c: ConnectionEl; mid: Pt; selected: boolean }) {
+export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected, viz, flow }: { c: ConnectionEl; mid: Pt; selected: boolean; viz?: Viz; flow?: boolean }) {
   return (
-    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: CONNECTION_TYPES[c.type].color }}>
+    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}${flow ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: flow ? FLOW_EDGE[flowKey(c)].color : CONNECTION_TYPES[c.type].color }}>
       <LabelPill c={c} mid={mid} />
     </g>
   );
 });
 
-export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName, withLabel = true }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string; withLabel?: boolean }) {
+export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName, withLabel = true, viz, flow }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string; withLabel?: boolean; viz?: Viz; flow?: boolean }) {
   const t = CONNECTION_TYPES[c.type];
+  const fl = flow ? FLOW_EDGE[flowKey(c)] : undefined;
+  const color = fl?.color ?? t.color;
   const pid = `p-${c.id}`;
-  const motion = animate && c.animated !== false ? t.motion : "none";
+  const motion = !fl && animate && c.animated !== false ? t.motion : "none";
   return (
-    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
+    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}${fl ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke" />
-      {selected && <path d={d} className="edge-glow" fill="none" stroke={t.color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
+      {selected && <path d={d} className="edge-glow" fill="none" stroke={color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
       <path
         id={pid}
         d={d}
         fill="none"
-        stroke={t.color}
-        strokeWidth={selected ? 2.6 : 2}
-        strokeDasharray={t.dash}
+        stroke={color}
+        strokeWidth={selected ? 2.6 : fl ? 1.7 : 2}
+        strokeDasharray={fl ? fl.dash : t.dash}
         strokeLinecap="round"
-        markerEnd={t.head !== "none" ? `url(#h-${c.type})` : undefined}
-        markerStart={t.tail !== "none" ? `url(#t-${c.type})` : undefined}
-        opacity={motion === "none" ? 0.95 : 0.55}
+        markerEnd={fl ? `url(#h-lg-${flowKey(c)})` : t.head !== "none" ? `url(#h-${c.type})` : undefined}
+        markerStart={!fl && t.tail !== "none" ? `url(#t-${c.type})` : undefined}
+        opacity={motion === "none" ? (fl ? 0.88 : 0.95) : 0.55}
       />
       {motion === "flow" && <path d={d} fill="none" stroke={t.color} strokeWidth={3} strokeLinecap="round" strokeDasharray="0.1 16" className="flow" />}
       {motion === "pulse" &&
@@ -730,6 +960,11 @@ export function DiagramDefs() {
         <stop offset="0" style={{ stopColor: "var(--sheen)", stopOpacity: "var(--sheen-a)" }} />
         <stop offset="0.5" style={{ stopColor: "var(--sheen)", stopOpacity: "var(--sheen-b)" }} />
       </linearGradient>
+      {Object.entries(FLOW_EDGE).map(([k, v]) => (
+        <marker key={k} id={`h-lg-${k}`} viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M2 2L10 6L2 10" fill="none" stroke={v.color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </marker>
+      ))}
       {(Object.keys(CONNECTION_TYPES) as ConnectionType[]).map((k) => (
         <Marker key={k} type={k} />
       ))}
@@ -741,6 +976,46 @@ export function DiagramDefs() {
 
 export function Canvas() {
   const doc = useStore((s) => s.doc);
+  const lstatus = useMemo(() => (docMode(doc) === "logic" ? logicStatus(doc) : null), [doc]);
+  const lnames = useMemo(() => (docMode(doc) === "logic" ? factNames(doc) : NO_NAMES), [doc]);
+  const play = useStore((s) => s.play);
+  const selId = useStore((s) => (s.sel.length === 1 ? s.sel[0] : null));
+  // destaque do fluxo: reprodução de um cenário (passo atual, caminho já percorrido) ou os dados/passos ligados ao selecionado
+  const viz = useMemo(() => {
+    const nodes = new Map<string, Viz>();
+    const edges = new Map<string, Viz>();
+    const badges = new Map<string, number>();
+    if (docMode(doc) !== "logic") return { nodes, edges, badges };
+    if (play) {
+      const steps = play.run.steps.filter((s) => s.rule);
+      const eids = edgeIdsOf(doc, play.run);
+      for (const nd of doc.nodes) nodes.set(nd.id, "dim");
+      for (const c of doc.connections) edges.set(c.id, "dim");
+      steps.slice(0, play.k + 1).forEach((s, i) => {
+        nodes.set(s.rule, i === play.k ? "cur" : "vis");
+        badges.set(s.rule, i + 1);
+      });
+      for (let i = 0; i < play.k; i++) if (eids[i]) edges.set(eids[i]!, i === play.k - 1 ? "cur" : "vis");
+      const cur = steps[play.k]?.rule;
+      if (cur) for (const r of relatedTo(doc, cur)) nodes.set(r, "rel"); // os dados do passo atual acendem junto
+      if (play.scenario) nodes.set(play.scenario, "vis");
+    } else if (selId) {
+      const sel = doc.nodes.find((x) => x.id === selId);
+      if (sel?.logic && sel.logic.role !== "scenario") {
+        const rel = relatedTo(doc, selId);
+        if (rel.size) {
+          const factSel = sel.logic.role === "fact";
+          for (const nd of doc.nodes) {
+            if (nd.id === selId) continue;
+            const isFact = nd.logic?.role === "fact";
+            if (rel.has(nd.id)) nodes.set(nd.id, "rel");
+            else if (factSel ? !isFact : isFact) nodes.set(nd.id, "dim");
+          }
+        }
+      }
+    }
+    return { nodes, edges, badges };
+  }, [doc, play, selId]);
   const sel = useStore((s) => s.sel);
   const tool = useStore((s) => s.tool);
   const view = useStore((s) => s.view);
@@ -1150,7 +1425,7 @@ export function Canvas() {
         const to = connectTarget(e.clientX, e.clientY, d.from);
         if (to) {
           // no modo domain o tipo vem da relação de domínio (inferida pelos dois elementos); a barra de tipos é da arquitetura
-          const [r] = run([{ op: "add_connection", from: d.from, to, ...(docMode(s.doc) === "domain" ? {} : { type: s.connType }) }]);
+          const [r] = run([{ op: "add_connection", from: d.from, to, ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic" ? {} : { type: s.connType }) }]);
           if (r.ok && r.id) {
             select([r.id]);
             set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão
@@ -1351,14 +1626,14 @@ export function Canvas() {
           <path key={l.id} d={l.d} className="owner-link" />
         ))}
         {edges.map(({ c, g }) => (
-          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} withLabel={false} />
+          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} withLabel={false} />
         ))}
         {sel.length === 1 &&
           edges
             .filter(({ c }) => c.id === sel[0])
             .map(({ c, g }) => <EdgeHandles key={c.id} c={c} g={g} z={view.z} />)}
         {doc.nodes.filter((n) => !flow || flow.nodes.has(n.id)).map((n) => (
-          <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} />
+          <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} status={lstatus?.get(n.id)} names={lnames} viz={viz.nodes.get(n.id)} badge={viz.badges.get(n.id)} />
         ))}
         {flow &&
           doc.nodes
@@ -1368,7 +1643,7 @@ export function Canvas() {
           <NoteShape key={n.id} n={n} selected={selSet.has(n.id)} />
         ))}
         {edges.map(({ c, g }) => (
-          <EdgeLabel key={c.id} c={c} mid={g.label ?? g.mid} selected={selSet.has(c.id)} />
+          <EdgeLabel key={c.id} c={c} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} />
         ))}
 
         {(doc.ink ?? []).map((k) => (

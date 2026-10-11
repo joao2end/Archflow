@@ -5,7 +5,7 @@
  * Limites: sem pasta em disco, sem MCP e sem edição externa (Git/editor).
  */
 import { normalizeDoc, slug } from "../shared/ops";
-import { emptyDoc, type Doc, type DocMode } from "../shared/schema";
+import { docMode, emptyDoc, type Doc, type DocMode } from "../shared/schema";
 import type { FileNode, FolderNode } from "./store";
 
 const EXT = ".archflow.json";
@@ -178,6 +178,7 @@ function buildTree(): FolderNode {
       nodes: f.doc.nodes.length,
       connections: f.doc.connections.length,
       refs,
+      mode: docMode(f.doc),
     });
   }
   const sort = (n: FolderNode) => {
@@ -349,8 +350,8 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
 
   /* diagramas */
   if (path === "/api/diagrams" && method === "POST") {
-    if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain`);
-    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" ? "domain" : "architecture");
+    if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic`);
+    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" || b.mode === "logic" ? b.mode : "architecture");
     return { name: rel, ...workspaceInfo() };
   }
   if (path === "/api/vault/docs" && method === "GET") return { files: Object.entries(vault.files).map(([p, f]) => ({ path: p, doc: f.doc })) };

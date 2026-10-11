@@ -1,4 +1,4 @@
-import { DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
+import { DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
 
 /**
  * Catálogo de assets embutido. Cada asset diz QUE PROBLEMA a tecnologia resolve,
@@ -301,8 +301,37 @@ const domainAssets: Asset[] = DDD_ROLE_KEYS.map((role) => ({
   builtin: true,
 }));
 
+/** Papéis de lógica (modo Logic). Fonte única: `LOGIC_ROLES` em schema.ts. */
+export const LOGIC_CATEGORY = "Logic";
+const LOGIC_TAGS: Record<LogicRole, string> = {
+  rule: "regra lógica condição se então ordem fila efeito negócio",
+  fact: "dado fato variável entrada saída campo constante",
+  scenario: "cenário caso exemplo teste simulação",
+  start: "início começo entrada ponto de partida gatilho",
+  end: "fim término saída resultado final",
+  decision: "decisão condição se senão sim não ramo bifurcação if",
+  switch: "escolha caso valor múltiplos caminhos switch case",
+  loop: "laço repetição loop para cada enquanto até iteração",
+  fork: "paralelo simultâneo bifurcação fork ao mesmo tempo",
+  join: "junção espera todos paralelo join",
+  call: "chamar subprocesso outra lógica referência",
+};
+const logicAssets: Asset[] = LOGIC_ROLE_KEYS.map((role) => ({
+  id: `logic-${role}`,
+  name: LOGIC_ROLES[role].label,
+  category: LOGIC_CATEGORY,
+  icon: `t:${LOGIC_ROLES[role].badge}`,
+  color: LOGIC_ROLES[role].color,
+  kind: "logic" as const,
+  logic: { role },
+  problem: LOGIC_ROLES[role].hint,
+  description: LOGIC_ROLES[role].hint,
+  tags: LOGIC_TAGS[role].split(" "),
+  builtin: true,
+}));
+
 const generic = base.filter((a) => a.category === "Genéricos");
-export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
+export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...logicAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
 
 /** Genéricos que fazem sentido num diagrama de domínio: o ator do caso de uso e a ligação com outro diagrama (contexto, arquitetura). */
 const DOMAIN_MODE_GENERICS = ["user", "diagram-ref"];
@@ -313,7 +342,11 @@ const DOMAIN_MODE_GENERICS = ["user", "diagram-ref"];
  */
 export function assetsForMode(assets: Asset[], mode: DocMode, all = false): Asset[] {
   if (all) return assets;
-  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY);
+  if (mode === "logic") {
+    const keep = assets.filter((a) => a.category === LOGIC_CATEGORY || (a.builtin ? a.id === "diagram-ref" : a.kind === "logic"));
+    return [...keep.filter((a) => a.category === LOGIC_CATEGORY), ...keep.filter((a) => a.category !== LOGIC_CATEGORY)];
+  }
+  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY);
   const keep = assets.filter((a) => a.category === DOMAIN_CATEGORY || (a.builtin ? DOMAIN_MODE_GENERICS.includes(a.id) : a.kind === "domain" || a.kind === "actor"));
   return [...keep.filter((a) => a.category === DOMAIN_CATEGORY), ...keep.filter((a) => a.category !== DOMAIN_CATEGORY)];
 }

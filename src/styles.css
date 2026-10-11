@@ -2490,6 +2490,39 @@ svg.canvas.drag-over {
   color: var(--ink-2);
   line-height: 1.45;
 }
+.mcp-cmd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 16px;
+  border-radius: 14px;
+  background: rgba(37, 36, 74, 0.92);
+  color: #ecebff;
+}
+.mcp-cmd code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font: 12.5px/1.5 "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+.codebox { position: relative; margin-top: 6px; }
+.codebox pre.code { padding-right: 96px; }
+.codebox-copy { position: absolute; top: 8px; right: 8px; }
+.mcp-more {
+  margin-top: 12px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 10px;
+}
+.mcp-more > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 8px;
+}
+.mcp-more > summary:hover { color: var(--ink); }
+.mcp-more[open] > summary { color: var(--ink); }
 .mcp-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2682,6 +2715,62 @@ svg.canvas.drag-over {
 .mode-switch button:hover:not(.active) { color: var(--ink); }
 .mode-switch button.active { color: #fff; background: var(--primary-600); box-shadow: 0 1px 4px rgba(75, 73, 168, 0.35); }
 .mode-switch button.active.domain { background: #b7791f; box-shadow: 0 1px 4px rgba(183, 121, 31, 0.4); }
+.mode-switch button.active.logic { background: #0e8f9a; box-shadow: 0 1px 4px rgba(14, 143, 154, 0.4); }
+/* ───────── modo Logic: cartões no vidro do app (azulejo de ícone, legenda, título, texto em português) ───────── */
+.node.logic .node-body { stroke: var(--hairline); stroke-width: 1.2; }
+.node.logic .logic-wash { opacity: 0.07; }
+.node.logic:hover .logic-wash { opacity: 0.1; }
+.node.logic .logic-cap { font: 800 9.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; }
+.node.logic .logic-title { font: 650 13px var(--sans); fill: var(--ink); letter-spacing: -0.005em; }
+.node.logic .logic-line { font: 500 12px var(--sans); fill: var(--ink-2); }
+.node.logic .logic-line.logic-cond { fill: var(--ink); font-weight: 650; }
+.node.logic .logic-mono { font: 500 10.5px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-3); }
+.node.logic .logic-sec { font: 800 9px var(--sans); letter-spacing: 0.08em; }
+.node.logic .logic-rule-line { stroke: var(--hairline); stroke-width: 1; }
+.node.logic .logic-bar { font: 800 9.5px var(--sans); letter-spacing: 0.16em; fill: #fff; }
+.node.logic .logic-badge { font: 800 11px var(--sans); fill: #fff; }
+.node.logic .logic-chip rect { fill: none; stroke: var(--hairline); stroke-width: 1; }
+.node.logic .logic-chip text { font: 600 10.5px var(--sans); fill: var(--ink-2); }
+.node.logic .logic-chip.write rect { fill: var(--primary-100); stroke: color-mix(in srgb, var(--primary) 40%, transparent); }
+.node.logic .logic-chip.write text { fill: var(--ink); }
+.node.logic .logic-play circle { transition: transform 0.14s; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.22)); }
+.node.logic .logic-play:hover circle { transform: scale(1.1); }
+.node.logic .logic-seal circle { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }
+/* setas do fluxo: finas e calmas; a cor diz a saída (sim, não, repete) */
+.edge.flow-edge > path[id] { stroke-linecap: round; }
+.edge.flow-edge .edge-label rect { fill: var(--s-strong); stroke: color-mix(in srgb, var(--ec) 55%, transparent); }
+.edge.flow-edge .edge-label-main { font: 650 11.5px var(--sans); fill: var(--ink); }
+/* destaque do fluxo: reprodução de cenário e dados ligados ao selecionado */
+.node.logic-viz-dim { opacity: 0.24; }
+.node.logic-viz-vis .node-ring { stroke: #706fd3; stroke-width: 3; opacity: 1; }
+.node.logic-viz-cur .node-ring { stroke: #f2994a; stroke-width: 4; opacity: 1; animation: logic-pulse 1.1s ease-in-out infinite; }
+.node.logic-viz-rel .node-ring { stroke: #7fb3d5; stroke-width: 3; opacity: 1; }
+@keyframes logic-pulse { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: 0.35; } }
+.edge.play-dim { opacity: 0.12; }
+.edge.play-vis > path[id] { stroke: #706fd3 !important; stroke-width: 3.6; opacity: 1; }
+.edge.play-cur > path[id] { stroke: #f2994a !important; stroke-width: 4.4; opacity: 1; }
+.edge.play-cur .flow, .edge.play-vis .flow { stroke: #f2994a; }
+.logic-play-panel { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); width: min(760px, calc(100vw - 440px)); max-height: 44vh; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; z-index: 40; }
+.logic-play-panel .lp-head { display: flex; align-items: center; gap: 10px; }
+.logic-play-panel .lp-title { font: 650 13.5px var(--sans); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logic-play-panel .lp-title small { font-weight: 500; color: var(--ink-2); margin-left: 6px; }
+.logic-play-panel .lp-ctl { display: inline-flex; gap: 4px; }
+.logic-play-panel .lp-ctl .btn { min-width: 32px; height: 30px; padding: 0 8px; }
+.logic-play-panel .lp-speed { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px var(--sans); color: var(--ink-2); }
+.logic-play-panel .lp-speed select { height: 30px; padding: 0 8px; min-width: 96px; }
+.logic-play-panel .lp-bar { height: 4px; border-radius: 4px; background: var(--hairline); overflow: hidden; }
+.logic-play-panel .lp-bar > i { display: block; height: 100%; background: var(--primary-600, #706fd3); transition: width 0.25s; }
+.logic-play-panel .lp-now { font: 500 12.5px var(--sans); color: var(--ink); line-height: 1.45; }
+.logic-play-panel .lp-now b { font-weight: 700; }
+.logic-play-panel .lp-chg { display: inline-block; margin: 2px 6px 0 0; padding: 1px 8px; border-radius: 999px; background: rgba(127, 179, 213, 0.16); font: 600 11.5px var(--sans); }
+.logic-play-panel .lp-list { overflow: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 4px; font: 500 12px var(--sans); }
+.logic-play-panel .lp-row { display: flex; gap: 8px; padding: 3px 6px; border-radius: 8px; color: var(--ink-2); cursor: pointer; }
+.logic-play-panel .lp-row.on { background: rgba(242, 153, 74, 0.16); color: var(--ink); }
+.logic-play-panel .lp-row.done { color: var(--ink); }
+.logic-play-panel .lp-row i { font-style: normal; width: 22px; text-align: right; opacity: 0.6; }
+.logic-play-panel .lp-verdict { font: 650 12.5px var(--sans); }
+.logic-play-panel .lp-verdict.ok { color: #2f9e6b; }
+.logic-play-panel .lp-verdict.fail { color: #d6453d; }
 .mode-issues { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 26px; padding: 0; border-radius: 999px; border: 1px solid var(--hairline); background: var(--s-mid); color: var(--ink-2); }
 .mode-issues:hover { border-color: var(--primary); color: var(--ink); }
 .mode-count { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; color: #fff; font: 700 10.5px var(--sans); display: inline-flex; align-items: center; justify-content: center; }
