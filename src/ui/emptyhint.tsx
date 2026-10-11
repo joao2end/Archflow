@@ -1,4 +1,5 @@
 import { pricingDoc } from "../shared/logic.example";
+import { starterDoc } from "../shared/starter.example";
 import { docMode } from "../shared/schema";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
@@ -21,7 +22,7 @@ export function EmptyHint() {
           ? "Abra a biblioteca e arraste um Início, depois uma Regra e um Dado; ligue-os na ordem em que valem e adicione um Cenário com números reais para o quadro conferir a regra sozinho. Ou peça ao seu agente via MCP."
           : domain
           ? "Desenhe um grupo «context» (tecla G) para o bounded context e arraste da biblioteca um Use Case, um Command e um Aggregate Root. Ou peça ao seu agente via MCP (add_use_cases)."
-          : "Abra a biblioteca e arraste uma tecnologia para o quadro, ou peça ao seu agente via MCP."}
+          : "Abra a biblioteca e arraste uma tecnologia para o quadro, ou veja um exemplo pronto para entender como o quadro lê. Também dá para pedir ao seu agente via MCP."}
       </p>
       <div className="empty-actions">
         <button className="btn primary" onClick={() => set({ panel: open ? null : "assets" })}>
@@ -37,12 +38,12 @@ export function EmptyHint() {
             <Glyph name="sparkle" size={17} /> Exemplos de DDD
           </button>
         )}
-        {logic && (
+        {!domain && (
           <button
             className="btn"
             onClick={() => {
-              replaceDoc(pricingDoc());
-              toast("Exemplo de precificação carregado. Ctrl+Z desfaz.");
+              replaceDoc(logic ? pricingDoc() : starterDoc());
+              toast(`Exemplo ${logic ? "de precificação" : "da loja online"} carregado. Ctrl+Z desfaz.`);
             }}
           >
             <Glyph name="sparkle" size={17} /> Ver exemplo pronto

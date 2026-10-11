@@ -3176,9 +3176,9 @@ svg.canvas.drag-over {
 .files-panel .mode-note b { color: var(--ink); font-weight: 650; }
 
 /* letra do atalho no canto da ferramenta: descobrível sem passar o mouse */
-.draw-bar .tool { position: relative; }
-.draw-bar .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); opacity: 0.75; pointer-events: none; }
-.draw-bar .tool.active .tool-key { color: inherit; opacity: 0.9; }
+.draw-bar .tool, .present-bar .tool { position: relative; }
+:is(.draw-bar, .present-bar) .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); opacity: 0.75; pointer-events: none; }
+.draw-bar .tool.active .tool-key, .present-bar .tool.active .tool-key { color: inherit; opacity: 0.9; }
 :is(.present-bar, .draw-bar) .swatch { width: 24px; height: 24px; } /* alvo mínimo WCAG 2.5.8 */
 
 .logic-play-panel .lp-ctl .btn { display: inline-grid; place-items: center; }

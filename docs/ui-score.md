@@ -23,12 +23,13 @@ Notas 0–10, estimadas por leitura de código (sem screenshot) quando indicado.
 | 11 | 2026-10-11 | ColorPicker | 6.7 | 7.3 | 7.0 | Cores recentes (até 8, localStorage com fallback silencioso); foco inicial na área de cor corrigido (visibility:hidden impedia) | Figma/Excalidraw: cores recentes; verificado no navegador (chips + foco) |
 | 12 | 2026-10-11 | Minimap | 5.7 | 6.9 | 7.0 | Setas movem a vista com o foco no minimapa (20%, Shift 60%), cursor grab/grabbing, foco visível, pointercancel, role group em vez de img | WAI-ARIA APG; mapas do Figma/Google Maps; verificado no navegador (204px = 20% de 1024) |
 | 13 | 2026-10-11 | Ajuda (atalhos) + emptyhint | 5.5 | 7.0 | 7.1 | Atalhos agrupados por tarefa (Montar, Editar, Navegar, Desenhar, Aparência, Apresentar) com seção "Modo Lógica" primeiro quando aplicável; chips de tecla sem quebra; dica do quadro vazio sai de baixo do painel lateral aberto | Nielsen #6/#10; agrupamento de atalhos do VS Code/Figma; Ajuda verificada no navegador |
+| 14 | 2026-10-11 | emptyhint (modo Arquitetura) | 6.6 | 7.4 | 7.2 | "Ver exemplo pronto" também em Arquitetura: loja online com 8 componentes e 7 conexões (síncrona, dados, assíncrona), gerada por ops e coberta por teste; texto da dica explica o motivo | Linear/Notion: empty state com conteúdo de exemplo; mesmo padrão do modo Lógica |
 
 ## Scores atuais por componente
 
 | Componente | Clar | Desc | Feed | Hier | A11y | Cons | Inov | Média |
 |---|---|---|---|---|---|---|---|---|
-| emptyhint | 8 | 7 | 6 | 6 | 6 | 7 | 6 | 6.6 |
+| emptyhint | 8 | 8 | 6 | 6 | 6 | 8 | 7 | 7.0 |
 | ModeSwitch | 8 | 6 | 8 | 7 | 7 | 6 | 5 | 6.7 |
 | DrawBar | 7 | 8 | 6 | 7 | 7 | 7 | 6 | 6.9 |
 | Canvas (parcial: só a11y da raiz; resto não medido) | ? | ? | ? | ? | 7 | ? | ? | 7.0 |
@@ -45,6 +46,7 @@ Notas 0–10, estimadas por leitura de código (sem screenshot) quando indicado.
 - [x] PlayPanel: ícones Glyph e dica de teclado (iteração 7)
 - [ ] ColorPicker: sugerir cores já usadas no diagrama; checagem de contraste do texto sobre a cor
 - [ ] Files: todos os itens são tab stops (tabIndex=0 em cada linha); falta roving tabindex e ação de menu (Delete/Shift+F10) por teclado
+- [ ] emptyhint: botão de exemplo do modo Arquitetura não verificado no navegador (quadro estava ocupado pelo agente MCP); Domain ainda só tem os exemplos de DDD (modal)
 - [ ] emptyhint: correção do deslocamento ao lado do painel aberto não verificada visualmente (o agente MCP preencheu o quadro durante o teste)
 - [ ] Ajuda: sem busca; atalhos do modo Domain não têm seção própria
 - [ ] Canvas (1760 linhas): hierarquia, feedback de drag/conexão, zoom e estados; nós têm role=button mas sem tabIndex (só setas no quadro)

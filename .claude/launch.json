@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "vite", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173, "autoPort": true },
+    { "name": "promo-video", "runtimeExecutable": "python", "runtimeArgs": ["-m", "http.server", "5231", "--directory", "docs/promo"], "port": 5231 },
     { "name": "vite-sandbox", "runtimeExecutable": "node", "runtimeArgs": ["scripts/dev-sandbox.mjs"], "port": 5188 }
   ]
 }

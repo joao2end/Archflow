@@ -390,8 +390,11 @@ export function PresentMode() {
 
       <div className="hud glass present-bar" role="toolbar" aria-label="Ferramentas de apresentação">
         {tools.map((t) => (
-          <button key={t.id} className={`tool ${tool === t.id ? "active" : ""}`} onClick={() => setTool(t.id)} aria-label={t.label} aria-pressed={tool === t.id} data-tip={`${t.label} (${t.key})`} data-tip-pos="top">
+          <button key={t.id} className={`tool ${tool === t.id ? "active" : ""}`} onClick={() => setTool(t.id)} aria-label={t.label} aria-pressed={tool === t.id} aria-keyshortcuts={t.key} data-tip={`${t.label} (${t.key})`} data-tip-pos="top">
             <Glyph name={t.icon} size={21} />
+            <kbd className="tool-key" aria-hidden>
+              {t.key}
+            </kbd>
           </button>
         ))}
         <div className="rule" />
