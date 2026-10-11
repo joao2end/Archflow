@@ -1,0 +1,665 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-biblioteca-emprestimos",
+  "title": "Empréstimos",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "emprestimos",
+      "label": "Empréstimos",
+      "kind": "context",
+      "description": "Quem pode levar o quê, por quanto tempo e o que acontece quando atrasa. É o coração do negócio da biblioteca.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1680,
+      "h": 1022,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "leitor-ator",
+      "label": "Leitor",
+      "kind": "actor",
+      "parent": "emprestimos",
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "emprestar-livro-uc",
+      "label": "Emprestar livro",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Leitor",
+        "goal": "levar um exemplar para casa"
+      },
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "renovar-uc",
+      "label": "Renovar empréstimo",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Leitor",
+        "goal": "ficar mais tempo com o livro"
+      },
+      "x": 268,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "devolver-uc",
+      "label": "Devolver livro",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Leitor",
+        "goal": "devolver o exemplar"
+      },
+      "x": 508,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "emprestar-livro",
+      "label": "Emprestar livro",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "abrir um empréstimo de um exemplar para o leitor"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "renovar-emprestimo",
+      "label": "Renovar empréstimo",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "estender o prazo de um empréstimo ativo"
+      },
+      "x": 268,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "devolver-livro",
+      "label": "Devolver livro",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "encerrar o empréstimo e liberar o exemplar"
+      },
+      "x": 508,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "registrar-multa",
+      "label": "Registrar multa",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "command",
+        "step": 4,
+        "intent": "cobrar o atraso na devolução"
+      },
+      "x": 748,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "leitor",
+      "label": "Leitor",
+      "kind": "domain",
+      "description": "O Leitor é o aggregate porque as regras acima precisam ser garantidas juntas, na mesma transação: por isso os empréstimos e as multas moram dentro dele.",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "no máximo 3 empréstimos ativos",
+          "leitor com multa em aberto não pode emprestar",
+          "empréstimo devolvido não pode ser renovado",
+          "no máximo 2 renovações por empréstimo"
+        ]
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "emprestimo",
+      "label": "Empréstimo",
+      "kind": "domain",
+      "description": "Tem identidade (número do empréstimo), mas só existe dentro de um Leitor.",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "entity"
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "multa",
+      "label": "Multa",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "entity"
+      },
+      "x": 268,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "prazo",
+      "label": "Prazo",
+      "kind": "domain",
+      "description": "Imutável: renovar não altera o prazo, troca por outro.",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 508,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro-emprestado",
+      "label": "Livro emprestado",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "leitorId, exemplarId, prazo"
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "emprestimo-renovado",
+      "label": "Empréstimo renovado",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "leitorId, exemplarId, prazo"
+      },
+      "x": 268,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "renovacao-negada",
+      "label": "Renovação negada",
+      "kind": "domain",
+      "description": "O mesmo command pode ter dois desfechos: renovou ou foi negado. Cada desfecho é um evento, e a condição está na conexão.",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "leitorId, exemplarId, motivo"
+      },
+      "x": 508,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro-devolvido",
+      "label": "Livro devolvido",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "leitorId, exemplarId, diasDeAtraso"
+      },
+      "x": 748,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "multa-registrada",
+      "label": "Multa registrada",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "leitorId, valor"
+      },
+      "x": 988,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "multar-atraso",
+      "label": "Multar atraso",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "policy",
+        "intent": "se o livro volta depois do prazo, registra a multa",
+        "reactsTo": [
+          "livro-devolvido"
+        ],
+        "issues": [
+          "registrar-multa"
+        ]
+      },
+      "x": 988,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "calculadora-de-multa",
+      "label": "Calculadora de multa",
+      "kind": "domain",
+      "description": "Regra de negócio que não pertence ao Leitor nem ao Empréstimo: fica num serviço de domínio puro, sem I/O.",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "domain-service",
+        "intent": "valor da multa a partir dos dias de atraso"
+      },
+      "x": 1228,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "leitor-repo",
+      "label": "Repositório de leitores",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "repository",
+        "for": "leitor"
+      },
+      "x": 748,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "servico-de-emprestimo",
+      "label": "Serviço de empréstimo",
+      "kind": "domain",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "application-service",
+        "intent": "carrega o Leitor, aplica o command, grava e publica os eventos"
+      },
+      "x": 1468,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "emprestimos-ativos",
+      "label": "Empréstimos ativos",
+      "kind": "domain",
+      "description": "Tela \"meus empréstimos\": lê só desta projeção, sem carregar o aggregate.",
+      "parent": "emprestimos",
+      "ddd": {
+        "role": "read-model",
+        "projectsFrom": [
+          "livro-emprestado",
+          "livro-devolvido"
+        ]
+      },
+      "x": 28,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "leitor-ator-to-emprestar-livro-uc",
+      "from": "leitor-ator",
+      "to": "emprestar-livro-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "leitor-ator-to-renovar-uc",
+      "from": "leitor-ator",
+      "to": "renovar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "leitor-ator-to-devolver-uc",
+      "from": "leitor-ator",
+      "to": "devolver-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "emprestar-livro-to-emprestar-livro-uc",
+      "from": "emprestar-livro",
+      "to": "emprestar-livro-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "renovar-emprestimo-to-renovar-uc",
+      "from": "renovar-emprestimo",
+      "to": "renovar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "devolver-livro-to-devolver-uc",
+      "from": "devolver-livro",
+      "to": "devolver-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "emprestar-livro-to-leitor",
+      "from": "emprestar-livro",
+      "to": "leitor",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "emprestar-livro-to-livro-emprestado",
+      "from": "emprestar-livro",
+      "to": "livro-emprestado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "renovar-emprestimo-to-leitor",
+      "from": "renovar-emprestimo",
+      "to": "leitor",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.38,
+      "labelOffset": -50
+    },
+    {
+      "id": "renovar-emprestimo-to-emprestimo-renovad",
+      "from": "renovar-emprestimo",
+      "to": "emprestimo-renovado",
+      "type": "async",
+      "label": "se menos de 2 renovações e empréstimo em dia",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits",
+        "condition": "menos de 2 renovações e empréstimo em dia"
+      },
+      "labelT": 0.18
+    },
+    {
+      "id": "renovar-emprestimo-to-renovacao-negada",
+      "from": "renovar-emprestimo",
+      "to": "renovacao-negada",
+      "type": "async",
+      "label": "senão",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits",
+        "otherwise": true
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "devolver-livro-to-leitor",
+      "from": "devolver-livro",
+      "to": "leitor",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5,
+      "labelOffset": -50
+    },
+    {
+      "id": "devolver-livro-to-livro-devolvido",
+      "from": "devolver-livro",
+      "to": "livro-devolvido",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-multa-to-leitor",
+      "from": "registrar-multa",
+      "to": "leitor",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.33999999999999997,
+      "labelOffset": -25
+    },
+    {
+      "id": "registrar-multa-to-multa-registrada",
+      "from": "registrar-multa",
+      "to": "multa-registrada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "leitor-to-emprestimo",
+      "from": "leitor",
+      "to": "emprestimo",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "leitor-to-multa",
+      "from": "leitor",
+      "to": "multa",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "emprestimo-to-prazo",
+      "from": "emprestimo",
+      "to": "prazo",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.14,
+      "labelOffset": 50
+    },
+    {
+      "id": "livro-devolvido-to-multar-atraso",
+      "from": "livro-devolvido",
+      "to": "multar-atraso",
+      "type": "dependency",
+      "label": "se dias de atraso > 0",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers",
+        "condition": "dias de atraso > 0"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "multar-atraso-to-registrar-multa",
+      "from": "multar-atraso",
+      "to": "registrar-multa",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "livro-emprestado-to-emprestimos-ativos",
+      "from": "livro-emprestado",
+      "to": "emprestimos-ativos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.3
+    },
+    {
+      "id": "livro-devolvido-to-emprestimos-ativos",
+      "from": "livro-devolvido",
+      "to": "emprestimos-ativos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-multa-to-calculadora-de-multa",
+      "from": "registrar-multa",
+      "to": "calculadora-de-multa",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "servico-de-emprestimo-to-leitor-repo",
+      "from": "servico-de-emprestimo",
+      "to": "leitor-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.54
+    }
+  ],
+  "customAssets": []
+}

@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
-import { emptyDoc, type Asset, type ConnectionType, type Doc } from "../shared/schema";
+import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, examplePath, type DddExample } from "../shared/examples";
+import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode } from "../shared/schema";
 
 export type Theme = "system" | "light" | "dark";
 export type Tool = "select" | "hand" | "group" | "note" | "connect" | "pen" | "highlight" | "eraser" | "text" | "list";
@@ -9,6 +10,8 @@ export type Modal =
   | { type: "asset"; id?: string }
   | { type: "interface"; id: string }
   | { type: "llm" }
+  | { type: "domain"; tab?: "issues" | "overview" | "code" }
+  | { type: "examples" }
   | { type: "mcp" }
   | { type: "help" }
   | { type: "layout"; direction: "LR" | "TB" }
@@ -466,7 +469,43 @@ export function addRefNode(diagram: string, title: string, x?: number, y?: numbe
   const [r] = run([{ op: "add_node", asset: "diagram-ref", label: title, ref: { diagram, node }, x, y }]);
   if (r.ok && r.id) set({ sel: [r.id] });
 }
-export const newDiagram = (title: string, folder = "") => guard(() => reload("/api/diagrams", { title, folder }));
+export const newDiagram = (title: string, folder = "", mode: DocMode = "architecture") => guard(() => reload("/api/diagrams", { title, folder, mode }));
+/**
+ * Instala um exemplo de DDD no cofre aberto (pasta `exemplos-ddd/<exemplo>/`) e abre o mapa de contextos.
+ * Não sobrescreve nada: se a pasta do exemplo já existir, só abre o que já está lá.
+ */
+export async function installExample(ex: DddExample): Promise<boolean> {
+  const docs = buildExample(ex);
+  const overviewPath = docs[0].path;
+  const have = new Set(state.workspace?.files.map((f) => f.path) ?? []);
+  if (docs.some((d) => have.has(d.path))) {
+    await openDiagram(have.has(overviewPath) ? overviewPath : docs.find((d) => have.has(d.path))!.path);
+    toast(`O exemplo já está no cofre (${EXAMPLES_DIR}/${ex.id}). Apague a pasta para reinstalar.`);
+    return false;
+  }
+  for (let i = 0; i < docs.length; i++) {
+    const f = ex.files[i];
+    const made = await newDiagram(f.title, `${EXAMPLES_DIR}/${ex.id}`, f.mode);
+    const name: string | undefined = made?.name;
+    if (!name) return false;
+    if (name !== docs[i].path) {
+      toast(`Caminho inesperado para ${f.title}: ${name}. Os vínculos entre diagramas do exemplo não funcionariam.`);
+      return false;
+    }
+    // o diagrama novo chega do servidor de forma assíncrona; só então o conteúdo do exemplo entra nele
+    for (let t = 0; t < 60 && state.file !== name; t++) await new Promise((r) => setTimeout(r, 50));
+    if (state.file !== name) return false;
+    replaceDoc(docs[i].doc);
+  }
+  await openDiagram(overviewPath);
+  toast(`Exemplo «${ex.title}» instalado em ${EXAMPLES_DIR}/${ex.id}`);
+  return true;
+}
+export const dddExamples = DDD_EXAMPLES;
+export { examplePath };
+
+/** Todos os diagramas do cofre (caminho + conteúdo): base da visão geral de domínio. */
+export const fetchVaultDocs = () => call<{ files: { path: string; doc: Doc }[] }>("/api/vault/docs").then((r) => r.files);
 export const duplicateDiagram = (name: string) => guard(() => reload("/api/diagrams/duplicate", { name }));
 export const renameDiagram = (name: string, title: string) => guard(() => reload("/api/diagrams/rename", { name, title }));
 export const moveDiagram = (name: string, folder: string) => guard(() => reload("/api/diagrams/move", { name, folder }));

@@ -5,6 +5,8 @@ import { fitView } from "./keys";
 import { INK_COLORS, inkPath as pathOf, strokeAttrs } from "./ink";
 import { getState, set, useStore } from "./store";
 import type { Pt } from "./geometry";
+import { StoryPanel } from "./story";
+import { docMode } from "../shared/schema";
 
 /* ───────── modo apresentação: tela limpa + caneta, marca-texto, laser e cronômetro ───────── */
 
@@ -139,6 +141,7 @@ function Timer() {
 
 export function PresentMode() {
   const view = useStore((s) => s.view);
+  const domain = useStore((s) => docMode(s.doc) === "domain");
   const [tool, setTool] = useState<PresentTool>("navigate");
   const color = useStore((s) => s.inkColor);
   const cfg = useStore((s) => s.inkCfg);
@@ -383,6 +386,7 @@ export function PresentMode() {
       )}
 
       <Timer />
+      {domain && <StoryPanel />}
 
       <div className="hud glass present-bar" role="toolbar" aria-label="Ferramentas de apresentação">
         {tools.map((t) => (

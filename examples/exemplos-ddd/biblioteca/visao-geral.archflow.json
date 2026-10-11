@@ -1,0 +1,52 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-biblioteca-visao-geral",
+  "title": "Visão geral",
+  "description": "Biblioteca universitária: mapa de contextos. O exemplo mais simples: duas áreas do negócio, um aggregate bem delimitado pelas suas invariantes e um evento atravessando de um contexto para o outro.",
+  "mode": "domain",
+  "groups": [],
+  "nodes": [
+    {
+      "id": "emprestimos",
+      "label": "Empréstimos",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/biblioteca/emprestimos.archflow.json"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "acervo",
+      "label": "Acervo",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/biblioteca/acervo.archflow.json"
+      },
+      "x": 629,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "emprestimos-to-acervo",
+      "from": "emprestimos",
+      "to": "acervo",
+      "type": "association",
+      "label": "Customer/Supplier · livro-emprestado · livro-devolvido",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "customer-supplier"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

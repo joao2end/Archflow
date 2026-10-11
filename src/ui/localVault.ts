@@ -5,7 +5,7 @@
  * Limites: sem pasta em disco, sem MCP e sem edição externa (Git/editor).
  */
 import { normalizeDoc, slug } from "../shared/ops";
-import { emptyDoc, type Doc } from "../shared/schema";
+import { emptyDoc, type Doc, type DocMode } from "../shared/schema";
 import type { FileNode, FolderNode } from "./store";
 
 const EXT = ".archflow.json";
@@ -215,11 +215,11 @@ function openFile(rel: string, source = "file") {
   sendWorkspace();
 }
 
-function createDiagram(title: string, folder = ""): string {
+function createDiagram(title: string, folder = "", mode: DocMode = "architecture"): string {
   segments(folder, true);
   if (folder && !vault.folders.includes(folder)) vault.folders.push(folder);
   const rel = uniqueFile(title, folder);
-  vault.files[rel] = { doc: emptyDoc(title), updatedAt: Date.now() };
+  vault.files[rel] = { doc: emptyDoc(title, mode), updatedAt: Date.now() };
   openFile(rel);
   return rel;
 }
@@ -349,9 +349,11 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
 
   /* diagramas */
   if (path === "/api/diagrams" && method === "POST") {
-    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""));
+    if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain`);
+    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" ? "domain" : "architecture");
     return { name: rel, ...workspaceInfo() };
   }
+  if (path === "/api/vault/docs" && method === "GET") return { files: Object.entries(vault.files).map(([p, f]) => ({ path: p, doc: f.doc })) };
   if (path === "/api/diagrams/open") {
     fileOrThrow(b.name);
     openFile(b.name);

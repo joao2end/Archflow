@@ -224,11 +224,33 @@ export function edgeGeoms(doc: Doc) {
 }
 
 /** Texto do rótulo de uma conexão e seu tamanho (compartilhado entre o desenho e o auto-layout). */
+/** Largura real do texto no navegador (a fonte do rótulo); sem canvas (testes, servidor) cai para uma estimativa por caractere. */
+const widthCache = new Map<string, number>();
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function textWidth(text: string, font: string, perChar: number): number {
+  if (typeof document === "undefined") return text.length * perChar;
+  const key = font + "|" + text;
+  const hit = widthCache.get(key);
+  if (hit !== undefined) return hit;
+  if (measureCtx === undefined) measureCtx = document.createElement("canvas").getContext("2d");
+  let w = text.length * perChar;
+  if (measureCtx) {
+    measureCtx.font = font;
+    w = Math.max(w * 0.6, measureCtx.measureText(text).width);
+  }
+  if (widthCache.size > 2000) widthCache.clear();
+  widthCache.set(key, w);
+  return w;
+}
+
 export function labelSize(c: ConnectionEl): { text: string; sub?: string; w: number; h: number } | null {
   const text = c.label ?? (c.protocol ? "" : CONNECTION_TYPES[c.type].label);
   const sub = c.protocol;
   if (!(text || sub || c.interface)) return null;
-  const w = Math.max(text.length * 6.8, (sub?.length ?? 0) * 5.8) + 22 + (c.interface ? 16 : 0);
+  // a medida usa o mesmo corpo do CSS (.edge-label-main 600 12px, .edge-label-sub 500 10.5px) e nunca fica abaixo da estimativa antiga
+  const mainW = textWidth(text, '600 12px "Inter Tight", system-ui, sans-serif', 6.8);
+  const subW = textWidth(sub ?? "", '500 10.5px "Inter Tight", system-ui, sans-serif', 5.8);
+  const w = Math.max(typeof document === "undefined" ? mainW : Math.max(mainW, text.length * 6.8 * 0.85), subW) + 22 + (c.interface ? 16 : 0);
   return { text, sub, w, h: sub && text ? 36 : 26 };
 }
 

@@ -1,7 +1,9 @@
 import { createContext, memo, type CSSProperties, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
+import { DDD_BADGES, DDD_ROLES, DECISION_GATES, docMode } from "../shared/schema";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
+import { truncate, wrapLabel } from "../shared/text";
 import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
@@ -50,7 +52,35 @@ type Drag =
 
 /* ───────────────────────── formas ───────────────────────── */
 
-const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1) + "…" : s);
+/** Até 3 linhas para o nome completo; com 3 linhas a segunda informação (tecnologia/papel) sai do desenho e fica no tooltip e no inspetor. */
+const NAME_LINES = 3;
+const nameLines = (text: string, chars: number) => wrapLabel(text, chars, NAME_LINES);
+/** Posição vertical da linha secundária; null quando o nome ocupa as 3 linhas. */
+const subY = (text: string, chars: number, h: number) => {
+  const n = nameLines(text, chars).length;
+  return n >= 3 ? null : n === 2 ? h / 2 + 24 : h / 2 + 15;
+};
+
+/** Nome do componente: 1 a 3 linhas, centrado na altura do nó. */
+function NodeName({ text, chars, x, h, hasSub }: { text: string; chars: number; x: number; h: number; hasSub: boolean }) {
+  const lines = nameLines(text, chars);
+  if (lines.length === 1)
+    return (
+      <text className="node-label" x={x} y={hasSub ? h / 2 - 3 : h / 2 + 5} pointerEvents="none">
+        {lines[0]}
+      </text>
+    );
+  const three = lines.length >= 3;
+  return (
+    <text className="node-label" x={x} y={three ? h / 2 - 13 : h / 2 - 19} pointerEvents="none">
+      {lines.map((l, k) => (
+        <tspan key={k} x={x} dy={k === 0 ? 0 : three ? 16 : 17}>
+          {l}
+        </tspan>
+      ))}
+    </text>
+  );
+}
 
 /** Componente de comunicação: selo colorido (GET, POST, WS, QUERY…) + caminho, no estilo de nós do n8n. */
 const EndpointShape = memo(function EndpointShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
@@ -77,6 +107,39 @@ const EndpointShape = memo(function EndpointShape({ n, selected, hot, hovered }:
   );
 });
 
+/** Elemento do modelo de domínio (DDD): selo colorido do papel (AGG, CMD, EVT…) e fundo na cor do papel, como post-its de Event Storming. */
+const DomainShape = memo(function DomainShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
+  const role = DDD_ROLES[n.ddd!.role];
+  const badge = DDD_BADGES[n.ddd!.role];
+  const bw = Math.max(46, badge.length * 8.4 + 18);
+  const chars = Math.floor((n.w - bw - 40) / 7);
+  const sub = n.ddd!.role === "decision" ? `${role.label} · ${DECISION_GATES[n.ddd!.gate ?? "exclusive"].label}` : n.ddd!.role === "use-case" && n.ddd!.actor ? `${role.label} · ${n.ddd!.actor}` : n.ddd!.external ? `${role.label} ← ${n.ddd!.external}` : role.label;
+  return (
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${role.label}: ${n.label}`} transform={`translate(${n.x},${n.y})`} className={`node domain${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
+      <title>{`${n.label}\n${role.label} — ${role.hint}${n.description ? "\n" + n.description : ""}`}</title>
+      <rect className="node-body" width={n.w} height={n.h} rx={18} filter="url(#shadow)" style={fillStyle(n) ?? { fill: role.color, fillOpacity: 0.14 }} />
+      <rect className="node-sheen" width={n.w} height={n.h} rx={18} fill="url(#sheen)" pointerEvents="none" />
+      <rect className="node-ring" width={n.w} height={n.h} rx={18} pointerEvents="none" />
+      {n.ddd!.role === "decision" ? (
+        <polygon points={`${8 + bw / 2},6 ${8 + bw},${n.h / 2} ${8 + bw / 2},${n.h - 6} 8,${n.h / 2}`} fill={role.color} pointerEvents="none" />
+      ) : (
+        <rect x={8} y={8} width={bw} height={n.h - 16} rx={11} fill={role.color} pointerEvents="none" />
+      )}
+      <text x={8 + bw / 2} y={n.h / 2 + 0.5} className="ep-badge" pointerEvents="none">
+        {badge}
+      </text>
+      <NodeName text={n.label} chars={chars} x={bw + 22} h={n.h} hasSub />
+      {subY(n.label, chars, n.h) !== null && (
+        <text className="node-sub" x={bw + 22} y={subY(n.label, chars, n.h)!} pointerEvents="none">
+          {truncate(sub, chars + 2)}
+        </text>
+      )}
+      {n.description && <circle cx={n.w - 14} cy={14} r={3} fill={role.color} opacity={0.8} pointerEvents="none" />}
+      {(hovered || selected) && <Handles id={n.id} w={n.w} h={n.h} />}
+    </g>
+  );
+});
+
 /** Estilo inline do fundo (cor + transparência) de nós e grupos; vazio mantém o padrão do tema. */
 const fillStyle = (e: { fill?: string; fillOpacity?: number }): CSSProperties | undefined =>
   e.fill || e.fillOpacity != null ? { ...(e.fill ? { fill: e.fill } : {}), ...(e.fillOpacity != null ? { fillOpacity: e.fillOpacity } : {}) } : undefined;
@@ -95,6 +158,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered }: 
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
+  if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
       {n.ref && (
@@ -108,12 +172,13 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered }: 
       <rect className="node-ring" width={n.w} height={n.h} rx={18} pointerEvents="none" />
       <rect x={14} y={(n.h - 44) / 2} width={44} height={44} rx={13} fill="#fff" fillOpacity={0.85} stroke={color} strokeOpacity={0.28} pointerEvents="none" />
       <IconSvg icon={asset?.icon ?? `t:${n.label.slice(0, 2).toUpperCase()}`} color={color} name={asset?.name ?? n.label} size={28} x={22} y={(n.h - 28) / 2} />
-      <text className="node-label" x={68} y={n.technology || n.kind ? n.h / 2 - 3 : n.h / 2 + 5} pointerEvents="none">
-        {truncate(n.label, chars)}
-      </text>
-      <text className="node-sub" x={68} y={n.h / 2 + 15} pointerEvents="none">
-        {truncate(n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind, chars + 2)}
-      </text>
+      <title>{[n.label, n.ref ? refName(n) : n.technology ?? asset?.name].filter(Boolean).join("\n")}</title>
+      <NodeName text={n.label} chars={chars} x={68} h={n.h} hasSub={!!(n.technology || n.kind)} />
+      {subY(n.label, chars, n.h) !== null && (
+        <text className="node-sub" x={68} y={subY(n.label, chars, n.h)!} pointerEvents="none">
+          {truncate(n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind, chars + 2)}
+        </text>
+      )}
       {n.description && !n.ref && <circle cx={n.w - 14} cy={14} r={3} fill={color} opacity={0.7} pointerEvents="none" />}
       {n.ref && (
         <g data-role="open-ref" data-id={n.id} className="open-ref" transform={`translate(${n.w - 24},${n.h / 2 - 10})`}>
@@ -132,11 +197,13 @@ export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered }
   const color = g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3";
   return (
     <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Grupo ${g.label}`} transform={`translate(${g.x},${g.y})`} className={`group${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
+      <title>{g.label}</title>
       <rect className="group-body" width={g.w} height={g.h} rx={26} style={fillStyle(g)} />
       <rect className="group-edge" width={g.w} height={g.h} rx={26} pointerEvents="none" />
       <g pointerEvents="none">
         <text className="group-kind" x={20} y={24}>
           {g.kind.toUpperCase()}
+          {g.subdomain ? ` · ${g.subdomain.toUpperCase()}` : ""}
         </text>
         <text className="group-label" x={20} y={44}>
           {truncate(g.label, Math.floor((g.w - 40) / 9))}
@@ -478,13 +545,45 @@ function Marker({ type }: { type: ConnectionType }) {
   );
 }
 
-export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string }) {
+/** Pílula do rótulo de uma conexão: texto completo (a largura vem da medida real do texto) e marca de interface. */
+function LabelPill({ c, mid }: { c: ConnectionEl; mid: Pt }) {
+  const ls = labelSize(c);
+  if (!ls) return null;
+  const { text, sub, w, h } = ls;
+  return (
+    <g transform={`translate(${mid.x},${mid.y})`} className="edge-label" data-label-drag="1">
+      <title>{[c.label, c.protocol].filter(Boolean).join(" · ")}</title>
+      <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={h / 2.4} />
+      <text y={sub && text ? -4 : 0} className="edge-label-main">
+        {text}
+      </text>
+      {sub && (
+        <text y={text ? 10 : 0} className="edge-label-sub">
+          {sub}
+        </text>
+      )}
+      {c.interface && (
+        <g transform={`translate(${w / 2 - 14},0)`}>
+          <circle r={4.5} fill={CONNECTION_TYPES[c.type].color} opacity={0.9} />
+        </g>
+      )}
+    </g>
+  );
+}
+
+/** Rótulo desenhado por cima dos nós e das notas, para nunca ficar escondido atrás de um componente; clicar ou arrastar seleciona a conexão como antes. */
+export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected }: { c: ConnectionEl; mid: Pt; selected: boolean }) {
+  return (
+    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: CONNECTION_TYPES[c.type].color }}>
+      <LabelPill c={c} mid={mid} />
+    </g>
+  );
+});
+
+export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName, withLabel = true }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string; withLabel?: boolean }) {
   const t = CONNECTION_TYPES[c.type];
   const pid = `p-${c.id}`;
   const motion = animate && c.animated !== false ? t.motion : "none";
-  const ls = labelSize(c);
-  const { text, sub, w, h } = ls ?? { text: "", sub: undefined, w: 0, h: 0 };
-  const showLabel = !!ls;
   return (
     <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}`} style={{ ["--ec" as string]: t.color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke" />
@@ -519,24 +618,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
             </animateMotion>
           </circle>
         ))}
-      {showLabel && (
-        <g transform={`translate(${mid.x},${mid.y})`} className="edge-label" data-label-drag="1">
-          <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={h / 2.4} />
-          <text y={sub && text ? -4 : 0} className="edge-label-main">
-            {text}
-          </text>
-          {sub && (
-            <text y={text ? 10 : 0} className="edge-label-sub">
-              {sub}
-            </text>
-          )}
-          {c.interface && (
-            <g transform={`translate(${w / 2 - 14},${sub && text ? 0 : 0})`}>
-              <circle r={4.5} fill={t.color} opacity={0.9} />
-            </g>
-          )}
-        </g>
-      )}
+      {withLabel && <LabelPill c={c} mid={mid} />}
     </g>
   );
 });
@@ -1067,7 +1149,8 @@ export function Canvas() {
       case "connect": {
         const to = connectTarget(e.clientX, e.clientY, d.from);
         if (to) {
-          const [r] = run([{ op: "add_connection", from: d.from, to, type: s.connType }]);
+          // no modo domain o tipo vem da relação de domínio (inferida pelos dois elementos); a barra de tipos é da arquitetura
+          const [r] = run([{ op: "add_connection", from: d.from, to, ...(docMode(s.doc) === "domain" ? {} : { type: s.connType }) }]);
           if (r.ok && r.id) {
             select([r.id]);
             set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão
@@ -1268,7 +1351,7 @@ export function Canvas() {
           <path key={l.id} d={l.d} className="owner-link" />
         ))}
         {edges.map(({ c, g }) => (
-          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} />
+          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} withLabel={false} />
         ))}
         {sel.length === 1 &&
           edges
@@ -1283,6 +1366,9 @@ export function Canvas() {
             .map((n) => <rect key="flow-ring" x={n.x - 6} y={n.y - 6} width={n.w + 12} height={n.h + 12} rx={16} className="flow-ring" pointerEvents="none" />)}
         {(flow ? [] : doc.notes).map((n) => (
           <NoteShape key={n.id} n={n} selected={selSet.has(n.id)} />
+        ))}
+        {edges.map(({ c, g }) => (
+          <EdgeLabel key={c.id} c={c} mid={g.label ?? g.mid} selected={selSet.has(c.id)} />
         ))}
 
         {(doc.ink ?? []).map((k) => (

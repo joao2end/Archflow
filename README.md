@@ -20,6 +20,7 @@ modelo semântico (componentes, grupos, conexões tipadas e interfaces), interfa
 - [Conectar um agente (MCP)](#conectar-um-agente-mcp)
 - [Cofre de diagramas](#cofre-de-diagramas-estilo-obsidian)
 - [Endpoints e referências entre diagramas](#endpoints-e-referências-entre-diagramas)
+- [Modo Domain (DDD)](#modo-domain-ddd)
 - [Recursos](#recursos)
 - [Atalhos de teclado](#atalhos-de-teclado)
 - [Estrutura do projeto](#estrutura)
@@ -66,6 +67,9 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run dev` | App (Vite) + bridge local |
 | `npm run build` | Checagem de tipos + build de produção |
 | `npm run bridge` | Servidor local (HTTP/SSE) servindo o build |
+| `npm run examples:build` | Regrava os exemplos de DDD em `examples/` (e `-- --check` confere se estão em dia) |
+| `npm run eval:domain -- <arquivos>` | Avalia diagramas de domínio contra as metas objetivas (casos de uso rastreados, erros estruturais, itens a corrigir) |
+| `npm test` | Testes (modelo, regras de domínio, catálogo, regressão da arquitetura e MCP ponta a ponta) |
 | `npm run mcp` | Servidor MCP (stdio) em desenvolvimento |
 | `npm run mcp:bundle` | Empacota o MCP (`dist-mcp/`), levado pelo instalador em `resources/mcp/` |
 | `npm run mcp:install` / `mcp:check` | Instala o MCP no Cursor, Claude Desktop e Claude Code e testa a conexão / só testa |
@@ -222,6 +226,27 @@ Um **cofre** é uma pasta qualquer do disco; seus diagramas são arquivos `.arch
 - **Componentes de comunicação:** um serviço *expõe* endpoints — REST (GET/POST/PUT/PATCH/DELETE), GraphQL (query/mutation/subscription), WebSocket, gRPC, Webhook, SSE e Evento. Adicione pelos botões "+ GET", "+ POST"… no inspetor do serviço, ou solte um item da categoria **Comunicação** da biblioteca sobre ele. Eles ficam presos ao serviço e aceitam conexões.
 - **Referência a outro diagrama:** arraste um diagrama do explorador para o quadro (ou use *Outro diagrama* na biblioteca). Clique nele para **visualizar em modal**; dentro do modal, clique em outras referências para entrar nelas e use **← →** (ou Alt+←/→) para navegar. *Editar* abre o diagrama e o botão **Voltar** retorna. O explorador mostra **Referenciado por** (backlinks) e os links são atualizados ao renomear/mover arquivos.
 - MCP: `add_endpoints`, `get_diagram_outline` e `add_components` com `ref`.
+
+## Modo Domain (DDD)
+
+Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (arquitetura: serviços, bancos, filas) ou **Domain** (o negócio com DDD). Crie um diagrama de domínio pelo ícone de camadas do explorador (ou `new_diagram` com `mode: "domain"`); o selo abre a modal com a troca de modo, a **validação** e a **visão geral do cofre**.
+
+- **Paleta própria:** categoria *Domain* com Aggregate Root, Entity, Value Object, Domain Event, Command, Policy, Repository, Domain/Application Service, Use Case, Read Model e Process Manager (nomes em inglês, explicação em pt-BR no tooltip). Cada elemento é colorido pelo papel, como os post-its de Event Storming.
+- **Relações com semântica:** no inspetor da conexão, *Relação de domínio* (`emits`, `triggers`, `contains`, `references-by-id`, `realizes`, `context-relation`) e, entre contextos, o **padrão do Context Map** (ACL, Customer/Supplier, Shared Kernel…). Grupos `context` ganham **subdomain** (core, supporting, generic).
+- **Validação com regras DDD** (D001–D032, incluindo conectores e fluxo), cada aviso com id, severidade e clique para selecionar o elemento: caso de uso sem command, command sem aggregate, evento sem produtor, aggregates ligados por objeto…
+- **Estrutura por contexto + visão geral:** um diagrama por bounded context e um **mapa de contextos** (componentes *Outro diagrama* ligados por `context-relation`). A aba *Visão geral do cofre* consolida contextos, eventos publicados/consumidos e o rastreio dos casos de uso.
+- **Casos de uso → projeto:** peça ao agente (MCP) para modelar a partir de casos de uso: `add_use_cases`, `add_components` com `ddd`, `connect` com `ddd.rel`, `validate_diagram` e `trace` (caso de uso → command → aggregate → evento). Repetir é seguro e o agente reaproveita os ids ao retomar um diagrama que você editou.
+- **Linha do tempo (Event Storming):** no *Layout automático* escolha *Linha do tempo* (ou `auto_layout` com `style: "timeline"`): raias ator → caso de uso → command → aggregate → evento → policy → read model, com os commands na ordem de `ddd.step`.
+- **Código:** a aba *Código (TypeScript)* da modal do selo (ou `generate_code`) gera o esqueleto por contexto na regra application → domain: aggregates com entities e value objects, eventos, repositories, commands, handlers, policies e sagas, mais `use-cases.md` com o rastreio. A lógica fica como TODO e o resultado compila em modo estrito.
+- **Qualidade medida:** `npm run eval:domain -- diagrama.archflow.json` confere se ≥ 90% dos casos de uso estão rastreados, sem erros estruturais de DDD, no máximo 2 itens a corrigir e sem elementos duplicados.
+- Diagramas de arquitetura **não mudam**: a saída de antes do modo domínio é preservada byte a byte (teste de regressão).
+
+- **Regras dos conectores:** no modo Domain cada conexão é uma relação (`emits`, `triggers`, `contains`, `references-by-id`, `realizes`, `uses`, `context-relation`) que só liga os papéis certos; o tipo vem da relação e `sync`/`async`/`stream`/`data` não existem aqui. Ao ligar dois elementos, se só uma relação serve, a conexão já nasce com ela.
+- **Decisões, condições, loops e iteração (só no modo Domain):** o papel *Decision* (exclusiva, paralela ou junção) com um ramo por conexão, **condição** e **senão** nas conexões `triggers`/`emits`, **loop** marcado na conexão que volta a um passo anterior (com condição de parada obrigatória) e **para cada**. As regras D024 a D032 conferem a forma do fluxo (decisão com 2+ ramos e um senão, junção com 2+ entradas, ciclo por decisão exige loop declarado) e o código gerado leva os ramos para tipos. Veja o guia em [docs/DDD.md](docs/DDD.md).
+- **Switch Arch | Domain** na barra superior (sem diálogo; Ctrl+Z desfaz) e, ao lado, o atalho da validação.
+- **Exemplos prontos de DDD** (biblioteca, clínica, loja, banco): botão ✨ do explorador → *Instalar e abrir*, ou a pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
+
+Detalhes de projeto, regras e decisões: [docs/DOMAIN_MODE.md](docs/DOMAIN_MODE.md). Para testar a UI sem tocar nos seus diagramas: `node scripts/dev-sandbox.mjs` (cofre temporário, portas próprias).
 
 ## Recursos
 

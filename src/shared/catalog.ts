@@ -1,4 +1,4 @@
-import type { Asset, EndpointSpec, NodeKind } from "./schema";
+import { DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
 
 /**
  * Catálogo de assets embutido. Cada asset diz QUE PROBLEMA a tecnologia resolve,
@@ -267,8 +267,56 @@ const refAsset: Asset = {
   builtin: true,
 };
 
+/**
+ * Papéis de domínio (DDD). Nome em inglês (termo da área), explicação em pt-BR no tooltip.
+ * Fonte única: `DDD_ROLES` em schema.ts, para o catálogo, o validador e o guia da IA nunca divergirem.
+ */
+export const DOMAIN_CATEGORY = "Domain";
+const ROLE_TAGS: Record<DddRole, string> = {
+  "aggregate-root": "aggregate raiz invariante consistência ddd",
+  entity: "entidade identidade ddd",
+  "value-object": "valor imutável vo ddd",
+  "domain-event": "evento fato passado ddd event storming",
+  command: "comando intenção imperativo ddd event storming",
+  policy: "política regra reação ddd event storming",
+  repository: "repositório persistência ddd",
+  "domain-service": "serviço de domínio regra pura ddd",
+  "application-service": "serviço de aplicação orquestração caso de uso ddd",
+  "use-case": "caso de uso requisito ator ddd",
+  "read-model": "projeção consulta cqrs leitura ddd",
+  "process-manager": "saga processo compensação fluxo longo ddd",
+  decision: "decisão condição ramo se senão gateway loop repetição fluxo ddd",
+};
+const domainAssets: Asset[] = DDD_ROLE_KEYS.map((role) => ({
+  id: `ddd-${role}`,
+  name: DDD_ROLES[role].label,
+  category: DOMAIN_CATEGORY,
+  icon: `t:${DDD_BADGES[role]}`,
+  color: DDD_ROLES[role].color,
+  kind: "domain" as const,
+  ddd: { role },
+  problem: DDD_ROLES[role].hint,
+  description: DDD_ROLES[role].hint,
+  tags: ROLE_TAGS[role].split(" "),
+  builtin: true,
+}));
+
 const generic = base.filter((a) => a.category === "Genéricos");
-export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...comm, ...base.filter((a) => a.category !== "Genéricos")];
+export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
+
+/** Genéricos que fazem sentido num diagrama de domínio: o ator do caso de uso e a ligação com outro diagrama (contexto, arquitetura). */
+const DOMAIN_MODE_GENERICS = ["user", "diagram-ref"];
+
+/**
+ * O que a paleta/listagem mostra em cada modo: `architecture` esconde "Domain"; `domain` mostra "Domain" primeiro, mais o ator
+ * e a referência a outro diagrama. `all` ignora o filtro (o usuário pediu para ver tudo).
+ */
+export function assetsForMode(assets: Asset[], mode: DocMode, all = false): Asset[] {
+  if (all) return assets;
+  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY);
+  const keep = assets.filter((a) => a.category === DOMAIN_CATEGORY || (a.builtin ? DOMAIN_MODE_GENERICS.includes(a.id) : a.kind === "domain" || a.kind === "actor"));
+  return [...keep.filter((a) => a.category === DOMAIN_CATEGORY), ...keep.filter((a) => a.category !== DOMAIN_CATEGORY)];
+}
 
 export const ASSET_CATEGORIES = Array.from(new Set(BUILTIN_ASSETS.map((a) => a.category)));
 

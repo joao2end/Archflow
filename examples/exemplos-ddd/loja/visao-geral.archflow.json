@@ -1,0 +1,78 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-loja-visao-geral",
+  "title": "Visão geral",
+  "description": "Loja online: mapa de contextos. Três contextos que conversam por eventos: uma saga coordena pagamento e estoque, o gateway de pagamento fica atrás de uma camada anticorrupção e o diagrama de arquitetura mostra onde cada contexto roda.",
+  "mode": "domain",
+  "groups": [],
+  "nodes": [
+    {
+      "id": "pedidos",
+      "label": "Pedidos",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/loja/pedidos.archflow.json"
+      },
+      "x": 670,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamentos",
+      "label": "Pagamentos",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/loja/pagamentos.archflow.json"
+      },
+      "x": 1401,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estoque",
+      "label": "Estoque",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/loja/estoque.archflow.json"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "pedidos-to-pagamentos",
+      "from": "pedidos",
+      "to": "pagamentos",
+      "type": "association",
+      "label": "Partnership · pedido-criado ⇄ pagamento-aprovado / cobranca-desistida",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "partnership"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "estoque-to-pedidos",
+      "from": "estoque",
+      "to": "pedidos",
+      "type": "association",
+      "label": "Customer/Supplier · estoque-reservado · estoque-insuficiente",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "customer-supplier"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

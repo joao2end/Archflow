@@ -245,7 +245,7 @@ export function McpBody() {
             </li>
           </ol>
           <div className="callout">
-            <b>Ferramentas:</b> get_schema_guide · list_assets · search_assets · get_diagram · add_components · add_endpoints · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram · list_diagrams · get_diagram_outline · open_diagram · new_diagram. <br />
+            <b>Ferramentas:</b> get_schema_guide · list_assets · search_assets · get_diagram · add_components · add_endpoints · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram · list_diagrams · get_diagram_outline · open_diagram · new_diagram · add_use_cases · trace · domain_overview (modo domain). <br />
             <b>Recursos:</b> archflow://diagram · archflow://schema · archflow://skill. O protocolo completo está em <code>docs/PROTOCOL.md</code>.
           </div>
         </>

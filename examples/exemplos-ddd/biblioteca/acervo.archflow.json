@@ -1,0 +1,669 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-biblioteca-acervo",
+  "title": "Acervo",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "acervo",
+      "label": "Acervo",
+      "kind": "context",
+      "description": "O catálogo: quais livros existem e onde estão os exemplares. Necessário, mas não é o diferencial da biblioteca.",
+      "subdomain": "supporting",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 1146,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "bibliotecario",
+      "label": "Bibliotecário",
+      "kind": "actor",
+      "parent": "acervo",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cadastrar-livro-uc",
+      "label": "Cadastrar livro",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Bibliotecário",
+        "goal": "incluir um título no catálogo"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cadastrar-exemplar-uc",
+      "label": "Cadastrar exemplar",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Bibliotecário",
+        "goal": "registrar uma cópia física de um título"
+      },
+      "x": 268,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cadastrar-livro",
+      "label": "Cadastrar livro",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "incluir um título no catálogo"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cadastrar-exemplar",
+      "label": "Cadastrar exemplar",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "registrar uma cópia física"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "marcar-emprestado",
+      "label": "Marcar exemplar emprestado",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "o exemplar saiu da estante"
+      },
+      "x": 508,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "marcar-disponivel",
+      "label": "Marcar exemplar disponível",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "command",
+        "step": 4,
+        "intent": "o exemplar voltou para a estante"
+      },
+      "x": 748,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro",
+      "label": "Livro",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "o ISBN é único no catálogo"
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "isbn",
+      "label": "ISBN",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 28,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "exemplar",
+      "label": "Exemplar",
+      "kind": "domain",
+      "description": "Um exemplar muda de estado por conta própria; por isso é um aggregate separado do Livro e o referencia só pelo id.",
+      "parent": "acervo",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "um exemplar está disponível ou emprestado, nunca os dois"
+        ]
+      },
+      "x": 268,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "localizacao",
+      "label": "Localização",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 268,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro-cadastrado",
+      "label": "Livro cadastrado",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "livroId, isbn"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "exemplar-cadastrado",
+      "label": "Exemplar cadastrado",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "exemplarId, livroId"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "exemplar-emprestado",
+      "label": "Exemplar marcado como emprestado",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "exemplarId"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "exemplar-disponivel",
+      "label": "Exemplar marcado como disponível",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "exemplarId"
+      },
+      "x": 748,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro-emprestado-ext",
+      "label": "Livro emprestado",
+      "kind": "domain",
+      "description": "Publicado por emprestimos; aqui só reagimos a ele.",
+      "parent": "acervo",
+      "ddd": {
+        "role": "domain-event",
+        "external": "emprestimos.livro-emprestado",
+        "payload": "leitorId, exemplarId, prazo"
+      },
+      "x": 508,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro-devolvido-ext",
+      "label": "Livro devolvido",
+      "kind": "domain",
+      "description": "Publicado por emprestimos; aqui só reagimos a ele.",
+      "parent": "acervo",
+      "ddd": {
+        "role": "domain-event",
+        "external": "emprestimos.livro-devolvido",
+        "payload": "leitorId, exemplarId, diasDeAtraso"
+      },
+      "x": 748,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "atualizar-ao-emprestar",
+      "label": "Atualizar ao emprestar",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "policy",
+        "intent": "quando um livro é emprestado, o exemplar sai do acervo",
+        "reactsTo": [
+          "livro-emprestado-ext"
+        ],
+        "issues": [
+          "marcar-emprestado"
+        ]
+      },
+      "x": 508,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "atualizar-ao-devolver",
+      "label": "Atualizar ao devolver",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "policy",
+        "intent": "quando um livro volta, o exemplar fica disponível",
+        "reactsTo": [
+          "livro-devolvido-ext"
+        ],
+        "issues": [
+          "marcar-disponivel"
+        ]
+      },
+      "x": 748,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "disponibilidade",
+      "label": "Disponibilidade",
+      "kind": "domain",
+      "description": "Resposta rápida para \"tem esse livro agora?\".",
+      "parent": "acervo",
+      "ddd": {
+        "role": "read-model",
+        "projectsFrom": [
+          "exemplar-cadastrado",
+          "exemplar-emprestado",
+          "exemplar-disponivel"
+        ]
+      },
+      "x": 268,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "livro-repo",
+      "label": "Repositório de livros",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "repository",
+        "for": "livro"
+      },
+      "x": 508,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "exemplar-repo",
+      "label": "Repositório de exemplares",
+      "kind": "domain",
+      "parent": "acervo",
+      "ddd": {
+        "role": "repository",
+        "for": "exemplar"
+      },
+      "x": 748,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "bibliotecario-to-cadastrar-livro-uc",
+      "from": "bibliotecario",
+      "to": "cadastrar-livro-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "bibliotecario-to-cadastrar-exemplar-uc",
+      "from": "bibliotecario",
+      "to": "cadastrar-exemplar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "cadastrar-livro-to-cadastrar-livro-uc",
+      "from": "cadastrar-livro",
+      "to": "cadastrar-livro-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cadastrar-exemplar-to-cadastrar-exemplar",
+      "from": "cadastrar-exemplar",
+      "to": "cadastrar-exemplar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cadastrar-livro-to-livro",
+      "from": "cadastrar-livro",
+      "to": "livro",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cadastrar-livro-to-livro-cadastrado",
+      "from": "cadastrar-livro",
+      "to": "livro-cadastrado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "cadastrar-exemplar-to-exemplar",
+      "from": "cadastrar-exemplar",
+      "to": "exemplar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cadastrar-exemplar-to-exemplar-cadastrad",
+      "from": "cadastrar-exemplar",
+      "to": "exemplar-cadastrado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "marcar-emprestado-to-exemplar",
+      "from": "marcar-emprestado",
+      "to": "exemplar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-emprestado-to-exemplar-emprestado",
+      "from": "marcar-emprestado",
+      "to": "exemplar-emprestado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-disponivel-to-exemplar",
+      "from": "marcar-disponivel",
+      "to": "exemplar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-disponivel-to-exemplar-disponivel",
+      "from": "marcar-disponivel",
+      "to": "exemplar-disponivel",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "livro-to-isbn",
+      "from": "livro",
+      "to": "isbn",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "exemplar-to-localizacao",
+      "from": "exemplar",
+      "to": "localizacao",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "exemplar-to-livro",
+      "from": "exemplar",
+      "to": "livro",
+      "type": "association",
+      "label": "references-by-id",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "references-by-id"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    },
+    {
+      "id": "livro-emprestado-ext-to-atualizar-ao-emp",
+      "from": "livro-emprestado-ext",
+      "to": "atualizar-ao-emprestar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "atualizar-ao-emprestar-to-marcar-emprest",
+      "from": "atualizar-ao-emprestar",
+      "to": "marcar-emprestado",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "livro-devolvido-ext-to-atualizar-ao-devo",
+      "from": "livro-devolvido-ext",
+      "to": "atualizar-ao-devolver",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "atualizar-ao-devolver-to-marcar-disponiv",
+      "from": "atualizar-ao-devolver",
+      "to": "marcar-disponivel",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "exemplar-cadastrado-to-disponibilidade",
+      "from": "exemplar-cadastrado",
+      "to": "disponibilidade",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.3
+    },
+    {
+      "id": "exemplar-emprestado-to-disponibilidade",
+      "from": "exemplar-emprestado",
+      "to": "disponibilidade",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "exemplar-disponivel-to-disponibilidade",
+      "from": "exemplar-disponivel",
+      "to": "disponibilidade",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.9,
+      "labelOffset": -25
+    },
+    {
+      "id": "cadastrar-livro-to-livro-repo",
+      "from": "cadastrar-livro",
+      "to": "livro-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.21999999999999997
+    },
+    {
+      "id": "marcar-emprestado-to-exemplar-repo",
+      "from": "marcar-emprestado",
+      "to": "exemplar-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

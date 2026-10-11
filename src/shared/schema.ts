@@ -23,7 +23,8 @@ export type NodeKind =
   | "infra"
   | "library"
   | "endpoint"
-  | "system";
+  | "system"
+  | "domain";
 
 export const NODE_KINDS: Record<NodeKind, string> = {
   service: "Serviço / API / aplicação backend",
@@ -39,6 +40,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   library: "Biblioteca, framework ou linguagem",
   endpoint: "Ponto de comunicação de um serviço (endpoint REST, canal WebSocket, operação GraphQL, método gRPC, webhook, evento)",
   system: "Sistema descrito em OUTRO diagrama do cofre (referência, campo `ref`)",
+  domain: "Elemento do modelo de domínio (DDD): o papel (aggregate-root, command, domain-event...) está em `ddd.role`. Só existe em diagramas de modo `domain`",
 };
 
 export type GroupKind =
@@ -174,6 +176,205 @@ export const CONNECTION_TYPES: Record<ConnectionType, ConnectionTypeInfo> = {
 
 export const CONNECTION_TYPE_KEYS = Object.keys(CONNECTION_TYPES) as ConnectionType[];
 
+
+/* ───────── modo domínio (DDD) ───────── */
+
+/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD). */
+export type DocMode = "architecture" | "domain";
+
+export const DOC_MODES: Record<DocMode, { label: string; hint: string }> = {
+  architecture: { label: "Architecture", hint: "Arquitetura: serviços, bancos, filas, nuvem e rede." },
+  domain: { label: "Domain", hint: "Domínio (DDD): bounded contexts, aggregates, commands, eventos e casos de uso." },
+};
+
+export const docMode = (doc: { mode?: DocMode }): DocMode => (doc.mode === "domain" ? "domain" : "architecture");
+
+export type DddRole =
+  | "aggregate-root"
+  | "entity"
+  | "value-object"
+  | "domain-event"
+  | "command"
+  | "policy"
+  | "repository"
+  | "domain-service"
+  | "application-service"
+  | "use-case"
+  | "read-model"
+  | "process-manager"
+  | "decision";
+
+/** Como uma decisão trata os ramos de saída: um só (exclusive), todos (parallel) ou espera todas as entradas (join). */
+export type DecisionGate = "exclusive" | "parallel" | "join";
+export const DECISION_GATES: Record<DecisionGate, { label: string; hint: string }> = {
+  exclusive: { label: "exclusiva", hint: "Segue UM ramo: o primeiro cuja condição vale; o ramo padrão (senão) cobre o resto." },
+  parallel: { label: "paralela", hint: "Segue TODOS os ramos ao mesmo tempo (as condições não se aplicam)." },
+  join: { label: "junção", hint: "Espera TODAS as entradas chegarem antes de seguir (precisa de 2 ou mais entradas)." },
+};
+export const DECISION_GATE_KEYS = Object.keys(DECISION_GATES) as DecisionGate[];
+
+/** Uma propriedade (campo) de entity, value object, aggregate, command, evento ou read model: explica a estrutura do modelo. */
+export interface PropertySpec {
+  name: string;
+  /** tipo em texto livre: "uuid", "Dinheiro", "texto", "Item[]" */
+  type?: string;
+  /** o campo pode faltar (por padrão é obrigatório) */
+  optional?: boolean;
+  /** identificador (identidade) do elemento */
+  key?: boolean;
+  /** o que o campo significa e por que existe */
+  description?: string;
+  /** valor de exemplo */
+  example?: string;
+}
+
+/** Campos próprios de um papel, todos textuais/ids para uma LLM ler e escrever sem ambiguidade. */
+export interface DddNodeSpec {
+  role: DddRole;
+  /** command, policy, domain-service, application-service: o que faz, em uma frase */
+  intent?: string;
+  /** aggregate-root, entity, value-object, command: regras que sempre valem */
+  invariants?: string[];
+  /** domain-event: dados que o evento carrega */
+  payload?: string;
+  /** aggregate-root, entity, value-object, command, domain-event, read-model: campos (nome, tipo, descrição) que explicam a estrutura */
+  properties?: PropertySpec[];
+  /** domain-event: id do command, aggregate-root ou process-manager que o produz */
+  producedBy?: string;
+  /** domain-event: "contexto.evento" quando é a cópia local de um evento publicado por outro contexto */
+  external?: string;
+  /** repository: id do aggregate-root que ele persiste */
+  for?: string;
+  /** use-case: papel/pessoa que executa */
+  actor?: string;
+  /** use-case: objetivo de negócio */
+  goal?: string;
+  /** use-case: ids dos commands (ou serviços) que o realizam */
+  realizedBy?: string[];
+  /** policy, process-manager: ids dos eventos a que reage */
+  reactsTo?: string[];
+  /** policy, process-manager: ids dos commands que dispara */
+  issues?: string[];
+  /** process-manager: ids dos commands de compensação */
+  compensates?: string[];
+  /** read-model: ids dos eventos que o alimentam */
+  projectsFrom?: string[];
+  /** command, domain-event: posição na linha do tempo (reservado para o layout de Event Storming) */
+  step?: number;
+  /** decision: a pergunta que o ponto de decisão responde */
+  question?: string;
+  /** decision: como os ramos são tratados (padrão: exclusive) */
+  gate?: DecisionGate;
+}
+export type DddField = Exclude<keyof DddNodeSpec, "role">;
+
+export const DDD_ROLES: Record<DddRole, { label: string; hint: string; color: string; fields: DddField[] }> = {
+  "aggregate-root": { label: "Aggregate Root", hint: "Ponto de entrada do aggregate: garante as invariantes do conjunto e é a única parte acessada de fora.", color: "#e0a526", fields: ["invariants", "properties"] },
+  entity: { label: "Entity", hint: "Objeto com identidade própria dentro de um aggregate.", color: "#d9822b", fields: ["invariants", "properties"] },
+  "value-object": { label: "Value Object", hint: "Valor imutável sem identidade, comparado pelo conteúdo (ex.: dinheiro, endereço).", color: "#b8860b", fields: ["invariants", "properties"] },
+  "domain-event": { label: "Domain Event", hint: "Fato de negócio que já aconteceu, nomeado no passado (ex.: pedido-criado).", color: "#f2994a", fields: ["payload", "properties", "producedBy", "external", "step"] },
+  command: { label: "Command", hint: "Intenção de mudar o estado, nomeada no imperativo (ex.: criar-pedido).", color: "#3b9ddd", fields: ["intent", "properties", "invariants", "step"] },
+  policy: { label: "Policy", hint: "Regra sem estado: quando um evento acontece, dispara um command.", color: "#9b6bd6", fields: ["intent", "reactsTo", "issues"] },
+  repository: { label: "Repository", hint: "Coleção persistente de um aggregate-root; a interface fica no domínio.", color: "#2f9e8f", fields: ["for"] },
+  "domain-service": { label: "Domain Service", hint: "Regra de negócio que não cabe em um aggregate; pura, sem I/O.", color: "#5b8def", fields: ["intent"] },
+  "application-service": { label: "Application Service", hint: "Orquestra um caso de uso (carrega, chama o domínio, persiste, publica); sem regra de negócio.", color: "#6c7a89", fields: ["intent"] },
+  "use-case": { label: "Use Case", hint: "Objetivo de um ator com o sistema; liga o requisito ao command que o realiza.", color: "#4caf7d", fields: ["actor", "goal", "realizedBy"] },
+  "read-model": { label: "Read Model", hint: "Projeção otimizada para consulta (CQRS), alimentada por eventos.", color: "#7fb3d5", fields: ["properties", "projectsFrom"] },
+  "process-manager": { label: "Process Manager", hint: "Saga: coordena um fluxo longo reagindo a eventos e disparando commands, com compensação.", color: "#c2548b", fields: ["intent", "reactsTo", "issues", "compensates"] },
+  decision: { label: "Decision", hint: "Ponto de decisão do fluxo: depois de um evento, escolhe qual ramo seguir (exclusiva), segue todos (paralela) ou espera todos (junção). Cada ramo é uma conexão com a sua condição; um ramo pode voltar a um passo anterior (loop).", color: "#0e9aa7", fields: ["question", "gate"] },
+};
+export const DDD_ROLE_KEYS = Object.keys(DDD_ROLES) as DddRole[];
+/** Selo curto exibido no canvas e no catálogo (como GET/POST nos endpoints). */
+export const DDD_BADGES: Record<DddRole, string> = {
+  "aggregate-root": "AGG",
+  entity: "ENT",
+  "value-object": "VO",
+  "domain-event": "EVT",
+  command: "CMD",
+  policy: "POL",
+  repository: "REPO",
+  "domain-service": "DS",
+  "application-service": "APP",
+  "use-case": "UC",
+  "read-model": "READ",
+  "process-manager": "SAGA",
+  decision: "DEC",
+};
+
+export type Subdomain = "core" | "supporting" | "generic";
+export const SUBDOMAINS: Record<Subdomain, string> = {
+  core: "Diferencial competitivo do negócio; onde vale investir no melhor modelo.",
+  supporting: "Necessário ao negócio, mas sem diferencial; costuma ser feito sob medida e simples.",
+  generic: "Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira comprar ou usar pronto.",
+};
+
+export type DddRel = "emits" | "triggers" | "contains" | "references-by-id" | "realizes" | "uses" | "context-relation";
+export const DDD_RELS: Record<DddRel, { label: string; semantics: string; type: ConnectionType }> = {
+  emits: { label: "emits", semantics: "command, aggregate-root ou process-manager → domain-event: produz o fato.", type: "async" },
+  triggers: { label: "triggers", semantics: "causa: domain-event → policy/process-manager/read-model, policy → command, command → aggregate-root.", type: "dependency" },
+  contains: { label: "contains", semantics: "aggregate-root/entity → entity/value-object: parte do mesmo aggregate (ciclo de vida compartilhado).", type: "composition" },
+  "references-by-id": { label: "references-by-id", semantics: "aggregate-root/entity → aggregate-root de OUTRO aggregate: referência só por identificador, nunca por objeto.", type: "association" },
+  realizes: { label: "realizes", semantics: "command (ou serviço) → use-case: quem concretiza o caso de uso.", type: "realization" },
+  uses: { label: "uses", semantics: "dependência de serviço: command, policy, process-manager ou application-service → domain-service ou repository (quem orquestra usa; o aggregate nunca depende de repository).", type: "dependency" },
+  "context-relation": { label: "context-relation", semantics: "bounded context ↔ bounded context, com `pattern` do Context Map. Nos padrões assimétricos (customer-supplier, conformist, acl, ohs) `from` é o upstream (fornecedor) e `to` o downstream (cliente).", type: "association" },
+};
+export const DDD_REL_KEYS = Object.keys(DDD_RELS) as DddRel[];
+
+/** Ponta de uma relação: o papel do elemento, ou "context" (grupo context ou componente system com ref). */
+export type RelEnd = DddRole | "context";
+/**
+ * Quem pode ligar a quem em cada relação (fonte única: validação D021, inferência da relação ao conectar, seletor do inspetor e guia da IA).
+ * Cada par vale por si: `from` ∈ lista da esquerda E `to` ∈ lista da direita.
+ */
+export const DDD_REL_PAIRS: Record<DddRel, { from: RelEnd[]; to: RelEnd[] }[]> = {
+  emits: [{ from: ["command", "aggregate-root", "process-manager"], to: ["domain-event"] }],
+  triggers: [
+    { from: ["command"], to: ["aggregate-root"] },
+    { from: ["domain-event"], to: ["policy", "process-manager", "read-model"] },
+    { from: ["policy", "process-manager"], to: ["command"] },
+    // fluxo condicional: evento/policy/saga → decisão → (command | policy | saga | outra decisão)
+    { from: ["domain-event", "policy", "process-manager", "decision"], to: ["decision"] },
+    { from: ["decision"], to: ["command", "policy", "process-manager"] },
+  ],
+  contains: [{ from: ["aggregate-root", "entity"], to: ["entity", "value-object"] }],
+  "references-by-id": [{ from: ["aggregate-root", "entity"], to: ["aggregate-root"] }],
+  realizes: [{ from: ["command", "domain-service", "application-service"], to: ["use-case"] }],
+  uses: [{ from: ["command", "policy", "process-manager", "application-service", "domain-service"], to: ["domain-service", "repository"] }],
+  "context-relation": [{ from: ["context"], to: ["context"] }],
+};
+/** Tipos de conexão de infraestrutura: não existem no modo domain (o tipo vem da relação de domínio). */
+export const INFRA_CONNECTION_TYPES: ConnectionType[] = ["sync", "async", "stream", "data"];
+
+export type ContextPattern = "shared-kernel" | "customer-supplier" | "conformist" | "acl" | "ohs" | "published-language" | "partnership" | "separate-ways";
+export const CONTEXT_PATTERNS: Record<ContextPattern, { label: string; hint: string }> = {
+  "shared-kernel": { label: "Shared Kernel", hint: "Os contextos compartilham um subconjunto do modelo e mudam juntos." },
+  "customer-supplier": { label: "Customer/Supplier", hint: "Fornecedor (upstream) atende o cliente (downstream), que influencia o plano." },
+  conformist: { label: "Conformist", hint: "O downstream adota o modelo do upstream sem negociar." },
+  acl: { label: "Anticorruption Layer", hint: "O downstream traduz o modelo do upstream para proteger o próprio." },
+  ohs: { label: "Open Host Service", hint: "O upstream expõe um serviço aberto e estável para vários consumidores." },
+  "published-language": { label: "Published Language", hint: "Linguagem de troca documentada e compartilhada (ex.: JSON schema, AsyncAPI)." },
+  partnership: { label: "Partnership", hint: "Dois contextos evoluem juntos e coordenam entregas." },
+  "separate-ways": { label: "Separate Ways", hint: "Sem integração: cada contexto resolve sozinho." },
+};
+export const CONTEXT_PATTERN_KEYS = Object.keys(CONTEXT_PATTERNS) as ContextPattern[];
+
+/** Relações que carregam fluxo: só nelas valem condição, ramo padrão, loop e iteração. */
+export const FLOW_RELS: DddRel[] = ["triggers", "emits"];
+
+export interface DddConnSpec {
+  rel: DddRel;
+  /** só com rel "context-relation" */
+  pattern?: ContextPattern;
+  /** fluxo (triggers, emits): o ramo só segue se a condição valer ("atraso > 0") */
+  condition?: string;
+  /** fluxo: ramo padrão ("senão"), usado quando nenhuma condição dos irmãos vale; exclui `condition` */
+  otherwise?: boolean;
+  /** fluxo: esta conexão VOLTA a um passo anterior e repete até a condição de parada e/ou no máximo `max` vezes */
+  loop?: { until?: string; max?: number };
+  /** fluxo: repete para cada elemento ("item do pedido") */
+  foreach?: string;
+}
+
 export type InterfaceKind = "rest" | "graphql" | "grpc" | "event" | "sql" | "websocket" | "file" | "custom";
 
 export interface InterfaceOperation {
@@ -265,6 +466,8 @@ export interface Asset {
   kind: NodeKind;
   /** valores padrão quando o asset é um componente de comunicação */
   endpoint?: EndpointSpec;
+  /** valores padrão quando o asset é um papel de domínio (DDD); só entra em diagramas de modo domain */
+  ddd?: DddNodeSpec;
   icon: string;
   color: string;
   /** Qual problema a tecnologia resolve */
@@ -314,6 +517,8 @@ export interface NodeEl extends Base, Box {
   ref?: DiagramRef;
   /** metadados livres chave→valor (porta, versão, SLA, ...) */
   props?: Record<string, string>;
+  /** modelo de domínio (kind "domain"): papel DDD e campos do papel */
+  ddd?: DddNodeSpec;
 }
 
 export interface GroupEl extends Base, Box {
@@ -322,6 +527,8 @@ export interface GroupEl extends Base, Box {
   color?: string;
   /** true quando o tamanho deve ser recalculado a partir dos filhos */
   auto?: boolean;
+  /** só em grupos kind "context": classificação estratégica do subdomínio */
+  subdomain?: Subdomain;
 }
 
 export type NoteVariant = "note" | "text" | "list";
@@ -379,6 +586,8 @@ export interface ConnectionEl {
   /** deslocamento do rótulo perpendicular ao traçado, em px (negativo = outro lado) */
   labelOffset?: number;
   animated?: boolean;
+  /** semântica de domínio (modo domain): relação DDD e, entre contextos, o padrão do Context Map */
+  ddd?: DddConnSpec;
 }
 
 export interface Doc {
@@ -386,6 +595,8 @@ export interface Doc {
   id: string;
   title: string;
   description?: string;
+  /** ausente = "architecture" (diagramas anteriores ao modo domínio continuam válidos) */
+  mode?: DocMode;
   groups: GroupEl[];
   nodes: NodeEl[];
   notes: NoteEl[];
@@ -401,12 +612,13 @@ export const ENDPOINT_H = 44;
 export const NODE_W = 184;
 export const NODE_H = 72;
 
-export function emptyDoc(title = "Novo diagrama"): Doc {
+export function emptyDoc(title = "Novo diagrama", mode: DocMode = "architecture"): Doc {
   return {
     schema: SCHEMA_VERSION,
     id: "diagram-" + Math.random().toString(36).slice(2, 8),
     title,
     description: "",
+    ...(mode === "domain" ? { mode } : {}),
     groups: [],
     nodes: [],
     notes: [],

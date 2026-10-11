@@ -1,0 +1,373 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-clinica-faturamento",
+  "title": "Faturamento",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "faturamento",
+      "label": "Faturamento",
+      "kind": "context",
+      "description": "Cobrar do convênio ou do paciente o que foi atendido. Linguagem de contabilidade, não de clínica.",
+      "subdomain": "supporting",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 1022,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "faturista",
+      "label": "Faturista",
+      "kind": "actor",
+      "parent": "faturamento",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "faturar-uc",
+      "label": "Faturar consulta",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Faturista",
+        "goal": "gerar a cobrança de uma consulta realizada"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "consulta-realizada",
+      "label": "Consulta realizada",
+      "kind": "domain",
+      "description": "Publicado por agenda; aqui só reagimos a ele.",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "domain-event",
+        "external": "agenda.consulta-realizada",
+        "payload": "agendaId, horarioId, pacienteId, procedimento"
+      },
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "faturar-ao-realizar",
+      "label": "Faturar ao realizar",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "policy",
+        "intent": "toda consulta realizada gera uma guia",
+        "reactsTo": [
+          "consulta-realizada"
+        ],
+        "issues": [
+          "emitir-guia"
+        ]
+      },
+      "x": 28,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "emitir-guia",
+      "label": "Emitir guia",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "gerar a guia de cobrança do procedimento"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "enviar-guia",
+      "label": "Enviar guia",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "mandar a guia ao convênio"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "guia",
+      "label": "Guia",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "valor vem da tabela do convênio na data do atendimento",
+          "guia enviada não pode ser alterada"
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "item-da-guia",
+      "label": "Item da guia",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "entity"
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "valor",
+      "label": "Valor",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 268,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "guia-emitida",
+      "label": "Guia emitida",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "guiaId, consultaId, valor"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "guia-enviada",
+      "label": "Guia enviada",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "guiaId, convenio"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "tabela-de-precos",
+      "label": "Tabela de preços",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "domain-service",
+        "intent": "preço de um procedimento conforme o convênio e a data"
+      },
+      "x": 508,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "guia-repo",
+      "label": "Repositório de guias",
+      "kind": "domain",
+      "parent": "faturamento",
+      "ddd": {
+        "role": "repository",
+        "for": "guia"
+      },
+      "x": 748,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "faturista-to-faturar-uc",
+      "from": "faturista",
+      "to": "faturar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "emitir-guia-to-faturar-uc",
+      "from": "emitir-guia",
+      "to": "faturar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "consulta-realizada-to-faturar-ao-realiza",
+      "from": "consulta-realizada",
+      "to": "faturar-ao-realizar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "faturar-ao-realizar-to-emitir-guia",
+      "from": "faturar-ao-realizar",
+      "to": "emitir-guia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "emitir-guia-to-guia",
+      "from": "emitir-guia",
+      "to": "guia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.66,
+      "labelOffset": -50
+    },
+    {
+      "id": "emitir-guia-to-guia-emitida",
+      "from": "emitir-guia",
+      "to": "guia-emitida",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.18,
+      "labelOffset": 50
+    },
+    {
+      "id": "enviar-guia-to-guia",
+      "from": "enviar-guia",
+      "to": "guia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "enviar-guia-to-guia-enviada",
+      "from": "enviar-guia",
+      "to": "guia-enviada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "guia-to-item-da-guia",
+      "from": "guia",
+      "to": "item-da-guia",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "item-da-guia-to-valor",
+      "from": "item-da-guia",
+      "to": "valor",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5,
+      "labelOffset": -50
+    },
+    {
+      "id": "emitir-guia-to-tabela-de-precos",
+      "from": "emitir-guia",
+      "to": "tabela-de-precos",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.7
+    },
+    {
+      "id": "emitir-guia-to-guia-repo",
+      "from": "emitir-guia",
+      "to": "guia-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.54
+    }
+  ],
+  "customAssets": []
+}

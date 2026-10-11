@@ -1,0 +1,78 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-clinica-visao-geral",
+  "title": "Visão geral",
+  "description": "Clínica médica: mapa de contextos. Onde traçar a fronteira do aggregate (a agenda, não a consulta), vocabulários diferentes para a mesma pessoa em cada contexto e um Shared Kernel assumido de propósito.",
+  "mode": "domain",
+  "groups": [],
+  "nodes": [
+    {
+      "id": "agenda",
+      "label": "Agenda",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/clinica/agenda.archflow.json"
+      },
+      "x": 0,
+      "y": 96,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "prontuario",
+      "label": "Prontuário",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/clinica/prontuario.archflow.json"
+      },
+      "x": 520,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "faturamento",
+      "label": "Faturamento",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/clinica/faturamento.archflow.json"
+      },
+      "x": 520,
+      "y": 192,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "agenda-to-prontuario",
+      "from": "agenda",
+      "to": "prontuario",
+      "type": "association",
+      "label": "Shared Kernel · identidade do paciente",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "shared-kernel"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "agenda-to-faturamento",
+      "from": "agenda",
+      "to": "faturamento",
+      "type": "association",
+      "label": "Customer/Supplier · consulta-realizada",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "customer-supplier"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

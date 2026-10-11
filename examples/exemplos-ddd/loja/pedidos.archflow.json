@@ -1,0 +1,848 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-loja-pedidos",
+  "title": "Pedidos",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "pedidos",
+      "label": "Pedidos",
+      "kind": "context",
+      "description": "O que o cliente comprou e em que estado está o pedido. É onde a loja se diferencia: a experiência de comprar.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1680,
+      "h": 1146,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cliente",
+      "label": "Cliente",
+      "kind": "actor",
+      "parent": "pedidos",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "fazer-pedido-uc",
+      "label": "Fazer pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "comprar os itens do carrinho"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cancelar-pedido-uc",
+      "label": "Cancelar pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "desistir da compra antes do envio"
+      },
+      "x": 508,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "acompanhar-uc",
+      "label": "Acompanhar pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "saber em que etapa está o pedido",
+        "realizedBy": [
+          "consulta-de-pedidos"
+        ]
+      },
+      "x": 748,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "criar-pedido",
+      "label": "Criar pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "registrar o pedido com os itens e o endereço",
+        "properties": [
+          {
+            "name": "clienteId",
+            "type": "uuid",
+            "description": "quem está comprando"
+          },
+          {
+            "name": "itens",
+            "type": "Item do pedido[]",
+            "description": "o que foi escolhido no carrinho, com a quantidade"
+          },
+          {
+            "name": "endereco",
+            "type": "Endereço de entrega",
+            "description": "para onde enviar"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "confirmar-pedido",
+      "label": "Confirmar pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "pagamento e estoque deram certo"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cancelar-pedido",
+      "label": "Cancelar pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "encerrar o pedido (a pedido do cliente ou por falha)"
+      },
+      "x": 508,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido",
+      "label": "Pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "o total é a soma dos itens",
+          "pedido confirmado não aceita novos itens",
+          "pedido cancelado não volta a ser confirmado"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "key": true,
+            "description": "identifica o pedido em todo o sistema"
+          },
+          {
+            "name": "clienteId",
+            "type": "uuid",
+            "description": "referência por id ao cliente (outro aggregate)"
+          },
+          {
+            "name": "status",
+            "type": "texto",
+            "description": "criado, confirmado ou cancelado"
+          },
+          {
+            "name": "total",
+            "type": "Dinheiro",
+            "description": "soma dos itens; recalculado a cada mudança"
+          },
+          {
+            "name": "criadoEm",
+            "type": "data e hora"
+          },
+          {
+            "name": "motivoCancelamento",
+            "type": "texto",
+            "optional": true,
+            "description": "só existe se o pedido foi cancelado"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "item-do-pedido",
+      "label": "Item do pedido",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "entity",
+        "invariants": [
+          "quantidade maior que zero"
+        ],
+        "properties": [
+          {
+            "name": "produtoId",
+            "type": "uuid",
+            "key": true,
+            "description": "o produto comprado; um pedido não repete produto"
+          },
+          {
+            "name": "quantidade",
+            "type": "inteiro",
+            "description": "quantas unidades"
+          },
+          {
+            "name": "precoUnitario",
+            "type": "Dinheiro",
+            "description": "preço no momento da compra (não muda se o catálogo mudar)"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "endereco-de-entrega",
+      "label": "Endereço de entrega",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "value-object",
+        "properties": [
+          {
+            "name": "logradouro",
+            "type": "texto"
+          },
+          {
+            "name": "numero",
+            "type": "texto"
+          },
+          {
+            "name": "complemento",
+            "type": "texto",
+            "optional": true
+          },
+          {
+            "name": "cidade",
+            "type": "texto"
+          },
+          {
+            "name": "cep",
+            "type": "texto",
+            "description": "8 dígitos, validado na criação"
+          }
+        ]
+      },
+      "x": 268,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "dinheiro",
+      "label": "Dinheiro",
+      "kind": "domain",
+      "description": "Valor + moeda: nunca um número solto.",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "value-object",
+        "properties": [
+          {
+            "name": "valor",
+            "type": "inteiro",
+            "description": "em centavos, para evitar erro de arredondamento",
+            "example": "1999"
+          },
+          {
+            "name": "moeda",
+            "type": "texto",
+            "description": "código ISO 4217",
+            "example": "BRL"
+          }
+        ]
+      },
+      "x": 508,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-criado",
+      "label": "Pedido criado",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "properties": [
+          {
+            "name": "pedidoId",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "itens",
+            "type": "Item do pedido[]",
+            "description": "para o estoque saber o que reservar"
+          },
+          {
+            "name": "total",
+            "type": "Dinheiro",
+            "description": "para o pagamento saber quanto cobrar"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-confirmado",
+      "label": "Pedido confirmado",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-cancelado",
+      "label": "Pedido cancelado",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, motivo"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamento-aprovado",
+      "label": "Pagamento aprovado",
+      "kind": "domain",
+      "description": "Publicado por pagamentos; aqui só reagimos a ele.",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "external": "pagamentos.pagamento-aprovado",
+        "payload": "pedidoId"
+      },
+      "x": 268,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cobranca-desistida",
+      "label": "Cobrança desistida",
+      "kind": "domain",
+      "description": "Publicado por pagamentos; aqui só reagimos a ele.",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "external": "pagamentos.cobranca-desistida",
+        "payload": "pedidoId, motivo"
+      },
+      "x": 508,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estoque-reservado",
+      "label": "Estoque reservado",
+      "kind": "domain",
+      "description": "Publicado por estoque; aqui só reagimos a ele.",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "external": "estoque.estoque-reservado",
+        "payload": "pedidoId"
+      },
+      "x": 748,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estoque-insuficiente",
+      "label": "Estoque insuficiente",
+      "kind": "domain",
+      "description": "Publicado por estoque; aqui só reagimos a ele.",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "domain-event",
+        "external": "estoque.estoque-insuficiente",
+        "payload": "pedidoId, sku"
+      },
+      "x": 988,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "fluxo-de-checkout",
+      "label": "Fluxo de checkout",
+      "kind": "domain",
+      "description": "Saga: uma transação de negócio que atravessa três contextos, sem transação de banco entre eles. Se o pagamento falhar depois de reservar o estoque, o cancelamento dispara a compensação (liberar o estoque).",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "process-manager",
+        "intent": "coordena pagamento e estoque: confirma quando os dois dão certo, cancela se algum falhar",
+        "reactsTo": [
+          "pedido-criado",
+          "pagamento-aprovado",
+          "cobranca-desistida",
+          "estoque-reservado",
+          "estoque-insuficiente"
+        ],
+        "issues": [
+          "confirmar-pedido",
+          "cancelar-pedido"
+        ],
+        "compensates": [
+          "cancelar-pedido"
+        ]
+      },
+      "x": 268,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedidos-do-cliente",
+      "label": "Pedidos do cliente",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "read-model",
+        "projectsFrom": [
+          "pedido-criado",
+          "pedido-confirmado",
+          "pedido-cancelado"
+        ]
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "consulta-de-pedidos",
+      "label": "Consulta de pedidos",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "application-service",
+        "intent": "responde \"como está meu pedido?\" lendo a projeção"
+      },
+      "x": 1228,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-repo",
+      "label": "Repositório de pedidos",
+      "kind": "domain",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "repository",
+        "for": "pedido"
+      },
+      "x": 748,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedidos-api",
+      "label": "Pedidos API",
+      "kind": "system",
+      "description": "Onde este contexto roda na arquitetura (ver o diagrama de arquitetura).",
+      "parent": "pedidos",
+      "ref": {
+        "diagram": "exemplos-ddd/loja/arquitetura.archflow.json",
+        "node": "pedidos-api"
+      },
+      "x": 1468,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "cliente-to-fazer-pedido-uc",
+      "from": "cliente",
+      "to": "fazer-pedido-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "cliente-to-cancelar-pedido-uc",
+      "from": "cliente",
+      "to": "cancelar-pedido-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "cliente-to-acompanhar-uc",
+      "from": "cliente",
+      "to": "acompanhar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "criar-pedido-to-fazer-pedido-uc",
+      "from": "criar-pedido",
+      "to": "fazer-pedido-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cancelar-pedido-to-cancelar-pedido-uc",
+      "from": "cancelar-pedido",
+      "to": "cancelar-pedido-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "consulta-de-pedidos-to-acompanhar-uc",
+      "from": "consulta-de-pedidos",
+      "to": "acompanhar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "criar-pedido-to-pedido",
+      "from": "criar-pedido",
+      "to": "pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "criar-pedido-to-pedido-criado",
+      "from": "criar-pedido",
+      "to": "pedido-criado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "confirmar-pedido-to-pedido",
+      "from": "confirmar-pedido",
+      "to": "pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "confirmar-pedido-to-pedido-confirmado",
+      "from": "confirmar-pedido",
+      "to": "pedido-confirmado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "cancelar-pedido-to-pedido",
+      "from": "cancelar-pedido",
+      "to": "pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cancelar-pedido-to-pedido-cancelado",
+      "from": "cancelar-pedido",
+      "to": "pedido-cancelado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-to-item-do-pedido",
+      "from": "pedido",
+      "to": "item-do-pedido",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-to-endereco-de-entrega",
+      "from": "pedido",
+      "to": "endereco-de-entrega",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.46
+    },
+    {
+      "id": "pedido-to-dinheiro",
+      "from": "pedido",
+      "to": "dinheiro",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.26
+    },
+    {
+      "id": "pedido-criado-to-fluxo-de-checkout",
+      "from": "pedido-criado",
+      "to": "fluxo-de-checkout",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "pagamento-aprovado-to-fluxo-de-checkout",
+      "from": "pagamento-aprovado",
+      "to": "fluxo-de-checkout",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "cobranca-desistida-to-fluxo-de-checkout",
+      "from": "cobranca-desistida",
+      "to": "fluxo-de-checkout",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.66
+    },
+    {
+      "id": "estoque-reservado-to-fluxo-de-checkout",
+      "from": "estoque-reservado",
+      "to": "fluxo-de-checkout",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.62
+    },
+    {
+      "id": "estoque-insuficiente-to-fluxo-de-checkou",
+      "from": "estoque-insuficiente",
+      "to": "fluxo-de-checkout",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.46
+    },
+    {
+      "id": "fluxo-de-checkout-to-confirmar-pedido",
+      "from": "fluxo-de-checkout",
+      "to": "confirmar-pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fluxo-de-checkout-to-cancelar-pedido",
+      "from": "fluxo-de-checkout",
+      "to": "cancelar-pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-criado-to-pedidos-do-cliente",
+      "from": "pedido-criado",
+      "to": "pedidos-do-cliente",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.3
+    },
+    {
+      "id": "pedido-confirmado-to-pedidos-do-cliente",
+      "from": "pedido-confirmado",
+      "to": "pedidos-do-cliente",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "pedido-cancelado-to-pedidos-do-cliente",
+      "from": "pedido-cancelado",
+      "to": "pedidos-do-cliente",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.26
+    },
+    {
+      "id": "criar-pedido-to-pedido-repo",
+      "from": "criar-pedido",
+      "to": "pedido-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-api-to-pedido",
+      "from": "pedidos-api",
+      "to": "pedido",
+      "type": "association",
+      "label": "implementado por",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

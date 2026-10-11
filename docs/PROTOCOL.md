@@ -73,7 +73,7 @@ Rotas novas: `GET /api/diagrams/read?name=` (documento completo) e `GET /api/dia
 MCP: `add_endpoints`, `get_diagram_outline`, `list_diagrams` (mostra referências).
 
 ### Vocabulário
-**`node.kind`**: `service client actor database cache queue gateway external ai infra library`  
+**`node.kind`**: `service client actor database cache queue gateway external ai infra library endpoint system domain` (`domain` só existe em diagramas de modo `domain`)  
 **`group.kind`**: `boundary layer cloud network context cluster team`  
 **`connection.type`** (animação / UML):
 
@@ -89,6 +89,22 @@ MCP: `add_endpoints`, `get_diagram_outline`, `list_diagrams` (mostra referência
 | `composition` | UML composition | losango cheio na origem |
 | `aggregation` | UML aggregation | losango vazado na origem |
 | `association` | relação genérica | linha simples |
+
+### Modo domínio (DDD)
+`Doc.mode` é `"architecture"` (padrão; ausente no arquivo) ou `"domain"`. É aditivo: diagramas anteriores continuam válidos e geram exatamente a mesma saída (teste de regressão com *golden file*).
+```jsonc
+{ "mode": "domain",
+  "groups": [{ "id": "pedidos", "kind": "context", "subdomain": "core|supporting|generic", … }],
+  "nodes":  [{ "id": "pedido", "kind": "domain", "parent": "pedidos",
+               "ddd": { "role": "aggregate-root", "invariants": ["total >= 0"] } }],   // campos por papel (ver abaixo)
+  "connections": [{ "from": "criar-pedido", "to": "pedido", "type": "dependency", "ddd": { "rel": "triggers" } }] }
+```
+**`ddd.role`** e seus campos: `aggregate-root`/`entity`/`value-object` (`invariants`) · `domain-event` (`payload`, `producedBy`, `external`, `step`) · `command` (`intent`, `invariants`, `step`) · `policy` (`intent`, `reactsTo`, `issues`) · `repository` (`for`) · `domain-service`/`application-service` (`intent`) · `use-case` (`actor`, `goal`, `realizedBy`) · `read-model` (`projectsFrom`) · `process-manager` (`intent`, `reactsTo`, `issues`, `compensates`). Campo fora do papel é rejeitado pela op.
+**`ddd.rel`** (o `type` visual é inferido): `emits` (async) · `triggers` (dependency) · `contains` (composition) · `references-by-id` (association) · `realizes` (realization) · `uses` (dependency) · `context-relation` (association, com `pattern`: `shared-kernel customer-supplier conformist acl ohs published-language partnership separate-ways`; `from` = upstream).
+**Fluxo (só modo domain):** papel `decision` (`question`, `gate`: `exclusive` | `parallel` | `join`) e, nas conexões `triggers`/`emits`, `ddd.condition` (texto), `ddd.otherwise` (ramo padrão), `ddd.loop { until?, max? }` (a conexão que volta a um passo anterior; exige ao menos um dos dois) e `ddd.foreach` (texto). O rótulo da conexão acompanha o fluxo (`se atraso > 0 · multar`). Ops em diagramas de arquitetura recusam tudo isso.
+**Regras** (`validateDetailed` → `{ rule, severity: erro|aviso|dica, target, message }`): D001 caso de uso sem realização · D002 command sem exatamente um aggregate · D003 evento sem produtor · D004 entity fora/em mais de um aggregate · D005 aggregates ligados por objeto · D006 cruza contextos sem `context-relation` · D007 value-object com identidade · D008 repository inválido · D009 contexto sem aggregate · D010 nomes (dica) · D011 contexto sem ligação com a arquitetura (dica) · D012 nó isolado · D013 application-service com regra de negócio · D014/D015 subdomain · D016 ciclo de `references-by-id` · D017 visão geral × contextos · D018 process-manager · D019 read-model · D020 referência quebrada · D021 extremos incoerentes com a relação (matriz `DDD_REL_PAIRS`) · D022 conexão de infraestrutura ou entre elementos de domínio sem relação · D023 tipo que contradiz a relação · D024 decisão sem 2+ ramos (ou junção sem saída) · D025 ramo de decisão exclusiva sem condição / mais de um senão · D026 decisão exclusiva sem senão · D027 junção com menos de 2 entradas / decisão sem entrada · D028 ciclo por uma decisão sem loop declarado · D029 loop sem condição de parada · D030 loop que não volta a um passo visível (dica) · D031 condição em decisão paralela · D032 fluxo em relação que não é de fluxo.
+**Conectores no modo domain:** o `type` vem da relação e é fixo; `sync`/`async`/`stream`/`data` são recusados pelas ops; sem `ddd`, se só uma relação serve para o par de elementos, a conexão nasce com ela (senão é um tipo UML livre, padrão `association`).
+Operações: `add_node` aceita `ddd` (ou um asset `ddd-*`), `add_group` aceita `subdomain`, `add_connection` aceita `ddd`, `set_meta` aceita `mode`, `layout` aceita `style: "flow" | "timeline"` (timeline = raias de Event Storming, só no modo domain; `ddd.step` ordena os commands). HTTP: `POST /api/diagrams { title, folder?, mode? }`, `GET /api/vault/docs` (todos os diagramas do cofre), `GET /api/schema?mode=`. MCP: `new_diagram { mode }`, `add_use_cases`, `trace`, `domain_overview`, `generate_code` (esqueleto TypeScript por contexto), `auto_layout { style }`; `get_schema_guide`, `list_assets`, `validate_diagram` e `get_diagram` respondem pelo modo do diagrama aberto.
 
 ### Assets
 Cada asset: `{ id, name, category, vendor?, kind, icon, color, problem, description, tags[] }`.
@@ -136,7 +152,7 @@ event: doc     data: {"rev":13,"doc":{…},"source":"mcp"}
 ### 5.3 MCP — tools
 `get_schema_guide`, `search_assets`, `get_diagram(format: markdown|json|mermaid)`, `add_components`, `add_groups`,
 `connect`, `update_element`, `remove_elements`, `add_note`, `add_asset`, `auto_layout`, `set_diagram_info`,
-`clear_diagram`, `validate_diagram`. **Resources:** `archflow://diagram`, `archflow://schema`.
+`clear_diagram`, `validate_diagram`, `add_use_cases`, `trace`, `domain_overview`, `generate_code` (modo domain). **Resources:** `archflow://diagram`, `archflow://schema`.
 
 ### 5.3b Integração MCP
 MCP no exe: `Archflow.exe --mcp` (Electron como Node sobre `resources/mcp/archflow-mcp.mjs`); abre o app se o bridge não responder. Resource extra: `archflow://skill`.

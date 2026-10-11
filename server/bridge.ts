@@ -27,7 +27,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
-import { emptyDoc, type Doc } from "../src/shared/schema";
+import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
 
 export const DEFAULT_PORT = Number(process.env.ARCHFLOW_PORT ?? 7077);
@@ -307,11 +307,11 @@ function openFile(rel: string, source = "file") {
   sendWorkspace();
 }
 
-function createDiagram(title: string, folder = "", source = "file"): string {
+function createDiagram(title: string, folder = "", source = "file", mode: DocMode = "architecture"): string {
   saveNow();
   segments(folder, true);
   const rel = uniqueFile(title, folder);
-  atomicWrite(diagramPath(rel), JSON.stringify(emptyDoc(title), null, 2));
+  atomicWrite(diagramPath(rel), JSON.stringify(emptyDoc(title, mode), null, 2));
   openFile(rel, source);
   return rel;
 }
@@ -768,7 +768,8 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     /* diagramas */
     if (path === "/api/diagrams" && m === "POST") {
       const b = await body(req);
-      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file");
+      if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain`);
+      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" ? "domain" : "architecture");
       return ws(res, { name: rel });
     }
     if (path === "/api/diagrams/open" && m === "POST") {
@@ -913,9 +914,21 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       mkdirSync(resolve(b.path), { recursive: true });
       return json(res, 200, listDir(dirname(resolve(b.path))));
     }
+    if (path === "/api/vault/docs" && m === "GET") {
+      // todos os diagramas do cofre (caminho + conteúdo): base da visão geral de domínio e da checagem de referências
+      const files = flatten(buildTree(dir, "", 0, { n: 3000 })).flatMap((f) => {
+        try {
+          return [{ path: f.path, doc: f.path === current ? doc : readDoc(f.path) }];
+        } catch {
+          return []; // arquivo inválido: ignora
+        }
+      });
+      return json(res, 200, { files });
+    }
     if (path === "/api/describe") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
-      return void res.end(describe(doc));
+      const paths = new Set(flatten(buildTree(dir, "", 0, { n: 3000 })).map((f) => f.path));
+      return void res.end(describe(doc, { exists: (p) => paths.has(p) }));
     }
     if (path === "/api/mcp/info" && m === "GET") return json(res, 200, mcpInfo());
     if (path === "/api/mcp/install" && m === "POST") return json(res, 200, installMcp((await body(req)).client));
@@ -927,7 +940,8 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     if (path === "/api/skill/install" && m === "POST") return json(res, 200, installSkill());
     if (path === "/api/schema") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
-      return void res.end(schemaGuide());
+      const wanted = url.searchParams.get("mode");
+      return void res.end(schemaGuide(wanted === "domain" || wanted === "architecture" ? wanted : docMode(doc)));
     }
     if (path === "/api/events") {
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });

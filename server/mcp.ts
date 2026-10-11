@@ -12,9 +12,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
-import { BUILTIN_ASSETS, searchAssets } from "../src/shared/catalog";
-import { CONNECTION_TYPE_KEYS, type Doc } from "../src/shared/schema";
-import { describe, schemaGuide, toMermaid, validate, type Op } from "../src/shared/ops";
+import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
+import { CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DECISION_GATES, DECISION_GATE_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
+import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
+import { domainOverview, traceUseCase, type VaultDomainFile } from "../src/shared/domain";
+import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
 import { SKILL_MD } from "../src/shared/skill.generated";
 
 const BASE = `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -49,6 +51,12 @@ async function api<T = any>(path: string, init?: RequestInit): Promise<T> {
   return (r.headers.get("content-type")?.includes("json") ? r.json() : r.text()) as Promise<T>;
 }
 const getDoc = async () => (await api<{ doc: Doc; rev: number }>("/api/doc")).doc;
+/** Todos os diagramas do cofre (caminho + conteúdo): base da visão geral e da checagem de referências. */
+const vaultFiles = async () => (await api<{ files: VaultDomainFile[] }>("/api/vault/docs")).files;
+const existsIn = (files: VaultDomainFile[]) => {
+  const paths = new Set(files.map((f) => f.path));
+  return (p: string) => paths.has(p);
+};
 const ops = (list: Op[]) =>
   api<{ rev: number; results: Result[] }>("/api/ops", { method: "POST", body: JSON.stringify({ ops: list, source: "mcp" }) });
 const text = (t: string, isError = false) => ({ content: [{ type: "text" as const, text: t }], isError });
@@ -66,6 +74,7 @@ const server = new McpServer(
     instructions:
       "Archflow é um quadro branco de arquitetura de software que o usuário vê em tempo real. Trabalhe com componentes, grupos e conexões (nunca pixels). " +
       "Fluxo: get_diagram → list_assets/search_assets (prefira assets do catálogo) → add_groups → add_components → add_endpoints → connect → auto_layout → validate_diagram. " +
+      "Diagramas têm modo: `architecture` (padrão) ou `domain` (DDD: contextos, aggregates, commands, eventos, casos de uso). No modo domain chame get_schema_guide antes: o vocabulário é outro (kind domain + ddd.role) e use add_use_cases, trace e domain_overview. " +
       "Leia o resource archflow://skill (ou get_schema_guide) para o guia completo. Nunca use clear_diagram sem pedido explícito.",
   },
 );
@@ -86,10 +95,49 @@ const ifaceSchema = z.object({
   ),
 });
 
+const modeEnum = z.enum(["architecture", "domain"]);
+const dddNodeSchema = z
+  .object({
+    role: z.enum(DDD_ROLE_KEYS as [string, ...string[]]).describe(DDD_ROLE_KEYS.map((r) => `${r}: ${DDD_ROLES[r].hint}`).join(" · ")),
+    intent: z.string().optional().describe("command, policy, domain-service, application-service: o que faz"),
+    invariants: z.array(z.string()).optional().describe("aggregate-root, entity, value-object, command: regras que sempre valem"),
+    payload: z.string().optional().describe("domain-event: dados que o evento carrega (resumo em texto; prefira `properties`)"),
+    properties: z
+      .array(
+        z.object({
+          name: z.string().describe("nome do campo"),
+          type: z.string().optional().describe("tipo em texto livre: uuid, texto, dinheiro, Item[] (pode ser o nome de outro value-object)"),
+          optional: z.boolean().optional().describe("o campo pode faltar (padrão: obrigatório)"),
+          key: z.boolean().optional().describe("é o identificador do elemento"),
+          description: z.string().optional().describe("o que o campo significa e por que existe"),
+          example: z.string().optional(),
+        }),
+      )
+      .optional()
+      .describe("aggregate-root, entity, value-object, command (parâmetros), domain-event (campos) e read-model (colunas): a estrutura do elemento, campo a campo"),
+    producedBy: z.string().optional().describe("domain-event: id do command/aggregate-root/process-manager que o produz"),
+    external: z.string().optional().describe("domain-event: 'contexto.evento' quando é cópia de evento de outro contexto"),
+    for: z.string().optional().describe("repository: id do aggregate-root"),
+    actor: z.string().optional().describe("use-case: quem executa"),
+    goal: z.string().optional().describe("use-case: objetivo de negócio"),
+    realizedBy: z.array(z.string()).optional().describe("use-case: ids dos commands que o realizam"),
+    reactsTo: z.array(z.string()).optional().describe("policy, process-manager: ids dos eventos"),
+    issues: z.array(z.string()).optional().describe("policy, process-manager: ids dos commands que dispara"),
+    compensates: z.array(z.string()).optional().describe("process-manager: ids dos commands de compensação"),
+    projectsFrom: z.array(z.string()).optional().describe("read-model: ids dos eventos que o alimentam"),
+    step: z.number().optional().describe("command, domain-event: posição na linha do tempo"),
+    question: z.string().optional().describe("decision: a pergunta que o ponto de decisão responde"),
+    gate: z.enum(DECISION_GATE_KEYS as [string, ...string[]]).optional().describe("decision: " + DECISION_GATE_KEYS.map((g) => `${g} = ${DECISION_GATES[g].hint}`).join(" · ")),
+  })
+  .describe("modo domain, kind domain: papel DDD e campos do papel (campos fora do papel são rejeitados)");
+
 server.registerTool(
   "get_schema_guide",
-  { description: "Leia primeiro: vocabulário (kinds, tipos de conexão) e fluxo recomendado.", inputSchema: {} },
-  async () => text(schemaGuide()),
+  {
+    description: "Leia primeiro: vocabulário (kinds, tipos de conexão) e fluxo recomendado. `mode` escolhe o guia (architecture | domain); omitido, usa o modo do diagrama aberto.",
+    inputSchema: { mode: modeEnum.optional() },
+  },
+  async ({ mode }) => text(schemaGuide((mode as DocMode | undefined) ?? docMode(await getDoc()))),
 );
 
 server.registerTool(
@@ -104,7 +152,7 @@ server.registerTool(
   },
   async ({ category, detailed }) => {
     const doc = await getDoc();
-    const all = [...doc.customAssets, ...BUILTIN_ASSETS];
+    const all = assetsForMode([...doc.customAssets, ...BUILTIN_ASSETS], docMode(doc), !!category);
     const cats = Array.from(new Set(all.map((a) => a.category)));
     const wanted = category ? cats.filter((c) => c.toLowerCase().includes(category.toLowerCase())) : cats;
     if (!wanted.length) return text(`categoria "${category}" não existe. Categorias: ${cats.join(", ")}`, true);
@@ -127,7 +175,7 @@ server.registerTool(
   },
   async ({ query, category }) => {
     const doc = await getDoc();
-    const list = searchAssets([...doc.customAssets, ...BUILTIN_ASSETS], query, category).slice(0, 80);
+    const list = searchAssets(assetsForMode([...doc.customAssets, ...BUILTIN_ASSETS], docMode(doc), !!category), query, category).slice(0, 80);
     return text(list.map((a) => `- ${a.id} | ${a.name} | ${a.category} | ${a.kind} | ${a.problem}`).join("\n") || "nenhum asset encontrado (tente list_assets)");
   },
 );
@@ -140,21 +188,24 @@ server.registerTool(
   },
   async ({ format }) => {
     const doc = await getDoc();
-    return text(format === "json" ? JSON.stringify(doc, null, 2) : format === "mermaid" ? toMermaid(doc) : describe(doc));
+    if (format === "json") return text(JSON.stringify(doc, null, 2));
+    if (format === "mermaid") return text(toMermaid(doc));
+    return text(describe(doc, docMode(doc) === "domain" ? { exists: existsIn(await vaultFiles()) } : {}));
   },
 );
 
 server.registerTool(
   "add_components",
   {
-    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo.",
+    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset.",
     inputSchema: {
       components: z.array(
         z.object({
           id: z.string().optional().describe("slug estável, ex.: orders-api"),
           label: z.string().optional(),
           asset: z.string().optional(),
-          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system"]).optional(),
+          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain"]).optional(),
+          ddd: dddNodeSchema.optional(),
           technology: z.string().optional().describe("stack/versão: 'Laravel 11 / PHP 8.3'"),
           description: z.string().optional().describe("responsabilidade do componente"),
           parent: z.string().optional(),
@@ -204,6 +255,7 @@ server.registerTool(
           id: z.string().optional(),
           label: z.string(),
           kind: z.enum(["boundary", "layer", "cloud", "network", "context", "cluster", "team"]).optional(),
+          subdomain: z.enum(Object.keys(SUBDOMAINS) as [string, ...string[]]).optional().describe("só em kind context: " + Object.entries(SUBDOMAINS).map(([k, v]) => `${k} = ${v}`).join(" · ")),
           description: z.string().optional(),
           parent: z.string().optional(),
           color: z.string().optional(),
@@ -211,13 +263,16 @@ server.registerTool(
       ),
     },
   },
-  async ({ groups }) => report((await ops(groups.map((g) => ({ op: "add_group" as const, ...g })))).results),
+  async ({ groups }) => report((await ops(groups.map((g) => ({ op: "add_group" as const, ...g } as Op)))).results),
 );
 
 server.registerTool(
   "connect",
   {
-    description: "Cria conexões tipadas. type: " + CONNECTION_TYPE_KEYS.join(" | ") + ". Informe `interface` para definir o contrato (operações, payloads).",
+    description:
+      "Cria conexões tipadas. type: " +
+      CONNECTION_TYPE_KEYS.join(" | ") +
+      ". Informe `interface` para definir o contrato (operações, payloads). No modo domain NÃO informe type: ele vem de `ddd.rel` (e se você omitir `ddd` e só uma relação servir para o par, a conexão já nasce com ela); sync/async/stream/data são recusados e cada relação só liga certos papéis (ver get_schema_guide).",
     inputSchema: {
       connections: z.array(
         z.object({
@@ -231,6 +286,16 @@ server.registerTool(
           routing: z.enum(["curve", "straight", "elbow"]).optional(),
           waypoints: z.array(z.object({ x: z.number(), y: z.number() })).optional().describe("pontos de passagem do traçado (coords do mundo); normalmente definidos pela UI"),
           animated: z.boolean().optional(),
+          ddd: z
+            .object({
+              rel: z.enum(DDD_REL_KEYS as [string, ...string[]]).describe("modo domain; o `type` é inferido da relação"),
+              pattern: z.enum(CONTEXT_PATTERN_KEYS as [string, ...string[]]).optional().describe("só com rel context-relation"),
+              condition: z.string().optional().describe("fluxo (triggers/emits): o ramo só segue se a condição valer, ex.: 'atraso > 0'"),
+              otherwise: z.boolean().optional().describe("fluxo: ramo padrão (senão); não combina com condition"),
+              loop: z.object({ until: z.string().optional(), max: z.number().int().min(1).max(1000).optional() }).optional().describe("fluxo: esta conexão VOLTA a um passo anterior; informe until (condição de parada) e/ou max (tentativas)"),
+              foreach: z.string().optional().describe("fluxo: repete para cada elemento, ex.: 'item do pedido'"),
+            })
+            .optional(),
         }),
       ),
     },
@@ -288,6 +353,7 @@ server.registerTool(
     description:
       "Reorganiza automaticamente (camadas por fluxo de conexões; grupos dimensionados). `spacing` define a distância mínima entre componentes: compact (44px) | comfortable (80px, padrão) | spacious (120px); entre camadas é o dobro. `minGap` (px) sobrescreve o preset. Se o diagrama parecer apertado, use spacious. `gapX`/`gapY` (px) definem o espaçamento horizontal e vertical separadamente (sobrescrevem spacing/minGap). `routing` define o traçado de TODOS os conectores: curve (curva, padrão) | elbow (ortogonal) | straight (reta); omitido, preserva o traçado de cada conexão.",
     inputSchema: {
+      style: z.enum(["flow", "timeline"]).optional().describe("flow (padrão): camadas pelo fluxo das conexões. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step"),
       direction: z.enum(["LR", "TB"]).optional(),
       spacing: z.enum(["compact", "comfortable", "spacious"]).optional(),
       minGap: z.number().min(16).max(400).optional(),
@@ -296,12 +362,15 @@ server.registerTool(
       routing: z.enum(["curve", "elbow", "straight"]).optional(),
     },
   },
-  async ({ direction, spacing, minGap, gapX, gapY, routing }) => report((await ops([{ op: "layout", direction, spacing, minGap, gapX, gapY, routing }])).results),
+  async ({ style, direction, spacing, minGap, gapX, gapY, routing }) => report((await ops([{ op: "layout", style, direction, spacing, minGap, gapX, gapY, routing }])).results),
 );
 
 server.registerTool(
   "set_diagram_info",
-  { description: "Define título e descrição do diagrama.", inputSchema: { title: z.string().optional(), description: z.string().optional() } },
+  {
+    description: "Define título, descrição e modo (architecture | domain) do diagrama.",
+    inputSchema: { title: z.string().optional(), description: z.string().optional(), mode: modeEnum.optional().describe("trocar o modo não apaga nada; as regras e o vocabulário mudam") },
+  },
   async (a) => report((await ops([{ op: "set_meta", ...a }])).results),
 );
 
@@ -313,11 +382,94 @@ server.registerTool(
 
 server.registerTool(
   "validate_diagram",
-  { description: "Lista inconsistências (referências quebradas, componentes isolados).", inputSchema: {} },
+  {
+    description: "Lista inconsistências (referências quebradas, componentes isolados). No modo domain aplica as regras de DDD (D001–D032), cada aviso com o id da regra e a severidade (erro | aviso | dica).",
+    inputSchema: {},
+  },
   async () => {
-    const v = validate(await getDoc());
+    const doc = await getDoc();
+    const v = validate(doc, docMode(doc) === "domain" ? { exists: existsIn(await vaultFiles()) } : {});
     return text(v.length ? v.join("\n") : "sem problemas");
   },
+);
+
+server.registerTool(
+  "add_use_cases",
+  {
+    description:
+      "Modo domain: cria casos de uso (nó use-case) já ligados ao ator (criado ou reaproveitado pelo nome). Itens com `id` já existente são ignorados (seguro para repetir). Depois realize cada caso de uso com um command (connect ddd.rel realizes) e rode trace.",
+    inputSchema: {
+      useCases: z.array(
+        z.object({
+          id: z.string().optional().describe("slug estável, ex.: fazer-pedido"),
+          actor: z.string().describe("quem executa, ex.: Cliente"),
+          goal: z.string().describe("objetivo de negócio em uma frase"),
+          label: z.string().optional(),
+          context: z.string().optional().describe("id do grupo (bounded context) que contém o caso de uso"),
+          steps: z.array(z.string()).optional(),
+        }),
+      ),
+    },
+  },
+  async ({ useCases }) => {
+    const doc = await getDoc();
+    if (docMode(doc) !== "domain") return text(`o diagrama aberto está em modo "${docMode(doc)}"; crie um com new_diagram mode "domain" ou use set_diagram_info mode "domain"`, true);
+    const list = useCaseOps(doc, useCases);
+    if (!list.length) return text("nada a criar: todos os casos de uso já existem");
+    return report((await ops(list)).results);
+  },
+);
+
+server.registerTool(
+  "trace",
+  {
+    description: "Modo domain: rastreia um caso de uso até o evento (caso de uso → command → aggregate → evento) e lista o que falta. Sem `id`, rastreia todos os casos de uso do diagrama aberto.",
+    inputSchema: { id: z.string().optional().describe("id de um use-case") },
+  },
+  async ({ id }) => {
+    const doc = await getDoc();
+    const ids = id ? [id] : doc.nodes.filter((n) => n.ddd?.role === "use-case").map((n) => n.id);
+    if (!ids.length) return text("nenhum caso de uso neste diagrama");
+    const lines: string[] = [];
+    let ok = 0;
+    for (const uc of ids) {
+      const t = traceUseCase(doc, uc);
+      if (!t) {
+        lines.push(`✘ ${uc}: não é um use-case deste diagrama`);
+        continue;
+      }
+      if (t.ok) ok++;
+      lines.push(`${t.ok ? "✔" : "✘"} ${uc}${t.ok ? "" : ` — ${t.problems.join("; ") || "sem caminho até um evento"}`}`);
+      for (const p of t.paths) lines.push(`    ${p.map((s) => `${s.id} [${s.role}]`).join(" → ")}`);
+    }
+    return text([`${ok} de ${ids.length} rastreados até um evento`, ...lines].join("\n"));
+  },
+);
+
+server.registerTool(
+  "generate_code",
+  {
+    description:
+      "Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
+    inputSchema: { language: z.enum(CODEGEN_LANGUAGES).optional().describe("padrão e único hoje: typescript") },
+  },
+  async ({ language }) => {
+    const doc = await getDoc();
+    if (docMode(doc) !== "domain") return text(`o diagrama aberto está em modo "${docMode(doc)}"; gere código a partir de um diagrama de domínio`, true);
+    const files = generateCode(doc, (language as CodegenLanguage | undefined) ?? "typescript");
+    return text(files.length ? `${files.length} arquivo(s)
+
+${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem elementos de domínio");
+  },
+);
+
+server.registerTool(
+  "domain_overview",
+  {
+    description: "Modo domain: visão geral consolidada de TODOS os diagramas de domínio do cofre (contextos, aggregates, eventos publicados/consumidos, casos de uso ✔/✘, mapa de contextos e avisos). Somente leitura.",
+    inputSchema: {},
+  },
+  async () => text(domainOverview(await vaultFiles())),
 );
 
 const post = (path: string, body: unknown) => api(path, { method: "POST", body: JSON.stringify(body) });
@@ -366,23 +518,26 @@ server.registerTool(
 server.registerTool(
   "new_diagram",
   {
-    description: "Cria um diagrama novo (.archflow.json) no cofre, opcionalmente numa subpasta, e o abre.",
-    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao cofre, ex.: backend") },
+    description: "Cria um diagrama novo (.archflow.json) no cofre, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD); depois chame get_schema_guide.",
+    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao cofre, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain") },
   },
-  async ({ title, folder }) => text("criado.\n" + fmtWorkspace(await post("/api/diagrams", { title, folder, source: "mcp" }))),
+  async ({ title, folder, mode }) => text("criado.\n" + fmtWorkspace(await post("/api/diagrams", { title, folder, mode, source: "mcp" }))),
 );
 
 server.registerResource(
   "diagram",
   "archflow://diagram",
   { description: "Diagrama atual em markdown", mimeType: "text/markdown" },
-  async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: describe(await getDoc()) }] }),
+  async (uri) => {
+    const doc = await getDoc();
+    return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: describe(doc, docMode(doc) === "domain" ? { exists: existsIn(await vaultFiles()) } : {}) }] };
+  },
 );
 server.registerResource(
   "schema-guide",
   "archflow://schema",
   { description: "Guia do schema archflow/1", mimeType: "text/markdown" },
-  async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: schemaGuide() }] }),
+  async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: schemaGuide(docMode(await getDoc())) }] }),
 );
 
 server.registerResource(

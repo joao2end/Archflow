@@ -1,0 +1,310 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-clinica-prontuario",
+  "title": "Prontuário",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "prontuario",
+      "label": "Prontuário",
+      "kind": "context",
+      "description": "O histórico clínico do paciente. Sigiloso, auditável e com vocabulário próprio da medicina.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 774,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "medico",
+      "label": "Médico",
+      "kind": "actor",
+      "parent": "prontuario",
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "registrar-uc",
+      "label": "Registrar atendimento",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Médico",
+        "goal": "anotar diagnóstico e conduta"
+      },
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "registrar-atendimento",
+      "label": "Registrar atendimento",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "incluir um atendimento no prontuário"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "corrigir-atendimento",
+      "label": "Corrigir atendimento",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "retificar um registro (sem apagar o original)"
+      },
+      "x": 268,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "prontuario-do-paciente",
+      "label": "Prontuário do paciente",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "registro assinado nunca é apagado, só retificado",
+          "todo atendimento tem profissional e data"
+        ]
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "atendimento",
+      "label": "Atendimento",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "entity"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "diagnostico",
+      "label": "Diagnóstico",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "paciente",
+      "label": "Paciente (identidade)",
+      "kind": "domain",
+      "description": "O mesmo conceito do Shared Kernel com a Agenda.",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "atendimento-registrado",
+      "label": "Atendimento registrado",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "prontuarioId, atendimentoId"
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "atendimento-retificado",
+      "label": "Atendimento retificado",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "prontuarioId, atendimentoId"
+      },
+      "x": 268,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "prontuario-repo",
+      "label": "Repositório de prontuários",
+      "kind": "domain",
+      "parent": "prontuario",
+      "ddd": {
+        "role": "repository",
+        "for": "prontuario-do-paciente"
+      },
+      "x": 748,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "medico-to-registrar-uc",
+      "from": "medico",
+      "to": "registrar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-atendimento-to-registrar-uc",
+      "from": "registrar-atendimento",
+      "to": "registrar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-atendimento-to-prontuario-do-p",
+      "from": "registrar-atendimento",
+      "to": "prontuario-do-paciente",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-atendimento-to-atendimento-reg",
+      "from": "registrar-atendimento",
+      "to": "atendimento-registrado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001,
+      "labelOffset": -50
+    },
+    {
+      "id": "corrigir-atendimento-to-prontuario-do-pa",
+      "from": "corrigir-atendimento",
+      "to": "prontuario-do-paciente",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "corrigir-atendimento-to-atendimento-reti",
+      "from": "corrigir-atendimento",
+      "to": "atendimento-retificado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prontuario-do-paciente-to-atendimento",
+      "from": "prontuario-do-paciente",
+      "to": "atendimento",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.18
+    },
+    {
+      "id": "prontuario-do-paciente-to-paciente",
+      "from": "prontuario-do-paciente",
+      "to": "paciente",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "atendimento-to-diagnostico",
+      "from": "atendimento",
+      "to": "diagnostico",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    },
+    {
+      "id": "registrar-atendimento-to-prontuario-repo",
+      "from": "registrar-atendimento",
+      "to": "prontuario-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

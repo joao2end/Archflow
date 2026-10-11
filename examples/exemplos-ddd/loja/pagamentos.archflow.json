@@ -1,0 +1,553 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-loja-pagamentos",
+  "title": "Pagamentos",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "pagamentos",
+      "label": "Pagamentos",
+      "kind": "context",
+      "description": "Cobrar e saber se o dinheiro entrou. É um problema comum de mercado: o modelo é simples e o esforço vai para a integração com o gateway.",
+      "subdomain": "generic",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1022,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "sistema-de-pedidos",
+      "label": "Sistema de pedidos",
+      "kind": "actor",
+      "parent": "pagamentos",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagar-pedido-uc",
+      "label": "Pagar pedido",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Sistema de pedidos",
+        "goal": "receber o valor de um pedido criado"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-criado",
+      "label": "Pedido criado",
+      "kind": "domain",
+      "description": "Publicado por pedidos; aqui só reagimos a ele.",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "domain-event",
+        "external": "pedidos.pedido-criado",
+        "payload": "pedidoId, total"
+      },
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cobrar-ao-criar-pedido",
+      "label": "Cobrar ao criar pedido",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "policy",
+        "intent": "todo pedido criado gera uma cobrança",
+        "reactsTo": [
+          "pedido-criado"
+        ],
+        "issues": [
+          "cobrar"
+        ]
+      },
+      "x": 28,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cobrar",
+      "label": "Cobrar",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "iniciar a cobrança no gateway"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "registrar-aprovacao",
+      "label": "Registrar aprovação",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "o gateway confirmou o pagamento"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "registrar-recusa",
+      "label": "Registrar recusa",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "o gateway recusou o pagamento"
+      },
+      "x": 508,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamento",
+      "label": "Pagamento",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "valor maior que zero",
+          "um pagamento só é aprovado ou recusado uma vez",
+          "no máximo 3 tentativas de cobrança por pedido"
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "valor",
+      "label": "Valor",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cobranca-iniciada",
+      "label": "Cobrança iniciada",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, pagamentoId"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamento-aprovado",
+      "label": "Pagamento aprovado",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, pagamentoId"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamento-recusado",
+      "label": "Pagamento recusado",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, pagamentoId, motivo"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "desistir-da-cobranca",
+      "label": "Desistir da cobrança",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "command",
+        "step": 4,
+        "intent": "encerrar a cobrança depois da última recusa"
+      },
+      "x": 748,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cobranca-desistida",
+      "label": "Cobrança desistida",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, pagamentoId, motivo"
+      },
+      "x": 748,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "ha-tentativas",
+      "label": "Há tentativas?",
+      "kind": "domain",
+      "description": "Retentativa: enquanto houver tentativas, cobra de novo (o loop volta ao command Cobrar); esgotadas, desiste e avisa o contexto Pedidos, que cancela o pedido.",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "decision",
+        "question": "ainda há tentativas de cobrança para este pedido?"
+      },
+      "x": 748,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "tradutor-do-gateway",
+      "label": "Tradutor do gateway",
+      "kind": "domain",
+      "description": "Anticorruption Layer: o modelo do gateway (status, códigos) não entra no nosso domínio, é traduzido aqui.",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "domain-service",
+        "intent": "converte o vocabulário do gateway no nosso"
+      },
+      "x": 988,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "gateway-de-pagamento",
+      "label": "Gateway de pagamento",
+      "kind": "external",
+      "description": "Sistema de terceiros (ex.: Stripe). Não controlamos o modelo dele.",
+      "parent": "pagamentos",
+      "x": 1228,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamento-repo",
+      "label": "Repositório de pagamentos",
+      "kind": "domain",
+      "parent": "pagamentos",
+      "ddd": {
+        "role": "repository",
+        "for": "pagamento"
+      },
+      "x": 268,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "sistema-de-pedidos-to-pagar-pedido-uc",
+      "from": "sistema-de-pedidos",
+      "to": "pagar-pedido-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "cobrar-to-pagar-pedido-uc",
+      "from": "cobrar",
+      "to": "pagar-pedido-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-criado-to-cobrar-ao-criar-pedido",
+      "from": "pedido-criado",
+      "to": "cobrar-ao-criar-pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "cobrar-ao-criar-pedido-to-cobrar",
+      "from": "cobrar-ao-criar-pedido",
+      "to": "cobrar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cobrar-to-pagamento",
+      "from": "cobrar",
+      "to": "pagamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.66,
+      "labelOffset": -50
+    },
+    {
+      "id": "cobrar-to-cobranca-iniciada",
+      "from": "cobrar",
+      "to": "cobranca-iniciada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.18,
+      "labelOffset": 50
+    },
+    {
+      "id": "registrar-aprovacao-to-pagamento",
+      "from": "registrar-aprovacao",
+      "to": "pagamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "registrar-aprovacao-to-pagamento-aprovad",
+      "from": "registrar-aprovacao",
+      "to": "pagamento-aprovado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-recusa-to-pagamento",
+      "from": "registrar-recusa",
+      "to": "pagamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-recusa-to-pagamento-recusado",
+      "from": "registrar-recusa",
+      "to": "pagamento-recusado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "desistir-da-cobranca-to-pagamento",
+      "from": "desistir-da-cobranca",
+      "to": "pagamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "desistir-da-cobranca-to-cobranca-desisti",
+      "from": "desistir-da-cobranca",
+      "to": "cobranca-desistida",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pagamento-recusado-to-ha-tentativas",
+      "from": "pagamento-recusado",
+      "to": "ha-tentativas",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ha-tentativas-to-cobrar",
+      "from": "ha-tentativas",
+      "to": "cobrar",
+      "type": "dependency",
+      "label": "se tentativas < 3 · repete até pagamento aprovado, máx. 3",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers",
+        "condition": "tentativas < 3",
+        "loop": {
+          "until": "pagamento aprovado",
+          "max": 3
+        }
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ha-tentativas-to-desistir-da-cobranca",
+      "from": "ha-tentativas",
+      "to": "desistir-da-cobranca",
+      "type": "dependency",
+      "label": "senão",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers",
+        "otherwise": true
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pagamento-to-valor",
+      "from": "pagamento",
+      "to": "valor",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-aprovacao-to-tradutor-do-gatew",
+      "from": "registrar-aprovacao",
+      "to": "tradutor-do-gateway",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.78
+    },
+    {
+      "id": "registrar-recusa-to-tradutor-do-gateway",
+      "from": "registrar-recusa",
+      "to": "tradutor-do-gateway",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "cobrar-to-pagamento-repo",
+      "from": "cobrar",
+      "to": "pagamento-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.66
+    },
+    {
+      "id": "tradutor-do-gateway-to-gateway-de-pagame",
+      "from": "tradutor-do-gateway",
+      "to": "gateway-de-pagamento",
+      "type": "association",
+      "label": "traduz",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5,
+      "labelOffset": 50
+    }
+  ],
+  "customAssets": []
+}

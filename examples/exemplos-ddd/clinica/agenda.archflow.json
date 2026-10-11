@@ -1,0 +1,445 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-clinica-agenda",
+  "title": "Agenda",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "agenda",
+      "label": "Agenda",
+      "kind": "context",
+      "description": "Quando cada profissional atende quem. Evitar horário duplicado é a regra que mais pesa.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 774,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "paciente-ator",
+      "label": "Paciente",
+      "kind": "actor",
+      "parent": "agenda",
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "recepcionista",
+      "label": "Recepcionista",
+      "kind": "actor",
+      "parent": "agenda",
+      "x": 508,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "agendar-uc",
+      "label": "Agendar consulta",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Paciente",
+        "goal": "marcar um horário com um profissional"
+      },
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cancelar-uc",
+      "label": "Cancelar consulta",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Paciente",
+        "goal": "liberar o horário"
+      },
+      "x": 268,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "realizar-uc",
+      "label": "Registrar atendimento realizado",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Recepcionista",
+        "goal": "confirmar que a consulta aconteceu"
+      },
+      "x": 508,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "agendar-consulta",
+      "label": "Agendar consulta",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "reservar um horário livre da agenda"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cancelar-consulta",
+      "label": "Cancelar consulta",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "liberar o horário reservado"
+      },
+      "x": 268,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "marcar-consulta-realizada",
+      "label": "Marcar consulta realizada",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "a consulta aconteceu"
+      },
+      "x": 508,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "agenda-do-profissional",
+      "label": "Agenda do profissional",
+      "kind": "domain",
+      "description": "O aggregate é a agenda inteira de um profissional, não a consulta isolada: a regra \"sem sobreposição\" só pode ser garantida olhando todos os horários juntos.",
+      "parent": "agenda",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "dois horários de um profissional não se sobrepõem",
+          "consulta realizada não pode ser cancelada"
+        ]
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "horario",
+      "label": "Horário",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "entity",
+        "invariants": [
+          "tem início e fim",
+          "está livre, reservado ou realizado"
+        ]
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "paciente",
+      "label": "Paciente (identidade)",
+      "kind": "domain",
+      "description": "Shared Kernel com Prontuário: as duas equipes concordam sobre quem é o paciente (id, nome, documento) e mudam isso juntas.",
+      "parent": "agenda",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "consulta-agendada",
+      "label": "Consulta agendada",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "agendaId, horarioId, pacienteId"
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "consulta-cancelada",
+      "label": "Consulta cancelada",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "agendaId, horarioId"
+      },
+      "x": 268,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "consulta-realizada",
+      "label": "Consulta realizada",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "agendaId, horarioId, pacienteId, procedimento"
+      },
+      "x": 508,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "agenda-repo",
+      "label": "Repositório de agendas",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "repository",
+        "for": "agenda-do-profissional"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "servico-de-agendamento",
+      "label": "Serviço de agendamento",
+      "kind": "domain",
+      "parent": "agenda",
+      "ddd": {
+        "role": "application-service",
+        "intent": "carrega a agenda, aplica o command e publica os eventos"
+      },
+      "x": 748,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "paciente-ator-to-agendar-uc",
+      "from": "paciente-ator",
+      "to": "agendar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "paciente-ator-to-cancelar-uc",
+      "from": "paciente-ator",
+      "to": "cancelar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "recepcionista-to-realizar-uc",
+      "from": "recepcionista",
+      "to": "realizar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "agendar-consulta-to-agendar-uc",
+      "from": "agendar-consulta",
+      "to": "agendar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cancelar-consulta-to-cancelar-uc",
+      "from": "cancelar-consulta",
+      "to": "cancelar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-consulta-realizada-to-realizar-uc",
+      "from": "marcar-consulta-realizada",
+      "to": "realizar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "agendar-consulta-to-agenda-do-profission",
+      "from": "agendar-consulta",
+      "to": "agenda-do-profissional",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "agendar-consulta-to-consulta-agendada",
+      "from": "agendar-consulta",
+      "to": "consulta-agendada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001,
+      "labelOffset": -50
+    },
+    {
+      "id": "cancelar-consulta-to-agenda-do-profissio",
+      "from": "cancelar-consulta",
+      "to": "agenda-do-profissional",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cancelar-consulta-to-consulta-cancelada",
+      "from": "cancelar-consulta",
+      "to": "consulta-cancelada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-consulta-realizada-to-agenda-do-p",
+      "from": "marcar-consulta-realizada",
+      "to": "agenda-do-profissional",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-consulta-realizada-to-consulta-re",
+      "from": "marcar-consulta-realizada",
+      "to": "consulta-realizada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "agenda-do-profissional-to-horario",
+      "from": "agenda-do-profissional",
+      "to": "horario",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.18
+    },
+    {
+      "id": "horario-to-paciente",
+      "from": "horario",
+      "to": "paciente",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    },
+    {
+      "id": "servico-de-agendamento-to-agenda-repo",
+      "from": "servico-de-agendamento",
+      "to": "agenda-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    }
+  ],
+  "customAssets": []
+}

@@ -1,0 +1,252 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-loja-arquitetura",
+  "title": "Arquitetura",
+  "description": "Como os bounded contexts da loja são implementados: um serviço por contexto, cada um com o seu banco, conversando por eventos.",
+  "groups": [
+    {
+      "id": "plataforma",
+      "label": "Plataforma da loja",
+      "kind": "boundary",
+      "x": 424,
+      "y": 0,
+      "w": 1733,
+      "h": 426,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "loja-web",
+      "label": "Loja web",
+      "kind": "client",
+      "asset": "react",
+      "technology": "React",
+      "description": "Vitrine e checkout",
+      "x": 0,
+      "y": 177,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedidos-api",
+      "label": "Pedidos API",
+      "kind": "service",
+      "asset": "nestjs",
+      "technology": "NestJS",
+      "description": "Implementa o bounded context Pedidos (aggregate Pedido, saga de checkout)",
+      "parent": "plataforma",
+      "x": 452,
+      "y": 118,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedidos-db",
+      "label": "Banco de pedidos",
+      "kind": "database",
+      "asset": "postgresql",
+      "technology": "PostgreSQL",
+      "parent": "plataforma",
+      "x": 966,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamentos-api",
+      "label": "Pagamentos API",
+      "kind": "service",
+      "asset": "fastapi",
+      "technology": "FastAPI",
+      "description": "Implementa o bounded context Pagamentos (inclui o tradutor do gateway)",
+      "parent": "plataforma",
+      "x": 1500,
+      "y": 134,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamentos-db",
+      "label": "Banco de pagamentos",
+      "kind": "database",
+      "asset": "postgresql",
+      "technology": "PostgreSQL",
+      "parent": "plataforma",
+      "x": 1945,
+      "y": 134,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estoque-api",
+      "label": "Estoque API",
+      "kind": "service",
+      "asset": "spring-boot",
+      "technology": "Spring Boot",
+      "description": "Implementa o bounded context Estoque",
+      "parent": "plataforma",
+      "x": 1500,
+      "y": 326,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estoque-db",
+      "label": "Banco de estoque",
+      "kind": "database",
+      "asset": "postgresql",
+      "technology": "PostgreSQL",
+      "parent": "plataforma",
+      "x": 1945,
+      "y": 326,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "eventos",
+      "label": "Barramento de eventos",
+      "kind": "queue",
+      "asset": "kafka",
+      "technology": "Apache Kafka",
+      "description": "Os eventos de domínio viajam aqui: pedido-criado, pagamento-aprovado, estoque-reservado…",
+      "parent": "plataforma",
+      "x": 966,
+      "y": 246,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "stripe",
+      "label": "Stripe",
+      "kind": "external",
+      "asset": "stripe",
+      "x": 2397,
+      "y": 177,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "loja-web-to-pedidos-api",
+      "from": "loja-web",
+      "to": "pedidos-api",
+      "type": "sync",
+      "label": "POST /pedidos",
+      "protocol": "HTTPS/REST",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-api-to-pedidos-db",
+      "from": "pedidos-api",
+      "to": "pedidos-db",
+      "type": "data",
+      "label": "Pedido (aggregate)",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "pagamentos-api-to-pagamentos-db",
+      "from": "pagamentos-api",
+      "to": "pagamentos-db",
+      "type": "data",
+      "label": "Pagamento (aggregate)",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "estoque-api-to-estoque-db",
+      "from": "estoque-api",
+      "to": "estoque-db",
+      "type": "data",
+      "label": "Item de estoque (aggregate)",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-api-to-eventos",
+      "from": "pedidos-api",
+      "to": "eventos",
+      "type": "async",
+      "label": "pedido-criado · pedido-cancelado",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.46
+    },
+    {
+      "id": "eventos-to-pagamentos-api",
+      "from": "eventos",
+      "to": "pagamentos-api",
+      "type": "async",
+      "label": "pedido-criado",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.58
+    },
+    {
+      "id": "eventos-to-estoque-api",
+      "from": "eventos",
+      "to": "estoque-api",
+      "type": "async",
+      "label": "pedido-criado · pedido-cancelado",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.42
+    },
+    {
+      "id": "pagamentos-api-to-eventos",
+      "from": "pagamentos-api",
+      "to": "eventos",
+      "type": "async",
+      "label": "pagamento-aprovado · cobranca-desistida",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "estoque-api-to-eventos",
+      "from": "estoque-api",
+      "to": "eventos",
+      "type": "async",
+      "label": "estoque-reservado · estoque-insuficiente",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "eventos-to-pedidos-api",
+      "from": "eventos",
+      "to": "pedidos-api",
+      "type": "async",
+      "label": "eventos de pagamento e estoque (saga)",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "pagamentos-api-to-stripe",
+      "from": "pagamentos-api",
+      "to": "stripe",
+      "type": "sync",
+      "label": "cobrança (via tradutor)",
+      "protocol": "HTTPS",
+      "routing": "curve",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 1903,
+          "y": 248
+        }
+      ],
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

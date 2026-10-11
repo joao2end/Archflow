@@ -1,0 +1,78 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-banco-visao-geral",
+  "title": "Visão geral",
+  "description": "Banco digital: mapa de contextos. Dinheiro exige rigor: um aggregate por transação, consistência eventual entre contas e uma saga que desfaz o que já foi feito quando algo falha no meio do caminho.",
+  "mode": "domain",
+  "groups": [],
+  "nodes": [
+    {
+      "id": "contas",
+      "label": "Contas",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/banco/contas.archflow.json"
+      },
+      "x": 0,
+      "y": 96,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "antifraude",
+      "label": "Antifraude",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/banco/antifraude.archflow.json"
+      },
+      "x": 752,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "notificacoes",
+      "label": "Notificações",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/banco/notificacoes.archflow.json"
+      },
+      "x": 752,
+      "y": 192,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "contas-to-antifraude",
+      "from": "contas",
+      "to": "antifraude",
+      "type": "association",
+      "label": "Partnership · transferencia-solicitada ⇄ transferencia-liberada/suspeita",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "partnership"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "contas-to-notificacoes",
+      "from": "contas",
+      "to": "notificacoes",
+      "type": "association",
+      "label": "Published Language · eventos de conta em formato publicado",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "published-language"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

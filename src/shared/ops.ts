@@ -9,15 +9,24 @@ import {
   ENDPOINT_PROTOCOLS,
   NODE_KINDS,
   NODE_W,
+  DDD_RELS,
+  DDD_ROLES,
   SCHEMA_VERSION,
+  SUBDOMAINS,
+  docMode,
   emptyDoc,
   endpointBadge,
   endpointLabel,
   type Asset,
   type ConnectionEl,
   type ConnectionType,
+  type DddConnSpec,
+  type DddNodeSpec,
+  type DddRel,
   type DiagramRef,
   type Doc,
+  type DocMode,
+  type Subdomain,
   type EndpointProtocol,
   type EndpointSpec,
   type GroupEl,
@@ -27,20 +36,23 @@ import {
   type NodeKind,
   type Routing,
 } from "./schema";
+import { layeredLayout, shelfPack } from "./layout";
+import { stormLayout } from "./storm";
+import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, schemaGuideDomain, suggestRels, type Issue } from "./domain";
 
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
-  | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; x?: number; y?: number; w?: number; h?: number }
+  | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; subdomain?: Subdomain; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean }
-  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean }
+  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
-  | { op: "layout"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
-  | { op: "set_meta"; title?: string; description?: string }
+  | { op: "layout"; style?: "flow" | "timeline"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
+  | { op: "set_meta"; title?: string; description?: string; mode?: DocMode }
   | { op: "clear" };
 
 export interface OpResult {
@@ -191,10 +203,17 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (op.owner && !owner) return { ok: false, error: `owner "${op.owner}" não é um componente existente` };
       if (owner && owner.kind === "endpoint") return { ok: false, error: "um endpoint não pode ser dono de outro endpoint" };
       if (op.ref && !op.ref.diagram) return { ok: false, error: "ref.diagram é obrigatório (caminho relativo ao cofre)" };
-      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : asset?.name) ?? "Componente";
+      const ddd: DddNodeSpec | undefined = op.ddd ?? (asset?.ddd ? { ...asset.ddd } : undefined);
+      if (ddd !== undefined || op.kind === "domain") {
+        if (docMode(doc) !== "domain") return { ok: false, error: `papéis de domínio (kind "domain" / ddd) só existem em diagramas de modo "domain"; crie o diagrama com new_diagram mode "domain" ou troque o modo em set_diagram_info` };
+        const bad = checkDddNode(ddd);
+        if (bad) return { ok: false, error: bad };
+        if (op.kind && op.kind !== "domain") return { ok: false, error: `um nó com ddd tem kind "domain" (recebeu "${op.kind}")` };
+      }
+      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : asset?.name) ?? "Componente";
       const id = uniqueId(doc, op.id ?? (endpoint && owner ? `${owner.id}-${label}` : label));
       const parent = owner ? owner.parent : op.parent && doc.groups.some((g) => g.id === op.parent) ? op.parent : undefined;
-      const kind: NodeKind = op.kind ?? (endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
+      const kind: NodeKind = op.kind ?? (ddd ? "domain" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
       const isEp = kind === "endpoint";
       const w = isEp ? ENDPOINT_W : NODE_W;
       const h = isEp ? ENDPOINT_H : NODE_H;
@@ -216,6 +235,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         endpoint: isEp ? endpoint ?? { protocol: "rest", method: "GET", path: "/resource" } : undefined,
         owner: owner?.id,
         ref: op.ref,
+        ...(ddd ? { ddd } : {}),
         x: pos.x,
         y: pos.y,
         w,
@@ -231,6 +251,10 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
     }
     case "add_group": {
       if (op.parent && !doc.groups.some((g) => g.id === op.parent)) return { ok: false, error: `parent "${op.parent}" não é um grupo existente` };
+      if (op.subdomain !== undefined) {
+        if (op.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
+        if (!(op.subdomain in SUBDOMAINS)) return { ok: false, error: `subdomain inválido "${op.subdomain}". Válidos: ${Object.keys(SUBDOMAINS).join(", ")}` };
+      }
       const id = uniqueId(doc, op.id ?? op.label);
       const sized = op.w != null && op.h != null;
       const pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : findFreeSpot(doc, 320, 200, { x: 0, y: 0 }, 3);
@@ -241,6 +265,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         description: op.description,
         parent: op.parent,
         color: op.color,
+        ...(op.subdomain ? { subdomain: op.subdomain } : {}),
         x: pos.x,
         y: pos.y,
         w: op.w ?? 320,
@@ -261,7 +286,23 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const exists = (id: string) => doc.nodes.some((n) => n.id === id) || doc.groups.some((g) => g.id === id);
       if (!exists(op.from)) return { ok: false, error: `"from" ${op.from} não existe` };
       if (!exists(op.to)) return { ok: false, error: `"to" ${op.to} não existe` };
-      const type = op.type ?? "sync";
+      if (op.ddd !== undefined) {
+        if (docMode(doc) !== "domain") return { ok: false, error: `ddd.rel só existe em diagramas de modo "domain"` };
+        const bad = checkDddConn(op.ddd);
+        if (bad) return { ok: false, error: bad };
+      }
+      // modo domain: o tipo do conector vem da relação de domínio; infraestrutura (sync/async/stream/data) não existe aqui
+      let ddd = op.ddd;
+      const domainMode = docMode(doc) === "domain";
+      if (domainMode) {
+        const typeBad = connectionTypeError(ddd?.rel, op.type);
+        if (typeBad) return { ok: false, error: typeBad };
+        if (!ddd) {
+          const only = suggestRels(doc, op.from, op.to);
+          if (only.length === 1) ddd = { rel: only[0] }; // um par de elementos de domínio com uma única relação possível: já nasce com ela
+        }
+      }
+      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : domainMode ? "association" : "sync");
       if (!CONNECTION_TYPES[type]) return { ok: false, error: `type inválido "${type}". Válidos: ${Object.keys(CONNECTION_TYPES).join(", ")}` };
       const id = uniqueId(doc, op.id ?? `${op.from}-to-${op.to}`);
       const c: ConnectionEl = {
@@ -269,13 +310,14 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         from: op.from,
         to: op.to,
         type,
-        label: op.label,
+        label: ddd ? composeDddLabel(ddd, op.label) : op.label,
         protocol: op.protocol,
         description: op.description,
         interface: op.interface,
         routing: op.routing ?? "curve",
         ...(op.waypoints?.length ? { waypoints: op.waypoints } : {}),
         animated: op.animated ?? true,
+        ...(ddd ? { ddd } : {}),
       };
       doc.connections.push(c);
       return { ok: true, id };
@@ -284,8 +326,34 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const el: any = [...doc.nodes, ...doc.groups, ...doc.notes, ...doc.connections].find((e) => e.id === op.id);
       if (!el) return { ok: false, error: `elemento "${op.id}" não existe` };
       const { id: _ignore, ...patch } = op.patch as Record<string, unknown>;
+      const isNode = doc.nodes.includes(el);
+      const isConn = doc.connections.includes(el);
+      if ("ddd" in patch && patch.ddd != null) {
+        if (docMode(doc) !== "domain") return { ok: false, error: `ddd só existe em diagramas de modo "domain"` };
+        const bad = isConn ? checkDddConn(patch.ddd) : isNode ? checkDddNode(patch.ddd) : "ddd não se aplica a grupos (use subdomain em contextos)";
+        if (bad) return { ok: false, error: bad };
+        if (isNode && (patch.kind ?? el.kind) !== "domain") return { ok: false, error: `um nó com ddd tem kind "domain"; inclua kind: "domain" no patch` };
+      }
+      if (isConn && docMode(doc) === "domain") {
+        const rel = ("ddd" in patch ? (patch.ddd as { rel?: DddRel } | null)?.rel : el.ddd?.rel) as DddRel | undefined;
+        const typeBad = connectionTypeError(rel, patch.type as ConnectionType | undefined);
+        if (typeBad) return { ok: false, error: typeBad };
+        // ao definir a relação sem dizer o tipo, o tipo acompanha a relação
+        if (rel && "ddd" in patch && patch.ddd != null && patch.type === undefined) patch.type = DDD_RELS[rel].type;
+      }
+      if (isNode && patch.kind === "domain" && !(patch.ddd ?? el.ddd)) return { ok: false, error: `kind "domain" exige ddd.role` };
+      if ("subdomain" in patch && patch.subdomain != null) {
+        if (!doc.groups.includes(el) || el.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
+        if (!(patch.subdomain as string in SUBDOMAINS)) return { ok: false, error: `subdomain inválido "${patch.subdomain}". Válidos: ${Object.keys(SUBDOMAINS).join(", ")}` };
+      }
       const before = el.parent;
+      const prevDdd = isConn ? (el.ddd as DddConnSpec | undefined) : undefined;
+      const prevLabel = el.label as string | undefined;
       Object.assign(el, patch);
+      // trocar a relação/fluxo (ddd) sem dizer o rótulo: o rótulo automático acompanha, preservando o texto livre
+      if (isConn && "ddd" in patch && patch.ddd != null && patch.label === undefined && docMode(doc) === "domain") el.label = composeDddLabel(el.ddd as DddConnSpec, dddLabelVia(prevDdd, prevLabel));
+      if ("ddd" in patch && patch.ddd == null) delete el.ddd;
+      if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("parent" in patch) {
         if (el.parent && (!doc.groups.some((g) => g.id === el.parent) || el.parent === el.id || isContainerOf(doc, el.id, el.parent))) {
           el.parent = before;
@@ -334,11 +402,21 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       return { ok: true, id };
     }
     case "layout":
+      if (op.style === "timeline") {
+        if (docMode(doc) !== "domain") return { ok: false, error: `o layout "timeline" (Event Storming) só existe em diagramas de modo "domain"` };
+        timelineLayout(doc, op.routing);
+        return { ok: true };
+      }
       autoLayout(doc, op.direction ?? "LR", { spacing: op.spacing, minGap: op.minGap, gapX: op.gapX, gapY: op.gapY, routing: op.routing });
       return { ok: true };
     case "set_meta":
       if (op.title != null) doc.title = op.title;
       if (op.description != null) doc.description = op.description;
+      if (op.mode != null) {
+        if (op.mode !== "architecture" && op.mode !== "domain") return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain` };
+        if (op.mode === "domain") doc.mode = "domain";
+        else delete doc.mode;
+      }
       return { ok: true };
     case "clear": {
       const fresh = emptyDoc(doc.title);
@@ -349,6 +427,79 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       return { ok: true };
     }
   }
+}
+
+/* ───────────────────────── casos de uso (modo domain) ───────────────────────── */
+
+export interface UseCaseInput {
+  /** slug estável; se já existir um use-case com esse id, o item é ignorado (idempotente no round-trip) */
+  id?: string;
+  /** quem executa; um nó `actor` é criado (ou reaproveitado pelo nome) e ligado ao caso de uso */
+  actor: string;
+  /** objetivo de negócio, em uma frase */
+  goal: string;
+  label?: string;
+  /** id do grupo (bounded context) que contém o caso de uso */
+  context?: string;
+  steps?: string[];
+}
+
+/** Converte casos de uso em ops: nó `use-case`, ator reaproveitado por nome e conexão ator → caso de uso. */
+export function useCaseOps(doc: Doc, list: UseCaseInput[]): Op[] {
+  const out: Op[] = [];
+  const taken = allIds(doc);
+  const fresh = (want: string) => {
+    const base = slug(want);
+    let id = base;
+    for (let i = 2; taken.has(id); i++) id = `${base}-${i}`;
+    taken.add(id);
+    return id;
+  };
+  const actors = new Map<string, string>();
+  for (const n of doc.nodes) if (n.kind === "actor") actors.set(n.label.trim().toLowerCase(), n.id);
+  for (const uc of list) {
+    if (uc.id && doc.nodes.some((n) => n.id === slug(uc.id!) && n.ddd?.role === "use-case")) continue;
+    const key = uc.actor.trim().toLowerCase();
+    let actorId = actors.get(key);
+    if (!actorId) {
+      actorId = fresh(uc.actor);
+      actors.set(key, actorId);
+      out.push({ op: "add_node", id: actorId, label: uc.actor.trim(), kind: "actor", ...(uc.context ? { parent: uc.context } : {}) });
+    }
+    const id = fresh(uc.id ?? uc.label ?? uc.goal);
+    out.push({
+      op: "add_node",
+      id,
+      label: uc.label ?? uc.goal,
+      ddd: { role: "use-case", actor: uc.actor.trim(), goal: uc.goal },
+      ...(uc.context ? { parent: uc.context } : {}),
+      ...(uc.steps?.length ? { description: uc.steps.map((s, i) => `${i + 1}. ${s}`).join("\n") } : {}),
+    });
+    out.push({ op: "add_connection", from: actorId, to: id, type: "association", label: "executa" });
+  }
+  return out;
+}
+
+/* ───────────────────────── layout linha do tempo (Event Storming) ───────────────────────── */
+
+/** Reposiciona um diagrama de domínio em raias (ator → caso de uso → command → aggregate → evento → …); ver storm.ts. */
+export function timelineLayout(doc: Doc, routing?: Routing) {
+  const r = stormLayout(doc);
+  for (const n of doc.nodes) {
+    const pos = r.nodes.get(n.id);
+    if (pos) Object.assign(n, pos);
+  }
+  for (const g of doc.groups) {
+    const rect = r.contexts.get(g.id);
+    if (rect) Object.assign(g, rect);
+  }
+  for (const g of doc.groups) if (g.kind !== "context" && g.auto) fitGroup(doc, g.id);
+  if (routing) for (const c of doc.connections) c.routing = routing;
+  for (const c of doc.connections) {
+    delete c.labelT;
+    delete c.labelOffset;
+  }
+  placeLabels(doc);
 }
 
 /* ───────────────────────── auto-layout em camadas ───────────────────────── */
@@ -403,72 +554,55 @@ export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: 
     }
     if (!ids.length) return { w: 0, h: 0 };
     const level = new Set(ids);
-    const succ = new Map<string, Set<string>>(ids.map((i) => [i, new Set()]));
+    const edges: Array<[string, string]> = [];
     for (const c of doc.connections) {
       const a = ancestorAt(c.from, level);
       const b = ancestorAt(c.to, level);
-      if (a && b && a !== b) succ.get(a)!.add(b);
+      if (a && b && a !== b) edges.push([a, b]);
     }
-    // remove arestas de retorno (DFS) para ranquear em DAG
-    const state = new Map<string, number>();
-    const dag = new Map<string, string[]>(ids.map((i) => [i, []]));
-    const dfs = (u: string) => {
-      state.set(u, 1);
-      for (const v of succ.get(u)!) {
-        if (state.get(v) === 1) continue;
-        dag.get(u)!.push(v);
-        if (!state.has(v)) dfs(v);
-      }
-      state.set(u, 2);
-    };
-    ids.forEach((i) => !state.has(i) && dfs(i));
-    const rank = new Map<string, number>(ids.map((i) => [i, 0]));
-    for (let it = 0; it < ids.length; it++)
-      for (const [u, vs] of dag) for (const v of vs) if (rank.get(v)! < rank.get(u)! + 1) rank.set(v, rank.get(u)! + 1);
-
-    const maxRank = Math.max(...rank.values());
-    const cols: string[][] = Array.from({ length: maxRank + 1 }, () => []);
-    ids.forEach((i) => cols[rank.get(i)!].push(i));
-    // ordenação por baricentro dos predecessores
-    const pos = new Map<string, number>();
-    cols.forEach((col, r) => {
-      if (r > 0) {
-        const bary = (id: string) => {
-          const preds = ids.filter((p) => dag.get(p)!.includes(id) && pos.has(p));
-          return preds.length ? preds.reduce((s, p) => s + pos.get(p)!, 0) / preds.length : 1e9;
-        };
-        col.sort((a, b) => bary(a) - bary(b));
-      }
-      col.forEach((id, i) => pos.set(id, i));
-    });
+    // componentes sem nenhuma conexão neste nível vão para uma grade própria (3 ou mais), em vez de uma coluna interminável
+    const touched = new Set(edges.flat());
+    const loose = ids.filter((i) => !touched.has(i));
+    const packLoose = loose.length >= 3;
+    const flow = packLoose ? ids.filter((i) => touched.has(i)) : ids;
 
     const horizontal = dir === "LR";
+    const main = (id: string) => (horizontal ? size.get(id)!.w : size.get(id)!.h);
+    const cross = (id: string) => (horizontal ? size.get(id)!.h : size.get(id)!.w);
+    const lay = layeredLayout(flow, edges, cross, GAP_ITEM);
+    const cols = lay.layers;
     // o vão entre camadas vizinhas precisa comportar o maior rótulo das conexões que o atravessam
     const need = new Map<number, number>();
     for (const c of doc.connections) {
       const sz = labelSize(c);
       const a = ancestorAt(c.from, level);
       const b = ancestorAt(c.to, level);
-      if (!sz || !a || !b || a === b) continue;
-      if (Math.abs(rank.get(a)! - rank.get(b)!) !== 1) continue;
-      const lo = Math.min(rank.get(a)!, rank.get(b)!);
+      if (!sz || !a || !b || a === b || !lay.rank.has(a) || !lay.rank.has(b)) continue;
+      if (Math.abs(lay.rank.get(a)! - lay.rank.get(b)!) !== 1) continue;
+      const lo = Math.min(lay.rank.get(a)!, lay.rank.get(b)!);
       need.set(lo, Math.max(need.get(lo) ?? 0, (horizontal ? sz.w : sz.h) + 56));
     }
-    const main = (id: string) => (horizontal ? size.get(id)!.w : size.get(id)!.h);
-    const cross = (id: string) => (horizontal ? size.get(id)!.h : size.get(id)!.w);
-    const colCross = cols.map((col) => col.reduce((s, id) => s + cross(id), 0) + GAP_ITEM * Math.max(0, col.length - 1));
-    const totalCross = Math.max(...colCross);
     let m = 0;
     cols.forEach((col, r) => {
-      const colMain = Math.max(...col.map(main));
-      let c = (totalCross - colCross[r]) / 2;
+      const colMain = col.length ? Math.max(...col.map(main)) : 0;
       for (const id of col) {
+        const c = lay.cross.get(id)!;
         rel.set(id, horizontal ? { x: m + (colMain - main(id)) / 2, y: c } : { x: c, y: m + (colMain - main(id)) / 2 });
-        c += cross(id) + GAP_ITEM;
       }
       m += colMain + (r < cols.length - 1 ? Math.max(GAP_RANK, need.get(r) ?? 0) : 0);
     });
-    return horizontal ? { w: m, h: totalCross } : { w: totalCross, h: m };
+    let outMain = flow.length ? m : 0;
+    let outCross = flow.length ? lay.extent : 0;
+    if (packLoose) {
+      const items = loose.map((id) => ({ id, w: main(id), h: cross(id) }));
+      const area = items.reduce((s, i) => s + (i.w + GAP_RANK) * (i.h + GAP_ITEM), 0);
+      const pack = shelfPack(items, Math.max(outMain, Math.sqrt(area) * 1.6), GAP_ITEM);
+      const top = outCross ? outCross + Math.max(GAP_ITEM, GAP_RANK) : 0;
+      for (const [id, p] of pack.at) rel.set(id, horizontal ? { x: p.x, y: top + p.y } : { x: top + p.y, y: p.x });
+      outMain = Math.max(outMain, pack.w);
+      outCross = top + pack.h;
+    }
+    return horizontal ? { w: outMain, h: outCross } : { w: outCross, h: outMain };
   }
 
   function assign(pid: string | undefined, ox: number, oy: number) {
@@ -602,25 +736,33 @@ export function placeLabels(doc: Doc) {
 
 /* ───────────────────────── validação e descrição para LLMs ───────────────────────── */
 
-export function validate(doc: Doc): string[] {
-  const issues: string[] = [];
+/** Avisos estruturados (regra, severidade, alvo). Em modo `architecture` são exatamente as checagens de sempre. */
+export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): Issue[] {
+  const issues: Issue[] = [];
+  const base = (message: string, target?: string) => issues.push({ rule: "BASE", severity: "aviso", message, target });
+  const domain = docMode(doc) === "domain";
   const endpoints = new Set([...doc.nodes.map((n) => n.id), ...doc.groups.map((g) => g.id)]);
   const groups = new Set(doc.groups.map((g) => g.id));
   for (const c of doc.connections) {
-    if (!endpoints.has(c.from)) issues.push(`connection ${c.id}: "from" ${c.from} não existe`);
-    if (!endpoints.has(c.to)) issues.push(`connection ${c.id}: "to" ${c.to} não existe`);
+    if (!endpoints.has(c.from)) base(`connection ${c.id}: "from" ${c.from} não existe`, c.id);
+    if (!endpoints.has(c.to)) base(`connection ${c.id}: "to" ${c.to} não existe`, c.id);
   }
-  for (const e of [...doc.nodes, ...doc.groups]) if (e.parent && !groups.has(e.parent)) issues.push(`${e.id}: parent ${e.parent} não existe`);
+  for (const e of [...doc.nodes, ...doc.groups]) if (e.parent && !groups.has(e.parent)) base(`${e.id}: parent ${e.parent} não existe`, e.id);
   const connected = new Set(doc.connections.flatMap((c) => [c.from, c.to]));
   const ids = new Set(doc.nodes.map((n) => n.id));
   for (const n of doc.nodes) {
-    if (n.owner && !ids.has(n.owner)) issues.push(`${n.id}: owner ${n.owner} não existe`);
-    if (n.kind === "endpoint" && !n.endpoint) issues.push(`${n.id}: endpoint sem definição (protocol/method/path)`);
-    if (n.kind === "system" && !n.ref) issues.push(`${n.id}: componente "system" sem ref (aponte para outro diagrama)`);
+    if (n.owner && !ids.has(n.owner)) base(`${n.id}: owner ${n.owner} não existe`, n.id);
+    if (n.kind === "endpoint" && !n.endpoint) base(`${n.id}: endpoint sem definição (protocol/method/path)`, n.id);
+    if (n.kind === "system" && !n.ref) base(`${n.id}: componente "system" sem ref (aponte para outro diagrama)`, n.id);
     if (n.owner || n.kind === "endpoint") continue; // endpoints são expostos pelo serviço dono
-    if (!connected.has(n.id)) issues.push(`${n.id}: componente sem nenhuma conexão (isolado)`);
+    if (!domain && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
   }
+  if (domain) issues.push(...domainIssues(doc, opts));
   return issues;
+}
+
+export function validate(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): string[] {
+  return validateDetailed(doc, opts).map((i) => (i.rule === "BASE" ? i.message : issueText(i)));
 }
 
 const q = (s: string) => s.replace(/"/g, "'");
@@ -636,7 +778,7 @@ export function toMermaid(doc: Doc): string {
     }
     for (const n of doc.nodes.filter((x) => x.parent === pid)) {
       const t = n.technology ? `<br/><i>${q(n.technology)}</i>` : "";
-      const shape = n.kind === "database" || n.kind === "cache" ? ["[(", ")]"] : n.kind === "queue" || n.kind === "system" ? ["[[", "]]"] : n.kind === "actor" || n.kind === "endpoint" ? ["([", "])"] : ["[", "]"];
+      const shape = n.kind === "domain" ? (n.ddd?.role === "domain-event" ? [">", "]"] : n.ddd?.role === "command" ? ["([", "])"] : n.ddd?.role === "aggregate-root" ? ["[[", "]]"] : ["[", "]"]) : n.kind === "database" || n.kind === "cache" ? ["[(", ")]"] : n.kind === "queue" || n.kind === "system" ? ["[[", "]]"] : n.kind === "actor" || n.kind === "endpoint" ? ["([", "])"] : ["[", "]"];
       const name = n.kind === "system" && n.ref ? `↗ ${n.label}` : n.label;
       lines.push(`${indent}${mid(n.id)}${shape[0]}"${q(name)}${t}"${shape[1]}`);
     }
@@ -652,7 +794,8 @@ export function toMermaid(doc: Doc): string {
 }
 
 /** Descrição textual determinística do diagrama — o formato que um LLM deve ler. */
-export function describe(doc: Doc): string {
+export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): string {
+  if (docMode(doc) === "domain") return describeDomain(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   const L: string[] = [];
   L.push(`# ${doc.title}`);
   if (doc.description) L.push("", doc.description);
@@ -714,7 +857,8 @@ export function describe(doc: Doc): string {
   return L.join("\n");
 }
 
-export function schemaGuide(): string {
+export function schemaGuide(mode: DocMode = "architecture"): string {
+  if (mode === "domain") return schemaGuideDomain();
   return [
     `# Archflow ${SCHEMA_VERSION} — guia para LLMs`,
     "",
@@ -722,7 +866,7 @@ export function schemaGuide(): string {
     "o app calcula posições (use a operação `layout`).",
     "",
     "## Tipos de componente (`kind`)",
-    ...Object.entries(NODE_KINDS).map(([k, v]) => `- \`${k}\`: ${v}`),
+    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain").map(([k, v]) => `- \`${k}\`: ${v}`),
     "",
     "## Tipos de grupo (`kind`)",
     ...Object.entries(GROUP_KINDS).map(([k, v]) => `- \`${k}\`: ${v}`),
@@ -751,9 +895,11 @@ export function schemaGuide(): string {
 
 export function normalizeDoc(raw: any): Doc {
   const d = emptyDoc(raw?.title ?? "Importado");
+  const { mode: _mode, ...rest } = raw ?? {};
   return {
     ...d,
-    ...raw,
+    ...rest,
+    ...(raw?.mode === "domain" ? { mode: "domain" as const } : {}),
     schema: SCHEMA_VERSION,
     groups: Array.isArray(raw?.groups) ? raw.groups : [],
     nodes: Array.isArray(raw?.nodes) ? raw.nodes : [],

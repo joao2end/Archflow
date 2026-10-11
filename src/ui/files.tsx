@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { DocMode } from "../shared/schema";
 import { Glyph } from "./icons";
 import { exportJson, importJson } from "./export";
 import {
@@ -63,7 +64,7 @@ function OfflineHelp() {
 /* ───────── painel lateral: explorador do cofre ───────── */
 
 type Menu = { x: number; y: number; kind: "file" | "folder" | "root"; path: string; title?: string };
-type Editing = { kind: "rename-file" | "rename-folder" | "new-file" | "new-folder"; path: string };
+type Editing = { kind: "rename-file" | "rename-folder" | "new-file" | "new-folder"; path: string; mode?: DocMode };
 
 export function FilesPanel() {
   const ws = useStore((s) => s.workspace);
@@ -120,9 +121,9 @@ export function FilesPanel() {
     setMenu({ ...m, x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 260) });
   };
 
-  const startNew = (kind: "new-file" | "new-folder", folder: string) => {
+  const startNew = (kind: "new-file" | "new-folder", folder: string, mode?: DocMode) => {
     if (folder) toggleFolder(folder, true);
-    setEdit({ kind, path: folder });
+    setEdit({ kind, path: folder, mode });
   };
 
   const commitEdit = (value: string) => {
@@ -130,7 +131,7 @@ export function FilesPanel() {
     const e = edit;
     setEdit(null);
     if (!e || !v) return;
-    if (e.kind === "new-file") void newDiagram(v, e.path);
+    if (e.kind === "new-file") void newDiagram(v, e.path, e.mode);
     else if (e.kind === "new-folder") void createFolder(join(e.path, v)).then(() => e.path && toggleFolder(e.path, true));
     else if (e.kind === "rename-file") void renameDiagram(e.path, v);
     else void renameFolder(e.path, v);
@@ -244,7 +245,7 @@ export function FilesPanel() {
       {edit && (edit.kind === "new-file" || edit.kind === "new-folder") && edit.path === n.path && (
         <div key="new-row" className="tree-row" style={{ paddingLeft: 10 + depth * 16 }}>
           <Glyph name={edit.kind === "new-file" ? "file" : "folder"} size={16} className="tree-ico" />
-          {inlineInput("", edit.kind === "new-file" ? "Título do diagrama" : "Nome da pasta")}
+          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : "Título do diagrama") : "Nome da pasta")}
         </div>
       )}
       {n.children.map((c) => (c.type === "folder" ? folderRow(c, depth) : fileRow(c, depth)))}
@@ -264,6 +265,12 @@ export function FilesPanel() {
         <div className="tree-actions">
           <button className="btn ghost icon sm" onClick={() => startNew("new-file", "")} aria-label="Novo diagrama" data-tip="Novo diagrama" data-tip-pos="bottom">
             <Glyph name="file-plus" size={17} />
+          </button>
+          <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "domain")} aria-label="Novo diagrama de domínio" data-tip="Novo diagrama de domínio (DDD)" data-tip-pos="bottom">
+            <Glyph name="layers" size={17} />
+          </button>
+          <button className="btn ghost icon sm" onClick={() => set({ modal: { type: "examples" } })} aria-label="Exemplos de DDD" data-tip="Exemplos de DDD (modelos prontos)" data-tip-pos="bottom">
+            <Glyph name="sparkle" size={17} />
           </button>
           <button className="btn ghost icon sm" onClick={() => startNew("new-folder", "")} aria-label="Nova pasta" data-tip="Nova pasta" data-tip-pos="bottom">
             <Glyph name="folder-plus" size={17} />
@@ -382,6 +389,9 @@ export function FilesPanel() {
             <>
               <button onClick={() => (startNew("new-file", menu.path), setMenu(null))}>
                 <Glyph name="file-plus" size={16} /> Novo diagrama {menu.kind === "folder" ? "aqui" : ""}
+              </button>
+              <button onClick={() => (startNew("new-file", menu.path, "domain"), setMenu(null))}>
+                <Glyph name="layers" size={16} /> Novo diagrama de domínio {menu.kind === "folder" ? "aqui" : ""}
               </button>
               <button onClick={() => (startNew("new-folder", menu.path), setMenu(null))}>
                 <Glyph name="folder-plus" size={16} /> Nova pasta {menu.kind === "folder" ? "aqui" : ""}

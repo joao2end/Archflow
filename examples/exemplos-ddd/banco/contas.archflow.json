@@ -1,0 +1,896 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-banco-contas",
+  "title": "Contas",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "contas",
+      "label": "Contas",
+      "kind": "context",
+      "description": "Saldo, depósitos, saques e transferências. Errar aqui é perder dinheiro de cliente.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 1022,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "correntista",
+      "label": "Correntista",
+      "kind": "actor",
+      "parent": "contas",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferir-uc",
+      "label": "Transferir dinheiro",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Correntista",
+        "goal": "enviar dinheiro para outra conta"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "depositar-uc",
+      "label": "Depositar",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Correntista",
+        "goal": "colocar dinheiro na conta"
+      },
+      "x": 1468,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "solicitar-transferencia",
+      "label": "Solicitar transferência",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "registrar o pedido de transferência"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "debitar-origem",
+      "label": "Debitar origem",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "tirar o valor da conta de origem"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "creditar-destino",
+      "label": "Creditar destino",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "colocar o valor na conta de destino"
+      },
+      "x": 508,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estornar-debito",
+      "label": "Estornar débito",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 4,
+        "intent": "devolver o valor à origem (compensação)"
+      },
+      "x": 748,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "concluir-transferencia",
+      "label": "Concluir transferência",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 5,
+        "intent": "marcar a transferência como feita"
+      },
+      "x": 988,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "falhar-transferencia",
+      "label": "Falhar transferência",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 6,
+        "intent": "marcar a transferência como não realizada"
+      },
+      "x": 1228,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "depositar",
+      "label": "Depositar",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "command",
+        "step": 7,
+        "intent": "creditar um depósito"
+      },
+      "x": 1468,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "conta",
+      "label": "Conta",
+      "kind": "domain",
+      "description": "Uma transação de banco mexe em UMA conta. Mover dinheiro entre duas contas são duas transações, coordenadas pela saga.",
+      "parent": "contas",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "o saldo nunca fica abaixo de menos o limite",
+          "cada lançamento tem valor diferente de zero",
+          "uma operação por vez por conta (controle de versão)"
+        ]
+      },
+      "x": 268,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "lancamento",
+      "label": "Lançamento",
+      "kind": "domain",
+      "description": "O extrato: cada débito ou crédito é um lançamento da conta.",
+      "parent": "contas",
+      "ddd": {
+        "role": "entity"
+      },
+      "x": 268,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "dinheiro",
+      "label": "Dinheiro",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 508,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia",
+      "label": "Transferência",
+      "kind": "domain",
+      "description": "O acompanhamento da transferência é um aggregate próprio: a saga o consulta e o altera, em vez de segurar o estado na memória.",
+      "parent": "contas",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "origem e destino são contas diferentes",
+          "valor maior que zero",
+          "só vai de solicitada para concluída ou falhou"
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia-solicitada",
+      "label": "Transferência solicitada",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "transferenciaId, origem, destino, valor"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "origem-debitada",
+      "label": "Origem debitada",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "transferenciaId, origem, valor"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "destino-creditado",
+      "label": "Destino creditado",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "transferenciaId, destino, valor"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "debito-estornado",
+      "label": "Débito estornado",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "transferenciaId, origem, valor"
+      },
+      "x": 748,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia-concluida",
+      "label": "Transferência concluída",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "transferenciaId"
+      },
+      "x": 988,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia-falhou",
+      "label": "Transferência falhou",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "transferenciaId, motivo"
+      },
+      "x": 1228,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "valor-depositado",
+      "label": "Valor depositado",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "contaId, valor"
+      },
+      "x": 1468,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia-liberada",
+      "label": "Transferência liberada",
+      "kind": "domain",
+      "description": "Publicado por antifraude; aqui só reagimos a ele.",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "external": "antifraude.transferencia-liberada",
+        "payload": "transferenciaId"
+      },
+      "x": 268,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia-suspeita",
+      "label": "Transferência suspeita",
+      "kind": "domain",
+      "description": "Publicado por antifraude; aqui só reagimos a ele.",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-event",
+        "external": "antifraude.transferencia-suspeita",
+        "payload": "transferenciaId, motivo"
+      },
+      "x": 508,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "fluxo-de-transferencia",
+      "label": "Fluxo de transferência",
+      "kind": "domain",
+      "description": "Saga: o débito e o crédito são transações separadas. Se o crédito falhar depois do débito, a compensação (estorno) devolve o dinheiro: consistência eventual, sem transação distribuída.",
+      "parent": "contas",
+      "ddd": {
+        "role": "process-manager",
+        "intent": "solicitada → análise → débito → crédito → conclusão; em qualquer falha, estorna e falha",
+        "reactsTo": [
+          "transferencia-solicitada",
+          "transferencia-liberada",
+          "transferencia-suspeita",
+          "origem-debitada",
+          "destino-creditado"
+        ],
+        "issues": [
+          "debitar-origem",
+          "creditar-destino",
+          "estornar-debito",
+          "concluir-transferencia",
+          "falhar-transferencia"
+        ],
+        "compensates": [
+          "estornar-debito"
+        ]
+      },
+      "x": 268,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "politica-de-tarifa",
+      "label": "Política de tarifa",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "domain-service",
+        "intent": "tarifa de uma transferência conforme o tipo de conta"
+      },
+      "x": 1708,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "conta-repo",
+      "label": "Repositório de contas",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "repository",
+        "for": "conta"
+      },
+      "x": 748,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "transferencia-repo",
+      "label": "Repositório de transferências",
+      "kind": "domain",
+      "parent": "contas",
+      "ddd": {
+        "role": "repository",
+        "for": "transferencia"
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "correntista-to-transferir-uc",
+      "from": "correntista",
+      "to": "transferir-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "correntista-to-depositar-uc",
+      "from": "correntista",
+      "to": "depositar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "solicitar-transferencia-to-transferir-uc",
+      "from": "solicitar-transferencia",
+      "to": "transferir-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "depositar-to-depositar-uc",
+      "from": "depositar",
+      "to": "depositar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "solicitar-transferencia-to-transferencia",
+      "from": "solicitar-transferencia",
+      "to": "transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "solicitar-transferencia-to-transferencia-2",
+      "from": "solicitar-transferencia",
+      "to": "transferencia-solicitada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001,
+      "labelOffset": 25
+    },
+    {
+      "id": "debitar-origem-to-conta",
+      "from": "debitar-origem",
+      "to": "conta",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "debitar-origem-to-origem-debitada",
+      "from": "debitar-origem",
+      "to": "origem-debitada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
+    },
+    {
+      "id": "creditar-destino-to-conta",
+      "from": "creditar-destino",
+      "to": "conta",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "creditar-destino-to-destino-creditado",
+      "from": "creditar-destino",
+      "to": "destino-creditado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "estornar-debito-to-conta",
+      "from": "estornar-debito",
+      "to": "conta",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "estornar-debito-to-debito-estornado",
+      "from": "estornar-debito",
+      "to": "debito-estornado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "concluir-transferencia-to-transferencia",
+      "from": "concluir-transferencia",
+      "to": "transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.58,
+      "labelOffset": -25
+    },
+    {
+      "id": "concluir-transferencia-to-transferencia-",
+      "from": "concluir-transferencia",
+      "to": "transferencia-concluida",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "falhar-transferencia-to-transferencia",
+      "from": "falhar-transferencia",
+      "to": "transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "falhar-transferencia-to-transferencia-fa",
+      "from": "falhar-transferencia",
+      "to": "transferencia-falhou",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "depositar-to-conta",
+      "from": "depositar",
+      "to": "conta",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "depositar-to-valor-depositado",
+      "from": "depositar",
+      "to": "valor-depositado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "conta-to-lancamento",
+      "from": "conta",
+      "to": "lancamento",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "conta-to-dinheiro",
+      "from": "conta",
+      "to": "dinheiro",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "transferencia-to-dinheiro",
+      "from": "transferencia",
+      "to": "dinheiro",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.78
+    },
+    {
+      "id": "transferencia-to-conta",
+      "from": "transferencia",
+      "to": "conta",
+      "type": "association",
+      "label": "origem e destino por id",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "references-by-id"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    },
+    {
+      "id": "transferencia-solicitada-to-fluxo-de-tra",
+      "from": "transferencia-solicitada",
+      "to": "fluxo-de-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "transferencia-liberada-to-fluxo-de-trans",
+      "from": "transferencia-liberada",
+      "to": "fluxo-de-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "transferencia-suspeita-to-fluxo-de-trans",
+      "from": "transferencia-suspeita",
+      "to": "fluxo-de-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.38
+    },
+    {
+      "id": "origem-debitada-to-fluxo-de-transferenci",
+      "from": "origem-debitada",
+      "to": "fluxo-de-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.33999999999999997,
+      "labelOffset": 50
+    },
+    {
+      "id": "destino-creditado-to-fluxo-de-transferen",
+      "from": "destino-creditado",
+      "to": "fluxo-de-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.14
+    },
+    {
+      "id": "fluxo-de-transferencia-to-debitar-origem",
+      "from": "fluxo-de-transferencia",
+      "to": "debitar-origem",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5,
+      "labelOffset": 25
+    },
+    {
+      "id": "fluxo-de-transferencia-to-creditar-desti",
+      "from": "fluxo-de-transferencia",
+      "to": "creditar-destino",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fluxo-de-transferencia-to-estornar-debit",
+      "from": "fluxo-de-transferencia",
+      "to": "estornar-debito",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fluxo-de-transferencia-to-concluir-trans",
+      "from": "fluxo-de-transferencia",
+      "to": "concluir-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fluxo-de-transferencia-to-falhar-transfe",
+      "from": "fluxo-de-transferencia",
+      "to": "falhar-transferencia",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "solicitar-transferencia-to-politica-de-t",
+      "from": "solicitar-transferencia",
+      "to": "politica-de-tarifa",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "debitar-origem-to-conta-repo",
+      "from": "debitar-origem",
+      "to": "conta-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "solicitar-transferencia-to-transferencia-3",
+      "from": "solicitar-transferencia",
+      "to": "transferencia-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.66
+    }
+  ],
+  "customAssets": []
+}

@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ASSET_CATEGORIES } from "../shared/catalog";
 import { SPACING_GAP, describe, schemaGuide, toMermaid } from "../shared/ops";
-import { NODE_KINDS, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind, type Routing } from "../shared/schema";
+import { filesToMarkdown, generateCode } from "../shared/codegen";
+import { domainOverview, issueText, type Issue } from "../shared/domain";
+import { NODE_KINDS, docMode, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind, type Routing } from "../shared/schema";
 import { ColorPicker } from "./colorpicker";
 import { AssetBadge, Glyph } from "./icons";
 import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
 import { McpBody } from "./mcp";
 import { DiagramViewer } from "./viewer";
-import { allKnownAssets, getState, lookupAsset, newAssetId, run, saveAsset, set, toast, useStore } from "./store";
+import { useDomainIssues } from "./domain";
+import { EXAMPLES_DIR } from "../shared/examples";
+import { allKnownAssets, dddExamples, examplePath, fetchVaultDocs, getState, lookupAsset, installExample, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -329,7 +333,7 @@ function InterfaceModal({ id }: { id: string }) {
 function LlmModal() {
   const doc = useStore((s) => s.doc);
   const [tab, setTab] = useState<"md" | "mermaid" | "json" | "guide">("md");
-  const text = tab === "md" ? describe(doc) : tab === "mermaid" ? toMermaid(doc) : tab === "json" ? JSON.stringify(doc, null, 2) : schemaGuide();
+  const text = tab === "md" ? describe(doc) : tab === "mermaid" ? toMermaid(doc) : tab === "json" ? JSON.stringify(doc, null, 2) : schemaGuide(docMode(doc));
   const tabs: [typeof tab, string][] = [["md", "Markdown"], ["mermaid", "Mermaid"], ["json", "JSON"], ["guide", "Guia do schema"]];
   return (
     <Modal
@@ -354,6 +358,156 @@ function LlmModal() {
         ))}
       </div>
       <pre className="code">{text}</pre>
+    </Modal>
+  );
+}
+
+/* ───────── domínio (DDD): modo, validação e visão geral ───────── */
+
+function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" }) {
+  const doc = useStore((s) => s.doc);
+  const mode = docMode(doc);
+  const [tab, setTab] = useState<"issues" | "overview" | "code">(initial ?? "issues");
+  const issues = useDomainIssues();
+  const [overview, setOverview] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (tab !== "overview" || mode !== "domain") return;
+    setErr("");
+    fetchVaultDocs().then(
+      (files) => {
+        const s = getState();
+        setOverview(domainOverview(files.map((f) => (f.path === s.file ? { ...f, doc: s.doc } : f))));
+      },
+      (e) => setErr(e instanceof Error ? e.message : String(e)),
+    );
+  }, [tab, mode, doc]);
+
+  const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
+  const code = useMemo(() => (tab === "code" && mode === "domain" ? generateCode(doc) : []), [tab, mode, doc]);
+  const text = tab === "overview" ? overview ?? "" : tab === "code" ? filesToMarkdown(code) : issues.map(issueText).join("\n");
+
+  return (
+    <Modal
+      wide
+      title="Domínio (DDD)"
+      onClose={close}
+      foot={
+        mode === "domain" ? (
+          <>
+            <button
+              className="btn"
+              onClick={() => {
+                void newDiagram("Visão geral", "dominio", "domain");
+                close();
+              }}
+              data-tip="Cria um diagrama de mapa de contextos em dominio/. Arraste os diagramas de contexto para ele (componente «Outro diagrama») e ligue-os com context-relation."
+            >
+              <Glyph name="file-plus" size={16} /> Novo mapa de contextos
+            </button>
+            <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+              <Glyph name="copy" size={16} /> Copiar
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação das regras de DDD, visão geral dos contextos do cofre e esqueleto de código. O modo (Arch | Domain) é trocado no switch da barra superior.</p>
+      {mode === "domain" && (
+        <>
+          <div className="tabs seg" role="tablist">
+            <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
+              Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
+            </button>
+            <button role="tab" aria-selected={tab === "overview"} className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
+              Visão geral do cofre
+            </button>
+            <button role="tab" aria-selected={tab === "code"} className={tab === "code" ? "active" : ""} onClick={() => setTab("code")}>
+              Código (TypeScript)
+            </button>
+          </div>
+          {tab === "issues" &&
+            (issues.length ? (
+              <ul className="issue-list" aria-label="Avisos de validação">
+                {issues.map((i, k) => (
+                  <li key={k}>
+                    <button className={`issue ${i.severity}`} disabled={!i.target} onClick={() => i.target && (select([i.target]), close())} data-tip={i.target ? "Selecionar no quadro" : undefined} data-tip-pos="left">
+                      <span className="issue-rule">{i.rule}</span>
+                      <span className="issue-sev">{i.severity}</span>
+                      <span className="issue-msg">{i.message}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="callout">Nenhum problema encontrado neste diagrama.</div>
+            ))}
+          {tab === "code" &&
+            (code.length ? (
+              <>
+                <div className="callout">
+                  Esqueleto de {code.length} arquivo(s), um diretório por contexto (application → domain). A lógica fica como TODO; copie e grave no seu projeto, ou peça ao agente (MCP) a tool <b>generate_code</b>.
+                </div>
+                <pre className="code">{text}</pre>
+              </>
+            ) : (
+              <div className="callout">Nada a gerar ainda: adicione aggregates, commands e eventos ao diagrama.</div>
+            ))}
+          {tab === "overview" && (err ? <div className="callout warn">{err}</div> : <pre className="code">{overview ?? "Carregando…"}</pre>)}
+        </>
+      )}
+    </Modal>
+  );
+}
+
+/* ───────── exemplos de DDD ───────── */
+
+function ExamplesModal() {
+  const [busy, setBusy] = useState<string | null>(null);
+  const files = useStore((s) => s.workspace?.files);
+  const have = useMemo(() => new Set(files?.map((f) => f.path) ?? []), [files]);
+  const online = useStore((s) => s.online);
+  const install = async (ex: (typeof dddExamples)[number]) => {
+    setBusy(ex.id);
+    const ok = await installExample(ex);
+    setBusy(null);
+    if (ok || have.has(examplePath(ex, "visao-geral"))) close();
+  };
+  return (
+    <Modal wide title="Exemplos de DDD" onClose={close}>
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>
+        Modelos prontos, do simples ao avançado. Cada um vira uma pasta no cofre aberto (<code>{EXAMPLES_DIR}/&lt;exemplo&gt;/</code>) com um <b>mapa de contextos</b> e um diagrama por bounded context; abra o mapa e clique nos contextos para entrar neles. Nada é sobrescrito.
+        A explicação passo a passo está em <code>docs/DDD.md</code> e em <code>examples/</code>.
+      </p>
+      {!online && <div className="callout warn">Sem armazenamento disponível: abra ou crie um cofre para instalar os exemplos.</div>}
+      <div className="example-list">
+        {dddExamples.map((ex) => {
+          const installed = have.has(examplePath(ex, "visao-geral"));
+          return (
+            <article key={ex.id} className="example-card">
+              <header>
+                <h3>{ex.title}</h3>
+                <span className={`chip level ${ex.level}`}>{ex.level}</span>
+              </header>
+              <p>{ex.summary}</p>
+              <div className="asset-card-tags">
+                {ex.teaches.map((t) => (
+                  <i key={t}>{t}</i>
+                ))}
+              </div>
+              <footer>
+                <small>
+                  {ex.files.length} diagramas: {ex.files.map((f) => f.title).join(" · ")}
+                </small>
+                <button className="btn primary" disabled={!online || busy !== null} onClick={() => void install(ex)}>
+                  <Glyph name={installed ? "folder" : "download"} size={16} /> {busy === ex.id ? "Instalando…" : installed ? "Abrir" : "Instalar e abrir"}
+                </button>
+              </footer>
+            </article>
+          );
+        })}
+      </div>
     </Modal>
   );
 }
@@ -478,15 +632,17 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
   const [gapX, setGapX] = useState(cfg.gapX);
   const [gapY, setGapY] = useState(cfg.gapY);
   const [routing, setRouting] = useState(cfg.routing);
+  const domain = useStore((s) => docMode(s.doc) === "domain");
+  const [style, setStyle] = useState<"flow" | "timeline">(domain ? "timeline" : "flow");
   const apply = () => {
     try {
       localStorage.setItem(LS_LAYOUT, JSON.stringify({ gapX, gapY, routing }));
     } catch {
       /* preferência opcional */
     }
-    run([{ op: "layout", direction, gapX, gapY, routing: routing === "keep" ? undefined : routing }]);
+    const r = run([{ op: "layout", style, direction, gapX, gapY, routing: routing === "keep" ? undefined : routing }]);
     close();
-    toast("Layout automático aplicado");
+    toast(r[0]?.ok === false ? r[0].error ?? "Não foi possível aplicar o layout" : style === "timeline" ? "Linha do tempo aplicada" : "Layout automático aplicado");
   };
   return (
     <Modal
@@ -505,7 +661,20 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
           if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") apply();
         }}
       >
-        <section className="lay-sec">
+        {domain && (
+          <section className="lay-sec">
+            <h3>Estilo</h3>
+            <div className="lay-opts two" role="radiogroup" aria-label="Estilo do layout">
+              {([["timeline", "Linha do tempo", "Event Storming: ator → caso de uso → command → aggregate → evento"], ["flow", "Fluxo", "Camadas pelo fluxo das conexões"]] as const).map(([k, l, d]) => (
+                <button key={k} role="radio" aria-checked={style === k} className={`lay-opt ${style === k ? "active" : ""}`} onClick={() => setStyle(k)}>
+                  <b>{l}</b>
+                  <small>{d}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        <section className="lay-sec" style={style === "timeline" ? { display: "none" } : undefined}>
           <h3>Direção do fluxo</h3>
           <div className="lay-opts two" role="radiogroup" aria-label="Direção do fluxo">
             {([["LR", "Horizontal", "Da esquerda para a direita", "M4 12h16M14 6l6 6-6 6"], ["TB", "Vertical", "De cima para baixo", "M12 4v16M6 14l6 6 6-6"]] as const).map(([k, l, d, icon]) => (
@@ -518,7 +687,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
           </div>
         </section>
 
-        <section className="lay-sec">
+        <section className="lay-sec" style={style === "timeline" ? { display: "none" } : undefined}>
           <h3>Espaçamento</h3>
           <div className="seg" role="radiogroup" aria-label="Presets de espaçamento">
             {SPACING_PRESETS.map(([l, x, y]) => {
@@ -566,6 +735,10 @@ export function Modals() {
       return <InterfaceModal key={m.id} id={m.id} />;
     case "llm":
       return <LlmModal />;
+    case "domain":
+      return <DomainModal tab={m.tab} />;
+    case "examples":
+      return <ExamplesModal />;
     case "mcp":
       return <McpModal />;
     case "help":
