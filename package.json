@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "author": "2.end",
+  "license": "MIT",
+  "homepage": "https://archflow.2-end.online",
+  "repository": { "type": "git", "url": "git+https://github.com/joao2end/Archflow.git" },
+  "engines": { "node": ">=22" },
   "description": "Archflow — quadro branco de arquitetura de software com MCP. Desenvolvido pela 2.end.",
   "type": "module",
   "scripts": {

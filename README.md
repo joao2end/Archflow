@@ -4,7 +4,15 @@ Quadro branco para **arquitetura de software**, inspirado na engenharia reversa 
 modelo semântico (componentes, grupos, conexões tipadas e interfaces), interface *glassmorphism* e um
 **servidor MCP** para que LLMs desenhem junto com você, em tempo real.
 
+[![CI](https://github.com/joao2end/Archflow/actions/workflows/ci.yml/badge.svg)](https://github.com/joao2end/Archflow/actions/workflows/ci.yml)
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-706fd3)
+![Node 22+](https://img.shields.io/badge/node-22%2B-706fd3)
+![Windows · Web](https://img.shields.io/badge/plataforma-Windows%20%C2%B7%20Web-706fd3)
+![MCP](https://img.shields.io/badge/MCP-24%20tools-706fd3)
+
 > Desenvolvido pela **2.end**.
+>
+> **Experimente online:** [archflow.2-end.online](https://archflow.2-end.online) — a landing page fica em `/` e o app em [`/app`](https://archflow.2-end.online/app), sem instalar nada.
 
 ![Archflow — canvas com o diagrama de exemplo "Plataforma de Pedidos"](docs/screenshots/02-canvas.png)
 
@@ -14,6 +22,7 @@ modelo semântico (componentes, grupos, conexões tipadas e interfaces), interfa
 ## Sumário
 
 - [Visão geral](#visão-geral)
+- [Acesso online](#acesso-online)
 - [Instalação e execução](#instalação-e-execução)
 - [Versão para Windows (instalador)](#versão-para-windows-instalador)
 - [Guia de utilização](#guia-de-utilização)
@@ -24,6 +33,7 @@ modelo semântico (componentes, grupos, conexões tipadas e interfaces), interfa
 - [Recursos](#recursos)
 - [Atalhos de teclado](#atalhos-de-teclado)
 - [Estrutura do projeto](#estrutura)
+- [Contribuindo e segurança](#contribuindo-e-segurança)
 
 ## Visão geral
 
@@ -35,9 +45,23 @@ Diferente de um quadro branco livre, o Archflow guarda **o que cada coisa signif
 uma fila é uma fila, e cada conexão tem tipo (síncrona, assíncrona, streaming, UML…). Isso permite que humanos e
 LLMs leiam o mesmo diagrama — sem coordenadas e sem ruído visual.
 
-Também funciona em **tema escuro** (automático, claro ou escuro):
+Acesse online em **[archflow.2-end.online](https://archflow.2-end.online)**. Também funciona em **tema escuro** (automático, claro ou escuro):
 
 ![Tema escuro](docs/screenshots/10-dark.png)
+
+## Acesso online
+
+O Archflow está publicado em **[archflow.2-end.online](https://archflow.2-end.online)**:
+
+| Endereço | O que é |
+| --- | --- |
+| [archflow.2-end.online](https://archflow.2-end.online) | Landing page com a demonstração animada das ferramentas e do MCP |
+| [archflow.2-end.online/app](https://archflow.2-end.online/app) | O aplicativo, direto no navegador |
+
+Como o site é estático (sem servidor local), o app abre no **modo Memória do navegador**: os cofres ficam no IndexedDB, com pastas,
+referências entre diagramas, busca, modo Domain (DDD), validação, geração de código e exportação. Não há pasta em disco, Git nem MCP —
+para isso use o [instalador do Windows](#versão-para-windows-instalador) ou `npm run dev`. Faça backup com **Exportar cofre atual** /
+**Importar cofre…** no gerenciador de cofres.
 
 ## Instalação e execução
 
@@ -184,14 +208,14 @@ npm run mcp:check                # só testa o que já está instalado (não alt
 
 O comando gravado usa `node` com **caminhos absolutos** (o bundle `dist-mcp/` se estiver em dia com o código, senão o `tsx` local do projeto), nunca `npx` nem a pasta atual do processo.
 
-**Manual** (troque pelo caminho do seu exe; o padrão do instalador é `C:Program FilesArchflowArchflow.exe`):
+**Manual** (troque pelo caminho do seu exe; o padrão do instalador é `C:\Program Files\Archflow\Archflow.exe`):
 
 ```bash
-claude mcp add --scope user archflow -- "C:Program FilesArchflowArchflow.exe" --mcp
+claude mcp add --scope user archflow -- "C:\Program Files\Archflow\Archflow.exe" --mcp
 ```
 
 ```json
-{ "mcpServers": { "archflow": { "command": "C:\Program Files\Archflow\Archflow.exe", "args": ["--mcp"] } } }
+{ "mcpServers": { "archflow": { "command": "C:\\Program Files\\Archflow\\Archflow.exe", "args": ["--mcp"] } } }
 ```
 
 Quando o agente conecta, o servidor **abre o app Archflow sozinho** (se ainda não estiver aberto) e edita o diagrama pelo bridge dele — você acompanha ao vivo.
@@ -244,6 +268,7 @@ Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (
 - **Regras dos conectores:** no modo Domain cada conexão é uma relação (`emits`, `triggers`, `contains`, `references-by-id`, `realizes`, `uses`, `context-relation`) que só liga os papéis certos; o tipo vem da relação e `sync`/`async`/`stream`/`data` não existem aqui. Ao ligar dois elementos, se só uma relação serve, a conexão já nasce com ela.
 - **Decisões, condições, loops e iteração (só no modo Domain):** o papel *Decision* (exclusiva, paralela ou junção) com um ramo por conexão, **condição** e **senão** nas conexões `triggers`/`emits`, **loop** marcado na conexão que volta a um passo anterior (com condição de parada obrigatória) e **para cada**. As regras D024 a D032 conferem a forma do fluxo (decisão com 2+ ramos e um senão, junção com 2+ entradas, ciclo por decisão exige loop declarado) e o código gerado leva os ramos para tipos. Veja o guia em [docs/DDD.md](docs/DDD.md).
 - **Switch Arch | Domain** na barra superior (sem diálogo; Ctrl+Z desfaz) e, ao lado, o atalho da validação.
+- **Guia animado de DDD:** novo em DDD? O botão ▶ ao lado do selo de modo (ou **Guia de DDD** no quadro vazio e na modal do modo) abre *DDD em 8 passos*: cenas animadas de valor do negócio, bounded context, use case → command, aggregate, domain event, policy, context map e uma receita rápida do zero ao domínio.
 - **Exemplos prontos de DDD** (biblioteca, clínica, loja, banco): botão ✨ do explorador → *Instalar e abrir*, ou a pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
 
 Detalhes de projeto, regras e decisões: [docs/DOMAIN_MODE.md](docs/DOMAIN_MODE.md). Para testar a UI sem tocar nos seus diagramas: `node scripts/dev-sandbox.mjs` (cofre temporário, portas próprias).
@@ -282,5 +307,9 @@ build        ícones do app (icon.ico / icon.png)
 scripts      build-icons.ts (extrai ícones do Iconify logos/simple-icons) · build-app-icon.ts (ícone do app)
 docs         documentação técnica e screenshots usados neste README
 ```
+
+## Contribuindo e segurança
+
+Quer ajudar? Veja o [guia de contribuição](CONTRIBUTING.md) (ambiente, testes e convenções). Para reportar vulnerabilidades, siga o [SECURITY.md](SECURITY.md). Licença: [MIT](LICENSE).
 
 Ícones: Iconify *logos* e *simple-icons* (marcas pertencem aos respectivos donos; uso para identificação em diagramas).

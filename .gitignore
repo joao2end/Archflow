@@ -1,9 +1,22 @@
+# dependências e builds
 node_modules
 dist
+dist-electron
+dist-mcp
+release
+release-test
+
+# dados locais
 data
 diagrams
 *.log
+
+# sistema e editor
 .DS_Store
-release
-dist-electron
-dist-mcp
+Thumbs.db
+.idea
+.vscode
+.env*
+.claude/settings.local.json
+.claude
+skills-lock.json
