@@ -12,6 +12,7 @@ Notas 0–10, estimadas por leitura de código (sem screenshot) quando indicado.
 | 6 | 2026-10-11 | Logic PlayPanel (reprodução de cenário) | 5.9 | 6.9 | 6.9 | ←/→ passam os passos (sem mover o nó selecionado), lista de passos navegável por teclado, progressbar e aria-live no passo atual, linha ativa rola para a vista | WAI-ARIA APG (progressbar, live region); players de vídeo/debuggers (step com setas) |
 | 7 | 2026-10-11 | Canvas (parcial: só a11y da raiz; resto não medido) | ? | ? | ? | ? | 7 | ? | ? | 7.0 |
 | Ajuda (atalhos) | 7 | 8 | 6 | 8 | 7 | 7 | 6 | 7.0 |
+| Present (barra) | 7 | 8 | 6 | 7 | 7 | 8 | 6 | 7.0 |
 | Minimap | 7 | 7 | 6 | 7 | 7 | 7 | 6 | 6.7 |
 | Files (árvore) | 7 | 7 | 6 | 7 | 7 | 7 | 6 | 6.7 |
 | ColorPicker | 6 | 7 | 7 | 7 | 8 | 7 | 8 | 7.1 |
@@ -24,6 +25,7 @@ Notas 0–10, estimadas por leitura de código (sem screenshot) quando indicado.
 | 12 | 2026-10-11 | Minimap | 5.7 | 6.9 | 7.0 | Setas movem a vista com o foco no minimapa (20%, Shift 60%), cursor grab/grabbing, foco visível, pointercancel, role group em vez de img | WAI-ARIA APG; mapas do Figma/Google Maps; verificado no navegador (204px = 20% de 1024) |
 | 13 | 2026-10-11 | Ajuda (atalhos) + emptyhint | 5.5 | 7.0 | 7.1 | Atalhos agrupados por tarefa (Montar, Editar, Navegar, Desenhar, Aparência, Apresentar) com seção "Modo Lógica" primeiro quando aplicável; chips de tecla sem quebra; dica do quadro vazio sai de baixo do painel lateral aberto | Nielsen #6/#10; agrupamento de atalhos do VS Code/Figma; Ajuda verificada no navegador |
 | 14 | 2026-10-11 | emptyhint (modo Arquitetura) | 6.6 | 7.4 | 7.2 | "Ver exemplo pronto" também em Arquitetura: loja online com 8 componentes e 7 conexões (síncrona, dados, assíncrona), gerada por ops e coberta por teste; texto da dica explica o motivo | Linear/Notion: empty state com conteúdo de exemplo; mesmo padrão do modo Lógica |
+| 15 | 2026-10-11 | Present (barra de apresentação) | 6.4 | 6.9 | 7.0 | Letra do atalho no canto de cada ferramenta + aria-keyshortcuts (mesmo padrão da DrawBar); verificado no navegador | Consistência com a DrawBar; Excalidraw/Figma |
 
 ## Scores atuais por componente
 
