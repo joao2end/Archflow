@@ -1,0 +1,354 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-delivery-fidelidade",
+  "title": "Fidelidade",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "fidelidade",
+      "label": "Fidelidade",
+      "kind": "context",
+      "description": "Pontos por compra e recompensas. Ajuda a reter clientes, mas não é o que diferencia a operação.",
+      "subdomain": "supporting",
+      "x": 0,
+      "y": 0,
+      "w": 720,
+      "h": 1146,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cliente",
+      "label": "Cliente",
+      "kind": "actor",
+      "parent": "fidelidade",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "ganhar-pontos-uc",
+      "label": "Ganhar pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "acumular pontos a cada pedido pago"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamento-aprovado",
+      "label": "Pagamento aprovado",
+      "kind": "domain",
+      "description": "Publicado por pagamentos; aqui só reagimos a ele.",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "domain-event",
+        "external": "pagamentos.pagamento-aprovado",
+        "payload": "pedidoId, pagamentoId"
+      },
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pontuar-ao-pagar",
+      "label": "Pontuar ao pagar",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "policy",
+        "intent": "pagamento aprovado gera pontos",
+        "reactsTo": [
+          "pagamento-aprovado"
+        ],
+        "issues": [
+          "acumular-pontos"
+        ]
+      },
+      "x": 28,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "acumular-pontos",
+      "label": "Acumular pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "creditar pontos na conta do cliente"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "conta-de-pontos",
+      "label": "Conta de pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "o saldo de pontos nunca fica negativo"
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "lancamento-de-pontos",
+      "label": "Lançamento de pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "entity",
+        "properties": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "pedidoId",
+            "type": "uuid",
+            "description": "o pedido que gerou os pontos"
+          },
+          {
+            "name": "pontos",
+            "type": "Pontos"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pontos",
+      "label": "Pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "value-object",
+        "properties": [
+          {
+            "name": "quantidade",
+            "type": "inteiro",
+            "description": "sempre maior que zero",
+            "example": "46"
+          }
+        ]
+      },
+      "x": 268,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pontos-acumulados",
+      "label": "Pontos acumulados",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "contaId, pedidoId, pontos"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "saldo-de-pontos",
+      "label": "Saldo de pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "read-model",
+        "projectsFrom": [
+          "pontos-acumulados"
+        ],
+        "properties": [
+          {
+            "name": "clienteId",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "saldo",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "conta-repo",
+      "label": "Repositório de contas de pontos",
+      "kind": "domain",
+      "parent": "fidelidade",
+      "ddd": {
+        "role": "repository",
+        "for": "conta-de-pontos"
+      },
+      "x": 508,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "cliente-to-ganhar-pontos-uc",
+      "from": "cliente",
+      "to": "ganhar-pontos-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "acumular-pontos-to-ganhar-pontos-uc",
+      "from": "acumular-pontos",
+      "to": "ganhar-pontos-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pagamento-aprovado-to-pontuar-ao-pagar",
+      "from": "pagamento-aprovado",
+      "to": "pontuar-ao-pagar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "pontuar-ao-pagar-to-acumular-pontos",
+      "from": "pontuar-ao-pagar",
+      "to": "acumular-pontos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "acumular-pontos-to-conta-de-pontos",
+      "from": "acumular-pontos",
+      "to": "conta-de-pontos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.66,
+      "labelOffset": -50
+    },
+    {
+      "id": "acumular-pontos-to-pontos-acumulados",
+      "from": "acumular-pontos",
+      "to": "pontos-acumulados",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.18,
+      "labelOffset": 50
+    },
+    {
+      "id": "conta-de-pontos-to-lancamento-de-pontos",
+      "from": "conta-de-pontos",
+      "to": "lancamento-de-pontos",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.33999999999999997
+    },
+    {
+      "id": "lancamento-de-pontos-to-pontos",
+      "from": "lancamento-de-pontos",
+      "to": "pontos",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    },
+    {
+      "id": "pontos-acumulados-to-saldo-de-pontos",
+      "from": "pontos-acumulados",
+      "to": "saldo-de-pontos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "acumular-pontos-to-conta-repo",
+      "from": "acumular-pontos",
+      "to": "conta-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

@@ -9,7 +9,7 @@ import { domainOverview, evaluateDomain, traceUseCase } from "./domain";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, fileSlug } from "./examples";
 import { renderAllExamples } from "./examples.render";
 import { normalizeDoc, validateDetailed } from "./ops";
-import { CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, docMode, type Doc } from "./schema";
+import { CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DECISION_GATE_KEYS, DDD_ROLES, DDD_ROLE_KEYS, docMode, type Doc } from "./schema";
 
 const built = DDD_EXAMPLES.map((ex) => ({ ex, files: buildExample(ex) }));
 const serious = (doc: Doc, exists: (p: string) => boolean) => validateDetailed(doc, { exists }).filter((i) => i.severity !== "dica");
@@ -58,7 +58,7 @@ test("exemplos: a visão geral do cofre de cada exemplo não tem avisos nem erro
   }
 });
 
-test("exemplos: juntos cobrem todos os papéis, todas as relações e vários padrões do Context Map", () => {
+test("exemplos: juntos cobrem todos os papéis, relações, padrões do Context Map e tipos de decisão", () => {
   const roles = new Set<string>();
   const rels = new Set<string>();
   const patterns = new Set<string>();
@@ -71,9 +71,24 @@ test("exemplos: juntos cobrem todos os papéis, todas as relações e vários pa
     }
   assert.deepEqual(DDD_ROLE_KEYS.filter((r) => !roles.has(r)), [], "papéis não ilustrados");
   assert.deepEqual(DDD_REL_KEYS.filter((r) => !rels.has(r)), [], "relações não ilustradas");
+  const gates = new Set(built.flatMap((b) => b.files.flatMap((f) => f.doc.nodes.filter((n) => n.ddd?.role === "decision").map((n) => n.ddd!.gate ?? "exclusive"))));
+  assert.deepEqual(DECISION_GATE_KEYS.filter((g) => !gates.has(g)), [], "tipos de decisão não ilustrados");
   assert.deepEqual([...subdomains].sort(), ["core", "generic", "supporting"]);
-  assert.ok(patterns.size >= 4, `padrões do Context Map ilustrados: ${[...patterns].join(", ")}`);
+  assert.deepEqual(CONTEXT_PATTERN_KEYS.filter((p) => !patterns.has(p)), [], "padrões do Context Map não ilustrados");
   assert.ok([...patterns].every((p) => (CONTEXT_PATTERN_KEYS as string[]).includes(p)));
+});
+
+test("exemplos: usam propriedades em todos os papéis que as aceitam e notas no diagrama", () => {
+  const withProps = new Set<string>();
+  let notes = 0;
+  for (const { files } of built)
+    for (const f of files) {
+      notes += f.doc.notes.length;
+      f.doc.nodes.forEach((n) => n.ddd?.properties?.length && withProps.add(n.ddd.role));
+    }
+  const expected = DDD_ROLE_KEYS.filter((r) => DDD_ROLES[r].fields.includes("properties"));
+  assert.deepEqual(expected.filter((r) => !withProps.has(r)), [], "papéis com propriedades não ilustrados");
+  assert.ok(notes >= 3, "notas ilustradas");
 });
 
 test("exemplos: ilustram decisão com loop, ramos condicionais (senão) e iteração", () => {
@@ -129,7 +144,7 @@ test("exemplos: os JSON gravados carregam como diagramas válidos (normalizeDoc)
 });
 
 test("documentação dos exemplos: todo `código` que parece um id existe no exemplo (a prosa não desatualiza sem o teste avisar)", () => {
-  const generic = new Set<string>([...DDD_ROLE_KEYS, ...DDD_REL_KEYS, ...CONTEXT_PATTERN_KEYS, "core", "supporting", "generic", "external", "step", "payload", "invariants", "intent", "context", "sync", "async", "stream", "data", "uc", "src", "visao-geral", "tsc", "npm", "mcp", "get-diagram", "domain-overview", "generate-code", "validate-diagram", "trace", "add-use-cases", "eval-domain", "examples-build"]);
+  const generic = new Set<string>([...DDD_ROLE_KEYS, ...DDD_REL_KEYS, ...CONTEXT_PATTERN_KEYS, ...DECISION_GATE_KEYS, "core", "supporting", "generic", "external", "step", "payload", "invariants", "intent", "context", "sync", "async", "stream", "data", "uc", "src", "visao-geral", "tsc", "npm", "mcp", "get-diagram", "domain-overview", "generate-code", "validate-diagram", "trace", "add-use-cases", "eval-domain", "examples-build"]);
   for (const { ex, files } of built) {
     const known = new Set<string>(generic);
     for (const f of files) {

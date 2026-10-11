@@ -1,0 +1,825 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-delivery-entrega",
+  "title": "Entrega",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "entrega",
+      "label": "Entrega",
+      "kind": "context",
+      "description": "Achar um entregador, buscar o pedido e levar até o cliente. Entregar rápido é parte do diferencial.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1920,
+      "h": 1146,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "entregador-ator",
+      "label": "Entregador",
+      "kind": "actor",
+      "parent": "entrega",
+      "x": 268,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cliente-ator",
+      "label": "Cliente",
+      "kind": "actor",
+      "parent": "entrega",
+      "x": 748,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "buscar-pedido-uc",
+      "label": "Buscar o pedido",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Entregador",
+        "goal": "retirar o pedido pronto no restaurante"
+      },
+      "x": 268,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entregar-uc",
+      "label": "Entregar ao cliente",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Entregador",
+        "goal": "levar o pedido até o endereço"
+      },
+      "x": 508,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "rastrear-uc",
+      "label": "Rastrear entrega",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "ver onde está o entregador"
+      },
+      "x": 748,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-confirmado",
+      "label": "Pedido confirmado",
+      "kind": "domain",
+      "description": "Publicado por pedidos; aqui só reagimos a ele.",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-event",
+        "external": "pedidos.pedido-confirmado",
+        "payload": "pedidoId, restauranteId, endereco"
+      },
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-pronto",
+      "label": "Pedido pronto",
+      "kind": "domain",
+      "description": "Publicado por cozinha; aqui só reagimos a ele.",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-event",
+        "external": "cozinha.pedido-pronto",
+        "payload": "pedidoId, restauranteId"
+      },
+      "x": 268,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "rota-calculada",
+      "label": "Rota calculada",
+      "kind": "domain",
+      "description": "Publicado por mapas; aqui só reagimos a ele.",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-event",
+        "external": "mapas.rota-calculada",
+        "payload": "pedidoId, distanciaMetros, minutos"
+      },
+      "x": 508,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "alocar-ao-confirmar",
+      "label": "Alocar ao confirmar",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "policy",
+        "intent": "pedido confirmado procura um entregador",
+        "reactsTo": [
+          "pedido-confirmado"
+        ],
+        "issues": [
+          "alocar-entregador"
+        ]
+      },
+      "x": 28,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "alocar-entregador",
+      "label": "Alocar entregador",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "escolher o entregador mais próximo do restaurante"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "retirar-pedido",
+      "label": "Retirar pedido",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "o entregador pegou o pedido no restaurante"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entregar-pedido",
+      "label": "Entregar pedido",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "command",
+        "step": 3,
+        "intent": "o pedido chegou ao cliente"
+      },
+      "x": 508,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pronto-e-alocado",
+      "label": "Pronto e alocado?",
+      "kind": "domain",
+      "description": "Decisão de JUNÇÃO: espera TODAS as entradas chegarem (pedido pronto e entregador alocado) antes de seguir.",
+      "parent": "entrega",
+      "ddd": {
+        "role": "decision",
+        "gate": "join",
+        "question": "o pedido está pronto E há um entregador alocado?"
+      },
+      "x": 268,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entrega-agregado",
+      "label": "Entrega",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "uma entrega tem no máximo um entregador",
+          "só é retirada depois de alocada",
+          "só é entregue depois de retirada"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "pedidoId",
+            "type": "uuid",
+            "description": "o pedido a entregar"
+          },
+          {
+            "name": "entregadorId",
+            "type": "uuid",
+            "description": "quem leva (outro aggregate, por id)",
+            "optional": true
+          },
+          {
+            "name": "estado",
+            "type": "texto",
+            "description": "aguardando, alocada, retirada ou entregue"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "parada",
+      "label": "Parada",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "entity",
+        "properties": [
+          {
+            "name": "ordem",
+            "type": "inteiro",
+            "key": true
+          },
+          {
+            "name": "tipo",
+            "type": "texto",
+            "description": "retirada ou entrega"
+          },
+          {
+            "name": "endereco",
+            "type": "texto"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entregador",
+      "label": "Entregador",
+      "kind": "domain",
+      "description": "Outro aggregate, com ciclo de vida próprio: a Entrega só o conhece pelo id.",
+      "parent": "entrega",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "só leva uma entrega por vez"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "nome",
+            "type": "texto"
+          },
+          {
+            "name": "disponivel",
+            "type": "booleano"
+          }
+        ]
+      },
+      "x": 988,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "veiculo",
+      "label": "Veículo",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 988,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entregador-alocado",
+      "label": "Entregador alocado",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "entregaId, entregadorId"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-retirado",
+      "label": "Pedido retirado",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "entregaId, pedidoId"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-entregue",
+      "label": "Pedido entregue",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "entregaId, pedidoId, minutosDeAtraso"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "escolhedor-de-entregador",
+      "label": "Escolhedor de entregador",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "domain-service",
+        "intent": "o entregador livre mais próximo do restaurante"
+      },
+      "x": 1228,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "rastreamento",
+      "label": "Rastreamento",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "read-model",
+        "projectsFrom": [
+          "entregador-alocado",
+          "pedido-retirado",
+          "pedido-entregue",
+          "rota-calculada"
+        ],
+        "properties": [
+          {
+            "name": "pedidoId",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "etapa",
+            "type": "texto",
+            "description": "aguardando, a caminho do restaurante, a caminho do cliente"
+          },
+          {
+            "name": "minutosRestantes",
+            "type": "inteiro",
+            "description": "vem da rota calculada em Mapas",
+            "optional": true
+          }
+        ]
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "consulta-de-rastreamento",
+      "label": "Consulta de rastreamento",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "application-service",
+        "intent": "mostra a etapa e o tempo restante a partir da projeção"
+      },
+      "x": 1468,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entrega-repo",
+      "label": "Repositório de entregas",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "repository",
+        "for": "entrega-agregado"
+      },
+      "x": 268,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entregador-repo",
+      "label": "Repositório de entregadores",
+      "kind": "domain",
+      "parent": "entrega",
+      "ddd": {
+        "role": "repository",
+        "for": "entregador"
+      },
+      "x": 1708,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [
+    {
+      "id": "note",
+      "title": "Junção",
+      "text": "O pedido só sai quando duas coisas já aconteceram: ficou pronto na cozinha e um entregador foi alocado. A ordem em que chegam não importa.",
+      "x": 0,
+      "y": -190,
+      "w": 200,
+      "h": 110
+    }
+  ],
+  "connections": [
+    {
+      "id": "entregador-ator-to-buscar-pedido-uc",
+      "from": "entregador-ator",
+      "to": "buscar-pedido-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "entregador-ator-to-entregar-uc",
+      "from": "entregador-ator",
+      "to": "entregar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "cliente-ator-to-rastrear-uc",
+      "from": "cliente-ator",
+      "to": "rastrear-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "retirar-pedido-to-buscar-pedido-uc",
+      "from": "retirar-pedido",
+      "to": "buscar-pedido-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entregar-pedido-to-entregar-uc",
+      "from": "entregar-pedido",
+      "to": "entregar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "consulta-de-rastreamento-to-rastrear-uc",
+      "from": "consulta-de-rastreamento",
+      "to": "rastrear-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-confirmado-to-alocar-ao-confirmar",
+      "from": "pedido-confirmado",
+      "to": "alocar-ao-confirmar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.42
+    },
+    {
+      "id": "alocar-ao-confirmar-to-alocar-entregador",
+      "from": "alocar-ao-confirmar",
+      "to": "alocar-entregador",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "alocar-entregador-to-entrega-agregado",
+      "from": "alocar-entregador",
+      "to": "entrega-agregado",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "alocar-entregador-to-entregador-alocado",
+      "from": "alocar-entregador",
+      "to": "entregador-alocado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
+    },
+    {
+      "id": "retirar-pedido-to-entrega-agregado",
+      "from": "retirar-pedido",
+      "to": "entrega-agregado",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "retirar-pedido-to-pedido-retirado",
+      "from": "retirar-pedido",
+      "to": "pedido-retirado",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.62
+    },
+    {
+      "id": "entregar-pedido-to-entrega-agregado",
+      "from": "entregar-pedido",
+      "to": "entrega-agregado",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entregar-pedido-to-pedido-entregue",
+      "from": "entregar-pedido",
+      "to": "pedido-entregue",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.3
+    },
+    {
+      "id": "entregador-alocado-to-pronto-e-alocado",
+      "from": "entregador-alocado",
+      "to": "pronto-e-alocado",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-pronto-to-pronto-e-alocado",
+      "from": "pedido-pronto",
+      "to": "pronto-e-alocado",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.66
+    },
+    {
+      "id": "pronto-e-alocado-to-retirar-pedido",
+      "from": "pronto-e-alocado",
+      "to": "retirar-pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entrega-agregado-to-parada",
+      "from": "entrega-agregado",
+      "to": "parada",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.33999999999999997
+    },
+    {
+      "id": "entregador-to-veiculo",
+      "from": "entregador",
+      "to": "veiculo",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entrega-agregado-to-entregador",
+      "from": "entrega-agregado",
+      "to": "entregador",
+      "type": "association",
+      "label": "entregador por id",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "references-by-id"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entregador-alocado-to-rastreamento",
+      "from": "entregador-alocado",
+      "to": "rastreamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "pedido-retirado-to-rastreamento",
+      "from": "pedido-retirado",
+      "to": "rastreamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.09999999999999998
+    },
+    {
+      "id": "pedido-entregue-to-rastreamento",
+      "from": "pedido-entregue",
+      "to": "rastreamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.26
+    },
+    {
+      "id": "rota-calculada-to-rastreamento",
+      "from": "rota-calculada",
+      "to": "rastreamento",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.62
+    },
+    {
+      "id": "alocar-entregador-to-escolhedor-de-entre",
+      "from": "alocar-entregador",
+      "to": "escolhedor-de-entregador",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "alocar-entregador-to-entrega-repo",
+      "from": "alocar-entregador",
+      "to": "entrega-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "consulta-de-rastreamento-to-entregador-r",
+      "from": "consulta-de-rastreamento",
+      "to": "entregador-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5,
+      "labelOffset": 50
+    }
+  ],
+  "customAssets": []
+}

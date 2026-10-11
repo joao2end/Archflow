@@ -1,0 +1,561 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-delivery-cozinha",
+  "title": "Cozinha",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "cozinha",
+      "label": "Cozinha",
+      "kind": "context",
+      "description": "O restaurante recebe o pedido, prepara e avisa quando está pronto. Do tempo de preparo depende a promessa de entrega.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 1022,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cozinheiro",
+      "label": "Cozinheiro",
+      "kind": "actor",
+      "parent": "cozinha",
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "preparar-uc",
+      "label": "Preparar pedido",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cozinheiro",
+        "goal": "fazer os pratos de um pedido confirmado"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "avisar-pronto-uc",
+      "label": "Avisar que está pronto",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cozinheiro",
+        "goal": "liberar o pedido para o entregador"
+      },
+      "x": 508,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-confirmado",
+      "label": "Pedido confirmado",
+      "kind": "domain",
+      "description": "Publicado por pedidos; aqui só reagimos a ele.",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "domain-event",
+        "external": "pedidos.pedido-confirmado",
+        "payload": "pedidoId, itens"
+      },
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "ao-confirmar",
+      "label": "O que fazer ao confirmar?",
+      "kind": "domain",
+      "description": "Decisão PARALELA: segue TODOS os ramos ao mesmo tempo (aqui, preparar e imprimir a comanda). As condições não se aplicam.",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "decision",
+        "gate": "parallel",
+        "question": "o que acontece assim que o pedido é confirmado?"
+      },
+      "x": 28,
+      "y": 798,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "iniciar-preparo",
+      "label": "Iniciar preparo",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "começar os pratos do pedido"
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "imprimir-comanda",
+      "label": "Imprimir comanda",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "imprimir a comanda para a bancada"
+      },
+      "x": 268,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "marcar-pronto",
+      "label": "Marcar pronto",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "command",
+        "step": 2,
+        "intent": "o pedido está embalado e pode sair"
+      },
+      "x": 508,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "ticket-de-preparo",
+      "label": "Ticket de preparo",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "só vai de recebido para em preparo e depois pronto",
+          "não marca pronto sem todos os itens prontos"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "key": true
+          },
+          {
+            "name": "pedidoId",
+            "type": "uuid",
+            "description": "o pedido que originou o ticket"
+          },
+          {
+            "name": "estado",
+            "type": "texto",
+            "description": "recebido, em preparo ou pronto"
+          },
+          {
+            "name": "prontoAs",
+            "type": "data e hora",
+            "optional": true
+          }
+        ]
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "item-de-preparo",
+      "label": "Item de preparo",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "entity",
+        "properties": [
+          {
+            "name": "prato",
+            "type": "texto",
+            "key": true
+          },
+          {
+            "name": "quantidade",
+            "type": "inteiro"
+          },
+          {
+            "name": "pronto",
+            "type": "booleano"
+          }
+        ]
+      },
+      "x": 28,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "tempo-de-preparo",
+      "label": "Tempo de preparo",
+      "kind": "domain",
+      "description": "Compartilhado com Entrega (Shared Kernel): as duas equipes concordam sobre o que é esse valor e mudam juntas.",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "value-object",
+        "properties": [
+          {
+            "name": "minutos",
+            "type": "inteiro",
+            "description": "estimativa; vira a promessa de entrega",
+            "example": "25"
+          }
+        ]
+      },
+      "x": 268,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "preparo-iniciado",
+      "label": "Preparo iniciado",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, tempoDePreparo"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "preparo-recusado",
+      "label": "Preparo recusado",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, motivo"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "comanda-impressa",
+      "label": "Comanda impressa",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId"
+      },
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pedido-pronto",
+      "label": "Pedido pronto",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, restauranteId"
+      },
+      "x": 748,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "estimador-de-preparo",
+      "label": "Estimador de preparo",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "domain-service",
+        "intent": "estima os minutos conforme os pratos e a fila da cozinha"
+      },
+      "x": 988,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "ticket-repo",
+      "label": "Repositório de tickets",
+      "kind": "domain",
+      "parent": "cozinha",
+      "ddd": {
+        "role": "repository",
+        "for": "ticket-de-preparo"
+      },
+      "x": 508,
+      "y": 922,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [
+    {
+      "id": "note",
+      "variant": "list",
+      "title": "Para fazer",
+      "text": "Escolher decisão paralela quando os ramos são independentes\nUsar \"para cada\" quando o command age em vários itens\nUm command pode ter dois desfechos: condição e senão",
+      "x": 0,
+      "y": -190,
+      "w": 200,
+      "h": 110
+    }
+  ],
+  "connections": [
+    {
+      "id": "cozinheiro-to-preparar-uc",
+      "from": "cozinheiro",
+      "to": "preparar-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.66,
+      "labelOffset": -50
+    },
+    {
+      "id": "cozinheiro-to-avisar-pronto-uc",
+      "from": "cozinheiro",
+      "to": "avisar-pronto-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "iniciar-preparo-to-preparar-uc",
+      "from": "iniciar-preparo",
+      "to": "preparar-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-pronto-to-avisar-pronto-uc",
+      "from": "marcar-pronto",
+      "to": "avisar-pronto-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-confirmado-to-ao-confirmar",
+      "from": "pedido-confirmado",
+      "to": "ao-confirmar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.21999999999999997
+    },
+    {
+      "id": "ao-confirmar-to-iniciar-preparo",
+      "from": "ao-confirmar",
+      "to": "iniciar-preparo",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ao-confirmar-to-imprimir-comanda",
+      "from": "ao-confirmar",
+      "to": "imprimir-comanda",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "iniciar-preparo-to-ticket-de-preparo",
+      "from": "iniciar-preparo",
+      "to": "ticket-de-preparo",
+      "type": "dependency",
+      "label": "para cada item do pedido",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers",
+        "foreach": "item do pedido"
+      },
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
+    },
+    {
+      "id": "iniciar-preparo-to-preparo-iniciado",
+      "from": "iniciar-preparo",
+      "to": "preparo-iniciado",
+      "type": "async",
+      "label": "se há ingredientes de todos os itens",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits",
+        "condition": "há ingredientes de todos os itens"
+      },
+      "labelT": 0.18
+    },
+    {
+      "id": "iniciar-preparo-to-preparo-recusado",
+      "from": "iniciar-preparo",
+      "to": "preparo-recusado",
+      "type": "async",
+      "label": "senão",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits",
+        "otherwise": true
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "imprimir-comanda-to-ticket-de-preparo",
+      "from": "imprimir-comanda",
+      "to": "ticket-de-preparo",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.21999999999999997
+    },
+    {
+      "id": "imprimir-comanda-to-comanda-impressa",
+      "from": "imprimir-comanda",
+      "to": "comanda-impressa",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "marcar-pronto-to-ticket-de-preparo",
+      "from": "marcar-pronto",
+      "to": "ticket-de-preparo",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.78
+    },
+    {
+      "id": "marcar-pronto-to-pedido-pronto",
+      "from": "marcar-pronto",
+      "to": "pedido-pronto",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ticket-de-preparo-to-item-de-preparo",
+      "from": "ticket-de-preparo",
+      "to": "item-de-preparo",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ticket-de-preparo-to-tempo-de-preparo",
+      "from": "ticket-de-preparo",
+      "to": "tempo-de-preparo",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "iniciar-preparo-to-estimador-de-preparo",
+      "from": "iniciar-preparo",
+      "to": "estimador-de-preparo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.8200000000000001
+    },
+    {
+      "id": "iniciar-preparo-to-ticket-repo",
+      "from": "iniciar-preparo",
+      "to": "ticket-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.74
+    }
+  ],
+  "customAssets": []
+}

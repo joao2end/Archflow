@@ -8,8 +8,9 @@ Modelos prontos do modo **Domain** do Archflow, para aprender DDD e para usar co
 | [Clínica médica](exemplos-ddd/clinica/README.md) | intermediário | onde traçar a fronteira do aggregate, linguagem diferente por contexto, shared kernel |
 | [Loja online](exemplos-ddd/loja/README.md) | intermediário | saga com compensação, anticorruption layer, eventos entre contextos, do domínio à arquitetura |
 | [Banco digital](exemplos-ddd/banco/README.md) | avançado | um aggregate por transação, consistência eventual, saga de transferência, published language |
+| [Delivery de comida (tour completo)](exemplos-ddd/delivery/README.md) | avançado | **todos os recursos**: os 8 padrões do Context Map, decisões exclusiva/paralela/junção, loop, "para cada", propriedades, saga, notas |
 
-Sugestão de ordem: **Biblioteca → Clínica → Loja → Banco**.
+Sugestão de ordem: **Biblioteca → Clínica → Loja → Banco → Delivery** (o último reúne tudo o que os outros mostram separadamente).
 
 ## Como usar
 

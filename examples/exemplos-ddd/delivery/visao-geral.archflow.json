@@ -1,0 +1,239 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-delivery-visao-geral",
+  "title": "Visão geral",
+  "description": "Delivery de comida (tour completo): mapa de contextos. O exemplo que usa todos os recursos do modo Domain: seis contextos com os oito padrões do Context Map, saga com compensação, decisões exclusivas (encadeadas), paralela e de junção, loop, \"para cada\", propriedades, eventos entre contextos, read models e anotações.",
+  "mode": "domain",
+  "groups": [],
+  "nodes": [
+    {
+      "id": "pedidos",
+      "label": "Pedidos",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/delivery/pedidos.archflow.json"
+      },
+      "x": 507,
+      "y": 30,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "pagamentos",
+      "label": "Pagamentos",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/delivery/pagamentos.archflow.json"
+      },
+      "x": 1095,
+      "y": 0,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "cozinha",
+      "label": "Cozinha",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/delivery/cozinha.archflow.json"
+      },
+      "x": 0,
+      "y": 117,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "entrega",
+      "label": "Entrega",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/delivery/entrega.archflow.json"
+      },
+      "x": 1095,
+      "y": 120,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "mapas",
+      "label": "Mapas",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/delivery/mapas.archflow.json"
+      },
+      "x": 507,
+      "y": 150,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "fidelidade",
+      "label": "Fidelidade",
+      "kind": "system",
+      "ref": {
+        "diagram": "exemplos-ddd/delivery/fidelidade.archflow.json"
+      },
+      "x": 1616,
+      "y": 80,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [
+    {
+      "id": "note",
+      "variant": "list",
+      "title": "Mapa com os 8 padrões",
+      "text": "partnership: evoluem juntos\ncustomer-supplier: o fornecedor atende o cliente\nconformist: o cliente aceita o modelo do fornecedor\nshared-kernel: núcleo compartilhado\nacl: o cliente traduz o modelo de fora\nohs: serviço aberto para vários\npublished-language: linguagem documentada\nseparate-ways: sem integração",
+      "x": 0,
+      "y": -190,
+      "w": 200,
+      "h": 110
+    }
+  ],
+  "connections": [
+    {
+      "id": "pedidos-to-pagamentos",
+      "from": "pedidos",
+      "to": "pagamentos",
+      "type": "association",
+      "label": "Partnership · pedido-criado ⇄ pagamento-aprovado",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "partnership"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cozinha-to-pedidos",
+      "from": "cozinha",
+      "to": "pedidos",
+      "type": "association",
+      "label": "Customer/Supplier · preparo-recusado",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "customer-supplier"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-to-entrega",
+      "from": "pedidos",
+      "to": "entrega",
+      "type": "association",
+      "label": "Conformist · pedido-confirmado",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "conformist"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cozinha-to-entrega",
+      "from": "cozinha",
+      "to": "entrega",
+      "type": "association",
+      "label": "Shared Kernel · pedido-pronto · tempo de preparo",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "shared-kernel"
+      },
+      "waypoints": [
+        {
+          "x": 465,
+          "y": 264
+        },
+        {
+          "x": 733,
+          "y": 264
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "mapas-to-entrega",
+      "from": "mapas",
+      "to": "entrega",
+      "type": "association",
+      "label": "Anticorruption Layer · rota-calculada",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "acl"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pagamentos-to-fidelidade",
+      "from": "pagamentos",
+      "to": "fidelidade",
+      "type": "association",
+      "label": "Open Host Service · pagamento-aprovado",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "ohs"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-to-fidelidade",
+      "from": "pedidos",
+      "to": "fidelidade",
+      "type": "association",
+      "label": "Published Language · eventos de pedido",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "published-language"
+      },
+      "waypoints": [
+        {
+          "x": 1053,
+          "y": -42
+        },
+        {
+          "x": 1321,
+          "y": -42
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "cozinha-to-fidelidade",
+      "from": "cozinha",
+      "to": "fidelidade",
+      "type": "association",
+      "label": "Separate Ways · sem integração",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "context-relation",
+        "pattern": "separate-ways"
+      },
+      "waypoints": [
+        {
+          "x": 465,
+          "y": 264
+        },
+        {
+          "x": 1321,
+          "y": 234
+        }
+      ],
+      "labelT": 0.54
+    }
+  ],
+  "customAssets": []
+}

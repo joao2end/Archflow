@@ -1,0 +1,221 @@
+{
+  "schema": "archflow/1",
+  "id": "ddd-delivery-mapas",
+  "title": "Mapas",
+  "description": "",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "mapas",
+      "label": "Mapas",
+      "kind": "context",
+      "description": "Calcular rota e tempo de viagem. Problema genérico: usamos um provedor externo e só guardamos o resultado.",
+      "subdomain": "generic",
+      "x": 0,
+      "y": 0,
+      "w": 720,
+      "h": 774,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "sistema-de-entrega",
+      "label": "Sistema de entrega",
+      "kind": "actor",
+      "parent": "mapas",
+      "x": 28,
+      "y": 54,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "calcular-rota-uc",
+      "label": "Calcular rota",
+      "kind": "domain",
+      "parent": "mapas",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Sistema de entrega",
+        "goal": "saber distância e tempo entre dois endereços"
+      },
+      "x": 28,
+      "y": 178,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "calcular-rota",
+      "label": "Calcular rota",
+      "kind": "domain",
+      "parent": "mapas",
+      "ddd": {
+        "role": "command",
+        "step": 1,
+        "intent": "pedir ao provedor e guardar o resultado"
+      },
+      "x": 28,
+      "y": 302,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "rota",
+      "label": "Rota",
+      "kind": "domain",
+      "parent": "mapas",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "a distância não é negativa"
+        ]
+      },
+      "x": 28,
+      "y": 426,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "distancia",
+      "label": "Distância",
+      "kind": "domain",
+      "parent": "mapas",
+      "ddd": {
+        "role": "value-object"
+      },
+      "x": 28,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "rota-calculada",
+      "label": "Rota calculada",
+      "kind": "domain",
+      "parent": "mapas",
+      "ddd": {
+        "role": "domain-event",
+        "payload": "pedidoId, distanciaMetros, minutos"
+      },
+      "x": 28,
+      "y": 550,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "rota-repo",
+      "label": "Repositório de rotas",
+      "kind": "domain",
+      "parent": "mapas",
+      "ddd": {
+        "role": "repository",
+        "for": "rota"
+      },
+      "x": 268,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    },
+    {
+      "id": "provedor-de-mapas",
+      "label": "Provedor de mapas",
+      "kind": "external",
+      "description": "Serviço de terceiros. O modelo dele é traduzido na fronteira (ACL no mapa de contextos).",
+      "parent": "mapas",
+      "x": 508,
+      "y": 674,
+      "w": 184,
+      "h": 72
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "sistema-de-entrega-to-calcular-rota-uc",
+      "from": "sistema-de-entrega",
+      "to": "calcular-rota-uc",
+      "type": "association",
+      "label": "executa",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "calcular-rota-to-calcular-rota-uc",
+      "from": "calcular-rota",
+      "to": "calcular-rota-uc",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "calcular-rota-to-rota",
+      "from": "calcular-rota",
+      "to": "rota",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "calcular-rota-to-rota-calculada",
+      "from": "calcular-rota",
+      "to": "rota-calculada",
+      "type": "async",
+      "label": "emits",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.8200000000000001,
+      "labelOffset": -50
+    },
+    {
+      "id": "rota-to-distancia",
+      "from": "rota",
+      "to": "distancia",
+      "type": "composition",
+      "label": "contains",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.18
+    },
+    {
+      "id": "calcular-rota-to-rota-repo",
+      "from": "calcular-rota",
+      "to": "rota-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "calcular-rota-to-provedor-de-mapas",
+      "from": "calcular-rota",
+      "to": "provedor-de-mapas",
+      "type": "association",
+      "label": "consulta",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}
