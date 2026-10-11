@@ -266,7 +266,7 @@ svg .lp-fade {
   transition: max-width 0.4s ease, background 0.3s, box-shadow 0.3s, top 0.3s;
 }
 .lp.scrolled .lp-nav {
-  max-width: 860px;
+  max-width: 980px;
   top: 10px;
   background: var(--glass-strong);
 }
@@ -280,7 +280,8 @@ svg .lp-fade {
   gap: 2px;
 }
 .lp-links a {
-  padding: 8px 12px;
+  white-space: nowrap;
+  padding: 8px 11px;
   border-radius: 10px;
   color: var(--ink-2);
   text-decoration: none;

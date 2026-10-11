@@ -4,6 +4,7 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, type ConnectionType } from "../
 import { Glyph, IconSvg } from "../ui/icons";
 import { cycleTheme, useStore } from "../ui/store";
 import CursorTrail from "./CursorTrail";
+import { McpMotion, MotionGallery } from "./Motion";
 
 const asset = (id: string) => BUILTIN_ASSETS.find((a) => a.id === id)!;
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -225,7 +226,7 @@ function Hero() {
           ))}
         </h1>
         <p className="lp-lead lp-fade" style={style({ animationDelay: "900ms" })}>
-          O Archflow transforma diagramas em um modelo que humanos e LLMs entendem: componentes, grupos e conexões tipadas — com um servidor MCP para que agentes desenhem ao seu lado, em tempo real.
+          O Archflow transforma diagramas em um modelo que humanos e LLMs entendem: componentes, grupos e conexões tipadas, do servidor ao modelo de negócio com DDD — e um servidor MCP para que agentes desenhem ao seu lado, em tempo real.
         </p>
         <div className="lp-cta lp-fade" style={style({ animationDelay: "1100ms" })}>
           <a className="btn primary lg shine" href="/app">
@@ -256,7 +257,7 @@ function Hero() {
           </li>
           <li>
             <b>
-              <Count to={17} />
+              <Count to={24} />
             </b>{" "}
             ferramentas MCP
           </li>
@@ -500,6 +501,30 @@ function Demo() {
   );
 }
 
+/* ───────── ferramentas em movimento ───────── */
+
+function Tools() {
+  return (
+    <section id="ferramentas" className="lp-section">
+      <Reveal>
+        <span className="lp-eyebrow">Ferramentas em movimento</span>
+        <h2>
+          Cada ferramenta, <i>em poucos segundos</i>.
+        </h2>
+      </Reveal>
+      <Reveal delay={100}>
+        <p className="lp-sub">Do modo Domain ao código gerado: veja o que cada recurso novo faz no quadro — o mesmo que você e o seu agente têm na mão.</p>
+      </Reveal>
+      <Reveal delay={120}>
+        <MotionGallery />
+      </Reveal>
+      <Reveal delay={80}>
+        <McpMotion />
+      </Reveal>
+    </section>
+  );
+}
+
 /* ───────── conexões animadas ───────── */
 
 function ConnLine({ type }: { type: ConnectionType }) {
@@ -569,9 +594,12 @@ const FEATURES: { icon: string; title: string; text: string }[] = [
   { icon: "library", title: "Catálogo com contexto", text: "AWS, Google, Azure, Laravel, PostgreSQL, Kafka e os principais modelos de IA — cada um explica o problema que resolve. Cadastre os seus." },
   { icon: "code", title: "Interfaces e contratos", text: "Defina operações, métodos e payloads em cada conexão e referencie OpenAPI, AsyncAPI ou .proto." },
   { icon: "plug", title: "Feito para agentes (MCP)", text: "Claude e outros clientes MCP leem e editam o diagrama em tempo real. Você vê, ajusta e desfaz com Ctrl+Z." },
-  { icon: "group", title: "Grupos e auto-layout", text: "Nuvem, rede, camadas e bounded contexts aninhados, com organização automática por fluxo." },
+  { icon: "group", title: "Grupos e auto-layout legível", text: "Nuvem, rede, camadas e bounded contexts aninhados. A organização automática reduz cruzamentos, alinha vizinhos e mantém o fluxo em uma direção." },
   { icon: "sparkle", title: "Visão LLM", text: "Veja o diagrama como um modelo o enxerga: Markdown, Mermaid e JSON — pronto para colar no chat." },
   { icon: "moon", title: "Claro, escuro e vidro", text: "Interface glassmorphism limpa, com tema claro, escuro ou automático e atalhos para tudo." },
+  { icon: "layers", title: "Modo Domain (DDD)", text: "Aggregates, commands, eventos, policies, sagas e Context Map. Alterne entre Arch e Domain com um clique, sem perder nada." },
+  { icon: "check", title: "Validação e código", text: "Regras D001–D032 apontam o que falta no modelo; depois gere o esqueleto TypeScript, que compila em modo estrito." },
+  { icon: "present", title: "Passo a passo e propriedades", text: "Apresente cada caso de uso como uma história e descreva os campos de cada elemento — colando JSON, se quiser." },
 ];
 
 function Spot({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -631,6 +659,10 @@ const COMPARE_ROWS: { feat: string; ex: Mark; exNote: string; af: Mark; afNote: 
   { feat: "Visão para LLM (Markdown, Mermaid, validação)", ex: "no", exNote: "", af: "yes", afNote: "texto determinístico + avisos" },
   { feat: "Endpoints como componentes (GET/POST, WebSocket, GraphQL, gRPC)", ex: "no", exNote: "texto dentro de caixas", af: "yes", afNote: "selos por método, presos ao serviço" },
   { feat: "Referência entre diagramas, com visualização em modal", ex: "part", exNote: "links por URL, sem pré-visualização", af: "yes", afNote: "modal navegável, backlinks, links que se atualizam" },
+  { feat: "Modelagem DDD (aggregates, eventos, Context Map) com validação", ex: "no", exNote: "só formas e texto", af: "yes", afNote: "13 papéis, 7 relações, regras D001–D032" },
+  { feat: "Linha do tempo de Event Storming automática", ex: "no", exNote: "post-its posicionados à mão", af: "yes", afNote: "raias por papel, colunas por tempo" },
+  { feat: "Narrativa passo a passo do modelo na apresentação", ex: "no", exNote: "", af: "yes", afNote: "o que é, por que está aqui, regras" },
+  { feat: "Código TypeScript gerado a partir do modelo", ex: "no", exNote: "", af: "yes", afNote: "aggregates, eventos, handlers, sagas" },
   { feat: "Cofre de arquivos com pastas, busca e lixeira", ex: "part", exNote: "um arquivo por cena", af: "yes", afNote: "vários cofres, Git, Ctrl+O" },
   { feat: "Desenho livre e estilo “à mão”", ex: "yes", exNote: "referência no assunto", af: "no", afNote: "foco em precisão" },
   { feat: "Colaboração multiusuário em tempo real", ex: "yes", exNote: "com criptografia ponta a ponta", af: "part", afNote: "humano + agentes (multiusuário no roadmap)" },
@@ -679,7 +711,7 @@ const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: s
       "Tecla G e arraste uma área: nuvem, VPC, camada ou bounded context.",
       "Arraste componentes para dentro — o grupo vira o “pai” deles e se ajusta ao conteúdo.",
       "Aninhe grupos (AWS › VPC › serviço) para refletir a hierarquia real.",
-      "Tecla L organiza tudo por fluxo; Shift+L organiza na vertical.",
+      "Tecla L organiza tudo por fluxo; Shift+L organiza na vertical. No modo Domain, escolha Linha do tempo para o layout de Event Storming.",
     ],
     keys: ["G", "L"],
     ex: "Frames agrupam visualmente e o alinhamento é manual — cada mudança de escopo é redesenho.",
@@ -688,7 +720,7 @@ const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: s
   {
     id: "mcp", icon: "plug", title: "Agente (MCP)",
     steps: [
-      "Rode npm run bridge e adicione o servidor: claude mcp add archflow -- npx tsx server/mcp.ts.",
+      "Abra o diálogo MCP do app e clique em Instalar (Claude Desktop, Claude Code, Cursor ou Windsurf) — ou rode npm run mcp:install. O botão Testar confirma a conexão.",
       "Com o app aberto, peça: “Desenhe um fluxo de pedidos com Laravel, Postgres e SQS”.",
       "Acompanhe o quadro sendo montado ao vivo. Não gostou? Ctrl+Z desfaz a edição do agente.",
       "Peça uma revisão: validate_diagram aponta componentes isolados e referências quebradas.",
@@ -733,6 +765,43 @@ const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: s
     keys: ["E", "Alt+←/→"],
     ex: "Cada cena é isolada; relacionar sistemas significa copiar e colar desenhos ou colar links que ficam quebrados quando algo muda.",
     af: "Referências vivas entre diagramas: pré-visualização em modal, navegação em camadas, backlinks e atualização automática dos links quando você renomeia ou move arquivos.",
+  },
+  {
+    id: "domain", icon: "layers", title: "Modo Domain",
+    steps: [
+      "Clique no selo ao lado do título e alterne de Arch para Domain — nada é apagado e Ctrl+Z desfaz. Ou crie um diagrama de domínio pelo ícone de camadas do explorador.",
+      "Na biblioteca (B), a categoria Domain traz um item por papel: Aggregate Root, Command, Domain Event, Policy, Repository, Use Case, Read Model, Process Manager e Decision.",
+      "Ligue os elementos: a relação (emits, triggers, contains…) é inferida pelo par. Entre contextos, escolha o padrão do Context Map: ACL, Customer/Supplier, Shared Kernel…",
+      "Abra a validação no selo: cada aviso D001–D032 é clicável e seleciona o elemento. Em Layout automático, escolha Linha do tempo.",
+      "Sem saber DDD? O ✨ do explorador instala exemplos prontos (biblioteca, clínica, loja e banco), do iniciante ao avançado.",
+    ],
+    keys: ["B", "L"],
+    ex: "Aggregates e eventos viram retângulos; nada impede um command de apontar para um evento nem avisa que falta um produtor.",
+    af: "Cada elemento tem papel, campos e relações válidas. O modelo é validado, rastreado (caso de uso → command → evento) e vira código.",
+  },
+  {
+    id: "story", icon: "present", title: "Passo a passo",
+    steps: [
+      "Abra um diagrama de domínio e inicie a apresentação. O painel Passo a passo aparece (tecla S mostra ou oculta).",
+      "Escolha uma história: uma por caso de uso, mais o Diagrama completo, que passa por todos os elementos.",
+      "Avance com → ou ↓, volte com ← ou ↑, ou toque em ▶ para reproduzir sozinho. O quadro esmaece o resto e move a câmera.",
+      "Em cada passo, leia O que é, Por que está aqui, Regras que sempre valem e os Caminhos a seguir (condição, senão, loop).",
+    ],
+    keys: ["S", "←", "→"],
+    ex: "Para explicar o fluxo a alguém, você narra de memória, apontando com o laser — e a explicação não fica no arquivo.",
+    af: "A narrativa nasce do próprio modelo: descrição, intenção, payload e invariantes viram texto. Quem chega depois entende o fluxo sozinho.",
+  },
+  {
+    id: "props", icon: "list", title: "Propriedades",
+    steps: [
+      "Selecione um aggregate, entity, value object, command, evento ou read model. No inspetor, abra a seção Propriedades.",
+      "Preencha a tabela: nome, tipo (com sugestões), # para identificador, ? para opcional e descrição.",
+      "Ou clique em Colar JSON / texto e cole uma lista, um JSON Schema, um objeto de exemplo ou linhas como #id: uuid.",
+      "Escolha Substituir ou Acrescentar. Os campos aparecem no passo a passo, na descrição para a IA e nos tipos do código gerado.",
+    ],
+    keys: [],
+    ex: "Os campos de uma entidade ficam em texto solto dentro da caixa; trocar um nome é caçar a menção em todo lugar.",
+    af: "Campos são dados estruturados: viram tabela, narrativa e classes TypeScript tipadas, sem retrabalho.",
   },
   {
     id: "llm", icon: "sparkle", title: "Visão LLM",
@@ -956,6 +1025,7 @@ function Nav({ theme }: { theme: string }) {
       <nav className="lp-links" aria-label="Seções">
         <a href="#o-que-e">O que é</a>
         <a href="#demo">Em ação</a>
+        <a href="#ferramentas">Ferramentas</a>
         <a href="#recursos">Recursos</a>
         <a href="#guia">Guia</a>
         <a href="#como-usar">Como usar</a>
@@ -1097,6 +1167,7 @@ export default function Landing() {
         <Logos />
         <Compare />
         <Demo />
+        <Tools />
         <Connections />
         <Features />
         <Guide />
