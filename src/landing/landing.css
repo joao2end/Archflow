@@ -81,6 +81,10 @@
 a.btn {
   text-decoration: none;
 }
+/* links com cara de botão usavam a cor de link do navegador (lilás #9e9eff no escuro: 3,9:1); o texto segue a tinta do tema como os outros botões */
+a.btn:not(.primary) {
+  color: var(--ink);
+}
 .btn.lg {
   height: 50px;
   padding: 0 24px;
@@ -411,6 +415,9 @@ svg .lp-fade {
   animation-delay: -3s;
   color: var(--primary-600);
 }
+:root[data-theme="dark"] .lp-chip.c3 {
+  color: var(--ink); /* o lilás de --primary-600 dava 3:1 sobre o vidro escuro */
+}
 @keyframes bob {
   50% {
     margin-top: -7px;
@@ -651,7 +658,7 @@ svg .lp-fade {
 .lp-call .out {
   display: block;
   padding-left: 16px;
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .lp-done {
   opacity: 0;
@@ -692,7 +699,7 @@ svg .lp-fade {
   border-radius: 999px;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--ok);
+  color: var(--ok-text);
   background: var(--glass-strong);
   border: 1px solid var(--glass-border);
   opacity: 0;
@@ -863,7 +870,7 @@ svg .lp-fade {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7L7 17'/%3E%3C/svg%3E");
 }
 .cell.af.yes .mk {
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .lp-foot {
   max-width: 820px;
@@ -1043,7 +1050,7 @@ svg .lp-fade {
   align-items: flex-start;
 }
 .lp-checks svg {
-  color: var(--ok);
+  color: var(--ok-text);
   margin-top: 4px;
   flex: none;
 }

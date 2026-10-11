@@ -590,15 +590,30 @@ function HelpModal() {
   const groups: [string, [string, string][]][] = [
     ["Montar o diagrama", [["B", "Biblioteca"], ["/", "Buscar asset"], ["G", "Grupo"], ["C", "Conector"], ["N", "Nota"], ["Duplo clique", "Renomear · editar interface"], ["Shift+clique", "Selecionar vários"]]],
     ["Editar", [["Ctrl+Z / Y", "Desfazer / refazer"], ["Ctrl+D", "Duplicar"], ["Ctrl+C / X / V", "Copiar · recortar · colar componentes e notas"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Setas", "Mover seleção (Shift = 10×)"], ["Tab / Shift+Tab", "Selecionar próximo / anterior componente"]]],
-    ["Navegar", [["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["F", "Ajustar à tela"], ["Ctrl + / − / 0", "Zoom: aproximar · afastar · 100%"], ["Ctrl+roda", "Zoom"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Esc", "Cancelar / fechar"]]],
+    ["Navegar", [["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["F / Shift+F", "Ajustar à tela / ajustar à seleção"], ["Ctrl + / − / 0", "Zoom: aproximar · afastar · 100%"], ["Ctrl+roda", "Zoom"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Esc", "Cancelar / fechar"]]],
     ["Desenhar e anotar", [["D · M · X · W · I", "Caneta · marca-texto · borracha · texto · lista"]]],
     ["Aparência", [["L / Shift+L", "Auto-layout: abre a configuração (horizontal / vertical)"], ["T", "Alternar tema (auto/claro/escuro)"], ["A", "Animações on/off"]]],
     ["Apresentar", [["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"]]],
   ];
   if (mode === "logic") groups.unshift(["Modo Lógica", [["▶ no cenário", "Reproduz o caminho que o fluxo percorre"], ["← →", "Passo anterior / próximo durante a reprodução"], ["✓ no topo", "Validação: roda todos os exemplos e mostra o que não bate"]]]);
+  const [q, setQ] = useState("");
+  const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const needle = norm(q.trim());
+  // filtra por descrição, tecla ou nome da seção; seções sem resultado somem
+  const shown = groups
+    .map(([title, rows]) => [title, needle ? rows.filter(([k, v]) => norm(`${k} ${v} ${title}`).includes(needle)) : rows] as [string, [string, string][]])
+    .filter(([, rows]) => rows.length);
   return (
     <Modal title="Atalhos e dicas" onClose={close}>
-      {groups.map(([title, rows]) => (
+      <label className="search help-search">
+        <Glyph name="search" size={16} />
+        <input placeholder="Filtrar atalhos… (ex.: zoom, Ctrl+Z, grupo)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filtrar atalhos" />
+      </label>
+      <div role="status" aria-live="polite" className="sr-only">
+        {needle ? (shown.length ? (() => { const n = shown.reduce((c, [, r]) => c + r.length, 0); return `${n} ${n === 1 ? "atalho encontrado" : "atalhos encontrados"}`; })() : "Nenhum atalho encontrado") : ""}
+      </div>
+      {needle && !shown.length && <div className="empty">Nenhum atalho com “{q.trim()}”.</div>}
+      {shown.map(([title, rows]) => (
         <section key={title} className="help-sec" aria-label={title}>
           <h3>{title}</h3>
           <div className="help-grid">

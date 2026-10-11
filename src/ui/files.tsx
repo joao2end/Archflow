@@ -129,6 +129,8 @@ export function FilesPanel() {
     if (!t || !ws) return [];
     return ws.files.filter((f) => fileMode(f) !== mode && `${f.title} ${f.path}`.toLowerCase().includes(t));
   }, [q, ws, mode]);
+  // atalho do ModeSwitch: o diagrama mais recente do modo escolhido, para não precisar procurar na lista
+  const latestOfMode = useMemo(() => (ws ? ws.files.filter((f) => fileMode(f) === mode).sort((a, b) => b.updatedAt - a.updatedAt)[0] : undefined), [ws, mode]);
   const tree = useMemo(() => (ws ? pruneTree(ws.tree, mode) : null), [ws, mode]);
   // o switch de modo pede a criação de um diagrama novo do tipo escolhido (nunca converte o aberto)
   useEffect(() => {
@@ -332,9 +334,16 @@ export function FilesPanel() {
       </div>
 
       {mode !== openMode && !q.trim() && (
-        <p className="mode-note" role="status">
-          Mostrando diagramas de <b>{MODE_ICON[mode].label}</b>. O diagrama aberto é de {MODE_ICON[openMode].label} e não foi alterado: abra um da lista ou dê um título ao novo.
-        </p>
+        <div className="mode-note" role="status">
+          <p>
+            Mostrando diagramas de <b>{MODE_ICON[mode].label}</b>. O diagrama aberto é de {MODE_ICON[openMode].label} e não foi alterado: abra um da lista ou dê um título ao novo.
+          </p>
+          {latestOfMode && (
+            <button className="btn sm" onClick={() => void openDiagram(latestOfMode.path)}>
+              <Glyph name={MODE_ICON[mode].glyph} size={14} /> Abrir o mais recente: {latestOfMode.title}
+            </button>
+          )}
+        </div>
       )}
       <div
         className={`lib-list tree ${dropOn === "" ? "drop" : ""}`}

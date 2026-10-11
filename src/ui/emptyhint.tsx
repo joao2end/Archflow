@@ -3,6 +3,7 @@ import { starterDoc } from "../shared/starter.example";
 import { docMode } from "../shared/schema";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
+import { fitView } from "./keys";
 import { replaceDoc, set, toast, useStore } from "./store";
 
 /** Dica para quadro vazio: some assim que existir qualquer item. */
@@ -43,6 +44,7 @@ export function EmptyHint() {
             className="btn"
             onClick={() => {
               replaceDoc(logic ? pricingDoc() : starterDoc());
+              fitView(); // sem isso a vista continuava onde estava e o exemplo carregava fora da tela
               toast(`Exemplo ${logic ? "de precificação" : "da loja online"} carregado.`, true);
             }}
           >

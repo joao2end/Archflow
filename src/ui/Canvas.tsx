@@ -221,7 +221,7 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
     </g>
   );
   const cap = (x: number, y: number) => (
-    <text x={x} y={y} className="logic-cap" fill={color} pointerEvents="none">
+    <text x={x} y={y} className="logic-cap" fill={color} style={{ ["--cap" as string]: color }} pointerEvents="none">
       {caption}
     </text>
   );
@@ -328,7 +328,7 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
         const pill = (
           <g pointerEvents="none">
             <rect x={12} y={top + 1} width={sec.label.length * 6.6 + 14} height={17} rx={8.5} fill={color} opacity={0.13} />
-            <text x={12 + (sec.label.length * 6.6 + 14) / 2} y={top + 13} textAnchor="middle" className="logic-sec" fill={color}>
+            <text x={12 + (sec.label.length * 6.6 + 14) / 2} y={top + 13} textAnchor="middle" className="logic-sec" fill={color} style={{ ["--cap" as string]: color }}>
               {sec.label}
             </text>
           </g>

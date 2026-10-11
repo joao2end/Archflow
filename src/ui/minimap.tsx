@@ -1,4 +1,6 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
+import { docMode } from "../shared/schema";
+import { validateDetailed } from "../shared/ops";
 import { set, useStore } from "./store";
 
 const W = 176;
@@ -11,6 +13,16 @@ export function Minimap() {
   const view = useStore((s) => s.view);
   const sel = useStore((s) => s.sel);
   const dragging = useRef(false);
+  // nós com problema de validação (Domain/Logic) aparecem em vermelho/âmbar: o mapa mostra ONDE olhar, não só onde a tela está
+  const flagged = useMemo(() => {
+    const m = new Map<string, "erro" | "aviso">();
+    if (docMode(doc) === "architecture") return m;
+    for (const i of validateDetailed(doc)) {
+      if (!i.target) continue;
+      if (i.severity === "erro" || !m.has(i.target)) m.set(i.target, i.severity === "erro" ? "erro" : "aviso");
+    }
+    return m;
+  }, [doc]);
   const boxes = [...doc.groups, ...doc.nodes, ...doc.notes];
   if (!boxes.length || sel.length) return null; // com seleção, o inspetor ocupa este canto
 
@@ -43,7 +55,7 @@ export function Minimap() {
   };
 
   return (
-    <div className="hud glass minimap" role="group" aria-label="Minimapa do diagrama. Clique ou arraste para ir até uma região; com o foco aqui, as setas movem a vista.">
+    <div className="hud glass minimap" role="group" aria-label={`Minimapa do diagrama${flagged.size ? ` (${flagged.size} ${flagged.size === 1 ? "componente com problema marcado" : "componentes com problema marcados"})` : ""}. Clique ou arraste para ir até uma região; com o foco aqui, as setas movem a vista.`}>
       <svg
         width={W}
         height={H}
@@ -72,7 +84,7 @@ export function Minimap() {
           <rect key={g.id} x={g.x * k + ox} y={g.y * k + oy} width={g.w * k} height={g.h * k} rx={2} className="mm-group" />
         ))}
         {doc.nodes.map((n) => (
-          <rect key={n.id} x={n.x * k + ox} y={n.y * k + oy} width={Math.max(2, n.w * k)} height={Math.max(2, n.h * k)} rx={1} className="mm-node" />
+          <rect key={n.id} x={n.x * k + ox} y={n.y * k + oy} width={Math.max(flagged.has(n.id) ? 4 : 2, n.w * k)} height={Math.max(flagged.has(n.id) ? 4 : 2, n.h * k)} rx={1} className={`mm-node${flagged.get(n.id) === "erro" ? " err" : flagged.get(n.id) === "aviso" ? " warn" : ""}`} />
         ))}
         {doc.notes.map((n) => (
           <rect key={n.id} x={n.x * k + ox} y={n.y * k + oy} width={Math.max(2, n.w * k)} height={Math.max(2, n.h * k)} rx={1} className="mm-note" />

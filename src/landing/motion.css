@@ -308,7 +308,7 @@
 }
 .mo-rules li.ok b,
 .mo-rules li.ok i {
-  color: var(--ok);
+  color: var(--ok-text);
 }
 .mo-rules li.ok span {
   color: var(--ink-3);
@@ -471,4 +471,14 @@
   .mo-chips li.on {
     transform: none;
   }
+}
+
+/* cartões de demo fora da tela não precisam ser renderizados: o navegador pula layout e pintura até chegarem perto da vista
+   (a seção tem 9 demos animadas, ~3,5 mil px); o tamanho estimado evita saltos na barra de rolagem */
+.mo-card {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 520px;
+}
+.mo-card.wide {
+  contain-intrinsic-block-size: auto 520px;
 }

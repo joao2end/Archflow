@@ -13,6 +13,7 @@
   --hairline: rgba(112, 111, 211, 0.16);
   --danger: #c9302c;
   --ok: #14a38b;
+  --ok-text: #0b7a68; /* verde para TEXTO sobre fundo claro (--ok puro dava 3:1) */
   --r-lg: 22px;
   --r-md: 14px;
   --r-sm: 10px;
@@ -60,6 +61,7 @@
   --hairline: rgba(252, 252, 250, 0.14);
   --danger: #ffa8be; /* AA sobre o vidro escuro */
   --ok: #a9dc76;
+  --ok-text: #a9dc76;
   --shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
   --s-solid: #403e41;
   --s-strong: rgba(64, 62, 65, 0.85);
@@ -1016,7 +1018,7 @@ svg.canvas.drag-over {
 .group-kind {
   font: 650 10.5px var(--sans);
   letter-spacing: 0.1em;
-  fill: color-mix(in srgb, var(--gc) 80%, var(--ink));
+  fill: color-mix(in srgb, var(--gc) 66%, var(--ink)); /* 80% dava 4,2:1 no tema claro */
 }
 .group-label {
   font: 400 21px var(--serif);
@@ -2479,7 +2481,7 @@ svg.canvas.drag-over {
   white-space: nowrap;
 }
 .mcp-ok {
-  color: var(--ok);
+  color: var(--ok-text);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -2622,6 +2624,8 @@ svg.canvas.drag-over {
 }
 .mm-group { fill: var(--primary); fill-opacity: 0.14; stroke: var(--primary); stroke-opacity: 0.35; stroke-width: 0.6; }
 .mm-node { fill: var(--ink-3); fill-opacity: 0.85; }
+.mm-node.err { fill: #d6453d; fill-opacity: 1; }
+.mm-node.warn { fill: #e0a31e; fill-opacity: 1; }
 .mm-note { fill: #e0b341; fill-opacity: 0.8; }
 .mm-view { fill: var(--primary); fill-opacity: 0.1; stroke: var(--primary-600); stroke-width: 1.5; }
 @media (max-width: 700px) {
@@ -2726,7 +2730,7 @@ svg.canvas.drag-over {
 .node.logic .logic-title { font: 650 13px var(--sans); fill: var(--ink); letter-spacing: -0.005em; }
 .node.logic .logic-line { font: 500 12px var(--sans); fill: var(--ink-2); }
 .node.logic .logic-line.logic-cond { fill: var(--ink); font-weight: 650; }
-.node.logic .logic-mono { font: 500 10.5px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-3); }
+.node.logic .logic-mono { font: 500 10.5px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-2); } /* --ink-3 dava 4,4:1 sobre a lavagem colorida do nó no escuro */
 .node.logic .logic-sec { font: 800 9px var(--sans); letter-spacing: 0.08em; }
 .node.logic .logic-rule-line { stroke: var(--hairline); stroke-width: 1; }
 .node.logic .logic-bar { font: 800 9.5px var(--sans); letter-spacing: 0.16em; fill: #fff; }
@@ -3176,8 +3180,8 @@ svg.canvas.drag-over {
 
 /* letra do atalho no canto da ferramenta: descobrível sem passar o mouse */
 .draw-bar .tool, .present-bar .tool, .dock .tool { position: relative; }
-:is(.draw-bar, .present-bar, .dock) .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); opacity: 0.75; pointer-events: none; }
-.draw-bar .tool.active .tool-key, .present-bar .tool.active .tool-key, .dock .tool.active .tool-key { color: inherit; opacity: 0.9; }
+:is(.draw-bar, .present-bar, .dock) .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); pointer-events: none; } /* sem opacidade: com 0,75 no tema claro o contraste caía para ~3,1:1 (AA pede 4,5:1) */
+.draw-bar .tool.active .tool-key, .present-bar .tool.active .tool-key, .dock .tool.active .tool-key { color: inherit; }
 :is(.present-bar, .draw-bar) .swatch { width: 24px; height: 24px; } /* alvo mínimo WCAG 2.5.8 */
 
 .logic-play-panel .lp-ctl .btn { display: inline-grid; place-items: center; }
@@ -3232,3 +3236,20 @@ svg.canvas.drag-over {
     min-width: 360px;
   }
 }
+
+/* placeholder legível nos dois temas: o cinza padrão do navegador dava ~2,3:1 no escuro (AA pede 4,5:1) */
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+/* rótulos pequenos dos nós de lógica: a cor do papel misturada com a tinta do tema, para passar de 4,5:1 sem perder a identidade da cor
+   (o fill puro da cor do papel dava 2,3–3,9:1 nos dois temas) */
+.node.logic .logic-cap,
+.node.logic .logic-sec { fill: color-mix(in srgb, var(--cap, currentColor) 55%, var(--ink)); }
+.node.logic .logic-sec { fill: color-mix(in srgb, var(--cap, currentColor) 45%, var(--ink)); } /* texto de 9px: um pouco mais de tinta (55% dava 4,3:1 no escuro) */
+
+.help-search { margin-bottom: 14px; }
+.files-panel .mode-note p { margin: 0 0 6px; }
+.files-panel .mode-note .btn { max-width: 100%; height: auto; min-height: 28px; padding: 4px 10px; white-space: normal; text-align: left; justify-content: flex-start; }

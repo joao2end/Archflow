@@ -14,7 +14,7 @@ import { TechPicker } from "./typepicker";
 import { enterPresent } from "./present";
 import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
-import { deleteSelection, duplicateSelection, fitView, layout, zoomTo } from "./keys";
+import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoomTo } from "./keys";
 import type { Asset } from "../shared/schema";
 import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, DEFAULT_BG, type BgPattern, type Tool } from "./store";
 
@@ -372,6 +372,7 @@ export function ZoomBar() {
   const z = useStore((s) => s.view.z);
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
+  const hasSel = useStore((s) => s.sel.length > 0);
   const zoomBy = zoomTo;
   return (
     <div className="hud glass zoombar">
@@ -382,14 +383,14 @@ export function ZoomBar() {
         <Glyph name="redo" size={18} />
       </button>
       <div className="sep" style={{ margin: "6px 4px" }} />
-      <button className="btn ghost icon" onClick={() => zoomBy(1 / 1.2)} aria-label="Diminuir zoom" data-tip="Diminuir zoom (Ctrl+-)" data-tip-pos="top">
+      <button className="btn ghost icon" onClick={() => zoomBy(1 / 1.2)} disabled={z <= 0.151} aria-label="Diminuir zoom" data-tip="Diminuir zoom (Ctrl+-)" data-tip-pos="top">
         <Glyph name="minus" size={17} />
       </button>
-      <button className="btn ghost pct" onClick={() => zoomTo("reset")} aria-label="Redefinir zoom para 100%" data-tip="Redefinir para 100% (Ctrl+0)" data-tip-pos="top">{Math.round(z * 100)}%</button>
-      <button className="btn ghost icon" onClick={() => zoomBy(1.2)} aria-label="Aumentar zoom" data-tip="Aumentar zoom (Ctrl++)" data-tip-pos="top">
+      <button className="btn ghost pct" onClick={() => zoomTo("reset")} aria-label={`Zoom ${Math.round(z * 100)}%. Redefinir para 100%`} aria-keyshortcuts="Control+0" data-tip="Redefinir para 100% (Ctrl+0)" data-tip-pos="top">{Math.round(z * 100)}%</button>
+      <button className="btn ghost icon" onClick={() => zoomBy(1.2)} disabled={z >= 2.999} aria-label="Aumentar zoom" data-tip="Aumentar zoom (Ctrl++)" data-tip-pos="top">
         <Glyph name="plus" size={17} />
       </button>
-      <button className="btn ghost icon" onClick={() => fitView()} aria-label="Ajustar à tela" data-tip="Ajustar à tela (F)" data-tip-pos="top">
+      <button className="btn ghost icon" onClick={() => (hasSel ? fitSelection() : fitView())} aria-label={hasSel ? "Ajustar à seleção" : "Ajustar à tela"} aria-keyshortcuts={hasSel ? "Shift+F" : "F"} data-tip={hasSel ? "Ajustar à seleção (Shift+F)\nF enquadra o diagrama inteiro." : "Ajustar à tela (F)"} data-tip-pos="top">
         <Glyph name="fit" size={17} />
       </button>
     </div>
@@ -625,7 +626,7 @@ export function Inspector() {
         <div className="insp-head">
           <div>
             <div className="kicker">Seleção múltipla</div>
-            <div className="ttl">{sel.length} elementos</div>
+            <div className="ttl" role="heading" aria-level={2}>{sel.length} elementos</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -673,7 +674,7 @@ export function Inspector() {
           {badgeAsset ? <AssetBadge asset={badgeAsset} size={46} /> : <AssetBadge asset={{ icon: `t:${node.label.slice(0, 2).toUpperCase()}`, color: "#706fd3", name: node.label }} size={46} />}
           <div>
             <div className="kicker">{isLogic && lrole ? `Logic · ${lrole.label}` : isDomain && role ? `Domain · ${role.label}` : NODE_KINDS[node.kind].split(" / ")[0]}</div>
-            <div className="ttl">{node.label}</div>
+            <div className="ttl" role="heading" aria-level={2}>{node.label}</div>
           </div>
         </div>
         {!isDomain && asset?.problem && (
@@ -752,7 +753,7 @@ export function Inspector() {
         <div className="insp-head">
           <div>
             <div className="kicker">Conexão · {t.label}</div>
-            <div className="ttl">
+            <div className="ttl" role="heading" aria-level={2}>
               {name(conn.from)} → {name(conn.to)}
             </div>
           </div>
@@ -826,7 +827,7 @@ export function Inspector() {
         <div className="insp-head">
           <div>
             <div className="kicker">Grupo · {group.kind}</div>
-            <div className="ttl">{group.label}</div>
+            <div className="ttl" role="heading" aria-level={2}>{group.label}</div>
           </div>
         </div>
         <label className="field">
@@ -870,7 +871,7 @@ export function Inspector() {
         <div className="insp-head">
           <div>
             <div className="kicker">{note.variant === "text" ? "Texto" : note.variant === "list" ? "Lista" : "Nota"}</div>
-            <div className="ttl">{note.variant === "text" ? "Texto livre" : note.variant === "list" ? "Itens, um por linha" : "Decisão ou premissa"}</div>
+            <div className="ttl" role="heading" aria-level={2}>{note.variant === "text" ? "Texto livre" : note.variant === "list" ? "Itens, um por linha" : "Decisão ou premissa"}</div>
           </div>
         </div>
         {note.variant === "list" && (

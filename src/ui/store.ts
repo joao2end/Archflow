@@ -306,9 +306,11 @@ export function select(ids: string[]) {
   set({ sel: ids });
 }
 
+let toastSeq = 0;
 export function toast(msg: string, undo = false, error = false) {
+  const mine = ++toastSeq; // o timer só fecha o aviso que o criou: a mesma mensagem repetida não é fechada pelo timer da anterior
   set({ toast: msg, toastUndo: undo, toastError: error });
-  setTimeout(() => state.toast === msg && set({ toast: null, toastUndo: false, toastError: false }), error ? 6000 : undo ? 7000 : 2600); // erro e ação pedem tempo de leitura
+  setTimeout(() => toastSeq === mine && set({ toast: null, toastUndo: false, toastError: false }), error ? 6000 : undo ? 7000 : 2600); // erro e ação pedem tempo de leitura
 }
 
 /** Aviso de falha: mesmo lugar do toast, mas com destaque e leitura imediata por leitor de tela. */

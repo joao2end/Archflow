@@ -191,6 +191,13 @@ export function fitView(svg?: SVGSVGElement | null, only?: { x: number; y: numbe
   set({ view: { z, x: left + (aw - w * z) / 2 - x1 * z, y: top + (ah - h * z) / 2 - y1 * z } });
 }
 
+/** Enquadra só o que está selecionado (componentes, grupos e notas); sem seleção, enquadra tudo. */
+export function fitSelection() {
+  const { doc, sel } = getState();
+  const boxes = [...doc.nodes, ...doc.groups, ...doc.notes].filter((b) => sel.includes(b.id));
+  fitView(null, boxes);
+}
+
 /** Mostra só o fluxo ligado ao componente (a jusante, a montante ou ambos) e enquadra a tela nele. */
 export function inspectFlow(id: string, mode: FlowMode = "both") {
   const { doc } = getState();
@@ -270,7 +277,7 @@ export function useHotkeys() {
         const k = e.key.toLowerCase();
         if (map[k]) set({ tool: map[k] });
         else if (k === "l") layout(e.shiftKey ? "TB" : "LR");
-        else if (k === "f") fitView();
+        else if (k === "f") (e.shiftKey ? fitSelection() : fitView());
         else if (k === "b") set({ panel: s.panel === "assets" ? null : "assets" });
         else if (k === "e") set({ panel: s.panel === "files" ? null : "files" });
         else if (k === "p") enterPresent();
