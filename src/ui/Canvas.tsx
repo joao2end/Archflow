@@ -274,6 +274,7 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
       <>
         <g className={canPlay ? "logic-play" : undefined} role={canPlay ? "button" : undefined} aria-label={canPlay ? `Reproduzir o cenário ${n.label}` : undefined} onPointerDown={canPlay ? (e) => e.stopPropagation() : undefined} onClick={canPlay ? (e) => (e.stopPropagation(), startPlay(n.id)) : undefined} style={canPlay ? { cursor: "pointer" } : undefined}>
           <title>{canPlay ? "Reproduzir: mostra o caminho percorrido no fluxo" : "Sem exemplo para reproduzir"}</title>
+          <circle className="logic-play-shadow" cx={30} cy={h / 2 + 3} r={18} fill="#000" fillOpacity={0.2} />
           <circle cx={30} cy={h / 2} r={18} fill={color} />
           <path d={`M${25},${h / 2 - 8} L${37},${h / 2} L${25},${h / 2 + 8} Z`} fill="#fff" />
         </g>
@@ -1586,7 +1587,7 @@ export function Canvas() {
     <svg
       ref={svgRef}
       role="application"
-      aria-label="Quadro de arquitetura. Setas movem a seleção; ? mostra os atalhos."
+      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
       aria-roledescription="quadro branco"
       className={`canvas${dragOver ? " drag-over" : ""}`}
       style={{ cursor, ["--z" as string]: view.z }}

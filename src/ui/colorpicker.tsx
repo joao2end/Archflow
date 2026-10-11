@@ -49,6 +49,26 @@ declare global {
 
 const POP_W = 232;
 
+/* cores recentes: valem para todos os seletores e sobrevivem entre sessões (só conveniência: falha em silêncio) */
+const RECENT_KEY = "archflow.recentColors";
+const loadRecent = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((c) => typeof c === "string" && hexToRgb(c)).slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+};
+const saveRecent = (hex: string): string[] => {
+  const next = [hex.toLowerCase(), ...loadRecent().filter((c) => c.toLowerCase() !== hex.toLowerCase())].slice(0, 8);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* sem armazenamento */
+  }
+  return next;
+};
+
 /** Arrasto 2D/1D com ponteiro capturado; entrega posições normalizadas (0–1). */
 function useDrag(onMove: (x: number, y: number) => void) {
   const move = useRef(onMove);
@@ -79,6 +99,9 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const [hsv, setHsv] = useState<HSV>(() => toHsv(value));
   const [hexText, setHexText] = useState(value);
+  const [recent, setRecent] = useState<string[]>([]);
+  const startHex = useRef(value);
+  const lastHex = useRef(value);
 
   // sincroniza com mudanças externas, preservando o matiz quando a cor é cinza/preta
   useEffect(() => {
@@ -104,6 +127,12 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
     else setPos(null);
   }, [open, place]);
 
+  // teclado: já cai na área de cor (só depois de posicionado: com visibility:hidden o foco não pega)
+  const placed = pos !== null;
+  useEffect(() => {
+    if (open && placed) pop.current?.querySelector<HTMLElement>(".cpick-sv")?.focus({ preventScroll: true });
+  }, [open, placed]);
+
   useEffect(() => {
     if (!open) return;
     const down = (e: PointerEvent) => {
@@ -126,15 +155,36 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
     };
   }, [open, place]);
 
+  // ao abrir, lê as recentes; ao fechar, guarda a cor escolhida se ela mudou
+  useEffect(() => {
+    if (!open) return;
+    startHex.current = lastHex.current = value;
+    setRecent(loadRecent());
+    return () => {
+      if (lastHex.current.toLowerCase() !== startHex.current.toLowerCase()) saveRecent(lastHex.current);
+    };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const apply = (n: HSV) => {
     setHsv(n);
     const hex = hsvToHex(n);
+    lastHex.current = hex;
     setHexText(hex);
     onChange(hex);
   };
   const sv = useDrag((x, y) => apply({ ...hsv, s: x, v: 1 - y }));
   const hue = useDrag((x) => apply({ ...hsv, h: x * 360 }));
   const hex = hsvToHex(hsv);
+  // teclado: setas ajustam (Shift = passo grande); a área de cor usa ←→ saturação e ↑↓ brilho
+  const nudge = (e: React.KeyboardEvent, fn: (dx: number, dy: number) => HSV) => {
+    const k = e.key;
+    const dx = k === "ArrowRight" ? 1 : k === "ArrowLeft" ? -1 : 0;
+    const dy = k === "ArrowUp" ? 1 : k === "ArrowDown" ? -1 : 0;
+    if (!dx && !dy) return;
+    e.preventDefault();
+    e.stopPropagation();
+    apply(fn(dx * (e.shiftKey ? 10 : 1), dy * (e.shiftKey ? 10 : 1)));
+  };
 
   const commitHex = (t: string) => {
     const rgb = hexToRgb(t);
@@ -162,10 +212,10 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
                 <Glyph name="close" size={15} />
               </button>
             </div>
-            <div className="cpick-sv" style={{ backgroundColor: `hsl(${hsv.h}, 100%, 50%)` }} {...sv}>
+            <div className="cpick-sv" role="slider" tabIndex={0} aria-label="Saturação e brilho (setas; Shift para passo grande)" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(hsv.s * 100)} aria-valuetext={`saturação ${Math.round(hsv.s * 100)}%, brilho ${Math.round(hsv.v * 100)}%`} onKeyDown={(e) => nudge(e, (dx, dy) => ({ ...hsv, s: clamp(hsv.s + dx / 100), v: clamp(hsv.v + dy / 100) }))} style={{ backgroundColor: `hsl(${hsv.h}, 100%, 50%)` }} {...sv}>
               <i className="cpick-knob" style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }} />
             </div>
-            <div className="cpick-hue" {...hue}>
+            <div className="cpick-hue" role="slider" tabIndex={0} aria-label="Matiz" aria-valuemin={0} aria-valuemax={360} aria-valuenow={Math.round(hsv.h)} onKeyDown={(e) => nudge(e, (dx) => ({ ...hsv, h: (hsv.h + dx * 2 + 360) % 360 }))} {...hue}>
               <i className="cpick-knob" style={{ left: `${(hsv.h / 360) * 100}%`, top: "50%", background: `hsl(${hsv.h}, 100%, 50%)` }} />
             </div>
             <div className="cpick-row">
@@ -180,6 +230,13 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
                 </button>
               )}
             </div>
+            {recent.length > 0 && (
+              <div className="cpick-recent" role="group" aria-label="Cores recentes">
+                {recent.map((c) => (
+                  <button key={c} type="button" className={`cpick-chip${c.toLowerCase() === hex.toLowerCase() ? " active" : ""}`} style={{ background: c }} aria-label={`Cor recente ${c}`} data-tip={c} data-tip-pos="top" onClick={() => commitHex(c)} />
+                ))}
+              </div>
+            )}
           </div>,
           document.body,
         )}

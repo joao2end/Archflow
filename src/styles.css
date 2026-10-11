@@ -2735,8 +2735,9 @@ svg.canvas.drag-over {
 .node.logic .logic-chip text { font: 600 10.5px var(--sans); fill: var(--ink-2); }
 .node.logic .logic-chip.write rect { fill: var(--primary-100); stroke: color-mix(in srgb, var(--primary) 40%, transparent); }
 .node.logic .logic-chip.write text { fill: var(--ink); }
-.node.logic .logic-play circle { transition: transform 0.14s; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.22)); }
-.node.logic .logic-play:hover circle { transform: scale(1.1); }
+/* sem filter: drop-shadow no círculo: com transform + transição ele gerava um brilho elíptico (artefato de composição); a sombra é um círculo deslocado, simples e estável */
+.node.logic .logic-play circle:not(.logic-play-shadow) { transition: transform 0.14s; transform-box: fill-box; transform-origin: center; }
+.node.logic .logic-play:hover circle:not(.logic-play-shadow) { transform: scale(1.1); }
 .node.logic .logic-seal circle { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }
 /* setas do fluxo: finas e calmas; a cor diz a saída (sim, não, repete) */
 .edge.flow-edge > path[id] { stroke-linecap: round; }
@@ -3182,3 +3183,34 @@ svg.canvas.drag-over {
 
 .logic-play-panel .lp-ctl .btn { display: inline-grid; place-items: center; }
 .logic-play-panel .lp-hint { font: 500 11px var(--sans); color: var(--ink-3); }
+
+/* reprodução e ferramentas: sem transições quando o usuário pede menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  .logic-play-panel .lp-bar > i,
+  .node.logic .logic-play circle,
+  :is(.present-bar, .draw-bar) .swatch,
+  :is(.present-bar, .draw-bar) .tool { transition: none; }
+}
+
+.cpick-sv:focus-visible, .cpick-hue:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.cpick-recent { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cpick-chip { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--s-solid); box-shadow: 0 0 0 1px var(--hairline); padding: 0; cursor: pointer; }
+.cpick-chip:hover { transform: scale(1.1); }
+.cpick-chip.active { box-shadow: 0 0 0 2px var(--primary-600); }
+.cpick-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .cpick-chip { transition: none; } .cpick-chip:hover { transform: none; } }
+
+.minimap svg { cursor: grab; border-radius: 12px; }
+.minimap svg:active { cursor: grabbing; }
+.minimap svg:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.help-sec { margin-top: 14px; }
+.help-sec:first-child { margin-top: 0; }
+.help-sec h3 { margin: 0 0 6px; font: 650 11.5px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+
+/* painel lateral aberto (biblioteca/arquivos) cobria a dica do quadro vazio: ela se afasta para a área livre */
+@media (min-width: 700px) {
+  .empty-hint.beside-panel { left: max(50%, 520px); }
+}
+.help-grid .kbd { white-space: nowrap; flex: none; align-self: flex-start; }

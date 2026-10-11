@@ -327,6 +327,22 @@ export function FilesPanel() {
       <div
         className={`lib-list tree ${dropOn === "" ? "drop" : ""}`}
         role="tree"
+        aria-label="Diagramas do cofre"
+        onKeyDown={(e) => {
+          // padrão WAI-ARIA tree: ↑↓ Home End percorrem os itens visíveis; → abre e ← fecha a pasta; Espaço abre o arquivo
+          const el = e.target as HTMLElement;
+          if (el.closest("input") || !el.matches('[role="treeitem"]')) return;
+          const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]'));
+          const at = items.indexOf(el);
+          const go = (i: number) => (e.preventDefault(), items[Math.max(0, Math.min(items.length - 1, i))]?.focus());
+          if (e.key === "ArrowDown") go(at + 1);
+          else if (e.key === "ArrowUp") go(at - 1);
+          else if (e.key === "Home") go(0);
+          else if (e.key === "End") go(items.length - 1);
+          else if (e.key === "ArrowRight" && el.getAttribute("aria-expanded") === "false") (e.preventDefault(), el.click());
+          else if (e.key === "ArrowLeft" && el.getAttribute("aria-expanded") === "true") (e.preventDefault(), el.click());
+          else if (e.key === " " && el.hasAttribute("aria-selected")) (e.preventDefault(), el.click());
+        }}
         onContextMenu={(e) => openMenu(e, { kind: "root", path: "" })}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("application/x-archflow-file")) {

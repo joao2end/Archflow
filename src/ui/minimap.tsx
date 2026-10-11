@@ -43,10 +43,22 @@ export function Minimap() {
   };
 
   return (
-    <div className="hud glass minimap" role="img" aria-label="Minimapa do diagrama. Clique para ir até uma região.">
+    <div className="hud glass minimap" role="group" aria-label="Minimapa do diagrama. Clique ou arraste para ir até uma região; com o foco aqui, as setas movem a vista.">
       <svg
         width={W}
         height={H}
+        tabIndex={0}
+        aria-label="Área visível do diagrama"
+        onKeyDown={(e) => {
+          // setas movem a vista em passos de 20% da tela (Shift = 60%); o mouse não é o único jeito de navegar
+          const dx = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+          const dy = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+          if (!dx && !dy) return;
+          e.preventDefault();
+          e.stopPropagation(); // o atalho global das setas empurraria o item selecionado
+          const f = e.shiftKey ? 0.6 : 0.2;
+          set({ view: { z: view.z, x: view.x - dx * window.innerWidth * f, y: view.y - dy * window.innerHeight * f } });
+        }}
         onPointerDown={(e) => {
           dragging.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -54,6 +66,7 @@ export function Minimap() {
         }}
         onPointerMove={(e) => dragging.current && goTo(e)}
         onPointerUp={() => (dragging.current = false)}
+        onPointerCancel={() => (dragging.current = false)}
       >
         {doc.groups.map((g) => (
           <rect key={g.id} x={g.x * k + ox} y={g.y * k + oy} width={g.w * k} height={g.h * k} rx={2} className="mm-group" />

@@ -8,12 +8,13 @@ import { replaceDoc, set, toast, useStore } from "./store";
 export function EmptyHint() {
   const empty = useStore((s) => !s.doc.nodes.length && !s.doc.groups.length && !s.doc.notes.length);
   const open = useStore((s) => s.panel === "assets");
+  const panel = useStore((s) => s.panel !== null);
   const mode = useStore((s) => docMode(s.doc));
   const domain = mode === "domain";
   const logic = mode === "logic";
   if (!empty) return null;
   return (
-    <div className="empty-hint" role="note">
+    <div className={`empty-hint${panel ? " beside-panel" : ""}`} role="note">
       <h2>{domain ? "Comece pelo domínio" : logic ? "Comece pela regra" : "Comece seu diagrama"}</h2>
       <p>
         {logic

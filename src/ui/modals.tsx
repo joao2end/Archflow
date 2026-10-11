@@ -585,21 +585,32 @@ function DddGuideModal() {
 /* ───────── ajuda ───────── */
 
 function HelpModal() {
-  const rows: [string, string][] = [
-    ["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["G", "Grupo"], ["C", "Conector"], ["N", "Nota"], ["B", "Biblioteca"], ["/", "Buscar asset"],
-    ["L / Shift+L", "Auto-layout: abre a configuração (horizontal / vertical)"], ["F", "Ajustar à tela"], ["A", "Animações on/off"], ["Ctrl+Z / Y", "Desfazer / refazer"],
-    ["T", "Alternar tema (auto/claro/escuro)"], ["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"], ["Ctrl+D", "Duplicar"], ["Ctrl+C / X / V", "Copiar · recortar · colar componentes e notas"], ["Setas", "Mover seleção (Shift = 10×)"], ["Tab / Shift+Tab", "Selecionar próximo / anterior componente"], ["Ctrl + / − / 0", "Zoom: aproximar · afastar · 100%"], ["D · M · X · W · I", "Caneta · marca-texto · borracha · texto · lista"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Duplo clique", "Renomear · editar interface"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Shift+clique", "Selecionar vários"], ["Ctrl+roda", "Zoom"], ["Esc", "Cancelar / fechar"],
+  const mode = useStore((st) => docMode(st.doc));
+  // agrupados pelo que a pessoa está tentando fazer; a seção do modo aberto vem primeiro
+  const groups: [string, [string, string][]][] = [
+    ["Montar o diagrama", [["B", "Biblioteca"], ["/", "Buscar asset"], ["G", "Grupo"], ["C", "Conector"], ["N", "Nota"], ["Duplo clique", "Renomear · editar interface"], ["Shift+clique", "Selecionar vários"]]],
+    ["Editar", [["Ctrl+Z / Y", "Desfazer / refazer"], ["Ctrl+D", "Duplicar"], ["Ctrl+C / X / V", "Copiar · recortar · colar componentes e notas"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Setas", "Mover seleção (Shift = 10×)"], ["Tab / Shift+Tab", "Selecionar próximo / anterior componente"]]],
+    ["Navegar", [["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["F", "Ajustar à tela"], ["Ctrl + / − / 0", "Zoom: aproximar · afastar · 100%"], ["Ctrl+roda", "Zoom"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Esc", "Cancelar / fechar"]]],
+    ["Desenhar e anotar", [["D · M · X · W · I", "Caneta · marca-texto · borracha · texto · lista"]]],
+    ["Aparência", [["L / Shift+L", "Auto-layout: abre a configuração (horizontal / vertical)"], ["T", "Alternar tema (auto/claro/escuro)"], ["A", "Animações on/off"]]],
+    ["Apresentar", [["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"]]],
   ];
+  if (mode === "logic") groups.unshift(["Modo Lógica", [["▶ no cenário", "Reproduz o caminho que o fluxo percorre"], ["← →", "Passo anterior / próximo durante a reprodução"], ["✓ no topo", "Validação: roda todos os exemplos e mostra o que não bate"]]]);
   return (
     <Modal title="Atalhos e dicas" onClose={close}>
-      <div className="help-grid">
-        {rows.map(([k, v]) => (
-          <div key={k}>
-            <span>{v}</span>
-            <span className="kbd">{k}</span>
+      {groups.map(([title, rows]) => (
+        <section key={title} className="help-sec" aria-label={title}>
+          <h3>{title}</h3>
+          <div className="help-grid">
+            {rows.map(([k, v]) => (
+              <div key={k}>
+                <span>{v}</span>
+                <span className="kbd">{k}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
+      ))}
       <p className="callout" style={{ marginTop: 16 }}>
         <b>Novo em DDD?</b> <button className="btn" style={{ marginLeft: 6 }} onClick={openDddGuide}>Abrir o guia animado</button>
       </p>
