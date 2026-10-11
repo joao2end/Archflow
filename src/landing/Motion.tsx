@@ -726,7 +726,7 @@ function CodeMotion() {
             </li>
           ))}
         </ul>
-        <pre className="mo-ts-code">
+        <pre className="mo-ts-code" tabIndex={0} aria-label="Exemplo de código gerado (role com as setas)">
           {shown.map((l, i) => (
             <span key={i} className={l.trim().startsWith("//") ? "cm" : ""}>
               {l}

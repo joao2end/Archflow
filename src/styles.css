@@ -2736,9 +2736,8 @@ svg.canvas.drag-over {
 .node.logic .logic-chip.write rect { fill: var(--primary-100); stroke: color-mix(in srgb, var(--primary) 40%, transparent); }
 .node.logic .logic-chip.write text { fill: var(--ink); }
 /* sem filter: drop-shadow no círculo: com transform + transição ele gerava um brilho elíptico (artefato de composição); a sombra é um círculo deslocado, simples e estável */
-.node.logic .logic-play circle:not(.logic-play-shadow) { transition: transform 0.14s; transform-box: fill-box; transform-origin: center; }
-.node.logic .logic-play:hover circle:not(.logic-play-shadow) { transform: scale(1.1); }
-.node.logic .logic-seal circle { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); }
+.node.logic .logic-play .logic-play-disc { stroke: transparent; stroke-width: 0; transition: stroke-width 0.14s, stroke 0.14s; paint-order: stroke; }
+.node.logic .logic-play:hover .logic-play-disc { stroke: rgba(255, 255, 255, 0.45); stroke-width: 3; }
 /* setas do fluxo: finas e calmas; a cor diz a saída (sim, não, repete) */
 .edge.flow-edge > path[id] { stroke-linecap: round; }
 .edge.flow-edge .edge-label rect { fill: var(--s-strong); stroke: color-mix(in srgb, var(--ec) 55%, transparent); }
@@ -3176,9 +3175,9 @@ svg.canvas.drag-over {
 .files-panel .mode-note b { color: var(--ink); font-weight: 650; }
 
 /* letra do atalho no canto da ferramenta: descobrível sem passar o mouse */
-.draw-bar .tool, .present-bar .tool { position: relative; }
-:is(.draw-bar, .present-bar) .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); opacity: 0.75; pointer-events: none; }
-.draw-bar .tool.active .tool-key, .present-bar .tool.active .tool-key { color: inherit; opacity: 0.9; }
+.draw-bar .tool, .present-bar .tool, .dock .tool { position: relative; }
+:is(.draw-bar, .present-bar, .dock) .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); opacity: 0.75; pointer-events: none; }
+.draw-bar .tool.active .tool-key, .present-bar .tool.active .tool-key, .dock .tool.active .tool-key { color: inherit; opacity: 0.9; }
 :is(.present-bar, .draw-bar) .swatch { width: 24px; height: 24px; } /* alvo mínimo WCAG 2.5.8 */
 
 .logic-play-panel .lp-ctl .btn { display: inline-grid; place-items: center; }
@@ -3187,7 +3186,7 @@ svg.canvas.drag-over {
 /* reprodução e ferramentas: sem transições quando o usuário pede menos movimento */
 @media (prefers-reduced-motion: reduce) {
   .logic-play-panel .lp-bar > i,
-  .node.logic .logic-play circle,
+  .node.logic .logic-play .logic-play-disc,
   :is(.present-bar, .draw-bar) .swatch,
   :is(.present-bar, .draw-bar) .tool { transition: none; }
 }
@@ -3214,3 +3213,22 @@ svg.canvas.drag-over {
   .empty-hint.beside-panel { left: max(50%, 520px); }
 }
 .help-grid .kbd { white-space: nowrap; flex: none; align-self: flex-start; }
+
+.toast { display: flex; align-items: center; gap: 12px; }
+.toast .toast-undo { height: 26px; padding: 0 12px; border-radius: 999px; }
+.toast.error { border: 1px solid #d6453d; box-shadow: 0 0 0 3px rgba(214, 69, 61, 0.18), var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.25)); }
+.toast.error svg { color: #d6453d; flex: none; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.quick-row mark { background: var(--primary-100); color: inherit; border-radius: 3px; padding: 0 1px; font-weight: 650; }
+.quick-cap { padding: 6px 14px 2px; font: 650 11px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+
+/* painel de arquivos/biblioteca aberto (≈430px da esquerda) e inspetor à direita (≈340px): o play ocupa só a área livre entre eles */
+@media (min-width: 900px) {
+  .logic-play-panel.beside-panel {
+    left: calc(430px + (100vw - 430px - 340px) / 2);
+    width: min(760px, calc(100vw - 800px));
+    min-width: 360px;
+  }
+}

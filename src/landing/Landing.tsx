@@ -1030,15 +1030,22 @@ function Vault() {
 /* ───────── página ───────── */
 
 function Nav({ theme }: { theme: string }) {
+  const [menu, setMenu] = useState(false); // links de seção no celular (no desktop ficam sempre visíveis)
+  useEffect(() => {
+    if (!menu) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [menu]);
   return (
-    <header className="lp-nav glass">
+    <header className={`lp-nav glass${menu ? " menu-open" : ""}`}>
       <a className="brand" href="/" aria-label="Archflow">
         <span className="brand-mark">
           <Glyph name="connect" size={15} stroke={2.4} />
         </span>
         Arch<i>flow</i>
       </a>
-      <nav className="lp-links" aria-label="Seções">
+      <nav id="lp-links" className="lp-links" aria-label="Seções" onClick={(e) => (e.target as HTMLElement).closest("a") && setMenu(false)}>
         <a href="#o-que-e">O que é</a>
         <a href="#demo">Em ação</a>
         <a href="#ferramentas">Ferramentas</a>
@@ -1055,6 +1062,9 @@ function Nav({ theme }: { theme: string }) {
       <a className="btn primary shine" href="/app">
         Abrir o app
       </a>
+      <button className="btn ghost icon lp-menu-btn" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar o menu" : "Abrir o menu de seções"} aria-expanded={menu} aria-controls="lp-links">
+        <Glyph name={menu ? "close" : "menu"} size={18} />
+      </button>
     </header>
   );
 }

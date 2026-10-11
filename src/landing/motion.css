@@ -217,7 +217,9 @@
   font: 12px/1.65 ui-monospace, "JetBrains Mono", Consolas, monospace;
   color: var(--ink);
   white-space: pre;
-  overflow: hidden;
+  overflow-x: auto; /* telas estreitas: as linhas de código rolam em vez de serem cortadas */
+  overflow-y: hidden;
+  scrollbar-width: thin;
   min-height: 150px;
 }
 .mo-arrow {

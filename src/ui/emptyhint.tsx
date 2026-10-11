@@ -43,7 +43,7 @@ export function EmptyHint() {
             className="btn"
             onClick={() => {
               replaceDoc(logic ? pricingDoc() : starterDoc());
-              toast(`Exemplo ${logic ? "de precificação" : "da loja online"} carregado. Ctrl+Z desfaz.`);
+              toast(`Exemplo ${logic ? "de precificação" : "da loja online"} carregado.`, true);
             }}
           >
             <Glyph name="sparkle" size={17} /> Ver exemplo pronto

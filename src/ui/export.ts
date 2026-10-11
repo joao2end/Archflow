@@ -1,6 +1,6 @@
 import type { Doc } from "../shared/schema";
 import { contentBounds } from "./geometry";
-import { getState, replaceDoc, toast } from "./store";
+import { getState, replaceDoc, toast, toastError } from "./store";
 import { normalizeDoc } from "../shared/ops";
 
 function download(name: string, blob: Blob) {
@@ -26,7 +26,7 @@ export function importJson(file: File) {
       replaceDoc(normalizeDoc(raw));
       toast("Diagrama importado");
     } catch (e) {
-      toast("Falha ao importar: " + (e instanceof Error ? e.message : e));
+      toastError("Falha ao importar: " + (e instanceof Error ? e.message : e));
     }
   });
 }

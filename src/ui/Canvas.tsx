@@ -10,7 +10,7 @@ import { truncate, wrapLabel } from "../shared/text";
 import { IconSvg } from "./icons";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
-import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, startPlay, toast, useStore, type View } from "./store";
+import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
 import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
@@ -168,7 +168,7 @@ function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: nu
   return (
     <g transform={`translate(${x},${y})`} pointerEvents="none">
       <rect width={size} height={size} rx={round ? size / 2 : size * 0.3} fill={color} />
-      <rect width={size} height={size / 2} rx={round ? size / 2 : size * 0.3} fill="#fff" opacity={0.14} />
+      {round ? <path d={`M0,${size / 2} A${size / 2},${size / 2} 0 0 1 ${size},${size / 2} Z`} fill="#fff" opacity={0.14} /> : <rect width={size} height={size / 2} rx={size * 0.3} fill="#fff" opacity={0.14} />}
       <g transform={`translate(${off},${off}) scale(${s})`} fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
         {paths.map((d, i) => (
           <path key={i} d={d} />
@@ -275,7 +275,7 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
         <g className={canPlay ? "logic-play" : undefined} role={canPlay ? "button" : undefined} aria-label={canPlay ? `Reproduzir o cenário ${n.label}` : undefined} onPointerDown={canPlay ? (e) => e.stopPropagation() : undefined} onClick={canPlay ? (e) => (e.stopPropagation(), startPlay(n.id)) : undefined} style={canPlay ? { cursor: "pointer" } : undefined}>
           <title>{canPlay ? "Reproduzir: mostra o caminho percorrido no fluxo" : "Sem exemplo para reproduzir"}</title>
           <circle className="logic-play-shadow" cx={30} cy={h / 2 + 3} r={18} fill="#000" fillOpacity={0.2} />
-          <circle cx={30} cy={h / 2} r={18} fill={color} />
+          <circle className="logic-play-disc" cx={30} cy={h / 2} r={18} fill={color} />
           <path d={`M${25},${h / 2 - 8} L${37},${h / 2} L${25},${h / 2 + 8} Z`} fill="#fff" />
         </g>
         {cap(58, 20)}
@@ -1430,7 +1430,7 @@ export function Canvas() {
           if (r.ok && r.id) {
             select([r.id]);
             set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão
-          } else if (r.error) toast(r.error);
+          } else if (r.error) toastError(r.error);
         }
         break;
       }

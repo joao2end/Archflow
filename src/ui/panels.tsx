@@ -16,7 +16,7 @@ import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitView, layout, zoomTo } from "./keys";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, toast, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, DEFAULT_BG, type BgPattern, type Tool } from "./store";
+import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, DEFAULT_BG, type BgPattern, type Tool } from "./store";
 
 /* ───────── helpers ───────── */
 
@@ -314,7 +314,7 @@ function BackgroundPopover() {
                 try {
                   patch({ image: await fileToBackground(f), pattern: "none" });
                 } catch {
-                  toast("Não foi possível ler essa imagem");
+                  toastError("Não foi possível ler essa imagem");
                 }
               }}
             />
@@ -334,25 +334,32 @@ export function Dock() {
   const animate = useStore((s) => s.animate);
   return (
     <div className="hud glass dock" role="toolbar" aria-label="Ferramentas">
-      <button className={`tool ${panel === "files" ? "active" : ""}`} onClick={() => set({ panel: panel === "files" ? null : "files" })} data-tip={"Arquivos do cofre (E)\nSeus diagramas em pastas."} data-tip-pos="right" aria-label="Arquivos" aria-pressed={panel === "files"}>
+      <button className={`tool ${panel === "files" ? "active" : ""}`} onClick={() => set({ panel: panel === "files" ? null : "files" })} data-tip={"Arquivos do cofre (E)\nSeus diagramas em pastas."} data-tip-pos="right" aria-label="Arquivos" aria-keyshortcuts="E" aria-pressed={panel === "files"}>
         <Glyph name="vault" size={21} />
+        <kbd className="tool-key" aria-hidden>E</kbd>
       </button>
-      <button className={`tool ${panel === "assets" ? "active" : ""}`} onClick={() => set({ panel: panel === "assets" ? null : "assets" })} data-tip={"Biblioteca de tecnologias (B)\nArraste para o quadro."} data-tip-pos="right" aria-label="Biblioteca" aria-pressed={panel === "assets"}>
+      <button className={`tool ${panel === "assets" ? "active" : ""}`} onClick={() => set({ panel: panel === "assets" ? null : "assets" })} data-tip={"Biblioteca de tecnologias (B)\nArraste para o quadro."} data-tip-pos="right" aria-label="Biblioteca" aria-keyshortcuts="B" aria-pressed={panel === "assets"}>
         <Glyph name="library" size={21} />
+        <kbd className="tool-key" aria-hidden>B</kbd>
       </button>
       <div className="rule" />
       {TOOLS.map((t) => (
-        <button key={t.id} className={`tool ${tool === t.id ? "active" : ""}`} onClick={() => set({ tool: tool === t.id ? "select" : t.id })} data-tip={`${t.label} (${t.key})\n${t.tip}`} data-tip-pos="right" aria-label={t.label} aria-pressed={tool === t.id}>
+        <button key={t.id} className={`tool ${tool === t.id ? "active" : ""}`} onClick={() => set({ tool: tool === t.id ? "select" : t.id })} data-tip={`${t.label} (${t.key})\n${t.tip}`} data-tip-pos="right" aria-label={t.label} aria-keyshortcuts={t.key} aria-pressed={tool === t.id}>
           <Glyph name={t.icon} size={21} />
+          <kbd className="tool-key" aria-hidden>
+            {t.key}
+          </kbd>
         </button>
       ))}
       <div className="rule" />
-      <button className="tool" onClick={() => layout("LR")} data-tip={"Auto-layout (L)\nConfigura espaçamento e conectores. Shift+L: vertical."} data-tip-pos="right" aria-label="Auto layout">
+      <button className="tool" onClick={() => layout("LR")} data-tip={"Auto-layout (L)\nConfigura espaçamento e conectores. Shift+L: vertical."} data-tip-pos="right" aria-label="Auto layout" aria-keyshortcuts="L">
         <Glyph name="layout" size={21} />
+        <kbd className="tool-key" aria-hidden>L</kbd>
       </button>
       <button className={`tool ${animate ? "active" : ""}`} onClick={() => setPrefs({ animate: !animate })} data-tip={`Animações das conexões (A): ${animate ? "ligadas" : "desligadas"}
-Clique para ${animate ? "pausar" : "ativar"}`} data-tip-pos="right" aria-label="Alternar animações" aria-pressed={animate}>
+Clique para ${animate ? "pausar" : "ativar"}`} data-tip-pos="right" aria-label="Alternar animações" aria-keyshortcuts="A" aria-pressed={animate}>
         <Glyph name={animate ? "play" : "pause"} size={19} />
+        <kbd className="tool-key" aria-hidden>A</kbd>
       </button>
       <BackgroundPopover />
     </div>
@@ -930,9 +937,22 @@ function Props({ value, onChange }: { value: Record<string, string>; onChange: (
 
 export function Toast() {
   const t = useStore((s) => s.toast);
-  return t ? (
-    <div className="hud glass toast" role="status">
-      {t}
+  const canUndo = useStore((s) => s.toastUndo);
+  const error = useStore((s) => s.toastError);
+  // o contêiner vive sempre: leitor de tela só anuncia mudanças dentro de uma região que já existia; erro é anunciado na hora
+  return (
+    <div role={error ? "alert" : "status"} aria-live={error ? "assertive" : "polite"}>
+      {t && (
+        <div className={`hud glass toast${error ? " error" : ""}`}>
+          {error && <Glyph name="alert" size={16} />}
+          {t}
+          {canUndo && (
+            <button className="btn sm toast-undo" onClick={() => (undo(), set({ toast: null, toastUndo: false }))}>
+              Desfazer
+            </button>
+          )}
+        </div>
+      )}
     </div>
-  ) : null;
+  );
 }

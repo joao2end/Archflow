@@ -30,7 +30,7 @@ import { validateDetailed } from "../shared/ops";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
-import { getState, run, select, set, toast, useStore } from "./store";
+import { getState, run, select, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
 
@@ -222,7 +222,7 @@ function PropertiesEditor({ role, value, onChange }: { role: DddRole; value: Pro
     setPaste(null);
     setErr("");
   };
-  const copy = () => navigator.clipboard?.writeText(propertiesToJson(value)).then(() => toast("JSON copiado"), () => toast("Não foi possível copiar"));
+  const copy = () => navigator.clipboard?.writeText(propertiesToJson(value)).then(() => toast("JSON copiado"), () => toastError("Não foi possível copiar"));
   return (
     <div className="field props-editor">
       <span className="lbl-s">

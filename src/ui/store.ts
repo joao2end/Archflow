@@ -138,6 +138,8 @@ export interface State {
   /** pilha de diagramas de onde o usuário "entrou" por uma referência (botão Voltar) */
   navBack: string[];
   toast: string | null;
+  toastUndo: boolean; // o aviso oferece o botão «Desfazer»
+  toastError: boolean; // aviso de erro: destaque visual, anunciado na hora e fica mais tempo
   /** modo apresentação: tela limpa com desenho, laser e cronômetro */
   present: boolean;
 }
@@ -236,6 +238,8 @@ function init(): State {
     focus: null,
     navBack: [],
     toast: null,
+    toastUndo: false,
+    toastError: false,
     present: false,
   };
 }
@@ -302,9 +306,14 @@ export function select(ids: string[]) {
   set({ sel: ids });
 }
 
-export function toast(msg: string) {
-  set({ toast: msg });
-  setTimeout(() => state.toast === msg && set({ toast: null }), 2600);
+export function toast(msg: string, undo = false, error = false) {
+  set({ toast: msg, toastUndo: undo, toastError: error });
+  setTimeout(() => state.toast === msg && set({ toast: null, toastUndo: false, toastError: false }), error ? 6000 : undo ? 7000 : 2600); // erro e ação pedem tempo de leitura
+}
+
+/** Aviso de falha: mesmo lugar do toast, mas com destaque e leitura imediata por leitor de tela. */
+export function toastError(msg: string) {
+  toast(msg, false, true);
 }
 
 export function allKnownAssets(): Asset[] {
@@ -403,7 +412,7 @@ function adoptRemote(doc: Doc, rev: number, source: string, file?: string) {
   }
   firstAdopt = false;
   commit(d, "remote");
-  if (source === "mcp") toast("Diagrama atualizado pelo agente (MCP) — Ctrl+Z desfaz");
+  if (source === "mcp") toast("Diagrama atualizado pelo agente (MCP)", true);
 }
 
 /** `fetch` das rotas /api: servidor local quando disponível; senão, o backend em memória do navegador. */
@@ -443,7 +452,7 @@ const guard = async <T>(fn: () => Promise<T>): Promise<T | undefined> => {
   try {
     return await fn();
   } catch (e) {
-    toast(e instanceof Error ? e.message : String(e));
+    toastError(e instanceof Error ? e.message : String(e));
   }
 };
 const flushPush = async () => {
@@ -521,7 +530,7 @@ export async function installExample(ex: DddExample): Promise<boolean> {
     const name: string | undefined = made?.name;
     if (!name) return false;
     if (name !== docs[i].path) {
-      toast(`Caminho inesperado para ${f.title}: ${name}. Os vínculos entre diagramas do exemplo não funcionariam.`);
+      toastError(`Caminho inesperado para ${f.title}: ${name}. Os vínculos entre diagramas do exemplo não funcionariam.`);
       return false;
     }
     // o diagrama novo chega do servidor de forma assíncrona; só então o conteúdo do exemplo entra nele
@@ -619,7 +628,7 @@ export function startSync() {
       if (!localMod.isPersistent()) toast("Este navegador bloqueou o armazenamento: os dados só duram enquanto a aba estiver aberta.");
     } catch (e) {
       set({ storage: null, online: false });
-      toast("Não foi possível iniciar o armazenamento do navegador: " + (e instanceof Error ? e.message : e));
+      toastError("Não foi possível iniciar o armazenamento do navegador: " + (e instanceof Error ? e.message : e));
     }
   };
 

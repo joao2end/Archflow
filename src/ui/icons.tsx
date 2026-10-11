@@ -48,6 +48,8 @@ const GLYPHS: Record<string, string[]> = {
   layout: ["M4 4h6v6H4z", "M14 14h6v6h-6z", "M10 7h4a3 3 0 0 1 3 3v4"],
   check: ["M5 12l5 5 9-10"],
   chevron: ["M6 9l6 6 6-6"],
+  alert: ["M12 9v4", "M12 17h.01", "M10.3 3.9 2.4 17.5a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"],
+  menu: ["M4 7h16", "M4 12h16", "M4 17h16"],
   dots: ["M5 12h.01M12 12h.01M19 12h.01"],
   folder: ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
   "folder-plus": ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M12 10.5v5", "M9.5 13h5"],

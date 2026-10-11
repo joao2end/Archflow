@@ -1384,3 +1384,48 @@ svg .lp-fade {
     display: none;
   }
 }
+
+/* foco por teclado visível em toda a landing (antes dependia do padrão do navegador, que some sobre fundos translúcidos) */
+.lp a:focus-visible,
+.lp button:focus-visible,
+.lp summary:focus-visible,
+.lp [tabindex]:focus-visible {
+  outline: 2px solid var(--primary-600);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* celular: os três botões do hero empilham com a mesma largura (antes ficavam com larguras irregulares) */
+@media (max-width: 560px) {
+  .lp-cta { flex-direction: column; align-items: stretch; }
+  .lp-cta .btn { justify-content: center; }
+}
+
+/* menu de seções no celular: o botão só existe onde os links somem; abre um painel logo abaixo da barra */
+.lp-menu-btn { display: none; }
+@media (max-width: 960px) {
+  .lp-menu-btn { display: inline-grid; }
+  .lp-nav { position: sticky; flex-wrap: wrap; }
+  .lp-nav.menu-open .lp-links {
+    display: flex;
+    flex-direction: column;
+    order: 9;
+    flex: 1 0 100%;
+    gap: 2px;
+    padding: 6px 0 4px;
+    margin-top: 6px;
+    border-top: 1px solid var(--hairline);
+  }
+  .lp-nav.menu-open .lp-links a { padding: 12px 10px; }
+}
+@media (max-width: 560px) {
+  .lp-nav-dl { display: none; } /* o hero já oferece o download; libera espaço para o botão do menu na mesma linha */
+  .lp-nav.menu-open .lp-links { margin-top: 8px; }
+}
+@media (max-width: 360px) {
+  /* telas muito estreitas: a barra (marca, tema, app, menu) precisa caber numa linha só */
+  .lp-nav { gap: 4px; padding: 8px 8px 8px 12px; }
+  .lp-nav .btn.primary { padding-inline: 10px; }
+  .lp-nav .btn.icon { width: 32px; min-width: 32px; }
+  .lp-nav .brand { font-size: 22px; gap: 6px; }
+}

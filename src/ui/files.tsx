@@ -90,6 +90,14 @@ export function FilesPanel() {
   const online = useStore((s) => s.online);
   const expandedMap = useStore((s) => s.expanded);
   const [q, setQ] = useState("");
+  const treeRef = useRef<HTMLDivElement>(null);
+  const stop = useRef<HTMLElement | null>(null); // último item da árvore com foco: é o único tab stop
+  // roving tabindex: Tab entra na árvore uma vez só (no item com foco, o aberto ou o primeiro); as setas percorrem o resto
+  useEffect(() => {
+    const items = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []);
+    const keep = stop.current && items.includes(stop.current) ? stop.current : (items.find((i) => i.getAttribute("aria-selected") === "true") ?? items[0]);
+    items.forEach((i) => i.setAttribute("tabindex", i === keep ? "0" : "-1"));
+  });
   const [menu, setMenu] = useState<Menu | null>(null);
   const [edit, setEdit] = useState<Editing | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "file" | "folder"; path: string; label: string } | null>(null);
@@ -114,6 +122,12 @@ export function FilesPanel() {
     const t = q.trim().toLowerCase();
     if (!t || !ws) return [];
     return ws.files.filter((f) => fileMode(f) === mode && `${f.title} ${f.path}`.toLowerCase().includes(t));
+  }, [q, ws, mode]);
+  // o filtro respeita o modo escolhido; achados em outros modos aparecem à parte em vez de sumirem sem aviso
+  const elsewhere = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t || !ws) return [];
+    return ws.files.filter((f) => fileMode(f) !== mode && `${f.title} ${f.path}`.toLowerCase().includes(t));
   }, [q, ws, mode]);
   const tree = useMemo(() => (ws ? pruneTree(ws.tree, mode) : null), [ws, mode]);
   // o switch de modo pede a criação de um diagrama novo do tipo escolhido (nunca converte o aberto)
@@ -212,7 +226,6 @@ export function FilesPanel() {
         title={renaming ? undefined : `${f.path}\n${f.nodes} componentes · ${f.connections} conexões · ${ago(f.updatedAt)}`}
         role="treeitem"
         aria-selected={active}
-        tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter") void openDiagram(f.path);
           if (e.key === "F2") setEdit({ kind: "rename-file", path: f.path });
@@ -249,7 +262,6 @@ export function FilesPanel() {
           onDrop={(e) => onDropTo(e, n.path)}
           role="treeitem"
           aria-expanded={open}
-          tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") toggleFolder(n.path);
             if (e.key === "F2") setEdit({ kind: "rename-folder", path: n.path });
@@ -327,7 +339,14 @@ export function FilesPanel() {
       <div
         className={`lib-list tree ${dropOn === "" ? "drop" : ""}`}
         role="tree"
+        ref={treeRef}
         aria-label="Diagramas do cofre"
+        onFocus={(e) => {
+          const it = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
+          if (!it) return;
+          stop.current = it;
+          treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]').forEach((i) => i.setAttribute("tabindex", i === it ? "0" : "-1"));
+        }}
         onKeyDown={(e) => {
           // padrão WAI-ARIA tree: ↑↓ Home End percorrem os itens visíveis; → abre e ← fecha a pasta; Espaço abre o arquivo
           const el = e.target as HTMLElement;
@@ -354,11 +373,17 @@ export function FilesPanel() {
         onDrop={(e) => onDropTo(e, "")}
       >
         {q.trim() ? (
-          matches.length ? (
-            matches.map((f) => fileRow(f, 0))
-          ) : (
-            <div className="empty">Nada encontrado.</div>
-          )
+          <>
+            {matches.length ? matches.map((f) => fileRow(f, 0)) : <div className="empty">{elsewhere.length ? `Nada de ${MODE_ICON[mode].label} com “${q.trim()}”.` : "Nada encontrado."}</div>}
+            {elsewhere.length > 0 && (
+              <>
+                <div className="quick-cap" role="presentation">
+                  Em outros modos ({elsewhere.length})
+                </div>
+                {elsewhere.map((f) => fileRow(f, 0))}
+              </>
+            )}
+          </>
         ) : (
           <>
             {childrenOf(tree!, 0)}
@@ -667,6 +692,14 @@ export function QuickSwitcher() {
       .slice(0, 40);
   }, [q, ws]);
 
+  // destaca no título o trecho que casou com o que foi digitado
+  const toks = useMemo(() => q.toLowerCase().split(/\s+/).filter(Boolean), [q]);
+  const mark = (text: string) => {
+    if (!toks.length) return text;
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rx = new RegExp(`(${toks.map(esc).join("|")})`, "ig");
+    return text.split(rx).map((part, k) => (k % 2 ? <mark key={k}>{part}</mark> : part));
+  };
   const canCreate = !!q.trim() && !results.some((f) => f.title.toLowerCase() === q.trim().toLowerCase());
   const total = results.length + (canCreate ? 1 : 0);
 
@@ -697,19 +730,28 @@ export function QuickSwitcher() {
               else if (e.key === "Enter" && total) pick(i);
             }}
             aria-label="Buscar diagrama"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={total > 0}
+            aria-controls="quick-list"
+            aria-activedescendant={total ? `quick-opt-${i}` : undefined}
           />
         </label>
-        <div className="quick-list" ref={listRef} role="listbox">
+        <div className="sr-only" role="status" aria-live="polite">
+          {q.trim() ? (total ? `${total} ${total === 1 ? "resultado" : "resultados"}` : "Nenhum resultado") : ""}
+        </div>
+        <div className="quick-list" id="quick-list" ref={listRef} role="listbox" aria-label="Diagramas">
+          {!q.trim() && results.length > 0 && <div className="quick-cap">Mais recentes</div>}
           {results.map((f, idx) => (
-            <button key={f.path} data-i={idx} role="option" aria-selected={idx === i} className={`quick-row ${idx === i ? "sel" : ""}`} onMouseMove={() => setI(idx)} onClick={() => pick(idx)}>
+            <button key={f.path} id={`quick-opt-${idx}`} tabIndex={-1} data-i={idx} role="option" aria-selected={idx === i} className={`quick-row ${idx === i ? "sel" : ""}`} onMouseMove={() => setI(idx)} onClick={() => pick(idx)}>
               <FileIcon mode={fileMode(f)} size={17} />
-              <span className="quick-title">{f.title}</span>
-              <span className="quick-path">{f.path}</span>
+              <span className="quick-title">{mark(f.title)}</span>
+              <span className="quick-path">{mark(f.path)}</span>
               {f.path === ws?.current && <span className="pill">aberto</span>}
             </button>
           ))}
           {canCreate && (
-            <button data-i={results.length} className={`quick-row ${i === results.length ? "sel" : ""}`} onMouseMove={() => setI(results.length)} onClick={() => pick(results.length)}>
+            <button id={`quick-opt-${results.length}`} tabIndex={-1} role="option" aria-selected={i === results.length} data-i={results.length} className={`quick-row ${i === results.length ? "sel" : ""}`} onMouseMove={() => setI(results.length)} onClick={() => pick(results.length)}>
               <Glyph name="plus" size={17} className="tree-ico" />
               <span className="quick-title">
                 Criar diagrama “{q.trim()}”

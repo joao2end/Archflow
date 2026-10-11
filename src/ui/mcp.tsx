@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SKILL_MD } from "../shared/skill.generated";
 import { Glyph } from "./icons";
-import { toast, useStore } from "./store";
+import { toast, toastError, useStore } from "./store";
 
 interface Launch {
   command: string;
@@ -142,7 +142,7 @@ export function McpBody() {
       toast(`Skill instalada em ${r.file}`);
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : String(e));
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy("");
     }

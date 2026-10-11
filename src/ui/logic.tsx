@@ -313,6 +313,7 @@ const fmt = (v: unknown): string => (v === undefined ? "sem valor" : typeof v ==
 /** Painel do modo Logic: reproduz um cenário passo a passo, com o caminho aceso no quadro. */
 export function PlayPanel() {
   const play = useStore((s) => s.play);
+  const sidePanel = useStore((s) => s.panel === "files" || s.panel === "assets");
   const speed = useStore((s) => s.playSpeed);
   const doc = useStore((s) => s.doc);
   const steps = useMemo(() => (play ? play.run.steps.filter((s) => s.rule) : []), [play]);
@@ -363,7 +364,7 @@ export function PlayPanel() {
   })();
   const saved = ex?.path && JSON.stringify(ex.path) === JSON.stringify(visitedIds(play.run));
   return (
-    <div className="glass logic-play-panel" role="region" aria-label="Reprodução do cenário">
+    <div className={`glass logic-play-panel${sidePanel ? " beside-panel" : ""}`} role="region" aria-label="Reprodução do cenário">
       <div className="lp-head">
         <div className="lp-title">
           ▶ {sc?.label}
