@@ -8,6 +8,7 @@ import { ColorPicker } from "./colorpicker";
 import { AssetBadge, Glyph } from "./icons";
 import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
 import { McpBody } from "./mcp";
+import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { useDomainIssues } from "./domain";
 import { EXAMPLES_DIR } from "../shared/examples";
@@ -522,6 +523,16 @@ function McpModal() {
   );
 }
 
+/* ───────── guia de DDD ───────── */
+
+function DddGuideModal() {
+  return (
+    <Modal wide title="DDD em 8 passos" onClose={close}>
+      <DddGuide onClose={close} />
+    </Modal>
+  );
+}
+
 /* ───────── ajuda ───────── */
 
 function HelpModal() {
@@ -541,6 +552,9 @@ function HelpModal() {
         ))}
       </div>
       <p className="callout" style={{ marginTop: 16 }}>
+        <b>Novo em DDD?</b> <button className="btn" style={{ marginLeft: 6 }} onClick={openDddGuide}>Abrir o guia animado</button>
+      </p>
+      <p className="callout" style={{ marginTop: 0 }}>
         <b>Conectar:</b> passe o mouse sobre um componente e arraste de um dos pontos “+” até outro. O tipo vem da barra inferior (assíncrona, dados, herança UML…). <b>Agrupar:</b> arraste um componente para dentro de um grupo.
       </p>
     </Modal>
@@ -743,6 +757,8 @@ export function Modals() {
       return <McpModal />;
     case "help":
       return <HelpModal />;
+    case "ddd-guide":
+      return <DddGuideModal />;
     case "layout":
       return <LayoutModal key={m.direction} direction={m.direction} />;
     case "vaults":

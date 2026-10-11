@@ -1,4 +1,5 @@
 import { docMode } from "../shared/schema";
+import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
 import { set, useStore } from "./store";
 
@@ -20,6 +21,11 @@ export function EmptyHint() {
         <button className="btn primary" onClick={() => set({ panel: open ? null : "assets" })}>
           <Glyph name="library" size={17} /> {open ? "Fechar biblioteca" : "Abrir biblioteca"}
         </button>
+        {domain && (
+          <button className="btn" onClick={openDddGuide}>
+            <Glyph name="play" size={16} /> Guia de DDD
+          </button>
+        )}
         {domain && (
           <button className="btn ghost" onClick={() => set({ modal: { type: "examples" } })}>
             <Glyph name="sparkle" size={17} /> Exemplos de DDD

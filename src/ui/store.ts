@@ -12,6 +12,7 @@ export type Modal =
   | { type: "llm" }
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
   | { type: "examples" }
+  | { type: "ddd-guide" }
   | { type: "mcp" }
   | { type: "help" }
   | { type: "layout"; direction: "LR" | "TB" }

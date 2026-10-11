@@ -27,6 +27,7 @@ import {
 import { cleanProperties, mergeProperties, parseProperties, propertiesToJson } from "../shared/properties";
 import { composeDddLabel, dddLabelVia, reshapeDdd, suggestRels } from "../shared/domain";
 import { validateDetailed } from "../shared/ops";
+import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { getState, run, select, set, toast, useStore } from "./store";
@@ -480,6 +481,19 @@ ${errors} erro(s), ${warns} aviso(s)`}
           {(errors > 0 || warns > 0) && <span className={`mode-count ${errors ? "err" : "warn"}`}>{errors || warns}</span>}
         </button>
       )}
+      <button
+        className="mode-guide"
+        style={mode === "domain" ? undefined : { visibility: "hidden" }}
+        disabled={mode !== "domain"}
+        tabIndex={mode === "domain" ? 0 : -1}
+        aria-hidden={mode !== "domain"}
+        onClick={openDddGuide}
+        data-tip="Guia animado de DDD: os conceitos em 8 passos"
+        data-tip-pos="bottom"
+        aria-label="Abrir o guia de DDD"
+      >
+        <Glyph name="play" size={11} />
+      </button>
     </>
   );
 }
