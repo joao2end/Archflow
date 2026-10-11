@@ -1,7 +1,8 @@
+import { pricingDoc } from "../shared/logic.example";
 import { docMode } from "../shared/schema";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
-import { set, useStore } from "./store";
+import { replaceDoc, set, toast, useStore } from "./store";
 
 /** Dica para quadro vazio: some assim que existir qualquer item. */
 export function EmptyHint() {
@@ -33,6 +34,17 @@ export function EmptyHint() {
         {domain && (
           <button className="btn ghost" onClick={() => set({ modal: { type: "examples" } })}>
             <Glyph name="sparkle" size={17} /> Exemplos de DDD
+          </button>
+        )}
+        {logic && (
+          <button
+            className="btn"
+            onClick={() => {
+              replaceDoc(pricingDoc());
+              toast("Exemplo de precificação carregado. Ctrl+Z desfaz.");
+            }}
+          >
+            <Glyph name="sparkle" size={17} /> Ver exemplo pronto
           </button>
         )}
         <button className="btn ghost" onClick={() => set({ modal: { type: "help" } })}>
