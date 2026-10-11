@@ -2711,11 +2711,13 @@ svg.canvas.drag-over {
 
 /* ───────── modo domínio (DDD) ───────── */
 .mode-switch { flex: none; display: inline-flex; padding: 2px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--s-mid); }
-.mode-switch button { border: 0; background: transparent; color: var(--ink-2); height: 24px; padding: 0 11px; border-radius: 999px; font: 650 11.5px var(--sans); letter-spacing: 0.02em; white-space: nowrap; }
+.mode-switch button { border: 0; background: transparent; color: var(--ink-2); height: 28px; padding: 0 12px; border-radius: 999px; font: 650 11.5px var(--sans); letter-spacing: 0.02em; white-space: nowrap; }
 .mode-switch button:hover:not(.active) { color: var(--ink); }
 .mode-switch button.active { color: #fff; background: var(--primary-600); box-shadow: 0 1px 4px rgba(75, 73, 168, 0.35); }
-.mode-switch button.active.domain { background: #b7791f; box-shadow: 0 1px 4px rgba(183, 121, 31, 0.4); }
-.mode-switch button.active.logic { background: #0e8f9a; box-shadow: 0 1px 4px rgba(14, 143, 154, 0.4); }
+.mode-switch button.active.domain { background: #9a6212; box-shadow: 0 1px 4px rgba(154, 98, 18, 0.4); } /* branco AA (5:1) */
+.mode-switch button.active.logic { background: #0b7a84; box-shadow: 0 1px 4px rgba(11, 122, 132, 0.4); } /* branco AA (5:1) */
+:root[data-theme="dark"] .mode-switch button.active:not(.domain):not(.logic) { color: #19181a; } /* texto branco sobre o roxo claro do escuro dava ~3:1 */
+.mode-switch button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 /* ───────── modo Logic: cartões no vidro do app (azulejo de ícone, legenda, título, texto em português) ───────── */
 .node.logic .node-body { stroke: var(--hairline); stroke-width: 1.2; }
 .node.logic .logic-wash { opacity: 0.07; }
@@ -3167,3 +3169,16 @@ svg.canvas.drag-over {
 /* botão do guia no topo */
 .mode-guide { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--hairline); background: var(--s-mid); color: var(--ink-2); }
 .mode-guide:hover { color: var(--ink); background: var(--primary-100); }
+
+/* aviso do painel de arquivos quando o seletor de modo difere do diagrama aberto */
+.files-panel .mode-note { margin: 0 10px 6px; padding: 8px 10px; border-radius: 10px; font-size: 12px; line-height: 1.45; color: var(--ink-2); background: var(--primary-100); }
+.files-panel .mode-note b { color: var(--ink); font-weight: 650; }
+
+/* letra do atalho no canto da ferramenta: descobrível sem passar o mouse */
+.draw-bar .tool { position: relative; }
+.draw-bar .tool-key { position: absolute; right: 4px; bottom: 2px; font: 600 9px/1 var(--sans); color: var(--ink-3); opacity: 0.75; pointer-events: none; }
+.draw-bar .tool.active .tool-key { color: inherit; opacity: 0.9; }
+:is(.present-bar, .draw-bar) .swatch { width: 24px; height: 24px; } /* alvo mínimo WCAG 2.5.8 */
+
+.logic-play-panel .lp-ctl .btn { display: inline-grid; place-items: center; }
+.logic-play-panel .lp-hint { font: 500 11px var(--sans); color: var(--ink-3); }

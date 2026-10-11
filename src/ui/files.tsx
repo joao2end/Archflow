@@ -108,6 +108,7 @@ export function FilesPanel() {
 
   const mode = useStore((s) => s.modeFilter ?? docMode(s.doc));
   const request = useStore((s) => s.newDiagramFor);
+  const openMode = useStore((s) => docMode(s.doc));
   const filterMode = mode;
   const matches = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -318,6 +319,11 @@ export function FilesPanel() {
         </label>
       </div>
 
+      {mode !== openMode && !q.trim() && (
+        <p className="mode-note" role="status">
+          Mostrando diagramas de <b>{MODE_ICON[mode].label}</b>. O diagrama aberto é de {MODE_ICON[openMode].label} e não foi alterado: abra um da lista ou dê um título ao novo.
+        </p>
+      )}
       <div
         className={`lib-list tree ${dropOn === "" ? "drop" : ""}`}
         role="tree"

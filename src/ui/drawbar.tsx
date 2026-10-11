@@ -104,8 +104,11 @@ export function InkOptions({ tool, color, onClose }: { tool: "pen" | "highlight"
 
 function ToolBtn({ t, active }: { t: (typeof TOOLS)[number]; active: boolean }) {
   return (
-    <button className={`tool ${active ? "active" : ""}`} onClick={() => set({ tool: active ? "select" : t.id })} data-tip={`${t.label} (${t.key})\n${t.tip}`} data-tip-pos="top" aria-label={t.label} aria-pressed={active}>
+    <button className={`tool ${active ? "active" : ""}`} onClick={() => set({ tool: active ? "select" : t.id })} data-tip={`${t.label} (${t.key})\n${t.tip}`} data-tip-pos="top" aria-label={t.label} aria-keyshortcuts={t.key} aria-pressed={active}>
       <Glyph name={t.icon} size={20} />
+      <kbd className="tool-key" aria-hidden>
+        {t.key}
+      </kbd>
     </button>
   );
 }

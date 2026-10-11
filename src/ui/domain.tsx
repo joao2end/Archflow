@@ -464,9 +464,22 @@ export function ModeSwitch() {
   ];
   return (
     <>
-      <div className="mode-switch" role="radiogroup" aria-label="Modo do diagrama">
+      <div
+        className="mode-switch"
+        role="radiogroup"
+        aria-label="Modo do diagrama"
+        onKeyDown={(e) => {
+          // setas só movem o foco (trocar de modo abre o painel de novo diagrama; Enter/Espaço ativa); um só tab stop
+          const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+          if (!d) return;
+          e.preventDefault();
+          const btns = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+          const at = btns.indexOf(document.activeElement as HTMLButtonElement);
+          btns[(at + d + btns.length) % btns.length]?.focus();
+        }}
+      >
         {MODES.map(([m, label, tip]) => (
-          <button key={m} role="radio" aria-checked={shown === m} className={`${shown === m ? "active" : ""} ${m}`} onClick={() => switchMode(m)} data-tip={tip} data-tip-pos="bottom">
+          <button key={m} role="radio" aria-checked={shown === m} tabIndex={shown === m ? 0 : -1} className={`${shown === m ? "active" : ""} ${m}`} onClick={() => switchMode(m)} data-tip={tip} data-tip-pos="bottom">
             <Glyph name={`mode-${m}`} size={12} style={{ marginRight: 5, verticalAlign: "-2px" }} />
             {label}
           </button>

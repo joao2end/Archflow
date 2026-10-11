@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { Glyph } from "./icons";
 import { LOGIC_BRANCHES, LOGIC_ROLES, LOGIC_ROLE_KEYS, type ConnectionEl, type LogicBranch, type LogicExample, type LogicRole, type LogicValue, type NodeEl } from "../shared/schema";
 import { checkExpr, evaluate, explain, explainStatement, parseExpr, parseStatement, SYNTAX_GUIDE } from "../shared/expr";
 import { branchLabel, checkExamples, factNames, reshapeLogic, visitedIds } from "../shared/logic";
@@ -74,7 +75,7 @@ function ExamplesEditor({ node, patch }: { node: NodeEl; patch: Patch }) {
               <b style={{ color: r ? (r.ok ? "#2f9e6b" : "#d6453d") : undefined }}>{r ? (r.ok ? "✔" : "✘") : "·"}</b>
               <TextField value={ex.name} placeholder="nome do caso" onCommit={(v) => edit(i, { name: v || ex.name })} />
               <button className="btn" onClick={() => set(examples.filter((_, k) => k !== i))} aria-label="Remover exemplo">
-                ×
+                <Glyph name="close" size={16} />
               </button>
             </div>
             <ValueLines label="Dado" value={ex.given} placeholder={"preco = 80\nmarca_propria = verdadeiro"} onChange={(v) => edit(i, { given: v })} />
@@ -326,6 +327,24 @@ export function PlayPanel() {
     const z = Math.max(0.55, Math.min(1, getState().view.z));
     setStore({ view: { z, x: r.width / 2 - (node.x + node.w / 2) * z, y: r.height * 0.36 - (node.y + node.h / 2) * z } });
   }, [node?.id, play?.k]);
+  // ← → passam os passos (fora de campos de texto); a linha atual acompanha na lista
+  const k = play?.k;
+  const len = play ? playLength(play) : 0;
+  useEffect(() => {
+    if (k === undefined) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.altKey || e.ctrlKey || e.metaKey || t?.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "ArrowRight" && k < len - 1) (e.preventDefault(), e.stopImmediatePropagation(), playGo(k + 1));
+      else if (e.key === "ArrowLeft" && k > 0) (e.preventDefault(), e.stopImmediatePropagation(), playGo(k - 1));
+    };
+    // captura: antes do atalho global que empurra o nó selecionado com as setas
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [k, len]);
+  useEffect(() => {
+    document.querySelector(".lp-row.on")?.scrollIntoView({ block: "nearest" });
+  }, [k]);
   if (!play || !cur) return null;
   const sc = doc.nodes.find((n) => n.id === play.scenario);
   const ex = sc?.logic?.examples?.[play.example];
@@ -352,19 +371,19 @@ export function PlayPanel() {
         </div>
         <div className="lp-ctl">
           <button className="btn ghost" onClick={() => playGo(0)} aria-label="Voltar ao início" data-tip="Início">
-            ⏮
+            <Glyph name="skip-start" size={16} />
           </button>
-          <button className="btn ghost" onClick={() => playGo(play.k - 1)} aria-label="Passo anterior" data-tip="Passo anterior">
-            ◀
+          <button className="btn ghost" onClick={() => playGo(play.k - 1)} aria-label="Passo anterior" data-tip="Passo anterior (←)">
+            <Glyph name="step-back" size={16} />
           </button>
           <button className="btn primary" onClick={playToggle} aria-label={play.playing ? "Pausar" : "Reproduzir"}>
-            {play.playing ? "⏸" : "▶"}
+            <Glyph name={play.playing ? "pause" : "play"} size={16} />
           </button>
-          <button className="btn ghost" onClick={() => playGo(play.k + 1)} aria-label="Próximo passo" data-tip="Próximo passo">
-            ▶▶
+          <button className="btn ghost" onClick={() => playGo(play.k + 1)} aria-label="Próximo passo" data-tip="Próximo passo (→)">
+            <Glyph name="step-fwd" size={16} />
           </button>
           <button className="btn ghost" onClick={() => playGo(last)} aria-label="Ir ao fim" data-tip="Fim">
-            ⏭
+            <Glyph name="skip-end" size={16} />
           </button>
         </div>
         <label className="lp-speed" data-tip="Velocidade da reprodução" data-tip-pos="top">
@@ -384,10 +403,10 @@ export function PlayPanel() {
           ×
         </button>
       </div>
-      <div className="lp-bar">
+      <div className="lp-bar" role="progressbar" aria-label="Progresso do cenário" aria-valuemin={1} aria-valuemax={last + 1} aria-valuenow={play.k + 1}>
         <i style={{ width: `${((play.k + 1) / (last + 1)) * 100}%` }} />
       </div>
-      <div className="lp-now">
+      <div className="lp-now" aria-live="polite">
         <b>
           Passo {play.k + 1} de {last + 1} · {role} {cur.label}
         </b>
@@ -401,9 +420,12 @@ export function PlayPanel() {
         {cur.blocked.length > 0 && <span className="lp-chg">travado, não mudou: {cur.blocked.join(", ")}</span>}
         {play.k === last && result && <div className={`lp-verdict ${result.ok ? "ok" : "fail"}`}>{result.ok ? "✔ O resultado bate com o esperado." : `✘ ${result.problems.join("; ")}`}</div>}
       </div>
+      <div className="lp-hint" aria-hidden>
+        <kbd>←</kbd> <kbd>→</kbd> passo a passo · clique numa linha para pular até ela
+      </div>
       <div className="lp-list">
         {steps.map((s, i) => (
-          <div key={i} className={`lp-row${i === play.k ? " on" : ""}${i < play.k ? " done" : ""}`} onClick={() => playGo(i)}>
+          <div key={i} className={`lp-row${i === play.k ? " on" : ""}${i < play.k ? " done" : ""}`} role="button" tabIndex={0} aria-current={i === play.k ? "step" : undefined} onClick={() => playGo(i)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), playGo(i))}>
             <i>{i + 1}</i>
             <span>
               {s.label}
@@ -426,7 +448,7 @@ export function ScenarioPlay({ node }: { node: NodeEl }) {
       <span className="lbl-s">Reproduzir o caminho</span>
       {examples.map((e, i) => (
         <button key={i} className="btn" onClick={() => startPlay(node.id, i)} style={{ justifyContent: "flex-start" }}>
-          ▶ {e.name}
+          <Glyph name="play" size={14} /> {e.name}
           {e.path ? ` · ${e.path.length} passos gravados` : ""}
         </button>
       ))}
