@@ -7,13 +7,17 @@ import { set, useStore } from "./store";
 export function EmptyHint() {
   const empty = useStore((s) => !s.doc.nodes.length && !s.doc.groups.length && !s.doc.notes.length);
   const open = useStore((s) => s.panel === "assets");
-  const domain = useStore((s) => docMode(s.doc) === "domain");
+  const mode = useStore((s) => docMode(s.doc));
+  const domain = mode === "domain";
+  const logic = mode === "logic";
   if (!empty) return null;
   return (
     <div className="empty-hint" role="note">
-      <h2>{domain ? "Comece pelo domínio" : "Comece seu diagrama"}</h2>
+      <h2>{domain ? "Comece pelo domínio" : logic ? "Comece pela regra" : "Comece seu diagrama"}</h2>
       <p>
-        {domain
+        {logic
+          ? "Abra a biblioteca e arraste um Início, depois uma Regra e um Dado; ligue-os na ordem em que valem e adicione um Cenário com números reais para o quadro conferir a regra sozinho. Ou peça ao seu agente via MCP."
+          : domain
           ? "Desenhe um grupo «context» (tecla G) para o bounded context e arraste da biblioteca um Use Case, um Command e um Aggregate Root. Ou peça ao seu agente via MCP (add_use_cases)."
           : "Abra a biblioteca e arraste uma tecnologia para o quadro, ou peça ao seu agente via MCP."}
       </p>
@@ -36,7 +40,7 @@ export function EmptyHint() {
         </button>
       </div>
       <p className="empty-keys">
-        <kbd>B</kbd> biblioteca · <kbd>G</kbd> grupo · <kbd>N</kbd> nota · <kbd>?</kbd> ajuda
+        <kbd>B</kbd> biblioteca · {!logic && <><kbd>G</kbd> grupo · </>}<kbd>N</kbd> nota · <kbd>?</kbd> ajuda
       </p>
     </div>
   );
