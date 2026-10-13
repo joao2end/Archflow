@@ -66,12 +66,12 @@ function ValueLines({ label, value, onChange, placeholder }: { label: string; va
           value={toLines(value)}
           placeholder={placeholder}
           onDraft={setDraft}
-          onCommit={(t) => {
+          onCommit={(t, final) => {
             const r = parseValueLines(t);
             if (r.value) {
               onChange(r.value);
               setDraft(null);
-            } else if (r.error) toastError(`Não salvei «${label}»: ${r.error}`); // o rascunho inválido fica, e o erro com ele, até corrigir
+            } else if (r.error && final) toastError(`Não salvei «${label}»: ${r.error}`); // o rascunho inválido fica, e o erro com ele, até corrigir
           }}
         />
       </label>
@@ -539,9 +539,9 @@ function StatementsField({ value, onCommit, label = "Efeitos (um por linha)", ex
           value={value.join("\n")}
           placeholder={`${example} := 0\ntravar ${example}`}
           onDraft={setDraft}
-          onCommit={(t) => {
+          onCommit={(t, final) => {
             const e = firstBad(t);
-            if (e) toastError(`Não salvei «Efeitos»: ${e}`); // o rascunho inválido fica, e o erro com ele, até corrigir
+            if (e) final && toastError(`Não salvei «Efeitos»: ${e}`); // o rascunho inválido fica, e o erro com ele, até corrigir
             else {
               onCommit(lines(t));
               setDraft(null);
@@ -786,12 +786,12 @@ function MockField({ l, upd, label, placeholder }: { l: LogicNodeSpec; upd: (p: 
         mono
         value={l.mock === undefined ? "" : JSON.stringify(l.mock, null, 2)}
         placeholder={placeholder}
-        onCommit={(t) => {
+        onCommit={(t, final) => {
           if (!t.trim()) return upd({ mock: undefined });
           try {
             upd({ mock: JSON.parse(t) });
           } catch {
-            toastError("Não salvei: o valor simulado precisa ser um JSON válido.");
+            final && toastError("Não salvei: o valor simulado precisa ser um JSON válido.");
           }
         }}
       />
@@ -839,8 +839,8 @@ function TriggerFields({ l, upd }: { l: LogicNodeSpec; upd: (p: Record<string, u
             <TextField
               value={t.path ?? ""}
               placeholder="/pedidos"
-              onCommit={(v) => {
-                if (!/^\/[A-Za-z0-9_\-/:.]*$/.test(v.trim())) return toastError('Não salvei: o caminho começa com "/" (ex.: /pedidos).');
+              onCommit={(v, final) => {
+                if (!/^\/[A-Za-z0-9_\-/:.]*$/.test(v.trim())) return final && toastError('Não salvei: o caminho começa com "/" (ex.: /pedidos).');
                 set({ ...t, path: v.trim() });
               }}
             />
@@ -855,8 +855,8 @@ function TriggerFields({ l, upd }: { l: LogicNodeSpec; upd: (p: Record<string, u
               mono
               value={t.cron ?? ""}
               placeholder="0 8 * * 1-5"
-              onCommit={(v) => {
-                if (!/^\s*(\S+\s+){4}\S+\s*$/.test(v)) return toastError('Não salvei: o cron tem 5 campos separados por espaço (ex.: "0 8 * * 1-5" = dias úteis às 8h).');
+              onCommit={(v, final) => {
+                if (!/^\s*(\S+\s+){4}\S+\s*$/.test(v)) return final && toastError('Não salvei: o cron tem 5 campos separados por espaço (ex.: "0 8 * * 1-5" = dias úteis às 8h).');
                 set({ ...t, cron: v.trim() });
               }}
             />
@@ -905,9 +905,9 @@ function RequestFields({ l, names, upd }: { l: LogicNodeSpec; names: Record<stri
         mono
         value={pairsText(r[key])}
         placeholder={placeholder}
-        onCommit={(t) => {
+        onCommit={(t, final) => {
           const p = parsePairs(t);
-          if (typeof p === "string") return toastError(`Não salvei: ${p}`);
+          if (typeof p === "string") return final && toastError(`Não salvei: ${p}`);
           setReq({ [key]: Object.keys(p).length ? p : undefined });
         }}
       />
@@ -953,9 +953,9 @@ function ExprField({ label, value, names, placeholder, onCommit }: { label: stri
           value={value}
           placeholder={placeholder}
           onDraft={setDraft}
-          onCommit={(v) => {
+          onCommit={(v, final) => {
             const bad = v.trim() ? checkExpr(v) : undefined;
-            if (bad) return toastError(`Não salvei: ${explainError(v, bad)}. A expressão continua «${value || "vazia"}».`);
+            if (bad) return final && toastError(`Não salvei: ${explainError(v, bad)}. A expressão continua «${value || "vazia"}».`);
             onCommit(v.trim() || undefined);
           }}
         />

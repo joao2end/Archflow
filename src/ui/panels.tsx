@@ -17,7 +17,7 @@ import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoomTo } from "./keys";
 import { RichField } from "./richeditor";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
+import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
 
@@ -45,9 +45,10 @@ export function ConnSample({ type }: { type: ConnectionType }) {
   );
 }
 
-export function TextField({ value, onCommit, onDraft, multiline, mono, id, placeholder, label }: { value: string; mono?: boolean; onCommit: (v: string) => void; /** chamado a cada tecla, antes de confirmar (validação ao vivo) */ onDraft?: (v: string) => void; multiline?: boolean; id?: string; placeholder?: string; label?: string }) {
+export function TextField({ value, onCommit, onDraft, multiline, mono, id, placeholder, label, deferred }: { value: string; /** true = só confirma ao sair do campo (ex.: renomear o arquivo em disco); o padrão grava a cada tecla */ deferred?: boolean; mono?: boolean; onCommit: (v: string, final?: boolean) => void; /** chamado a cada tecla, antes de confirmar (validação ao vivo) */ onDraft?: (v: string) => void; multiline?: boolean; id?: string; placeholder?: string; label?: string }) {
   const [v, setV] = useState(value);
   const focused = useRef(false);
+  const dirty = useRef(false); // houve digitação desde o foco
   const area = useRef<HTMLTextAreaElement>(null);
   // a caixa cresce com o texto (sem barra de rolagem interna) até 60% da altura da tela
   useLayoutEffect(() => {
@@ -68,20 +69,34 @@ export function TextField({ value, onCommit, onDraft, multiline, mono, id, place
   useEffect(() => {
     if (!focused.current) setV(value);
   }, [value]);
+  // o inspetor pode desmontar com o campo em foco (troca de seleção): encerra a sessão de digitação
+  useEffect(() => () => {
+    if (focused.current && !deferred) endTyping();
+  }, [deferred]);
   const common = {
     id,
     className: mono ? "input mono" : "input",
     value: v,
     placeholder,
     "aria-label": label,
-    onFocus: () => (focused.current = true),
+    onFocus: () => {
+      focused.current = true;
+      dirty.current = false;
+      if (!deferred) beginTyping();
+    },
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setV(e.target.value);
       onDraft?.(e.target.value);
+      dirty.current = true;
+      if (!deferred) onCommit(e.target.value, false); // grava ao vivo: o quadro, o MCP e o disco acompanham a digitação
     },
     onBlur: () => {
       focused.current = false;
-      if (v !== value) onCommit(v);
+      // ao sair, a confirmação final: valores inválidos que a digitação ao vivo recusou em silêncio avisam agora
+      if (!deferred) {
+        if (dirty.current) onCommit(v, true);
+        endTyping();
+      } else if (v !== value) onCommit(v, true);
     },
   };
   return multiline ? (
@@ -129,7 +144,7 @@ export function TopBar() {
             <Glyph name="arrow-up" size={15} style={{ transform: "rotate(-90deg)" }} /> Voltar
           </button>
         )}
-        <TextField value={title} onCommit={setTitle} id="doc-title" label="Título do diagrama" />
+        <TextField deferred value={title} onCommit={setTitle} id="doc-title" label="Título do diagrama" />
         <ModeSwitch />
       </div>
       <div className="glass actions-pill">

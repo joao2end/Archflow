@@ -1061,7 +1061,17 @@ svg.canvas.drag-over {
 .marquee {
   fill: rgba(112, 111, 211, 0.1);
   stroke: var(--primary);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
   stroke-dasharray: 5 4;
+}
+/* esquerda→direita (janela): linha contínua; direita→esquerda (cruzamento): tracejada e esverdeada, como no CAD */
+.marquee.window {
+  stroke-dasharray: none;
+}
+.marquee.crossing {
+  fill: rgba(46, 160, 100, 0.1);
+  stroke: #2ea064;
 }
 .edge {
   cursor: pointer;
