@@ -223,8 +223,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001,
-      "labelOffset": -50
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 384
+        },
+        {
+          "x": -14,
+          "y": 540
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "corrigir-atendimento-to-prontuario-do-pa",
@@ -263,7 +272,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.18
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "prontuario-do-paciente-to-paciente",
@@ -276,7 +295,13 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.74
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 508
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "atendimento-to-diagnostico",
@@ -303,6 +328,16 @@
       "ddd": {
         "rel": "uses"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 384
+        },
+        {
+          "x": 494,
+          "y": 260
+        }
+      ],
       "labelT": 0.5
     }
   ],

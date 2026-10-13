@@ -2,7 +2,7 @@
   "schema": "archflow/1",
   "id": "ddd-delivery-visao-geral",
   "title": "Visão geral",
-  "description": "Delivery de comida (tour completo): mapa de contextos. O exemplo que usa todos os recursos do modo Domain: seis contextos com os oito padrões do Context Map, saga com compensação, decisões exclusivas (encadeadas), paralela e de junção, loop, \"para cada\", propriedades, eventos entre contextos, read models e anotações.",
+  "description": "Delivery de comida (tour completo): mapa de contextos. O exemplo que usa todos os recursos do modo Domain: seis contextos com os oito padrões do Context Map, saga com compensação, policy com ramos condicionais e em paralelo, saga que espera dois eventos, loop, \"para cada\", propriedades, eventos entre contextos, read models e anotações.",
   "mode": "domain",
   "groups": [],
   "nodes": [
@@ -13,8 +13,8 @@
       "ref": {
         "diagram": "exemplos-ddd/delivery/pedidos.archflow.json"
       },
-      "x": 507,
-      "y": 30,
+      "x": 28,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -25,8 +25,8 @@
       "ref": {
         "diagram": "exemplos-ddd/delivery/pagamentos.archflow.json"
       },
-      "x": 1095,
-      "y": 0,
+      "x": 268,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -37,8 +37,8 @@
       "ref": {
         "diagram": "exemplos-ddd/delivery/cozinha.archflow.json"
       },
-      "x": 0,
-      "y": 117,
+      "x": 508,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -49,8 +49,8 @@
       "ref": {
         "diagram": "exemplos-ddd/delivery/entrega.archflow.json"
       },
-      "x": 1095,
-      "y": 120,
+      "x": 748,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -61,8 +61,8 @@
       "ref": {
         "diagram": "exemplos-ddd/delivery/mapas.archflow.json"
       },
-      "x": 507,
-      "y": 150,
+      "x": 988,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -73,8 +73,8 @@
       "ref": {
         "diagram": "exemplos-ddd/delivery/fidelidade.archflow.json"
       },
-      "x": 1616,
-      "y": 80,
+      "x": 1228,
+      "y": 54,
       "w": 184,
       "h": 72
     }
@@ -104,7 +104,8 @@
         "rel": "context-relation",
         "pattern": "partnership"
       },
-      "labelT": 0.5
+      "labelT": 0.5,
+      "labelOffset": -50
     },
     {
       "id": "cozinha-to-pedidos",
@@ -118,7 +119,18 @@
         "rel": "context-relation",
         "pattern": "customer-supplier"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 12
+        },
+        {
+          "x": 226,
+          "y": 12
+        }
+      ],
+      "labelT": 0.5,
+      "labelOffset": 25
     },
     {
       "id": "pedidos-to-entrega",
@@ -132,7 +144,17 @@
         "rel": "context-relation",
         "pattern": "conformist"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 168
+        },
+        {
+          "x": 734,
+          "y": 168
+        }
+      ],
+      "labelT": 0.42
     },
     {
       "id": "cozinha-to-entrega",
@@ -146,17 +168,8 @@
         "rel": "context-relation",
         "pattern": "shared-kernel"
       },
-      "waypoints": [
-        {
-          "x": 465,
-          "y": 264
-        },
-        {
-          "x": 733,
-          "y": 264
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.5,
+      "labelOffset": 50
     },
     {
       "id": "mapas-to-entrega",
@@ -170,7 +183,8 @@
         "rel": "context-relation",
         "pattern": "acl"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "pagamentos-to-fidelidade",
@@ -184,7 +198,17 @@
         "rel": "context-relation",
         "pattern": "ohs"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 168
+        },
+        {
+          "x": 1214,
+          "y": 168
+        }
+      ],
+      "labelT": 0.7
     },
     {
       "id": "pedidos-to-fidelidade",
@@ -200,12 +224,12 @@
       },
       "waypoints": [
         {
-          "x": 1053,
-          "y": -42
+          "x": 226,
+          "y": 12
         },
         {
-          "x": 1321,
-          "y": -42
+          "x": 1214,
+          "y": 12
         }
       ],
       "labelT": 0.5
@@ -224,15 +248,15 @@
       },
       "waypoints": [
         {
-          "x": 465,
-          "y": 264
+          "x": 706,
+          "y": 12
         },
         {
-          "x": 1321,
-          "y": 234
+          "x": 1214,
+          "y": 12
         }
       ],
-      "labelT": 0.54
+      "labelT": 0.9
     }
   ],
   "customAssets": []

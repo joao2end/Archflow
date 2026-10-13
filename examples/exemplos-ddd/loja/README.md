@@ -16,7 +16,7 @@ Quando o cliente faz um pedido, três coisas precisam acontecer: cobrar o pagame
 
 1. **Visão geral**: `pedidos` e `pagamentos` são parceiros (`partnership`: os eventos vão e voltam); `estoque` fornece o resultado da reserva a `pedidos` (`customer-supplier`).
 2. **Pedidos**: ao criar um pedido (`criar-pedido`) nasce `pedido-criado`. Os três contextos reagem. Os eventos de resposta (`pagamento-aprovado`, `cobranca-desistida`, `estoque-reservado`, `estoque-insuficiente`) chegam do outro lado, ficam na faixa de cima e alimentam a saga `fluxo-de-checkout`, que decide entre `confirmar-pedido` e `cancelar-pedido`.
-3. **Pagamentos** e **Estoque** mostram o lado de quem reage: uma policy transforma `pedido-criado` em `cobrar` ou `reservar-estoque`. Em *Pagamentos* repare no losango `ha-tentativas` (uma **decisão**): a recusa de um pagamento volta a `cobrar` enquanto houver tentativas (o **loop**, marcado na conexão) e, esgotadas, vai para `desistir-da-cobranca`.
+3. **Pagamentos** e **Estoque** mostram o lado de quem reage: uma policy transforma `pedido-criado` em `cobrar` ou `reservar-estoque`. Em *Pagamentos* repare na policy `ha-tentativas` (com ramos condicionais): a recusa de um pagamento volta a `cobrar` enquanto houver tentativas (o **loop**, marcado na conexão) e, esgotadas, vai para `desistir-da-cobranca`.
 4. **Arquitetura**: um serviço por contexto, com seu banco e um barramento de eventos. No diagrama **Pedidos**, o componente `pedidos-api` aponta para o serviço correspondente: é a ponte entre as duas visões.
 
 ## Decisões de modelagem (e por quê)
@@ -27,7 +27,7 @@ Quando o cliente faz um pedido, três coisas precisam acontecer: cobrar o pagame
 - **Anticorruption layer no gateway.** O `tradutor-do-gateway` (um domain service) converte o vocabulário do gateway no nosso e é o único que conhece o sistema externo `gateway-de-pagamento`. Se trocarmos de gateway, só ele muda.
 - **`pagamento` tem uma invariante simples** (só é aprovado ou recusado uma vez) mas é essencial: os eventos de aprovação nunca duplicam o dinheiro.
 - **Read model `pedidos-do-cliente`** e o application service `consulta-de-pedidos`: a tela de acompanhamento lê da projeção, não dos aggregates.
-- **A retentativa é uma decisão com loop, só no domínio.** `pagamento-recusado` alimenta a decisão `ha-tentativas` (exclusiva). O ramo "se tentativas < 3" **volta** a `cobrar` e é marcado como loop, com a parada explícita (`até pagamento aprovado, máx. 3`); o ramo "senão" segue para `desistir-da-cobranca`. A saga do Pedidos só cancela quando recebe `cobranca-desistida`, e não a cada recusa: a decisão fica no contexto que sabe contar tentativas.
+- **A retentativa é uma policy com ramos condicionais e loop.** `pagamento-recusado` alimenta a policy `ha-tentativas`. O ramo "se tentativas < 3" **volta** a `cobrar` e é marcado como loop, com a parada explícita (`até pagamento aprovado, máx. 3`); o ramo "senão" segue para `desistir-da-cobranca`. A saga do Pedidos só cancela quando recebe `cobranca-desistida`, e não a cada recusa: a policy fica no contexto que sabe contar tentativas.
 - **Iteração e condição na reserva.** `reservar-estoque` aciona o aggregate "para cada item do pedido" (a conexão carrega `para cada item do pedido`), e emite `estoque-reservado` se todos os itens têm saldo ou `estoque-insuficiente` no "senão": o mesmo command com dois desfechos possíveis.
 - **`dinheiro` é value object.** Valor e moeda juntos; ninguém soma reais com dólares por engano.
 

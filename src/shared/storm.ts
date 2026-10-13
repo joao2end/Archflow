@@ -32,7 +32,7 @@ const laneOf = (n: NodeEl): Lane => {
   if (r === "command") return "command";
   if (r === "aggregate-root") return "aggregate";
   if (r === "domain-event") return n.ddd?.external ? "external" : "event";
-  if (r === "policy" || r === "process-manager" || r === "decision") return "reaction";
+  if (r === "policy" || r === "process-manager") return "reaction";
   if (r === "read-model") return "read";
   return "structure";
 };
@@ -129,14 +129,6 @@ export function stormLayout(doc: Doc): StormResult {
       const issued = [...(r.ddd!.issues ?? []), ...outs(r.id, "triggers").map((c) => c.to)].find((id) => col.has(id));
       place(r, evs.length ? Math.min(...evs.map((id) => colOf(id))) + 1 : issued ? colOf(issued) : nextFree());
     }
-    // 6b. decisões uma coluna depois de quem as alimenta (evento, policy, saga ou outra decisão, na ordem do documento)
-    for (let pass = 0; pass < 2; pass++)
-      for (const r of ofRole("decision").filter((x) => !col.has(x.id))) {
-        const feeds = ins(r.id, "triggers").map((c) => c.from).filter((id) => col.has(id));
-        if (!feeds.length && pass === 0) continue;
-        const issued = outs(r.id, "triggers").map((c) => c.to).find((id) => col.has(id));
-        place(r, feeds.length ? Math.min(...feeds.map((id) => colOf(id))) + 1 : issued ? colOf(issued) : nextFree());
-      }
     // 7. read models na coluna do primeiro evento próprio que os alimenta
     for (const r of ofRole("read-model")) {
       const evs = [...(r.ddd!.projectsFrom ?? []), ...ins(r.id, "triggers").map((c) => c.from)].filter((id) => col.has(id));
@@ -144,7 +136,7 @@ export function stormLayout(doc: Doc): StormResult {
     }
     // 7b. eventos externos na raia de entrada, na coluna do primeiro que reage a eles
     for (const e of ofRole("domain-event").filter((x) => x.ddd!.external)) {
-      const reactors = b.list.filter((r) => r.ddd && ["policy", "process-manager", "read-model", "decision"].includes(r.ddd.role) && col.has(r.id) && ((r.ddd.reactsTo ?? []).includes(e.id) || (r.ddd.projectsFrom ?? []).includes(e.id) || outs(e.id, "triggers").some((c) => c.to === r.id)));
+      const reactors = b.list.filter((r) => r.ddd && ["policy", "process-manager", "read-model"].includes(r.ddd.role) && col.has(r.id) && ((r.ddd.reactsTo ?? []).includes(e.id) || (r.ddd.projectsFrom ?? []).includes(e.id) || outs(e.id, "triggers").some((c) => c.to === r.id)));
       place(e, reactors.length ? Math.min(...reactors.map((r) => colOf(r.id))) : nextFree());
     }
     // 8. estrutura: entity/VO sob a raiz que as contém, repository sob o aggregate que persiste, o resto ao final

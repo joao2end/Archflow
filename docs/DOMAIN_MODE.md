@@ -41,7 +41,7 @@ Fonte única: `DDD_ROLES` em `src/shared/schema.ts` (catálogo, validador, UI e 
 | `aggregate-root` | AGG | `invariants` | ponto de entrada do aggregate |
 | `entity` | ENT | `invariants` | identidade própria dentro de um aggregate |
 | `value-object` | VO | `invariants` | valor imutável, sem identidade |
-| `domain-event` | EVT | `payload`, `producedBy`, `external`, `step` | fato no passado; `external: "contexto.evento"` = cópia local de evento de outro contexto |
+| `domain-event` | EVT | `payload`, `producedBy`, `external` | fato no passado; `external: "contexto.evento"` = cópia local de evento de outro contexto |
 | `command` | CMD | `intent`, `invariants`, `step` | intenção no imperativo; `step` ordena a linha do tempo |
 | `policy` | POL | `intent`, `reactsTo`, `issues` | evento → command, sem estado |
 | `repository` | REPO | `for` | coleção persistente de um aggregate-root |
@@ -50,7 +50,6 @@ Fonte única: `DDD_ROLES` em `src/shared/schema.ts` (catálogo, validador, UI e 
 | `use-case` | UC | `actor`, `goal`, `realizedBy` | objetivo de um ator |
 | `read-model` | READ | `projectsFrom` | projeção para consulta (CQRS) |
 | `process-manager` | SAGA | `intent`, `reactsTo`, `issues`, `compensates` | saga com estado e compensação |
-| `decision` | DEC | `question`, `gate` | ponto de decisão do fluxo: `exclusive` (um ramo), `parallel` (todos) ou `join` (espera todas as entradas) |
 
 Nomes em inglês (termos da área); a explicação em pt-BR vai no tooltip e no callout do inspetor. Grupos `context` recebem `subdomain`: `core`, `supporting` ou `generic`.
 
@@ -61,14 +60,14 @@ No modo domain cada conexão é uma **relação** com significado. `connect` ace
 | `rel` | `type` | Liga (de → para) |
 |---|---|---|
 | `emits` | async | command, aggregate-root ou process-manager → domain-event |
-| `triggers` | dependency | command → aggregate-root; domain-event → policy / process-manager / read-model; policy / process-manager → command; **fluxo condicional:** domain-event / policy / process-manager / decision → decision; decision → command / policy / process-manager |
+| `triggers` | dependency | command → aggregate-root; domain-event → policy / process-manager / read-model; policy / process-manager → command (os ramos de uma policy ou saga podem ter condição, `otherwise`, loop e `foreach`) |
 | `contains` | composition | aggregate-root / entity → entity / value-object |
 | `references-by-id` | association | aggregate-root / entity → aggregate-root **de outro aggregate**; nunca por objeto |
 | `realizes` | realization | command / domain-service / application-service → use-case |
 | `uses` | dependency | command / policy / process-manager / application-service / domain-service → domain-service / repository (quem orquestra usa; o aggregate nunca depende de repository) |
 | `context-relation` | association | bounded context ↔ bounded context (grupo `context` ou componente `system` com `ref` **fora** de um contexto), com `pattern` |
 
-### Fluxo: decisões, condições, loops e iteração (só no modo Domain)
+### Fluxo: condições, loops e iteração (só no modo Domain)
 
 Em DDD o fluxo emerge dos eventos; a lógica condicional vive no aggregate e na saga. O Archflow mostra os ramos e as repetições que importam ao negócio com construções **estruturadas** (documentação validada, não execução):
 
@@ -76,12 +75,13 @@ Em DDD o fluxo emerge dos eventos; a lógica condicional vive no aggregate e na 
 |---|---|---|
 | Condição de um ramo | `ddd.condition` em `triggers`/`emits` | `se atraso > 0` |
 | Ramo padrão | `ddd.otherwise: true` (não combina com `condition`) | `senão` |
-| Decisão | nó `decision` (`question`, `gate`); cada saída é uma conexão `triggers` | losango no canvas, `Decision · exclusiva` |
-| Paralelo / junção | `gate: "parallel"` (todos os ramos) / `"join"` (espera todas as entradas) | |
+| Escolher um caminho | a policy (ou saga) que reage ao evento liga-se por `triggers` a mais de um command, cada ramo com `condition` ou `otherwise` | `se tentativas < 3` / `senão` |
+| Paralelo | ramos de uma policy sem nenhuma condição: todos seguem | |
+| Esperar vários eventos | `process-manager` com todos eles em `reactsTo` (só documenta a espera; `reactsTo` é a mesma lista na policy e na saga) | |
 | Loop | `ddd.loop { until?, max? }` na conexão que **volta** a um passo anterior (ao menos um dos dois) | `repete até pago, máx. 3` |
 | Iteração | `ddd.foreach` | `para cada item do pedido` |
 
-Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e o texto livre vem depois; o rótulo acompanha ao editar e preserva o texto livre ✔. **Só valem em `triggers` e `emits`** e **só no modo Domain**: as ops recusam em diagramas de arquitetura e em outras relações ✔. Regras D024–D032 na seção 5. No **código gerado**, cada decisão vira uma classe (`decide(event)` devolve a união dos ramos; paralela devolve a lista; junção tem `canContinue(arrived)`), e loops e iterações entram na documentação do handler ✔. O `describe` traz as seções *Decisões* e *Fluxo condicional, loops e iterações*.
+Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e o texto livre vem depois; o rótulo acompanha ao editar e preserva o texto livre ✔. **Só valem em `triggers` e `emits`** e **só no modo Domain**: as ops recusam em diagramas de arquitetura e em outras relações ✔. Regras D025–D032 na seção 5. **`decision` não existe no modo Domain**: o papel é só do modo Logic (arquivos antigos com `decision` são convertidos ao abrir: exclusiva e paralela viram `policy`, junção vira `process-manager`, decisões encadeadas viram uma só). No **código gerado**, os ramos, loops e iterações entram na documentação da classe da policy/saga ✔. O `describe` mostra os ramos na linha da policy e traz a seção *Fluxo condicional, loops e iterações*.
 
 ### Regras dos conectores
 - **O tipo vem da relação.** `sync`, `async`, `stream` e `data` (infraestrutura) **não existem** no modo domain: as ops os recusam com mensagem acionável; o `async` de `emits` é inferido. Um `type` que contradiz a relação também é recusado ✔.
@@ -111,8 +111,7 @@ Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e 
 | D009 | aviso | contexto sem nenhum `aggregate-root` · dica: diagrama de domínio sem elementos DDD (um mapa de contextos não conta como vazio) |
 | D010 | dica | nomes (heurística): command que parece passado; evento que parece imperativo |
 | D011 | dica | contexto sem componente `system` com `ref` (ligação com a arquitetura) |
-| D012 | aviso | isolado e sem referência: aggregate-root, policy, domain-service, application-service, ator, system, external |
-| D013 | aviso | `application-service` com invariantes (só chegam por arquivo importado) ou que emite eventos |
+| D012 | aviso | isolado, sem conexão, sem referência e sem campo de id (`reactsTo`, `issues`…) que o ligue: aggregate-root, policy, domain-service, application-service, ator, system, external |
 | D014 | dica | contexto sem `subdomain` |
 | D015 | dica | contexto `generic` com mais de 5 aggregates |
 | D016 | dica | ciclo de `references-by-id` entre aggregates |
@@ -123,15 +122,14 @@ Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e 
 | D021 | aviso | combinação de papéis inválida para a relação (matriz de §4), com a sugestão do que serve; `context-relation` sem `pattern` |
 | D022 | aviso | conector de infraestrutura (`sync`/`async`/`stream`/`data`) sem relação, ou conexão entre dois elementos de domínio sem relação (sugere as que servem) |
 | D023 | aviso | o tipo da conexão contradiz a relação (ex.: `emits` como `sync`) |
-| D024 | erro | decisão (exclusiva ou paralela) com menos de 2 ramos; junção sem saída |
-| D025 | aviso | ramo de decisão exclusiva sem condição e sem ser o senão; mais de um ramo senão |
-| D026 | aviso | decisão exclusiva sem ramo senão (se nenhuma condição valer o fluxo para) |
-| D027 | erro / aviso | junção com menos de 2 entradas (erro); decisão sem entrada (aviso) |
-| D028 | aviso | decisão dentro de um ciclo sem nenhuma conexão marcada como loop |
+| D025 | aviso | numa policy/saga (ramos `triggers`) ou num command (desfechos `emits`) com ramos condicionais: ramo sem condição e sem ser o senão; mais de um ramo senão |
+| D026 | aviso | ramos condicionais sem ramo senão (se nenhuma condição valer o fluxo para) |
+| D028 | aviso | nó com ramos condicionais dentro de um ciclo sem nenhuma conexão marcada como loop |
 | D029 | erro | loop sem condição de parada (nem `until` nem `max`; só chega por arquivo importado) |
 | D030 | dica | loop que o diagrama não mostra voltando a um passo anterior (o retorno pode passar por um sistema externo) |
-| D031 | aviso | condição ou senão em ramo de decisão paralela (todos os ramos seguem) |
 | D032 | aviso | condição, senão, loop ou para cada em relação que não é de fluxo (arquivo importado) |
+| D033 | dica | `domain-service` ligado a um `repository` por `uses` (o serviço deveria ser puro: quem busca é o command/application-service) |
+| D013 | aviso | `application-service` com invariantes (só chegam por arquivo importado) ou que emite eventos |
 
 Casos de borda: evento sem consumidor é válido; um use-case pode ser realizado por commands de vários aggregates (D002 vale por command); entity aninhada alcança a raiz por `contains` encadeado.
 
@@ -186,7 +184,7 @@ HTTP (bridge e cofre do navegador): `POST /api/diagrams { title, folder?, mode? 
 <contexto>/domain/services.ts          domain services
 <contexto>/application/commands.ts     um interface por command
 <contexto>/application/<command>-handler.ts
-<contexto>/application/reactions.ts    policies, sagas (com compensate), decisões (classes tipadas pelos ramos), read models, application services
+<contexto>/application/reactions.ts    policies e sagas (com compensate e os ramos na documentação), read models, application services
 <contexto>/use-cases.md                rastreio dos casos de uso (✔/✘)
 ```
 A lógica fica como TODO (o modelo sabe nomes, invariantes, intenção, eventos e quem aciona quem, não o comportamento). Nomes são sanitizados (acentos, dígitos iniciais, globais como `Date`/`Error`, colisões) e o resultado **compila em modo estrito** ✔. Só TypeScript hoje; outra linguagem é recusada com mensagem clara.
@@ -213,11 +211,11 @@ A lógica fica como TODO (o modelo sabe nomes, invariantes, intenção, eventos 
 | `src/shared/connectors.test.ts` | a matriz de relações, a inferência (`suggestRels`), o tipo fixo pela relação, recusa de infraestrutura nas ops (`add_connection` e `update`), D021, D022, D023 |
 | `src/shared/arch.golden.test.ts` | **regressão**: a saída de arquitetura é idêntica byte a byte à do commit anterior ao modo domínio (`fixtures/arch-golden.json`) |
 | `src/shared/catalog.test.ts` | categoria Domain derivada de `DDD_ROLES`, paleta por modo, `add_node` por asset |
-| `src/shared/flow.test.ts` | decisões, condição/senão, loop, para cada: validação de entrada, só no modo domain, rótulos, D024–D032, descrição, layout e código gerado que compila |
+| `src/shared/flow.test.ts` | condição/senão, loop, para cada: validação de entrada, só no modo domain, migração de `decision` antigo, rótulos, D025–D032, descrição, layout e código gerado que compila |
 | `src/shared/storm.test.ts` | raias, ordem por `step`, colunas, eventos externos na raia de entrada, sem sobreposição, blocos de contextos, idempotência |
 | `src/shared/text.test.ts` | quebra de nomes em linhas sem perder palavras (`wrapLabel`) |
 | `src/shared/codegen.test.ts` | estrutura e conteúdo; **compila com `tsc --strict`**, inclusive com nomes difíceis |
-| `src/shared/examples.test.ts` | os 5 exemplos: validam sem erros nem avisos, todo caso de uso rastreado, metas de qualidade, cobrem todos os papéis, relações, padrões do Context Map, tipos de decisão e propriedades, eventos entre contextos existem dos dois lados, arquivos de `examples/` em dia, esqueleto compila, ids citados nos README existem, links relativos da documentação resolvem |
+| `src/shared/examples.test.ts` | os 5 exemplos: validam sem erros nem avisos, todo caso de uso rastreado, metas de qualidade, cobrem todos os papéis, relações, padrões do Context Map e propriedades, eventos entre contextos existem dos dois lados, arquivos de `examples/` em dia, esqueleto compila, ids citados nos README existem, links relativos da documentação resolvem |
 | `src/shared/evalscript.test.ts` | `eval:domain` (exit 0/1/2) |
 | `server/mcp.e2e.test.ts` | sobe o MCP real com bridge e cofre temporários: casos de uso → modelo → validação → rastreio → timeline → código → visão geral; regras dos conectores via MCP; a skill documenta todas as tools |
 
@@ -236,7 +234,7 @@ A UI foi verificada no navegador com `node scripts/dev-sandbox.mjs` (cofre tempo
 - [`docs/DDD.md`](DDD.md): guia para quem nunca usou DDD (subdomínios, linguagem ubíqua, bounded context, os 8 padrões do Context Map, cada peça tática com a pergunta que ajuda a decidir, método dos casos de uso ao modelo, regras dos conectores, erros comuns e glossário).
 - [`examples/`](../examples/README.md): 5 exemplos completos em ordem de dificuldade, cada um com mapa de contextos, um diagrama por contexto, o modelo em texto (`modelo.md`, gerado) e um README com a história, como ler, as decisões de modelagem e exercícios: **Biblioteca** (iniciante), **Clínica** e **Loja** (intermediário; a loja inclui o diagrama de arquitetura ligado aos contextos) **Banco** (avançado, com saga de compensação) e **Delivery** (o tour completo: usa todos os recursos do modo Domain).
 - **No app:** explorador → ✨ *Exemplos de DDD* → *Instalar e abrir* cria `exemplos-ddd/<exemplo>/` no cofre aberto, sem sobrescrever nada (se a pasta já existir, só abre). Os exemplos são definidos como ops em `src/shared/examples.ts`; `npm run examples:build` grava os arquivos de `examples/` (e `-- --check` confere).
-- Juntos os exemplos usam os 13 papéis, as 7 relações, os 3 subdomínios e as construções de fluxo (a retentativa da loja é uma decisão com loop; a biblioteca tem condição e senão; a reserva de estoque itera "para cada item"); padrões do Context Map ilustrados: `customer-supplier`, `partnership`, `shared-kernel` e `published-language` (o `acl` aparece na loja como o tradutor do gateway; `conformist`, `ohs` e `separate-ways` estão explicados em `docs/DDD.md`).
+- Juntos os exemplos usam os 12 papéis, as 7 relações, os 3 subdomínios e as construções de fluxo (a retentativa da loja é uma policy com ramos condicionais e loop; a biblioteca tem condição e senão; a reserva de estoque itera "para cada item"); padrões do Context Map ilustrados: `customer-supplier`, `partnership`, `shared-kernel` e `published-language` (o `acl` aparece na loja como o tradutor do gateway; `conformist`, `ohs` e `separate-ways` estão explicados em `docs/DDD.md`).
 
 ## Passo a passo na apresentação
 

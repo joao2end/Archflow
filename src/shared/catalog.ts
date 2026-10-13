@@ -285,7 +285,6 @@ const ROLE_TAGS: Record<DddRole, string> = {
   "use-case": "caso de uso requisito ator ddd",
   "read-model": "projeção consulta cqrs leitura ddd",
   "process-manager": "saga processo compensação fluxo longo ddd",
-  decision: "decisão condição ramo se senão gateway loop repetição fluxo ddd",
 };
 const domainAssets: Asset[] = DDD_ROLE_KEYS.map((role) => ({
   id: `ddd-${role}`,
@@ -304,8 +303,10 @@ const domainAssets: Asset[] = DDD_ROLE_KEYS.map((role) => ({
 /** Papéis de lógica (modo Logic). Fonte única: `LOGIC_ROLES` em schema.ts. */
 export const LOGIC_CATEGORY = "Logic";
 const LOGIC_TAGS: Record<LogicRole, string> = {
-  rule: "regra lógica condição se então ordem fila efeito negócio",
-  fact: "dado fato variável entrada saída campo constante",
+  rule: "ação action regra lógica atribuir definir calcular efeito ordem fila negócio",
+  input: "input entrada dado dados parâmetro constante campo fato",
+  output: "output saída resultado dado devolve retorno campo",
+  variable: "variable variável intermediário temporário contador acumulador dado campo",
   scenario: "cenário caso exemplo teste simulação",
   start: "início começo entrada ponto de partida gatilho",
   end: "fim término saída resultado final",

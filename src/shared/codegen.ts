@@ -10,7 +10,7 @@
  * tipos, assinaturas e comentários; a lógica fica como TODO. Sem I/O: devolve os arquivos, quem chama decide onde gravá-los.
  */
 import { flowText, traceUseCase } from "./domain";
-import { DECISION_GATES, docMode, type Doc, type DddRole, type GroupEl, type NodeEl, type PropertySpec } from "./schema";
+import { docMode, type Doc, type DddRole, type GroupEl, type NodeEl, type PropertySpec } from "./schema";
 
 export interface GeneratedFile {
   path: string;
@@ -343,42 +343,23 @@ export interface EventPublisher {
     const sagas = of("process-manager");
     const reads = of("read-model");
     const asvc = of("application-service");
-    const decisions = of("decision");
     const reactions = [
       ...policies.map((p) => ({ n: p, kind: "Policy: regra sem estado (evento → command).", extra: "" })),
       ...sagas.map((p) => ({ n: p, kind: "Process Manager (saga): coordena um fluxo longo, com estado e compensação.", extra: `\n\n  /** Desfaz o que já foi feito${p.ddd!.compensates?.length ? ` (${p.ddd!.compensates.join(", ")})` : ""}. */\n  async compensate(): Promise<void> {\n    throw new Error("not implemented");\n  }` })),
     ];
-    if (reactions.length || reads.length || asvc.length || decisions.length) {
+    if (reactions.length || reads.length || asvc.length) {
       const parts = [
         ...reactions.map(({ n, kind, extra }) => {
           const when = [...(n.ddd!.reactsTo ?? []), ...ins(n.id, "triggers").map((e) => e.id)];
           const then = [...(n.ddd!.issues ?? []), ...outs(n.id, "triggers").map((e) => e.id)];
-          return doc1([n.description, n.ddd!.intent, kind, when.length ? `Reage a: ${[...new Set(when)].join(", ")}.` : undefined, then.length ? `Dispara: ${[...new Set(then)].join(", ")}.` : undefined]) + `export class ${N(n)} {\n  async on(event: DomainEvent): Promise<void> {\n    void event;\n    throw new Error("not implemented");\n  }${extra}\n}\n`;
+          const branches = doc.connections.filter((c) => c.from === n.id && c.ddd?.rel === "triggers" && flowText(c.ddd)).map((c) => `Ramo: ${flowText(c.ddd)} → ${c.to}${c.ddd?.loop ? " (volta a um passo anterior)" : ""}`);
+          return doc1([n.description, n.ddd!.intent, kind, when.length ? `Reage a: ${[...new Set(when)].join(", ")}.` : undefined, then.length ? `Dispara: ${[...new Set(then)].join(", ")}.` : undefined, ...branches]) + `export class ${N(n)} {\n  async on(event: DomainEvent): Promise<void> {\n    void event;\n    throw new Error("not implemented");\n  }${extra}\n}\n`;
         }),
         ...reads.map((r) => {
           const from = [...(r.ddd!.projectsFrom ?? []), ...ins(r.id, "triggers").map((e) => e.id)];
           return doc1([r.description, "Read Model (CQRS): projeção para consulta.", from.length ? `Alimentado por: ${[...new Set(from)].join(", ")}.` : undefined]) + `export class ${N(r)} {\n  async on(event: DomainEvent): Promise<void> {\n    void event;\n    throw new Error("not implemented");\n  }\n}\n`;
         }),
         ...asvc.map((s) => doc1([s.description, s.ddd!.intent, "Application Service: orquestra casos de uso; sem regra de negócio."]) + `export class ${N(s)} {\n  // TODO\n}\n`),
-        ...decisions.map((d) => {
-          const gate = d.ddd!.gate ?? "exclusive";
-          const branches = doc.connections.filter((c) => c.from === d.id && c.ddd?.rel === "triggers");
-          const targets = [...new Set(branches.map((b) => b.to))];
-          const union = targets.length ? targets.map((t) => JSON.stringify(t)).join(" | ") : "never";
-          const head = doc1([
-            d.description,
-            d.ddd!.question ? `Decisão: ${d.ddd!.question}` : "Decisão do fluxo.",
-            `Tipo: ${DECISION_GATES[gate].label}. ${DECISION_GATES[gate].hint}`,
-            ...branches.map((b) => `Ramo: ${flowText(b.ddd) || "sempre"} → ${b.to}${b.ddd?.loop ? " (volta a um passo anterior)" : ""}`),
-          ]);
-          const body =
-            gate === "join"
-              ? `  /** Libera o fluxo quando todas as entradas já chegaram. */\n  canContinue(arrived: ReadonlySet<string>): boolean {\n    void arrived;\n    throw new Error("not implemented");\n  }`
-              : gate === "parallel"
-                ? `  /** Todos os ramos seguem ao mesmo tempo. */\n  branches(event: DomainEvent): readonly (${union})[] {\n    void event;\n    throw new Error("not implemented");\n  }`
-                : `  /** Escolhe UM ramo: o primeiro cuja condição vale; se nenhuma valer, o ramo "senão". */\n  decide(event: DomainEvent): ${union} {\n    void event;\n    throw new Error("not implemented");\n  }`;
-          return `${head}export class ${N(d)} {\n${body}\n}\n`;
-        }),
       ];
       out("application/reactions.ts", `${HEADER(doc)}import type { DomainEvent } from "../domain/event-publisher";\n\n${parts.join("\n")}`);
     }

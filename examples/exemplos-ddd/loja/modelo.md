@@ -195,9 +195,7 @@ _Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira compra
 
 ### Policies
 - `cobrar-ao-criar-pedido` **Cobrar ao criar pedido** reage a pedido-criado → dispara cobrar — todo pedido criado gera uma cobrança
-
-### Decisões
-- `ha-tentativas` **Há tentativas?** (exclusiva): ainda há tentativas de cobrança para este pedido? → se tentativas < 3 · repete até pagamento aprovado, máx. 3: `cobrar` ↻; senão: `desistir-da-cobranca`
+- `ha-tentativas` **Há tentativas?** — ainda há tentativas de cobrança para este pedido? → se tentativas < 3 · repete até pagamento aprovado, máx. 3: `cobrar` ↻; senão: `desistir-da-cobranca`
 
 ### Domain services
 - `tradutor-do-gateway` **Tradutor do gateway** — converte o vocabulário do gateway no nosso

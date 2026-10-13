@@ -1,6 +1,9 @@
 # Modo Logic: pesquisa, brainstorm e proposta
 
-Status: **etapas 1 e 2 implementadas** (motor de expressões; modo Logic com papéis `rule`, `fact` e `scenario`, validação L001–L011 que roda os exemplos, layout em fila, inspetor, MCP e o exemplo de precificação em `examples/exemplos-logic/`). Faltam tabela de decisão, estados e a integração com o modo Domain (§5). Escopo: um terceiro modo do Archflow, ao lado de *Architecture* e *Domain*, para representar **regras de negócio específicas** de forma que pessoas de negócio e desenvolvedores leiam o mesmo quadro, e que uma IA consiga ler e escrever sem ambiguidade.
+> **Nota (2026-10-12):** o papel `rule` descrito aqui passou a se chamar **Ação** (`action`; o nome `rule` continua valendo nos arquivos). Só existem **Ação** (muda dados) e **Decisão** (escolhe o caminho); «regra de negócio» é o desenho inteiro. O texto abaixo mantém o vocabulário original.
+
+
+Status: **etapas 1 e 2 implementadas** (motor de expressões; modo Logic com papéis `rule`, `input`/`output`/`variable` (antes `fact`) e `scenario`, validação L001–L011 que roda os exemplos, layout em fila, inspetor, MCP e o exemplo de precificação em `examples/exemplos-logic/`). Faltam tabela de decisão, estados e a integração com o modo Domain (§5). Escopo: um terceiro modo do Archflow, ao lado de *Architecture* e *Domain*, para representar **regras de negócio específicas** de forma que pessoas de negócio e desenvolvedores leiam o mesmo quadro, e que uma IA consiga ler e escrever sem ambiguidade.
 
 ## 1. Onde o projeto está hoje
 
@@ -103,7 +106,11 @@ Um diagrama Logic por **aggregate** ou por **caso de uso**, no cofre em `logica/
 | `rule` | REGRA | Uma regra de negócio em frase | verde-azulado (família do `decision`) | `when[]`, `then[]`, `else[]`, `examples[]`, `severity` (impede / alerta / calcula) |
 | `table` | TAB | Combinações de condições → resultado (DMN reduzido) | roxo (família da `policy`) | `inputs[]`, `outputs[]`, `rows[]`, `hit` (`unique` / `first`), `default` |
 | `state` | ESTADO | Fase do ciclo de vida | âmbar (família do aggregate) | `initial?`, `final?`, `entry?` (o que vale ao entrar) |
-| `fact` | DADO | Entrada/saída que a lógica usa, apontando para um campo do modelo | azul-claro (família do read-model) | `ref` (`diagrama › elemento › campo`), `type` |
+| `input` | IN | Dado que entra no fluxo e só é lido (nenhuma ação o escreve) | azul-claro (família do read-model) | `key`, `type`, `value` (constante) |
+| `output` | OUT | Resultado que o fluxo devolve; é o que os cenários conferem em `expect` | verde | `key`, `type` |
+| `variable` | VAR | Dado intermediário: escrito e lido dentro do fluxo para calcular outra coisa | lilás | `key`, `type`, `value` (valor inicial) |
+
+> **Divisão do `fact` (2026-10-13).** O papel único `fact` foi dividido em `input`, `output` e `variable`. Arquivos antigos são convertidos ao abrir (`migrateFacts` em `logic.ts`): nunca escrito → `input`; escrito e conferido no `expect` de um cenário (ou que ninguém lê depois) → `output`; escrito e lido no meio do fluxo → `variable`. Novas regras: **L029** (entrada escrita por uma ação), **L030** (resultado que nenhuma ação escreve) e **L031** (variável que nunca recebe valor). O layout põe as entradas à esquerda e resultados, variáveis e cenários à direita. `scripts/migrate-data-roles.ts` converte pastas de diagramas em disco.
 
 Conexões (nova família `LOGIC_RELS`, mesmo padrão de `DDD_RELS`, o `type` visual é fixo pela relação):
 
@@ -160,7 +167,7 @@ Tudo seguindo o que já existe: `DomainShape` como base, `ep-badge` para o selo,
 
 1. **Fundação**: `DocMode "logic"`, `LOGIC_ROLES`, `logic` em `NodeEl`, switch de 3 modos, paleta, `describe`.
 2. **Estados** (maior ganho para o negócio, menor esforço): papel `state`, `transitions`, L004–L007, Mermaid.
-3. **Regra com exemplos**: papel `rule`, `fact`, L003/L008/L010–L012, Ver técnico.
+3. **Regra com exemplos**: papel `rule`, `input`/`output`/`variable`, L003/L008/L010–L012, Ver técnico.
 4. **Tabela de decisão**: papel `table`, L001/L002/L009, editor de grade no inspetor.
 5. **Integração**: âncora em `decision`/`policy`, passo a passo, `generate_code` + testes, exemplo *Delivery · Lógica* e guia `docs/LOGIC.md`.
 
@@ -174,7 +181,7 @@ Caso trazido pelo time: 11 regras que rodam **em ordem**, cada uma reescrevendo 
 | "Quem ficou travado no passo 7 ou 8 não é reescrito" | Não | Efeito **`travar dado`**: regras seguintes são puladas para esse dado |
 | "Preço fixo vence tudo o que veio antes" | Parcial | Regra posterior que atribui e trava (sem prioridade mágica; a ordem + trava dizem tudo) |
 | Faixas de arredondamento | Sim | Tabela de decisão `first` |
-| Margem por divisão → departamento → categoria | Sim | `fact` com herança (`ref` para o dado) |
+| Margem por divisão → departamento → categoria | Sim | dado com herança (`ref` para o dado) |
 | Ajuste manual / manter / aceitar sugestão (fora da fila) | Não | Eventos do papel `state` (ciclo de vida do alerta e do preço) |
 
 Consequência: **a ordem de entrega muda** (§4.7 fica assim):

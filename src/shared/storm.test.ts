@@ -147,3 +147,26 @@ test("timeline: casos de borda (diagrama vazio, só ator, command sem step e sem
   assert.ok(get(two, "b").x < get(two, "a").x, "sem step vale a ordem do documento");
   assert.equal(get(two, "b").y, get(two, "a").y);
 });
+
+test("grouped: um quadro por tipo em cada contexto, sem sobreposição, conexões ortogonais; timeline desfaz os quadros", () => {
+  const base = applyOps(emptyDoc("t", "domain"), pedidos());
+  const r = applyOps(base.doc, [{ op: "layout", style: "grouped" }]);
+  assert.deepEqual(r.results, [{ ok: true }]);
+  const d = r.doc;
+  const box = (id: string) => d.groups.find((g) => g.id === get(d, id).parent)!;
+  assert.equal(box("criar-pedido").id, box("pagar-pedido").id, "commands no mesmo quadro");
+  assert.equal(box("pedido-criado").id, box("pedido-pago").id, "eventos no mesmo quadro");
+  assert.notEqual(box("criar-pedido").id, box("pedido").id);
+  assert.equal(box("pedido").parent, "pedidos", "quadro de tipo dentro do contexto");
+  const ctx = d.groups.find((g) => g.id === "pedidos")!;
+  for (const g of d.groups.filter((g) => g.parent === "pedidos")) assert.ok(g.x >= ctx.x && g.y >= ctx.y && g.x + g.w <= ctx.x + ctx.w && g.y + g.h <= ctx.y + ctx.h, `${g.id} dentro do contexto`);
+  for (let i = 0; i < d.nodes.length; i++) for (let j = i + 1; j < d.nodes.length; j++) assert.equal(overlaps(d.nodes[i], d.nodes[j]), false, `${d.nodes[i].id} × ${d.nodes[j].id}`);
+  assert.ok(d.connections.every((c) => c.routing === "elbow"));
+  const again = applyOps(d, [{ op: "layout", style: "grouped" }]).doc;
+  assert.deepEqual(again.nodes.map((n) => [n.id, n.x, n.y]), d.nodes.map((n) => [n.id, n.x, n.y]), "idempotente");
+  assert.equal(again.groups.length, d.groups.length);
+  const back = applyOps(d, [{ op: "layout", style: "timeline" }]).doc;
+  assert.ok(back.groups.every((g) => !g.id.startsWith("tipo-")));
+  assert.equal(get(back, "pedido").parent, "pedidos");
+  assert.equal(applyOps(emptyDoc("a"), [{ op: "layout", style: "grouped" }]).results[0].ok, false);
+});

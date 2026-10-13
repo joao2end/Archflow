@@ -1,0 +1,389 @@
+{
+  "enunciado": "Há n elementos numerados de 0 a n−1, cada um sozinho no seu grupo. Chega uma lista de operações, na ordem: [\"union\", a, b] junta o grupo de a ao grupo de b; [\"conectados\", a, b] pergunta se a e b estão no mesmo grupo. Devolver as respostas das perguntas, na ordem (saidas: verdadeiro ou falso), e quantos grupos restam no fim (grupos). Juntar dois elementos que já estão no mesmo grupo não muda nada. Uma operação com outro nome, ou com um elemento fora de 0 a n−1, termina com erro.",
+  "cases": [
+    {
+      "name": "um elemento, sem operações",
+      "given": {
+        "n": 1,
+        "ops": []
+      },
+      "expect": {
+        "saidas": [],
+        "grupos": 1,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "cada um no seu grupo",
+      "given": {
+        "n": 3,
+        "ops": []
+      },
+      "expect": {
+        "saidas": [],
+        "grupos": 3,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "união simples",
+      "given": {
+        "n": 2,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "conectados",
+            0,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          true
+        ],
+        "grupos": 1,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "sem união, não conectados",
+      "given": {
+        "n": 3,
+        "ops": [
+          [
+            "conectados",
+            0,
+            2
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          false
+        ],
+        "grupos": 3,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "cadeia de uniões",
+      "given": {
+        "n": 4,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "union",
+            1,
+            2
+          ],
+          [
+            "conectados",
+            0,
+            2
+          ],
+          [
+            "conectados",
+            0,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          true,
+          false
+        ],
+        "grupos": 2,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "unir o mesmo par de novo não conta",
+      "given": {
+        "n": 3,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "union",
+            1,
+            0
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [],
+        "grupos": 2,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "unir elemento com ele mesmo",
+      "given": {
+        "n": 2,
+        "ops": [
+          [
+            "union",
+            0,
+            0
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [],
+        "grupos": 2,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "transitividade",
+      "given": {
+        "n": 5,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "union",
+            2,
+            3
+          ],
+          [
+            "conectados",
+            1,
+            2
+          ],
+          [
+            "union",
+            1,
+            3
+          ],
+          [
+            "conectados",
+            0,
+            2
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          false,
+          true
+        ],
+        "grupos": 2,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "cadeia longa (compressão de caminho)",
+      "given": {
+        "n": 5,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "union",
+            1,
+            2
+          ],
+          [
+            "union",
+            2,
+            3
+          ],
+          [
+            "union",
+            3,
+            4
+          ],
+          [
+            "conectados",
+            0,
+            4
+          ],
+          [
+            "conectados",
+            1,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          true,
+          true
+        ],
+        "grupos": 1,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "elemento conectado a si mesmo",
+      "given": {
+        "n": 2,
+        "ops": [
+          [
+            "conectados",
+            1,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          true
+        ],
+        "grupos": 2,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "três grupos que se juntam aos poucos",
+      "given": {
+        "n": 6,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "union",
+            2,
+            3
+          ],
+          [
+            "union",
+            4,
+            5
+          ],
+          [
+            "union",
+            1,
+            3
+          ],
+          [
+            "conectados",
+            0,
+            2
+          ],
+          [
+            "conectados",
+            3,
+            4
+          ],
+          [
+            "union",
+            5,
+            0
+          ],
+          [
+            "conectados",
+            2,
+            4
+          ]
+        ]
+      },
+      "expect": {
+        "saidas": [
+          true,
+          false,
+          true
+        ],
+        "grupos": 1,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "operação desconhecida",
+      "given": {
+        "n": 2,
+        "ops": [
+          [
+            "del",
+            0,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "elemento fora do intervalo",
+      "given": {
+        "n": 2,
+        "ops": [
+          [
+            "union",
+            0,
+            5
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "elemento negativo",
+      "given": {
+        "n": 2,
+        "ops": [
+          [
+            "conectados",
+            -1,
+            0
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "erro depois de operações boas",
+      "given": {
+        "n": 3,
+        "ops": [
+          [
+            "union",
+            0,
+            1
+          ],
+          [
+            "conectados",
+            0,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    }
+  ]
+}

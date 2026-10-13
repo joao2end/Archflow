@@ -1,0 +1,449 @@
+{
+  "enunciado": "Dado um grafo dirigido (nós: lista de números distintos; arestas: pares [de, para] entre nós da lista), achar os componentes fortemente conexos: grupos de nós em que de cada um se chega a todos os outros seguindo as setas. Todo nó está em exatamente um componente (um nó sozinho, ou com seta para si mesmo, é um componente). Devolver a quantidade de componentes e os componentes, cada um com seus nós em ordem crescente, na ordem em que o algoritmo de Tarjan os conclui: percorrendo os nós na ordem da lista, seguindo as setas de cada nó na ordem em que aparecem em `arestas`. Aresta que cita nó fora da lista termina com erro.",
+  "cases": [
+    {
+      "name": "grafo vazio",
+      "given": {
+        "nos": [],
+        "arestas": []
+      },
+      "expect": {
+        "quantidade": 0,
+        "componentes": [],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "um nó",
+      "given": {
+        "nos": [
+          1
+        ],
+        "arestas": []
+      },
+      "expect": {
+        "quantidade": 1,
+        "componentes": [
+          [
+            1
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "nó com seta para si mesmo",
+      "given": {
+        "nos": [
+          1
+        ],
+        "arestas": [
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 1,
+        "componentes": [
+          [
+            1
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "uma seta só",
+      "given": {
+        "nos": [
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 2,
+        "componentes": [
+          [
+            2
+          ],
+          [
+            1
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "ida e volta",
+      "given": {
+        "nos": [
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 1,
+        "componentes": [
+          [
+            1,
+            2
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "ciclo de três",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 1,
+        "componentes": [
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "aresta para componente já concluído (cruzada)",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            2
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 3,
+        "componentes": [
+          [
+            2
+          ],
+          [
+            1
+          ],
+          [
+            3
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "clássico de 8 nós",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            4
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            8
+          ],
+          [
+            8,
+            7
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 3,
+        "componentes": [
+          [
+            4,
+            5,
+            6
+          ],
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            7,
+            8
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "dois ciclos ligados num só sentido",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 2,
+        "componentes": [
+          [
+            3,
+            4
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "nós fora de ordem",
+      "given": {
+        "nos": [
+          3,
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            3,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 1,
+        "componentes": [
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "volta de longe ao início",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            4,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 1,
+        "componentes": [
+          [
+            1,
+            2,
+            3,
+            4
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "cadeia sem ciclos",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "expect": {
+        "quantidade": 4,
+        "componentes": [
+          [
+            4
+          ],
+          [
+            3
+          ],
+          [
+            2
+          ],
+          [
+            1
+          ]
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "aresta para nó que não existe",
+      "given": {
+        "nos": [
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            1,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    }
+  ]
+}

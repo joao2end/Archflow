@@ -87,7 +87,7 @@ Fluxo (casos de uso → projeto DDD):
 
 Heurísticas (sempre como sugestão, marque em `description`): verbo no imperativo = command; fato no passado = evento; substantivo com identidade = entity; sem identidade = value-object. Commands e eventos têm nomes diferentes (`criar-pedido` / `pedido-criado`). Ao retomar um diagrama que o usuário editou, **releia com `get_diagram` e reutilize os ids**; não recrie o que existe.
 
-**Decisões, condições e loops (só modo domain):** use o papel `decision` (`question`, `gate`: exclusive | parallel | join) entre um evento/policy/saga e os commands que seguem; cada saída é uma conexão `triggers` com `ddd.condition` (ou `ddd.otherwise` para o *senão*). Command com dois desfechos: duas conexões `emits`, uma com `condition` e outra com `otherwise`. **Loop**: a conexão que VOLTA a um passo anterior leva `ddd.loop: { until, max }` (sem parada é erro D029). **Iteração**: `ddd.foreach`. Regras D024 a D032 (decisão com 2+ ramos e um senão, junção com 2+ entradas, ciclo por decisão exige loop). Nada disso existe no modo architecture.
+**Condições, loops e iteração (só modo domain):** não existe `decision` no modo domain (ela é só do modo logic). Para escolher um caminho, a `policy` (ou saga) que reage ao evento liga-se por `triggers` a mais de um command, cada ramo com `ddd.condition` (ou `ddd.otherwise` para o *senão*); ramos sem condição seguem todos (paralelo). Para modelar uma espera por vários eventos, use um `process-manager` com todos em `reactsTo` (o app só documenta a espera; `reactsTo` é a lista de eventos a que policy e saga reagem). Command com dois desfechos: duas conexões `emits`, uma com `condition` e outra com `otherwise`. **Loop**: a conexão que VOLTA a um passo anterior leva `ddd.loop: { until, max }` (sem parada é erro D029). **Iteração**: `ddd.foreach`. Regras D025 a D032 (ramos condicionais com condição ou senão, ciclo por nó condicional exige loop). Nada disso existe no modo architecture.
 
 Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do cofre do usuário (botão ✨ do explorador) ou `examples/` do projeto (biblioteca, clínica, loja, banco); o guia conceitual é `docs/DDD.md`. Ao explicar DDD ao usuário, use um deles como referência concreta.
 
@@ -95,7 +95,7 @@ Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do cofre do u
 
 Terceiro modo (`mode: "logic"`): descreve **uma lógica específica** (precificação, elegibilidade, frete, comissão…) como um fluxo **Start → passos → End** que o app **executa** com os dados de cada exemplo e confere. Negócio lê a frase e a explicação em português que o app gera; dev e IA usam a expressão exata. **Chame `get_schema_guide` antes** (devolve o guia do modo do diagrama aberto; é a fonte de verdade da sintaxe) e não use assets de tecnologia nem `ddd`.
 
-Papéis (`add_components` com `logic: { role, ... }`; kind vira `logic`): `start` · `end` (`outcome: ok|erro`) · `rule` (ação: efeitos em `then`) · `decision` (IF sim/não, `when`) · `switch` (escolha por `on`, ou por faixas) · `loop` (`until`/`max` ou `foreach` + `as`) · `fork`/`join` (paralelo) · `call` (outro diagrama, `ref`) · `fact` (dado, com `key`, e `value` se constante) · `scenario` (roda o fluxo inteiro e confere o resultado).
+Papéis (`add_components` com `logic: { role, ... }`; kind vira `logic`): `start` · `end` (`outcome: ok|erro`) · `action` (**Ação**: muda dados, efeitos em `then`; o nome antigo `rule` também vale) · `decision` (IF sim/não, `when`) · `switch` (escolha por `on`, ou por faixas) · `loop` (`until`/`max` ou `foreach` + `as`) · `fork`/`join` (paralelo) · `call` (outro diagrama, `ref`) · `input` (dado que entra e só é lido, com `key`, `type` e `value` se constante) · `output` (resultado que o fluxo devolve, o que os cenários conferem) · `variable` (dado intermediário escrito e lido dentro do fluxo; `value` é o inicial). O antigo `fact` foi dividido nesses três · `scenario` (roda o fluxo inteiro e confere o resultado).
 
 Setas: `connect` passo → passo, sem `type`. Quem sai de decisão, escolha ou laço diz a saída: `logic: { branch: "sim" | "nao" | "repete" | "segue" | "outros" }`; na escolha por valor, `logic: { case: "\"lucro\"" }` (o valor como expressão) mais uma seta `outros`. Dados não têm setas: as expressões os leem pelo `key`.
 
@@ -103,12 +103,12 @@ Expressões (pequenas, em português): números `10`, `0.09`, `5%`; texto `"imag
 
 Fluxo (siga a ordem):
 1. `new_diagram` com `mode: "logic"` (um diagrama por lógica). **Pergunte os números** (limites, faixas, percentuais) ao usuário: não invente.
-2. `add_components`: um `start`, um ou mais `end`, um `fact` por dado e os passos. **Condições viram nós `decision`**, não `when` dentro de `rule`, para o desvio aparecer no quadro.
+2. `add_components`: um `start`, um ou mais `end`, um dado por dado (`input`, `output` ou `variable`, conforme o papel no fluxo) e os passos. **Uma condição sim/não vira um nó `decision`** (nunca `when` ou `se…entao…senao` dentro de uma ação), para o desvio aparecer no quadro. **Escolha o nó pela forma do desvio**: 2 saídas (sim/não) → `decision`; **3 ou mais saídas** por valor (`on` + uma seta por `case`) ou por faixas → `switch`, nunca uma cadeia de `decision` testando o mesmo dado; passos **independentes** um do outro (ex.: frete e imposto) → `fork` (uma seta por ramo) + `join` que reúne todos antes de seguir; repetição → `loop`; lógica de outro diagrama → `call`. Só a **Ação** (muda dados) e a **Decisão** (escolhe o caminho) trabalham os dados; os demais são estrutura do fluxo.
 3. `connect` com `logic.branch`/`logic.case` onde houver desvio; laços voltam ao início do corpo pela seta `repete`.
-4. **Exemplos em tudo que decide ou calcula**: `examples: [{ name, given: { dado: valor }, expect: { dado: valor } }]` em cada regra, decisão e escolha (em decisão/escolha, `expect: { caminho: "sim" }` confere a saída). `scenario` roda o fluxo todo (`expect.desfecho: "ok"|"erro"`).
+4. **Exemplos em tudo que decide ou calcula**: `examples: [{ name, given: { dado: valor }, expect: { dado: valor } }]` em cada ação, decisão e escolha (em decisão/escolha, `expect: { caminho: "sim" }` confere a saída). `scenario` roda o fluxo todo (`expect.desfecho: "ok"|"erro"`).
 5. `auto_layout` (padrão `pipeline`) e `validate_diagram`: ele **executa os exemplos de verdade** (L004 = exemplo que falha) e checa o fluxo (L012–L024). Corrija até limpar; se um número esperado parecer errado, pergunte ao usuário qual é o certo em vez de ajustar o exemplo para passar.
 
-Modelo pronto para consultar: `examples/exemplos-logic/` (engine de precificação com 11 regras, 7 cenários e 30 exemplos) e o desenho do modo em `docs/LOGIC_MODE_DESIGN.md`. No app, a reprodução de um `scenario` anima o valor passo a passo pelo quadro.
+Modelo pronto para consultar: `examples/exemplos-logic/` (engine de precificação com 11 ações, 7 cenários e 30 exemplos) e o desenho do modo em `docs/LOGIC_MODE_DESIGN.md`. No app, a reprodução de um `scenario` anima o valor passo a passo pelo quadro.
 
 ## Convenções que evitam retrabalho
 
@@ -160,8 +160,8 @@ validate_diagram → "sem problemas"
 - **Tudo como `sync`** → fila/evento é `async`; acesso a banco é `data`.
 - **Recriar do zero** quando só precisava ajustar → prefira `update_element`; nunca `clear_diagram` sem o usuário pedir.
 - **Usar tecnologia (asset) no modo domain**, ou `ddd` num diagrama `architecture` → a tool recusa; crie o diagrama com `mode: "domain"`.
-- **Misturar vocabulários**: `logic` só em diagrama `logic`, `ddd` só em `domain`. Em lógica, regra com condição embutida (`when` dentro de `rule`) esconde o desvio: use `decision`.
-- **Regra sem exemplo** no modo logic → o app não consegue provar nada; escreva ao menos um `examples` por passo que decide ou calcula.
+- **Misturar vocabulários**: `logic` só em diagrama `logic`, `ddd` só em `domain`. Em lógica, uma ação com condição embutida (`when` dentro de `action`) esconde o desvio: use `decision`.
+- **Ação sem exemplo** no modo logic → o app não consegue provar nada; escreva ao menos um `examples` por passo que decide ou calcula.
 - **Inventar componentes** que o usuário não mencionou sem avisar → registre as suposições numa `add_note` ou no resumo final.
 
 ## Ao editar um diagrama existente

@@ -42,7 +42,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   endpoint: "Ponto de comunicação de um serviço (endpoint REST, canal WebSocket, operação GraphQL, método gRPC, webhook, evento)",
   system: "Sistema descrito em OUTRO diagrama do cofre (referência, campo `ref`)",
   domain: "Elemento do modelo de domínio (DDD): o papel (aggregate-root, command, domain-event...) está em `ddd.role`. Só existe em diagramas de modo `domain`",
-  logic: "Elemento da lógica de negócio: o papel (rule, fact, scenario) está em `logic.role`. Só existe em diagramas de modo `logic`",
+  logic: "Elemento da lógica de negócio: o papel (action, decision, input, output, variable, scenario…) está em `logic.role`. Só existe em diagramas de modo `logic`",
 };
 
 export type GroupKind =
@@ -204,17 +204,7 @@ export type DddRole =
   | "application-service"
   | "use-case"
   | "read-model"
-  | "process-manager"
-  | "decision";
-
-/** Como uma decisão trata os ramos de saída: um só (exclusive), todos (parallel) ou espera todas as entradas (join). */
-export type DecisionGate = "exclusive" | "parallel" | "join";
-export const DECISION_GATES: Record<DecisionGate, { label: string; hint: string }> = {
-  exclusive: { label: "exclusiva", hint: "Segue UM ramo: o primeiro cuja condição vale; o ramo padrão (senão) cobre o resto." },
-  parallel: { label: "paralela", hint: "Segue TODOS os ramos ao mesmo tempo (as condições não se aplicam)." },
-  join: { label: "junção", hint: "Espera TODAS as entradas chegarem antes de seguir (precisa de 2 ou mais entradas)." },
-};
-export const DECISION_GATE_KEYS = Object.keys(DECISION_GATES) as DecisionGate[];
+  | "process-manager";
 
 /** Uma propriedade (campo) de entity, value object, aggregate, command, evento ou read model: explica a estrutura do modelo. */
 export interface PropertySpec {
@@ -239,6 +229,7 @@ export interface DddNodeSpec {
   /** aggregate-root, entity, value-object, command: regras que sempre valem */
   invariants?: string[];
   /** domain-event: dados que o evento carrega */
+  /** domain-event (legado): resumo em texto livre dos dados; só vale quando não há `properties` (se houver, `properties` vence) */
   payload?: string;
   /** aggregate-root, entity, value-object, command, domain-event, read-model: campos (nome, tipo, descrição) que explicam a estrutura */
   properties?: PropertySpec[];
@@ -262,12 +253,8 @@ export interface DddNodeSpec {
   compensates?: string[];
   /** read-model: ids dos eventos que o alimentam */
   projectsFrom?: string[];
-  /** command, domain-event: posição na linha do tempo (reservado para o layout de Event Storming) */
+  /** command: posição na linha do tempo; ordena os commands no auto_layout `timeline` (o evento fica na coluna de quem o produz). Em domain-event é legado: o arquivo abre, mas não tem efeito */
   step?: number;
-  /** decision: a pergunta que o ponto de decisão responde */
-  question?: string;
-  /** decision: como os ramos são tratados (padrão: exclusive) */
-  gate?: DecisionGate;
 }
 export type DddField = Exclude<keyof DddNodeSpec, "role">;
 
@@ -275,16 +262,15 @@ export const DDD_ROLES: Record<DddRole, { label: string; hint: string; color: st
   "aggregate-root": { label: "Aggregate Root", hint: "Ponto de entrada do aggregate: garante as invariantes do conjunto e é a única parte acessada de fora.", color: "#e0a526", fields: ["invariants", "properties"] },
   entity: { label: "Entity", hint: "Objeto com identidade própria dentro de um aggregate.", color: "#d9822b", fields: ["invariants", "properties"] },
   "value-object": { label: "Value Object", hint: "Valor imutável sem identidade, comparado pelo conteúdo (ex.: dinheiro, endereço).", color: "#b8860b", fields: ["invariants", "properties"] },
-  "domain-event": { label: "Domain Event", hint: "Fato de negócio que já aconteceu, nomeado no passado (ex.: pedido-criado).", color: "#f2994a", fields: ["payload", "properties", "producedBy", "external", "step"] },
+  "domain-event": { label: "Domain Event", hint: "Fato de negócio que já aconteceu, nomeado no passado (ex.: pedido-criado).", color: "#f2994a", fields: ["payload", "properties", "producedBy", "external"] },
   command: { label: "Command", hint: "Intenção de mudar o estado, nomeada no imperativo (ex.: criar-pedido).", color: "#3b9ddd", fields: ["intent", "properties", "invariants", "step"] },
   policy: { label: "Policy", hint: "Regra sem estado: quando um evento acontece, dispara um command.", color: "#9b6bd6", fields: ["intent", "reactsTo", "issues"] },
   repository: { label: "Repository", hint: "Coleção persistente de um aggregate-root; a interface fica no domínio.", color: "#2f9e8f", fields: ["for"] },
-  "domain-service": { label: "Domain Service", hint: "Regra de negócio que não cabe em um aggregate; pura, sem I/O.", color: "#5b8def", fields: ["intent"] },
-  "application-service": { label: "Application Service", hint: "Orquestra um caso de uso (carrega, chama o domínio, persiste, publica); sem regra de negócio.", color: "#6c7a89", fields: ["intent"] },
+  "domain-service": { label: "Domain Service", hint: "Regra de negócio que não cabe em um aggregate; pura, sem I/O: recebe os dados prontos de quem o chama (command ou application-service) e não busca em repository (ligar a um repository é aceito, mas gera a dica D033).", color: "#5b8def", fields: ["intent"] },
+  "application-service": { label: "Application Service", hint: "Orquestra um caso de uso (carrega, chama o domínio, persiste e entrega ao publicador os eventos que o domínio produziu); sem regra de negócio e sem emitir eventos.", color: "#6c7a89", fields: ["intent"] },
   "use-case": { label: "Use Case", hint: "Objetivo de um ator com o sistema; liga o requisito ao command que o realiza.", color: "#4caf7d", fields: ["actor", "goal", "realizedBy"] },
   "read-model": { label: "Read Model", hint: "Projeção otimizada para consulta (CQRS), alimentada por eventos.", color: "#7fb3d5", fields: ["properties", "projectsFrom"] },
   "process-manager": { label: "Process Manager", hint: "Saga: coordena um fluxo longo reagindo a eventos e disparando commands, com compensação.", color: "#c2548b", fields: ["intent", "reactsTo", "issues", "compensates"] },
-  decision: { label: "Decision", hint: "Ponto de decisão do fluxo: depois de um evento, escolhe qual ramo seguir (exclusiva), segue todos (paralela) ou espera todos (junção). Cada ramo é uma conexão com a sua condição; um ramo pode voltar a um passo anterior (loop).", color: "#0e9aa7", fields: ["question", "gate"] },
 };
 export const DDD_ROLE_KEYS = Object.keys(DDD_ROLES) as DddRole[];
 /** Selo curto exibido no canvas e no catálogo (como GET/POST nos endpoints). */
@@ -301,12 +287,16 @@ export const DDD_BADGES: Record<DddRole, string> = {
   "use-case": "UC",
   "read-model": "READ",
   "process-manager": "SAGA",
-  decision: "DEC",
 };
 
 /* ───────── modo lógica (regras de negócio) ───────── */
 
-export type LogicRole = "rule" | "fact" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call";
+export type LogicRole = "rule" | "input" | "output" | "variable" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call";
+
+/** Papéis de dado: Input (entra e só é lido), Output (resultado que o fluxo devolve) e Variable (dado intermediário do fluxo). Substituem o antigo `fact`. */
+export const DATA_ROLES = ["input", "output", "variable"] as const;
+export type DataRole = (typeof DATA_ROLES)[number];
+export const isDataRole = (role: string | undefined): role is DataRole => role === "input" || role === "output" || role === "variable";
 
 /** Valor JSON simples usado em dados e exemplos. */
 export type LogicValue = string | number | boolean | null | LogicValue[] | { [campo: string]: LogicValue };
@@ -323,67 +313,74 @@ export interface LogicExample {
 
 export interface LogicNodeSpec {
   role: LogicRole;
-  /** rule: posição na fila quando o diagrama não tem setas (1, 2, 3…). Com setas, o fluxo manda */
+  /** rule: posição na fila quando o diagrama não tem setas: crescente (1, 2, 3…); sem `order` vai para o fim; empate: ordem de criação. Com setas, o fluxo manda e `order` é ignorado */
   order?: number;
   /** todos os papéis: o que é, em uma frase de negócio (na decisão, a pergunta) */
   text?: string;
-  /** rule: condição opcional de guarda (sem ela, sempre roda) · decision: a condição (sim/não) */
+  /** decision: a condição (vale = seta "sim"; não vale = "não"). Na rule é legado: arquivos antigos têm a guarda convertida em uma decision ao abrir */
   when?: string;
   /** rule: efeitos em ordem: "preco := ..." , "travar preco" e "destravar preco" */
   then?: string[];
   /** switch: expressão cujo valor escolhe o caminho (cada seta leva o valor do caso). Sem `on`, cada seta leva uma CONDIÇÃO (faixa) e vale a primeira verdadeira, na ordem das setas */
   on?: string;
-  /** loop: condição de parada (a repetição para quando vale) */
+  /** loop: condição de parada, conferida antes de cada volta (se já vale ao chegar, não há volta nenhuma) */
   until?: string;
-  /** loop: no máximo N voltas (1 a 1000) */
+  /** call: condição (verdadeiro/falso) calculada com os dados que o fluxo tem naquele ponto; se vale, o exemplo simula a chamada FALHANDO e o fluxo segue pela seta \"erro\" (sem a seta, é erro de execução). Sem `falha`, a chamada nunca falha na simulação */
+  falha?: string;
+  /** call: efeitos que rodam quando a chamada DÁ CERTO (os dados que ela devolve), ex.: [\"cidade := cidade_do_servico\"] */
+  devolve?: string[];
+  /** loop: no máximo N voltas (1 a 1000; sem padrão). Vale junto com `until` e `foreach`: para na primeira que acontecer */
   max?: number;
   /** loop: "para cada" item de uma lista (expressão que devolve a lista) */
   foreach?: string;
   /** loop com foreach: nome do item em cada volta (padrão "item") */
   as?: string;
-  /** end: desfecho do fluxo */
+  /** end: desfecho do fluxo ("ok" ou "erro"; sem informar, é "ok"). No cenário, `expect.desfecho` confere o desfecho do fim alcançado */
   outcome?: "ok" | "erro";
   /** rule, decision, switch: exemplos verificáveis · scenario: exemplos da fila inteira */
   examples?: LogicExample[];
-  /** fact: nome usado nas expressões (letras, números, `_` e pontos): "preco_atual" */
+  /** input/output/variable: nome usado nas expressões (letras, números, `_` e pontos): "preco_atual" */
   key?: string;
-  /** fact: tipo em texto livre ("dinheiro", "texto", "lista") */
+  /** input/output/variable: tipo na sintaxe do TypeScript (`number`, `int`, `string[]`, `{ preco: number }[]`, `\"a\" | \"b\"`); rótulos antigos ("dinheiro") valem só como texto e não são conferidos */
   type?: string;
-  /** fact: valor fixo (constante) usado quando o exemplo não informa */
+  /** input/variable: valor fixo (constante) usado quando o exemplo não informa (na variável, é o valor inicial) */
   value?: LogicValue;
 }
 export type LogicField = Exclude<keyof LogicNodeSpec, "role">;
 
 export const LOGIC_ROLES: Record<LogicRole, { label: string; hint: string; color: string; badge: string; fields: LogicField[] }> = {
   start: { label: "Start", hint: "Início do fluxo: o que entra e quando a lógica começa (um por diagrama).", color: "#3aa76d", badge: "START", fields: ["text"] },
-  end: { label: "End", hint: "Fim do fluxo: o que a lógica devolve. O desfecho pode ser ok ou erro; pode haver vários fins.", color: "#8a6fd0", badge: "END", fields: ["text", "outcome"] },
-  rule: { label: "Rule", hint: "Regra de negócio (ação): o que muda nos dados, com exemplos que provam. Sem condição própria, roda sempre que o fluxo chega nela.", color: "#706fd3", badge: "RULE", fields: ["order", "text", "when", "then", "examples"] },
-  decision: { label: "Decision", hint: "Decisão sim/não: avalia uma condição e segue por uma de duas setas, \"sim\" ou \"não\".", color: "#0e9aa7", badge: "IF", fields: ["text", "when", "examples"] },
-  switch: { label: "Switch", hint: "Escolha entre vários caminhos. Com `on`, pelo valor de uma expressão (uma seta por valor). Sem `on`, por condições, como faixas: vale a primeira seta cuja condição for verdadeira. Sempre com uma seta \"outros\" para o resto.", color: "#0e9aa7", badge: "CASE?", fields: ["text", "on", "examples"] },
-  loop: { label: "Loop", hint: "Repetição: volta por uma seta \"repete\" até a condição de parada valer (`until`), no máximo `max` vezes, ou para cada item de uma lista (`foreach`); sai pela seta \"segue\".", color: "#c2548b", badge: "LOOP", fields: ["text", "until", "max", "foreach", "as"] },
-  fork: { label: "Fork", hint: "Paralelo: o fluxo se divide e segue por todas as setas de saída ao mesmo tempo.", color: "#e0a526", badge: "FORK", fields: ["text"] },
+  end: { label: "End", hint: "Fim do fluxo: o que a lógica devolve. O desfecho (`outcome`) é ok ou erro e, se você não informar, é ok; pode haver vários fins.", color: "#8a6fd0", badge: "END", fields: ["text", "outcome"] },
+  rule: { label: "Ação", hint: "Ação: muda dados (ex.: frete := 0), com exemplos que provam. Roda sempre que o fluxo chega nela. Não tem condição, nem «se … entao … senao» dentro dos efeitos: quem escolhe o caminho ou o valor é a Decisão, colocada antes dela (sim → uma ação com um valor, não → outra com o outro).", color: "#706fd3", badge: "AÇÃO", fields: ["order", "text", "then", "examples"] },
+  decision: { label: "Decisão", hint: "Decisão sim/não: só pergunta e escolhe por qual das duas setas o fluxo sai, \"sim\" ou \"não\" (quem muda dados é a Ação).", color: "#0e9aa7", badge: "IF", fields: ["text", "when", "examples"] },
+  switch: { label: "Switch", hint: "Escolha entre vários caminhos. Com `on`, pelo valor de uma expressão (uma seta por valor). Sem `on`, por condições, como faixas: cada seta leva a sua condição (no `case` da seta) e vale a primeira verdadeira, na ordem em que as setas foram criadas (faixas que se sobrepõem: ganha a mais antiga). Sempre com uma seta \"outros\" para o resto.", color: "#0e9aa7", badge: "SWITCH", fields: ["text", "on", "examples"] },
+  loop: { label: "Loop", hint: "Repetição: confere a parada antes de cada volta (pode dar zero voltas) e sai pela seta \"segue\" assim que vale a primeira: a condição `until` ficou verdadeira, já foram `max` voltas ou acabaram os itens do `foreach`; senão volta pela seta \"repete\". Precisa de pelo menos um dos três.", color: "#c2548b", badge: "LOOP", fields: ["text", "until", "max", "foreach", "as"] },
+  fork: { label: "Fork", hint: "Paralelo: o fluxo se divide e segue por todas as setas de saída; os ramos são independentes entre si (um não escreve um dado que outro escreve ou lê). O app os simula na ordem das setas, sobre os mesmos dados.", color: "#e0a526", badge: "FORK", fields: ["text"] },
   join: { label: "Join", hint: "Junção: espera todos os caminhos paralelos chegarem antes de seguir.", color: "#e0a526", badge: "JOIN", fields: ["text"] },
-  call: { label: "Call", hint: "Chama outra lógica: outro diagrama do cofre (campo ref). A simulação não entra nele.", color: "#6c7a89", badge: "CALL", fields: ["text"] },
-  fact: { label: "Fact", hint: "Dado que o fluxo lê ou escreve (preço atual, margem, tipo da categoria). O `key` é o nome usado nas expressões.", color: "#7fb3d5", badge: "DATA", fields: ["key", "type", "text", "value"] },
-  scenario: { label: "Scenario", hint: "Caso completo: roda o fluxo inteiro com os dados do exemplo e confere o resultado final.", color: "#4caf7d", badge: "CASE", fields: ["text", "examples"] },
+  call: { label: "Call", hint: "Chamada a algo de fora (gateway, API, outro diagrama) que pode falhar. Com `falha` (uma condição verdadeiro/falso, calculada com os dados que o fluxo tem ali), o exemplo simula a falha e o fluxo segue pela seta \"erro\" (sem essa seta é erro de execução); sem `falha`, a chamada nunca falha na simulação e segue pela seta normal. Com `devolve` (efeitos como os da Ação), a chamada que dá certo escreve os dados que devolveu. A simulação não entra no que está fora.", color: "#6c7a89", badge: "CALL", fields: ["text", "falha", "devolve"] },
+  input: { label: "Input", hint: "Dado que ENTRA no fluxo e só é lido (preço atual, margem, tipo da categoria). Nenhuma ação o escreve; o valor vem do `given` do exemplo ou do `value` (constante). O `key` é o nome usado nas expressões; o `type` é um tipo do TypeScript (number, int, string[], { preco: number }…) que o app confere nos exemplos.", color: "#7fb3d5", badge: "IN", fields: ["key", "type", "text", "value"] },
+  output: { label: "Output", hint: "Resultado que o fluxo DEVOLVE (recomendação, preço final, alerta). Alguma ação precisa escrevê-lo; é o que os cenários conferem em `expect`. O `key` é o nome nas expressões e o `type` é um tipo do TypeScript.", color: "#4caf7d", badge: "OUT", fields: ["key", "type", "text"] },
+  variable: { label: "Variable", hint: "Dado INTERMEDIÁRIO: criado e reescrito dentro do fluxo para calcular outra coisa (soma parcial, contador, índice). Não entra de fora nem é o resultado final. O `value` é o valor inicial.", color: "#a58fd6", badge: "VAR", fields: ["key", "type", "text", "value"] },
+  scenario: { label: "Scenario", hint: "Cenário completo: roda o fluxo inteiro com os dados do exemplo e confere o resultado final.", color: "#4caf7d", badge: "TESTE", fields: ["text", "examples"] },
 };
 export const LOGIC_ROLE_KEYS = Object.keys(LOGIC_ROLES) as LogicRole[];
 
 /** Saídas de decisão, escolha e laço. */
-export type LogicBranch = "sim" | "nao" | "repete" | "segue" | "outros";
+export type LogicBranch = "sim" | "nao" | "repete" | "segue" | "outros" | "erro";
 export const LOGIC_BRANCHES: Record<LogicBranch, { label: string; hint: string; from: LogicRole[] }> = {
   sim: { label: "sim", hint: "Seta da decisão quando a condição vale.", from: ["decision"] },
   nao: { label: "não", hint: "Seta da decisão quando a condição não vale.", from: ["decision"] },
   repete: { label: "repete", hint: "Seta do laço que volta ao início do corpo da repetição.", from: ["loop"] },
   segue: { label: "segue", hint: "Seta do laço quando termina e o fluxo continua.", from: ["loop"] },
   outros: { label: "outros", hint: "Seta da escolha para qualquer valor que nenhum caso cobre.", from: ["switch"] },
+  erro: { label: "erro", hint: "Seta da chamada (Call) quando ela falha. A seta sem saída nomeada é o caminho em que deu certo.", from: ["call"] },
 };
 export const LOGIC_BRANCH_KEYS = Object.keys(LOGIC_BRANCHES) as LogicBranch[];
 
 /** Semântica de uma seta do fluxo: por qual saída ela sai. */
 export interface LogicConnSpec {
   branch?: LogicBranch;
-  /** switch: valor deste caso (expressão literal: "lucro", 3, verdadeiro) */
+  /** switch com `on`: valor deste caso (expressão literal: "lucro", 3, verdadeiro). Switch sem `on`: a CONDIÇÃO desta faixa (ex.: total <= 100); vale a primeira verdadeira, na ordem em que as setas foram criadas */
   case?: string;
 }
 
@@ -401,8 +398,8 @@ export const DDD_RELS: Record<DddRel, { label: string; semantics: string; type: 
   contains: { label: "contains", semantics: "aggregate-root/entity → entity/value-object: parte do mesmo aggregate (ciclo de vida compartilhado).", type: "composition" },
   "references-by-id": { label: "references-by-id", semantics: "aggregate-root/entity → aggregate-root de OUTRO aggregate: referência só por identificador, nunca por objeto.", type: "association" },
   realizes: { label: "realizes", semantics: "command (ou serviço) → use-case: quem concretiza o caso de uso.", type: "realization" },
-  uses: { label: "uses", semantics: "dependência de serviço: command, policy, process-manager ou application-service → domain-service ou repository (quem orquestra usa; o aggregate nunca depende de repository).", type: "dependency" },
-  "context-relation": { label: "context-relation", semantics: "bounded context ↔ bounded context, com `pattern` do Context Map. Nos padrões assimétricos (customer-supplier, conformist, acl, ohs) `from` é o upstream (fornecedor) e `to` o downstream (cliente).", type: "association" },
+  uses: { label: "uses", semantics: "dependência de serviço: command, policy, process-manager ou application-service → domain-service ou repository (quem orquestra usa; o aggregate nunca depende de repository). Um domain-service pode usar outro domain-service; usar um repository é aceito, mas ele deveria ser puro (dica D033).", type: "dependency" },
+  "context-relation": { label: "context-relation", semantics: "bounded context ↔ bounded context, com `pattern` do Context Map. Nos padrões assimétricos (customer-supplier, conformist, acl, ohs) `from` é o upstream (fornecedor) e `to` o downstream (cliente). Nos demais (shared-kernel, partnership, published-language, separate-ways) a ordem não muda o sentido.", type: "association" },
 };
 export const DDD_REL_KEYS = Object.keys(DDD_RELS) as DddRel[];
 
@@ -418,9 +415,6 @@ export const DDD_REL_PAIRS: Record<DddRel, { from: RelEnd[]; to: RelEnd[] }[]> =
     { from: ["command"], to: ["aggregate-root"] },
     { from: ["domain-event"], to: ["policy", "process-manager", "read-model"] },
     { from: ["policy", "process-manager"], to: ["command"] },
-    // fluxo condicional: evento/policy/saga → decisão → (command | policy | saga | outra decisão)
-    { from: ["domain-event", "policy", "process-manager", "decision"], to: ["decision"] },
-    { from: ["decision"], to: ["command", "policy", "process-manager"] },
   ],
   contains: [{ from: ["aggregate-root", "entity"], to: ["entity", "value-object"] }],
   "references-by-id": [{ from: ["aggregate-root", "entity"], to: ["aggregate-root"] }],

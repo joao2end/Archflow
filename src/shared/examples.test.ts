@@ -9,7 +9,7 @@ import { domainOverview, evaluateDomain, traceUseCase } from "./domain";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, fileSlug } from "./examples";
 import { renderAllExamples } from "./examples.render";
 import { normalizeDoc, validateDetailed } from "./ops";
-import { CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DECISION_GATE_KEYS, DDD_ROLES, DDD_ROLE_KEYS, docMode, type Doc } from "./schema";
+import { CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLES, DDD_ROLE_KEYS, docMode, type Doc } from "./schema";
 
 const built = DDD_EXAMPLES.map((ex) => ({ ex, files: buildExample(ex) }));
 const serious = (doc: Doc, exists: (p: string) => boolean) => validateDetailed(doc, { exists }).filter((i) => i.severity !== "dica");
@@ -71,8 +71,7 @@ test("exemplos: juntos cobrem todos os papéis, relações, padrões do Context 
     }
   assert.deepEqual(DDD_ROLE_KEYS.filter((r) => !roles.has(r)), [], "papéis não ilustrados");
   assert.deepEqual(DDD_REL_KEYS.filter((r) => !rels.has(r)), [], "relações não ilustradas");
-  const gates = new Set(built.flatMap((b) => b.files.flatMap((f) => f.doc.nodes.filter((n) => n.ddd?.role === "decision").map((n) => n.ddd!.gate ?? "exclusive"))));
-  assert.deepEqual(DECISION_GATE_KEYS.filter((g) => !gates.has(g)), [], "tipos de decisão não ilustrados");
+  assert.ok(![...roles].includes("decision" as never), "decision só existe no modo logic");
   assert.deepEqual([...subdomains].sort(), ["core", "generic", "supporting"]);
   assert.deepEqual(CONTEXT_PATTERN_KEYS.filter((p) => !patterns.has(p)), [], "padrões do Context Map não ilustrados");
   assert.ok([...patterns].every((p) => (CONTEXT_PATTERN_KEYS as string[]).includes(p)));
@@ -97,9 +96,9 @@ test("exemplos: ilustram decisão com loop, ramos condicionais (senão) e itera�
   assert.ok(conns.some((x) => x.c.ddd?.condition), "alguma condição");
   assert.ok(conns.some((x) => x.c.ddd?.otherwise), "algum senão");
   assert.ok(conns.some((x) => x.c.ddd?.foreach), "alguma iteração");
-  const decisions = built.flatMap((b) => b.files.flatMap((f) => f.doc.nodes.filter((n) => n.ddd?.role === "decision")));
-  assert.ok(decisions.length >= 1);
-  for (const d of decisions) assert.ok(d.ddd!.question, "a decisão diz a pergunta que responde");
+  const policiesComRamos = built.flatMap((b) => b.files.flatMap((f) => f.doc.nodes.filter((n) => n.ddd?.role === "policy" && f.doc.connections.some((c) => c.from === n.id && (c.ddd?.condition || c.ddd?.otherwise)))));
+  assert.ok(policiesComRamos.length >= 1, "alguma policy com ramos condicionais");
+  for (const p of policiesComRamos) assert.ok(p.ddd!.intent, "a policy diz a pergunta que responde (intent)");
 });
 
 test("exemplos: eventos entre contextos têm produtor e consumidor reais (o nome contexto.evento existe no outro diagrama)", () => {
@@ -144,7 +143,7 @@ test("exemplos: os JSON gravados carregam como diagramas válidos (normalizeDoc)
 });
 
 test("documentação dos exemplos: todo `código` que parece um id existe no exemplo (a prosa não desatualiza sem o teste avisar)", () => {
-  const generic = new Set<string>([...DDD_ROLE_KEYS, ...DDD_REL_KEYS, ...CONTEXT_PATTERN_KEYS, ...DECISION_GATE_KEYS, "core", "supporting", "generic", "external", "step", "payload", "invariants", "intent", "context", "sync", "async", "stream", "data", "uc", "src", "visao-geral", "tsc", "npm", "mcp", "get-diagram", "domain-overview", "generate-code", "validate-diagram", "trace", "add-use-cases", "eval-domain", "examples-build"]);
+  const generic = new Set<string>([...DDD_ROLE_KEYS, ...DDD_REL_KEYS, ...CONTEXT_PATTERN_KEYS, "core", "supporting", "generic", "external", "step", "payload", "invariants", "intent", "context", "sync", "async", "stream", "data", "uc", "src", "visao-geral", "tsc", "npm", "mcp", "get-diagram", "domain-overview", "generate-code", "validate-diagram", "trace", "add-use-cases", "eval-domain", "examples-build"]);
   for (const { ex, files } of built) {
     const known = new Set<string>(generic);
     for (const f of files) {

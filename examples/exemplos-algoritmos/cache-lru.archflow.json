@@ -1,0 +1,1120 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-ob16m1",
+  "title": "Cache LRU (menos recentemente usado)",
+  "description": "Simula um cache de capacidade cap sobre uma lista de operações put/get. O cache é uma lista de pares [chave, valor] ordenada do MENOS para o MAIS recente: o primeiro é quem sai quando falta espaço e o último é o usado agora. Usar uma chave = tirá-la de onde está e colocá-la no fim. Cada get acrescenta seu resultado (valor ou -1) em saidas. Sem dicionário no formato, a busca é linear.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 302,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1872,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1872,
+      "y": 166,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1872,
+      "y": 342,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1872,
+      "y": 540,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cap",
+      "label": "Capacidade",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "cap",
+        "type": "inteiro",
+        "text": "Quantos pares cabem no cache. É pelo menos 1."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ops",
+      "label": "Operações",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "ops",
+        "type": "lista",
+        "text": "Lista de operações na ordem. Cada uma é [\"put\", chave, valor] ou [\"get\", chave]."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "cache",
+      "label": "Cache",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "cache",
+        "type": "lista",
+        "text": "Pares [chave, valor] do menos para o mais recentemente usado. Começa vazio. Nenhuma chave aparece duas vezes.",
+        "value": []
+      },
+      "x": 1900,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "saidas",
+      "label": "Resultados dos get",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "saidas",
+        "type": "lista",
+        "text": "Resposta: o valor de cada get, na ordem, ou -1 quando a chave não estava.",
+        "value": []
+      },
+      "x": 1900,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tipo",
+      "label": "Tipo da operação",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "tipo",
+        "type": "texto",
+        "text": "\"put\" ou \"get\"."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "chave",
+      "label": "Chave da operação",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "chave",
+        "type": "número",
+        "text": "A chave que a operação usa."
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "achado",
+      "label": "Par achado",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "achado",
+        "type": "lista | vazio",
+        "text": "O par [chave, valor] se a chave está no cache; vazio se não está."
+      },
+      "x": 1900,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "velho",
+      "label": "Par menos recente",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "velho",
+        "type": "lista | vazio",
+        "text": "O primeiro par do cache: o que sai quando falta espaço."
+      },
+      "x": 1900,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Executar as operações no cache",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram cap e ops; o cache começa vazio."
+      },
+      "x": 710,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "cada",
+      "label": "Para cada operação de ops",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "ops",
+        "as": "op",
+        "text": "Uma volta por operação, na ordem. op[0] é o tipo, op[1] a chave e, no put, op[2] o valor."
+      },
+      "x": 680,
+      "y": 124,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "ler",
+      "label": "Ler a operação e procurar a chave",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Separa tipo e chave e procura o par da chave no cache.",
+        "then": [
+          "tipo := op[0]",
+          "chave := op[1]",
+          "achado := primeiro(filtrar(cache, item[0] = chave))"
+        ],
+        "examples": [
+          {
+            "name": "get",
+            "given": {
+              "op": [
+                "get",
+                2
+              ],
+              "cache": [
+                [
+                  1,
+                  10
+                ],
+                [
+                  2,
+                  20
+                ]
+              ]
+            },
+            "expect": {
+              "tipo": "get",
+              "chave": 2,
+              "achado": [
+                2,
+                20
+              ]
+            }
+          }
+        ]
+      },
+      "x": 455,
+      "y": 275,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "eh-get",
+      "label": "É um get?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tipo = \"get\"",
+        "text": "get consulta; put guarda.",
+        "examples": [
+          {
+            "name": "get",
+            "given": {
+              "tipo": "get"
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "put",
+            "given": {
+              "tipo": "put"
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 685,
+      "y": 474,
+      "w": 330,
+      "h": 87
+    },
+    {
+      "id": "get-falta",
+      "label": "A chave não está no cache?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(achado)",
+        "text": "Sem o par, o get devolve -1 e não mexe no cache.",
+        "examples": [
+          {
+            "name": "falta",
+            "given": {
+              "achado": null
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "tem",
+            "given": {
+              "achado": [
+                1,
+                5
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 485,
+      "y": 632,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "get-nao",
+      "label": "Responder -1",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Chave ausente: acrescenta -1 aos resultados.",
+        "then": [
+          "saidas := adicionar(saidas, -1)"
+        ],
+        "examples": [
+          {
+            "name": "-1",
+            "given": {
+              "saidas": []
+            },
+            "expect": {
+              "saidas": [
+                -1
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 821.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "get-sim",
+      "label": "Responder o valor e renovar o uso",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Acrescenta o valor aos resultados e move o par para o fim (o mais recente).",
+        "then": [
+          "saidas := adicionar(saidas, achado[1])",
+          "cache := adicionar(filtrar(cache, item[0] != chave), achado)"
+        ],
+        "examples": [
+          {
+            "name": "renova",
+            "given": {
+              "saidas": [],
+              "achado": [
+                1,
+                5
+              ],
+              "chave": 1,
+              "cache": [
+                [
+                  1,
+                  5
+                ],
+                [
+                  2,
+                  6
+                ]
+              ]
+            },
+            "expect": {
+              "saidas": [
+                5
+              ],
+              "cache": [
+                [
+                  2,
+                  6
+                ],
+                [
+                  1,
+                  5
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 804,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "eh-put",
+      "label": "É um put?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tipo = \"put\"",
+        "text": "Só get e put existem; qualquer outra operação é recusada, em vez de ser tratada como put.",
+        "examples": [
+          {
+            "name": "put",
+            "given": {
+              "tipo": "put"
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "outra",
+            "given": {
+              "tipo": "del"
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 885,
+      "y": 625,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "put-existe",
+      "label": "A chave já está no cache?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(achado) = falso",
+        "text": "put em chave que já existe só troca o valor e renova o uso; não ocupa lugar novo.",
+        "examples": [
+          {
+            "name": "existe",
+            "given": {
+              "achado": [
+                1,
+                5
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "nova",
+            "given": {
+              "achado": null
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1020,
+      "y": 810.5,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "put-troca",
+      "label": "Trocar o valor e renovar o uso",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Tira o par antigo e coloca [chave, novo valor] no fim.",
+        "then": [
+          "cache := adicionar(filtrar(cache, item[0] != chave), [chave, op[2]])"
+        ],
+        "examples": [
+          {
+            "name": "troca",
+            "given": {
+              "cache": [
+                [
+                  1,
+                  5
+                ],
+                [
+                  2,
+                  6
+                ]
+              ],
+              "chave": 1,
+              "op": [
+                "put",
+                1,
+                9
+              ]
+            },
+            "expect": {
+              "cache": [
+                [
+                  2,
+                  6
+                ],
+                [
+                  1,
+                  9
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 430,
+      "y": 996,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "cheio",
+      "label": "O cache está cheio?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(cache) >= cap",
+        "text": "Chave nova com o cache cheio exige tirar o menos recente antes.",
+        "examples": [
+          {
+            "name": "cheio",
+            "given": {
+              "cache": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ]
+              ],
+              "cap": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "tem espaço",
+            "given": {
+              "cache": [
+                [
+                  1,
+                  1
+                ]
+              ],
+              "cap": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 940,
+      "y": 999,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "despeja",
+      "label": "Despejar o menos recente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Tira do cache o primeiro par (o usado há mais tempo).",
+        "then": [
+          "velho := primeiro(cache)",
+          "cache := filtrar(cache, item[0] != velho[0])"
+        ],
+        "examples": [
+          {
+            "name": "sai o primeiro",
+            "given": {
+              "cache": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "cache": [
+                [
+                  2,
+                  2
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 630,
+      "y": 1167,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "put-novo",
+      "label": "Guardar o par novo como o mais recente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Coloca [chave, valor] no fim do cache.",
+        "then": [
+          "cache := adicionar(cache, [chave, op[2]])"
+        ],
+        "examples": [
+          {
+            "name": "guarda",
+            "given": {
+              "cache": [
+                [
+                  2,
+                  2
+                ]
+              ],
+              "chave": 3,
+              "op": [
+                "put",
+                3,
+                7
+              ]
+            },
+            "expect": {
+              "cache": [
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  7
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 630,
+      "y": 1345,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Resultados devolvidos",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve saidas: o resultado de cada get."
+      },
+      "x": 965,
+      "y": 312.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "op-invalida",
+      "label": "Operação inválida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "O tipo da operação não é get nem put: para tudo e não devolve resultados."
+      },
+      "x": 1420,
+      "y": 838,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Exemplo clássico, capacidade 2",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "put 1, put 2, get 1 (acha), put 3 (sai o 2), get 2 (falta), put 4 (sai o 1), get 1, get 3, get 4.",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "cap": 2,
+              "ops": [
+                [
+                  "put",
+                  1,
+                  1
+                ],
+                [
+                  "put",
+                  2,
+                  2
+                ],
+                [
+                  "get",
+                  1
+                ],
+                [
+                  "put",
+                  3,
+                  3
+                ],
+                [
+                  "get",
+                  2
+                ],
+                [
+                  "put",
+                  4,
+                  4
+                ],
+                [
+                  "get",
+                  1
+                ],
+                [
+                  "get",
+                  3
+                ],
+                [
+                  "get",
+                  4
+                ]
+              ]
+            },
+            "expect": {
+              "saidas": [
+                1,
+                -1,
+                -1,
+                3,
+                4
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1900,
+      "y": 396,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-invalida",
+      "label": "Operação desconhecida",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Uma operação «del» não é get nem put: o fluxo termina com erro.",
+        "examples": [
+          {
+            "name": "del",
+            "given": {
+              "cap": 2,
+              "ops": [
+                [
+                  "del",
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1900,
+      "y": 594,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-vazio",
+      "label": "Sem operações",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "ops vazio devolve lista vazia.",
+        "examples": [
+          {
+            "name": "vazio",
+            "given": {
+              "cap": 2,
+              "ops": []
+            },
+            "expect": {
+              "saidas": [],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1900,
+      "y": 463,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-cada",
+      "from": "inicio",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "cada-to-ler",
+      "from": "cada",
+      "to": "ler",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ler-to-eh-get",
+      "from": "ler",
+      "to": "eh-get",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "eh-get-to-get-falta",
+      "from": "eh-get",
+      "to": "get-falta",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "eh-get-to-eh-put",
+      "from": "eh-get",
+      "to": "eh-put",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "eh-put-to-put-existe",
+      "from": "eh-put",
+      "to": "put-existe",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "eh-put-to-op-invalida",
+      "from": "eh-put",
+      "to": "op-invalida",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "get-falta-to-get-nao",
+      "from": "get-falta",
+      "to": "get-nao",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "get-falta-to-get-sim",
+      "from": "get-falta",
+      "to": "get-sim",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "put-existe-to-put-troca",
+      "from": "put-existe",
+      "to": "put-troca",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "put-existe-to-cheio",
+      "from": "put-existe",
+      "to": "cheio",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cheio-to-despeja",
+      "from": "cheio",
+      "to": "despeja",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cheio-to-put-novo",
+      "from": "cheio",
+      "to": "put-novo",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1316,
+          "y": 1049.5
+        },
+        {
+          "x": 1316,
+          "y": 1313
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "despeja-to-put-novo",
+      "from": "despeja",
+      "to": "put-novo",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "get-nao-to-cada",
+      "from": "get-nao",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 868
+        },
+        {
+          "x": -64,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "get-sim-to-cada",
+      "from": "get-sim",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 868
+        },
+        {
+          "x": -82,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "put-troca-to-cada",
+      "from": "put-troca",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1049.5
+        },
+        {
+          "x": -46,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "put-novo-to-cada",
+      "from": "put-novo",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1391.5
+        },
+        {
+          "x": -64,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "cada-to-pronto",
+      "from": "cada",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

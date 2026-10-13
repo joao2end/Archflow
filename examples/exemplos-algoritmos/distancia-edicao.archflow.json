@@ -1,0 +1,971 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-5e9a7v",
+  "title": "Distância de edição (Levenshtein)",
+  "description": "Menor número de inserções, remoções e trocas de letra para transformar `de` em `para`. Programação dinâmica: a célula (i, j) da tabela é a distância entre as i primeiras letras de `de` e as j primeiras de `para`. Cada célula é o menor entre: vir de cima +1 (apagar), vir da esquerda +1 (inserir) ou vir da diagonal (+0 se as letras são iguais, +1 se trocar). Como o formato não tem matriz, guarda-se só a linha anterior e a linha que está sendo montada; a última célula da última linha é a resposta.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 244,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1122,
+      "y": 50,
+      "w": 306,
+      "h": 650,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1122,
+      "y": 690,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "de",
+      "label": "Palavra de origem",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "de",
+        "type": "texto",
+        "text": "A palavra que será transformada. Pode ser vazia. Maiúscula e minúscula são letras diferentes (A ≠ a)."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "para",
+      "label": "Palavra de destino",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "para",
+        "type": "texto",
+        "text": "A palavra que se quer obter. Pode ser vazia. Maiúscula e minúscula são letras diferentes (A ≠ a)."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "letras-de",
+      "label": "Letras de origem",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "letras_de",
+        "type": "lista",
+        "text": "As letras de `de`, uma por item, na ordem."
+      },
+      "x": 1150,
+      "y": 104,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "letras-para",
+      "label": "Letras de destino",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "letras_para",
+        "type": "lista",
+        "text": "As letras de `para`, uma por item, na ordem."
+      },
+      "x": 1150,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "n",
+      "label": "Tamanho da origem",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "n",
+        "type": "inteiro",
+        "text": "Quantas letras tem `de`."
+      },
+      "x": 1150,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "m",
+      "label": "Tamanho do destino",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "m",
+        "type": "inteiro",
+        "text": "Quantas letras tem `para`."
+      },
+      "x": 1150,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "anterior",
+      "label": "Linha anterior da tabela",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "anterior",
+        "type": "lista",
+        "text": "Linha i−1: no lugar j, a distância entre as i−1 primeiras letras de `de` e as j primeiras de `para`. Tem m+1 itens."
+      },
+      "x": 1150,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "atual",
+      "label": "Linha sendo montada",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "atual",
+        "type": "lista",
+        "text": "Linha i: o item 0 é i (apagar as i letras); os outros entram um a um, da esquerda para a direita."
+      },
+      "x": 1150,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "i",
+      "label": "Linha",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "i",
+        "type": "inteiro",
+        "text": "Quantas letras de `de` já foram consideradas. Começa em 0.",
+        "value": 0
+      },
+      "x": 1150,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "j",
+      "label": "Coluna",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "j",
+        "type": "inteiro",
+        "text": "Quantas letras de `para` já foram consideradas na linha. Começa em 0.",
+        "value": 0
+      },
+      "x": 1150,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "sub",
+      "label": "Custo pela diagonal",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "sub",
+        "type": "número",
+        "text": "Distância anterior[j−1] mais 0 (letras iguais) ou 1 (trocar)."
+      },
+      "x": 1150,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "melhor",
+      "label": "Valor da célula",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "melhor",
+        "type": "número",
+        "text": "O menor entre apagar (cima + 1), inserir (esquerda + 1) e a diagonal."
+      },
+      "x": 1150,
+      "y": 626,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "resultado",
+      "label": "Distância de edição",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "resultado",
+        "type": "número",
+        "text": "Resposta: o menor número de operações."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Calcular a distância de edição",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram `de` e `para`."
+      },
+      "x": 335,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "prepara",
+      "label": "Separar as letras e começar a linha 0",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Transforma os textos em listas de letras (texto vazio vira lista vazia), guarda os tamanhos, zera os contadores i e j e começa a linha 0 só com o 0 (transformar vazio em vazio custa 0).",
+        "then": [
+          "letras_de := partir(de, \"\")",
+          "letras_para := partir(para, \"\")",
+          "n := tamanho(letras_de)",
+          "m := tamanho(letras_para)",
+          "anterior := [0]",
+          "i := 0",
+          "j := 0"
+        ],
+        "examples": [
+          {
+            "name": "duas palavras",
+            "given": {
+              "de": "ab",
+              "para": "c"
+            },
+            "expect": {
+              "letras_de": [
+                "a",
+                "b"
+              ],
+              "letras_para": [
+                "c"
+              ],
+              "n": 2,
+              "m": 1,
+              "anterior": [
+                0
+              ],
+              "i": 0,
+              "j": 0
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 124,
+      "w": 440,
+      "h": 219
+    },
+    {
+      "id": "l-base",
+      "label": "A linha 0 já tem m+1 itens?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "j >= m",
+        "text": "Para quando j chegou a m. A linha 0 é 0, 1, 2, …, m: criar j letras custa j inserções."
+      },
+      "x": 305,
+      "y": 407,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "base-passo",
+      "label": "Acrescentar j à linha 0",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Avança j e põe j no fim da linha.",
+        "then": [
+          "j := j + 1",
+          "anterior := adicionar(anterior, j)"
+        ],
+        "examples": [
+          {
+            "name": "passo",
+            "given": {
+              "j": 0,
+              "anterior": [
+                0
+              ]
+            },
+            "expect": {
+              "j": 1,
+              "anterior": [
+                0,
+                1
+              ]
+            }
+          }
+        ]
+      },
+      "x": 50,
+      "y": 573,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "l-linhas",
+      "label": "Todas as letras de `de` foram usadas?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "i >= n",
+        "text": "Para quando i chegou a n. Cada volta monta uma linha da tabela."
+      },
+      "x": 560,
+      "y": 572,
+      "w": 340,
+      "h": 116
+    },
+    {
+      "id": "nova-linha",
+      "label": "Começar a próxima linha",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Avança i; a linha começa com i (apagar as i letras de `de`) e as colunas voltam a 0.",
+        "then": [
+          "i := i + 1",
+          "atual := [i]",
+          "j := 0"
+        ],
+        "examples": [
+          {
+            "name": "linha 2",
+            "given": {
+              "i": 1
+            },
+            "expect": {
+              "i": 2,
+              "atual": [
+                2
+              ],
+              "j": 0
+            }
+          }
+        ]
+      },
+      "x": 110,
+      "y": 752,
+      "w": 330,
+      "h": 135
+    },
+    {
+      "id": "l-colunas",
+      "label": "A linha já tem m+1 itens?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "j >= m",
+        "text": "Para quando j chegou a m. Cada volta calcula uma célula da linha."
+      },
+      "x": 130,
+      "y": 951,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "le-celula",
+      "label": "Ir para a próxima coluna",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Avança j. A célula é a de i letras de `de` e j letras de `para`.",
+        "then": [
+          "j := j + 1"
+        ],
+        "examples": [
+          {
+            "name": "coluna 1",
+            "given": {
+              "j": 0
+            },
+            "expect": {
+              "j": 1
+            }
+          }
+        ]
+      },
+      "x": 55,
+      "y": 1116,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "mesma-letra",
+      "label": "As duas letras são iguais?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "letras_de[i - 1] = letras_para[j - 1]",
+        "text": "Compara a i-ésima letra de `de` com a j-ésima de `para` (a primeira é a de número 1).",
+        "examples": [
+          {
+            "name": "iguais",
+            "given": {
+              "letras_de": [
+                "a",
+                "b"
+              ],
+              "letras_para": [
+                "x",
+                "b"
+              ],
+              "i": 2,
+              "j": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "diferentes",
+            "given": {
+              "letras_de": [
+                "a",
+                "b"
+              ],
+              "letras_para": [
+                "x",
+                "c"
+              ],
+              "i": 2,
+              "j": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 1273,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "diag-igual",
+      "label": "Diagonal sem custo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Letras iguais: a distância é a mesma da diagonal.",
+        "then": [
+          "sub := anterior[j - 1]"
+        ],
+        "examples": [
+          {
+            "name": "sem custo",
+            "given": {
+              "anterior": [
+                3,
+                2,
+                1
+              ],
+              "j": 2
+            },
+            "expect": {
+              "sub": 2
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1452,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "diag-troca",
+      "label": "Diagonal com troca",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Letras diferentes: trocar uma pela outra custa 1 a mais que a diagonal.",
+        "then": [
+          "sub := anterior[j - 1] + 1"
+        ],
+        "examples": [
+          {
+            "name": "troca",
+            "given": {
+              "anterior": [
+                3,
+                2,
+                1
+              ],
+              "j": 2
+            },
+            "expect": {
+              "sub": 3
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1452,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "celula",
+      "label": "Escolher o menor e guardar a célula",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Menor entre apagar (a célula de cima + 1), inserir (a célula da esquerda + 1) e a diagonal; coloca no fim da linha.",
+        "then": [
+          "melhor := min(anterior[j] + 1, atual[j - 1] + 1, sub)",
+          "atual := adicionar(atual, melhor)"
+        ],
+        "examples": [
+          {
+            "name": "célula",
+            "given": {
+              "anterior": [
+                1,
+                1,
+                2
+              ],
+              "atual": [
+                2
+              ],
+              "j": 1,
+              "sub": 2
+            },
+            "expect": {
+              "melhor": 2,
+              "atual": [
+                2,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 1609,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "fecha-linha",
+      "label": "A linha pronta vira a anterior",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda a linha montada para a próxima volta.",
+        "then": [
+          "anterior := atual"
+        ],
+        "examples": [
+          {
+            "name": "troca de linha",
+            "given": {
+              "atual": [
+                1,
+                1,
+                2
+              ]
+            },
+            "expect": {
+              "anterior": [
+                1,
+                1,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "x": 455,
+      "y": 1116,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "responde",
+      "label": "A resposta é a última célula",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A distância entre as palavras inteiras é o último item da última linha.",
+        "then": [
+          "resultado := anterior[m]"
+        ],
+        "examples": [
+          {
+            "name": "última célula",
+            "given": {
+              "anterior": [
+                3,
+                2,
+                3
+              ],
+              "m": 2
+            },
+            "expect": {
+              "resultado": 3
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 773,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Distância devolvida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve resultado: o menor número de inserções, remoções e trocas."
+      },
+      "x": 540,
+      "y": 971.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-kitten",
+      "label": "kitten → sitting",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Trocar k por s, trocar e por i, inserir g: 3 operações.",
+        "examples": [
+          {
+            "name": "kitten",
+            "given": {
+              "de": "kitten",
+              "para": "sitting"
+            },
+            "expect": {
+              "resultado": 3,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 744,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-vazia",
+      "label": "Origem vazia",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "De \"\" para \"abc\" são 3 inserções.",
+        "examples": [
+          {
+            "name": "vazia",
+            "given": {
+              "de": "",
+              "para": "abc"
+            },
+            "expect": {
+              "resultado": 3,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 811,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-prepara",
+      "from": "inicio",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prepara-to-l-base",
+      "from": "prepara",
+      "to": "l-base",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-base-to-base-passo",
+      "from": "l-base",
+      "to": "base-passo",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "base-passo-to-l-base",
+      "from": "base-passo",
+      "to": "l-base",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 4,
+          "y": 630
+        },
+        {
+          "x": 4,
+          "y": 457.5
+        }
+      ]
+    },
+    {
+      "id": "l-base-to-l-linhas",
+      "from": "l-base",
+      "to": "l-linhas",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "l-linhas-to-nova-linha",
+      "from": "l-linhas",
+      "to": "nova-linha",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "nova-linha-to-l-colunas",
+      "from": "nova-linha",
+      "to": "l-colunas",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-colunas-to-le-celula",
+      "from": "l-colunas",
+      "to": "le-celula",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "le-celula-to-mesma-letra",
+      "from": "le-celula",
+      "to": "mesma-letra",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "mesma-letra-to-diag-igual",
+      "from": "mesma-letra",
+      "to": "diag-igual",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "mesma-letra-to-diag-troca",
+      "from": "mesma-letra",
+      "to": "diag-troca",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "diag-igual-to-celula",
+      "from": "diag-igual",
+      "to": "celula",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "diag-troca-to-celula",
+      "from": "diag-troca",
+      "to": "celula",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "celula-to-l-colunas",
+      "from": "celula",
+      "to": "l-colunas",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1673
+        },
+        {
+          "x": -64,
+          "y": 1001.5
+        }
+      ]
+    },
+    {
+      "id": "l-colunas-to-fecha-linha",
+      "from": "l-colunas",
+      "to": "fecha-linha",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fecha-linha-to-l-linhas",
+      "from": "fecha-linha",
+      "to": "l-linhas",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -32,
+          "y": 1162.5
+        },
+        {
+          "x": -32,
+          "y": 630
+        }
+      ]
+    },
+    {
+      "id": "l-linhas-to-responde",
+      "from": "l-linhas",
+      "to": "responde",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "responde-to-pronto",
+      "from": "responde",
+      "to": "pronto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    }
+  ],
+  "customAssets": []
+}

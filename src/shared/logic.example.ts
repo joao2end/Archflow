@@ -2,19 +2,19 @@
  * Exemplo do modo Logic: a engine de precificação como fluxograma.
  *
  * Para cada produto do grupo (maior receita primeiro; o primeiro é a referência) o fluxo carrega o produto, escolhe o preço de
- * partida pelo tipo do grupo e passa por onze regras em ordem; cada regra pode reescrever o preço da anterior. Os desvios são
+ * partida pelo tipo do grupo e passa por onze ações em ordem; cada ação pode reescrever o preço da anterior. Os desvios são
  * decisões sim/não, o "para cada produto" é um laço e um tipo de grupo desconhecido termina em erro.
  *
  * Os números dos exemplos são ilustrativos; as interpretações que o texto original deixa em aberto estão marcadas como
- * "A confirmar" na descrição das regras.
+ * "A confirmar" na descrição das ações.
  */
 import { emptyDoc, type Doc, type LogicBranch, type LogicExample, type LogicValue } from "./schema";
 import { applyOps, describe, type Op } from "./ops";
-import { recordPaths } from "./logic";
+import { migrateFacts, recordPaths } from "./logic";
 
 export const LOGIC_EXAMPLE_PATH = "exemplos-logic/precificacao.archflow.json";
 
-const fact = (id: string, label: string, key: string, type: string, text: string, value?: LogicValue): Op => ({ op: "add_node", id, label, logic: { role: "fact", key, type, text, ...(value !== undefined ? { value } : {}) } });
+const fact = (id: string, label: string, key: string, type: string, text: string, value?: LogicValue): Op => ({ op: "add_node", id, label, logic: { role: "input", key, type, text, ...(value !== undefined ? { value } : {}) } });
 const ex = (name: string, given: Record<string, LogicValue>, expect: Record<string, LogicValue>): LogicExample => ({ name, given, expect });
 const rule = (id: string, label: string, text: string, then: string[], examples: LogicExample[], description?: string): Op => ({ op: "add_node", id, label, ...(description ? { description } : {}), logic: { role: "rule", text, then, examples } });
 const decision = (id: string, label: string, when: string, text: string, examples: LogicExample[]): Op => ({ op: "add_node", id, label, logic: { role: "decision", when, text, examples } });
@@ -48,7 +48,7 @@ const OPS: Op[] = [
   fact("preco-fixo", "Preço fixo", "preco_fixo", "dinheiro", "Preço fixo cadastrado; vale quando maior que zero."),
   fact("reaplicar", "Reaplicar ajustes", "reaplicar_ajustes", "lógico", "Restaura o preço digitado gravado, sem propagar de novo.", false),
   fact("preco-digitado", "Preço digitado", "preco_digitado", "dinheiro", "Preço digitado pelo usuário e gravado.", 0),
-  fact("preco", "Preço", "preco", "dinheiro", "O preço que o fluxo vai calculando: cada regra pode reescrevê-lo."),
+  fact("preco", "Preço", "preco", "dinheiro", "O preço que o fluxo vai calculando: cada ação pode reescrevê-lo."),
   fact("recomendacao", "Recomendação", "recomendacao", "texto", 'Resultado: "keep", "raise" ou "reduce".'),
   fact("alerta", "Alerta pendente", "alerta_pendente", "lógico", "Há alerta pendente quando o preço muda."),
 
@@ -79,7 +79,7 @@ const OPS: Op[] = [
     [ex("aumento cortado", { preco: 100, preco_atual: 70 }, { preco: 84 }), ex("redução cortada", { preco: 40, preco_atual: 70 }, { preco: 56 })]),
 
   decision("preco-mudou", "O preço mudou?", "preco != preco_atual", "O arredondamento só vale quando o preço mudou.", [ex("mudou", { preco: 100, preco_atual: 90 }, { caminho: "sim" }), ex("igual", { preco: 90, preco_atual: 90 }, { caminho: "nao" })]),
-  { op: "add_node", id: "faixa-do-preco", label: "Em que faixa está o preço?", description: "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a regra de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.", logic: { role: "switch", text: "Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo.", examples: [ex("faixa de 100", { preco: 100 }, { caminho: "entre(preco, 100, 101)" }), ex("acima de 202", { preco: 250.4 }, { caminho: "preco > 202.01" }), ex("de 50 a 100", { preco: 84 }, { caminho: "outros" })] } },
+  { op: "add_node", id: "faixa-do-preco", label: "Em que faixa está o preço?", description: "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a ação de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.", logic: { role: "switch", text: "Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo.", examples: [ex("faixa de 100", { preco: 100 }, { caminho: "entre(preco, 100, 101)" }), ex("acima de 202", { preco: 250.4 }, { caminho: "preco > 202.01" }), ex("de 50 a 100", { preco: 84 }, { caminho: "outros" })] } },
   rule("faixa-minima", "Abaixo de R$ 0,10", "Vira R$ 0,09.", ["preco := 0.09"], [ex("0,05", { preco: 0.05 }, { preco: 0.09 })]),
   rule("faixa-alta", "Acima de R$ 202,01", "Vai ao inteiro anterior menos um centavo.", ["preco := piso(preco) - 0.01"], [ex("250,40", { preco: 250.4 }, { preco: 249.99 })]),
   rule("faixa-200", "De R$ 200 a R$ 202", "Vira R$ 199,99.", ["preco := 199.99"], [ex("201", { preco: 201 }, { preco: 199.99 })]),
@@ -97,7 +97,7 @@ const OPS: Op[] = [
   rule("igualar-referencia", "Igualar à referência", "Os demais do grupo igualam o preço da referência.", ["preco := preco_referencia_grupo"], [ex("acompanha", { preco: 76.99, preco_referencia_grupo: 74.99 }, { preco: 74.99 })]),
 
   decision("e-ancora", "É PBM, popular ou marca própria?", "ancora", "Esses produtos ficam no preço atual.", [ex("âncora", { ancora: true }, { caminho: "sim" }), ex("comum", { ancora: false }, { caminho: "nao" })]),
-  rule("ancorar", "Voltar ao preço atual e travar", "O preço volta ao atual e as regras seguintes não o reescrevem.", ["preco := preco_atual", "travar preco"], [ex("volta e trava", { preco: 80, preco_atual: 70 }, { preco: 70 })]),
+  rule("ancorar", "Voltar ao preço atual e travar", "O preço volta ao atual e as ações seguintes não o reescrevem.", ["preco := preco_atual", "travar preco"], [ex("volta e trava", { preco: 80, preco_atual: 70 }, { preco: 70 })]),
 
   decision("tem-preco-fixo", "Existe preço fixo?", "preco_fixo > 0", "Se for maior que zero, vence tudo o que veio antes.", [ex("fixo", { preco_fixo: 55 }, { caminho: "sim" }), ex("sem fixo", { preco_fixo: 0 }, { caminho: "nao" })]),
   rule("aplicar-preco-fixo", "Aplicar o preço fixo", "Vence tudo o que veio antes, inclusive a trava da âncora.", ["destravar preco", "preco := preco_fixo", "travar preco"], [ex("vence a âncora", { preco: 70, preco_fixo: 55 }, { preco: 55 })]),
@@ -105,9 +105,12 @@ const OPS: Op[] = [
   decision("segue-referencia-lucro", "Lucro que não é a referência?", 'tipo_grupo = "lucro" e nao eh_referencia', "A referência é a de maior receita no grupo; quem já ficou travado não é reescrito.", [ex("seguidor", { tipo_grupo: "lucro", eh_referencia: false }, { caminho: "sim" }), ex("referência", { tipo_grupo: "lucro", eh_referencia: true }, { caminho: "nao" })]),
   rule("igualar-referencia-lucro", "Igualar à referência", "Quem já ficou travado na âncora ou no preço fixo não é reescrito (a trava impede).", ["preco := preco_referencia_grupo"], [ex("segue", { preco: 105.99, preco_referencia_grupo: 99.99 }, { preco: 99.99 })]),
 
-  rule("recomendar", "Recomendar", "Keep se os preços coincidem nos centavos; senão raise ou reduce. O alerta fica pendente quando o preço muda.",
-    ['recomendacao := se arredondar(preco, 2) = arredondar(preco_atual, 2) entao "keep" senao (se preco > preco_atual entao "raise" senao "reduce")', "alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"],
-    [ex("sobe", { preco: 99.99, preco_atual: 90 }, { recomendacao: "raise", alerta_pendente: true }), ex("cai", { preco: 80, preco_atual: 90 }, { recomendacao: "reduce", alerta_pendente: true }), ex("igual", { preco: 90, preco_atual: 90 }, { recomendacao: "keep", alerta_pendente: false })]),
+  decision("recomendar", "Os preços coincidem nos centavos?", "arredondar(preco, 2) = arredondar(preco_atual, 2)", "Se o novo preço e o atual são iguais até os centavos, a recomendação é manter.", [ex("igual", { preco: 90, preco_atual: 90 }, { caminho: "sim" }), ex("diferente", { preco: 99.99, preco_atual: 90 }, { caminho: "nao" })]),
+  rule("recomendar-keep", "Recomendar manter", 'Recomendação "keep".', ['recomendacao := "keep"'], [ex("mantém", {}, { recomendacao: "keep" })]),
+  decision("recomendar-subiu", "O preço novo é maior que o atual?", "preco > preco_atual", "Entre os preços diferentes, decide se a recomendação é subir ou reduzir.", [ex("sobe", { preco: 99.99, preco_atual: 90 }, { caminho: "sim" }), ex("cai", { preco: 80, preco_atual: 90 }, { caminho: "nao" })]),
+  rule("recomendar-raise", "Recomendar subir", 'Recomendação "raise".', ['recomendacao := "raise"'], [ex("sobe", {}, { recomendacao: "raise" })]),
+  rule("recomendar-reduce", "Recomendar reduzir", 'Recomendação "reduce".', ['recomendacao := "reduce"'], [ex("cai", {}, { recomendacao: "reduce" })]),
+  rule("recomendar-alerta", "Marcar o alerta pendente", "O alerta fica pendente quando o preço muda.", ["alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"], [ex("muda", { preco: 99.99, preco_atual: 90 }, { alerta_pendente: true }), ex("igual", { preco: 90, preco_atual: 90 }, { alerta_pendente: false })]),
   decision("reaplicar-ajustes", "Reaplicar ajustes gravados?", "reaplicar_ajustes e preco_digitado > 0", "Depois do cálculo, restaura o preço digitado, sem propagar de novo.", [ex("reaplica", { reaplicar_ajustes: true, preco_digitado: 88.5 }, { caminho: "sim" }), ex("não", { reaplicar_ajustes: false, preco_digitado: 88.5 }, { caminho: "nao" })]),
   rule("restaurar-digitado", "Restaurar o preço digitado", "Volta o preço que o usuário digitou.", ["preco := preco_digitado"], [ex("restaura", { preco_digitado: 88.5, preco: 99.99 }, { preco: 88.5 })]),
   decision("e-a-referencia", "É a referência do grupo?", "eh_referencia", "A referência guarda o preço final para os demais seguirem.", [ex("sim", { eh_referencia: true }, { caminho: "sim" }), ex("não", { eh_referencia: false }, { caminho: "nao" })]),
@@ -188,7 +191,14 @@ const OPS: Op[] = [
   edge("segue-referencia-lucro", "igualar-referencia-lucro", "sim"),
   edge("segue-referencia-lucro", "recomendar", "nao"),
   edge("igualar-referencia-lucro", "recomendar"),
-  edge("recomendar", "reaplicar-ajustes"),
+  edge("recomendar", "recomendar-keep", "sim"),
+  edge("recomendar", "recomendar-subiu", "nao"),
+  edge("recomendar-subiu", "recomendar-raise", "sim"),
+  edge("recomendar-subiu", "recomendar-reduce", "nao"),
+  edge("recomendar-keep", "recomendar-alerta"),
+  edge("recomendar-raise", "recomendar-alerta"),
+  edge("recomendar-reduce", "recomendar-alerta"),
+  edge("recomendar-alerta", "reaplicar-ajustes"),
   edge("reaplicar-ajustes", "restaurar-digitado", "sim"),
   edge("reaplicar-ajustes", "e-a-referencia", "nao"),
   edge("restaurar-digitado", "e-a-referencia"),
@@ -201,9 +211,11 @@ const OPS: Op[] = [
 export function pricingDoc(): Doc {
   const doc = emptyDoc("Engine de precificação", "logic");
   doc.id = "engine-de-precificacao";
-  doc.description = "Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze regras em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada regra e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.";
-  const r = applyOps(doc, [...OPS, { op: "layout" }]);
-  const bad = r.results.filter((x) => !x.ok);
+  doc.description = "Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze ações em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada ação e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.";
+  const built = applyOps(doc, OPS);
+  built.doc.nodes = migrateFacts(built.doc.nodes, built.doc.connections, true); // papel de cada dado pelo uso: Input, Output ou Variable
+  const r = applyOps(built.doc, [{ op: "layout" }]);
+  const bad = [...built.results, ...r.results].filter((x) => !x.ok);
   if (bad.length) throw new Error("exemplo de precificação inválido: " + JSON.stringify(bad));
   return recordPaths(r.doc); // cada cenário guarda o caminho que o fluxo percorre; se o fluxo mudar, o exemplo avisa
 }

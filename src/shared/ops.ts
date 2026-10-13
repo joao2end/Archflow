@@ -12,6 +12,7 @@ import {
   DDD_RELS,
   DDD_ROLES,
   LOGIC_ROLES,
+  isDataRole,
   SCHEMA_VERSION,
   SUBDOMAINS,
   docMode,
@@ -41,10 +42,11 @@ import {
 } from "./schema";
 import { layeredLayout, shelfPack } from "./layout";
 import { stormLayout } from "./storm";
+import { groupedLayout, TYPE_GROUP_PREFIX } from "./grouped";
 import { logicLayout } from "./logiclayout";
-import { pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, factNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
+import { migrateFacts, migrateRuleGuards, normalizeLogicRole, pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, dataNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
 import { logicSize } from "./logiccard";
-import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, schemaGuideDomain, suggestRels, type Issue } from "./domain";
+import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, migrateDddDecisions, schemaGuideDomain, suggestRels, type Issue } from "./domain";
 
 /** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain e Logic só carregam o que é compatível com o modo. */
 export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
@@ -63,7 +65,7 @@ export type Op =
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
-  | { op: "layout"; style?: "flow" | "timeline" | "pipeline"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
+  | { op: "layout"; style?: "flow" | "timeline" | "pipeline" | "grouped"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
   | { op: "set_meta"; title?: string; description?: string; mode?: DocMode }
   | { op: "clear" };
 
@@ -222,7 +224,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (bad) return { ok: false, error: bad };
         if (op.kind && op.kind !== "domain") return { ok: false, error: `um nó com ddd tem kind "domain" (recebeu "${op.kind}")` };
       }
-      const logic: LogicNodeSpec | undefined = op.logic ?? (asset?.logic ? { ...asset.logic } : undefined);
+      const logic: LogicNodeSpec | undefined = normalizeLogicRole(op.logic ?? (asset?.logic ? { ...asset.logic } : undefined));
       if (logic !== undefined || op.kind === "logic") {
         if (docMode(doc) !== "logic") return { ok: false, error: `papéis de lógica (kind "logic" / logic) só existem em diagramas de modo "logic"; crie o diagrama com new_diagram mode "logic" ou troque o modo em set_diagram_info` };
         const bad = checkLogicNode(logic);
@@ -237,7 +239,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const allowed = MODE_KINDS[docMode(doc)];
       if (allowed && !allowed.includes(kind)) return { ok: false, error: `componente "${kind}"${asset ? ` (asset "${asset.id}")` : ""} não existe no modo ${docMode(doc)}. Neste modo só entram: ${allowed.join(", ")}. Crie um diagrama de arquitetura para componentes de infraestrutura.` };
       const isEp = kind === "endpoint";
-      const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic } as NodeEl, factNames(doc)) : undefined;
+      const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic } as NodeEl, dataNames(doc)) : undefined;
       const w = lsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
       const h = lsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
       let pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : undefined;
@@ -372,6 +374,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (rel && "ddd" in patch && patch.ddd != null && patch.type === undefined) patch.type = DDD_RELS[rel].type;
       }
       if (!isConn && "logic" in patch && patch.logic != null) {
+        patch.logic = normalizeLogicRole(patch.logic);
         if (docMode(doc) !== "logic") return { ok: false, error: `logic só existe em diagramas de modo "logic"` };
         const bad = isNode ? checkLogicNode(patch.logic) : "logic só se aplica a componentes";
         if (bad) return { ok: false, error: bad };
@@ -397,7 +400,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (isConn && "ddd" in patch && patch.ddd != null && patch.label === undefined && docMode(doc) === "domain") el.label = composeDddLabel(el.ddd as DddConnSpec, dddLabelVia(prevDdd, prevLabel));
       if ("ddd" in patch && patch.ddd == null) delete el.ddd;
       if ("logic" in patch && patch.logic == null) delete el.logic;
-      if (isNode && "logic" in patch && el.logic) Object.assign(el, logicSize(el, factNames(doc))); // o cartão acompanha o texto
+      if (isNode && "logic" in patch && el.logic) Object.assign(el, logicSize(el, dataNames(doc))); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("parent" in patch) {
         if (el.parent && (!doc.groups.some((g) => g.id === el.parent) || el.parent === el.id || isContainerOf(doc, el.id, el.parent))) {
@@ -464,7 +467,11 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
           if (!doc.groups.some((x) => x.id === g.id)) doc.groups.push({ id: g.id, label: g.label, kind: "layer", tag: g.tag, x: 0, y: 0, w: 200, h: 120, auto: true });
           for (const m of g.members) doc.nodes.find((n) => n.id === m)!.parent = g.id;
         }
-        for (const g of doc.groups) if (g.auto && plan.groups.some((x) => x.id === g.id)) fitGroup(doc, g.id);
+        // o layout posiciona os membros destes grupos; os que vieram gravados sem `auto` passam a seguir os membros (o quadro velho ficava vazio)
+        for (const g of doc.groups) if (plan.groups.some((x) => x.id === g.id)) {
+          g.auto = true;
+          fitGroup(doc, g.id);
+        }
         for (const c of doc.connections) {
           delete c.labelT;
           delete c.labelOffset;
@@ -480,7 +487,14 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         placeLabels(doc);
         return { ok: true };
       }
-      if (op.style === "timeline") {
+      if (op.style === "grouped") {
+        if (docMode(doc) !== "domain") return { ok: false, error: `o layout "grouped" (agrupar por tipo) só existe em diagramas de modo "domain"` };
+        groupedTypeLayout(doc, op.routing);
+        return { ok: true };
+      }
+      if (docMode(doc) === "domain") dissolveTypeGroups(doc); // os outros estilos não usam os quadros de tipo
+      // em diagramas de domínio, sem estilo explícito vale a linha do tempo: raias por tipo de componente (ator, command, aggregate, evento…)
+      if (op.style === "timeline" || (docMode(doc) === "domain" && op.style === undefined)) {
         if (docMode(doc) !== "domain") return { ok: false, error: `o layout "timeline" (Event Storming) só existe em diagramas de modo "domain"` };
         timelineLayout(doc, op.routing);
         return { ok: true };
@@ -577,6 +591,43 @@ export function timelineLayout(doc: Doc, routing?: Routing) {
     delete c.labelT;
     delete c.labelOffset;
   }
+  avoidCollisions(doc); // conexões que cruzariam outras raias contornam os componentes em vez de passar por cima
+  placeLabels(doc);
+}
+
+/* ───────────────────────── layout "agrupar por tipo" (modo domain) ───────────────────────── */
+
+/** Remove os quadros de tipo criados por `groupedTypeLayout`, devolvendo os componentes ao contexto de origem. */
+export function dissolveTypeGroups(doc: Doc) {
+  const typed = new Map(doc.groups.filter((g) => g.id.startsWith(TYPE_GROUP_PREFIX)).map((g) => [g.id, g]));
+  if (!typed.size) return;
+  for (const n of doc.nodes) if (n.parent && typed.has(n.parent)) n.parent = typed.get(n.parent)!.parent;
+  doc.groups = doc.groups.filter((g) => !typed.has(g.id));
+}
+
+/** Agrupa os componentes por tipo (um quadro por tipo em cada contexto) e liga tudo com conectores ortogonais que desviam dos componentes. */
+export function groupedTypeLayout(doc: Doc, routing?: Routing) {
+  dissolveTypeGroups(doc);
+  const r = groupedLayout(doc);
+  for (const box of r.boxes) {
+    doc.groups.push({ id: box.id, label: box.label, kind: "layer", ...(box.parent ? { parent: box.parent } : {}), ...box.rect, auto: true });
+    for (const m of box.members) doc.nodes.find((n) => n.id === m)!.parent = box.id;
+  }
+  for (const n of doc.nodes) {
+    const pos = r.nodes.get(n.id);
+    if (pos) Object.assign(n, pos);
+  }
+  for (const n of doc.nodes) if (r.nodes.has(n.id)) restack(doc, n);
+  for (const g of doc.groups) {
+    const rect = r.contexts.get(g.id);
+    if (rect) Object.assign(g, rect);
+  }
+  for (const c of doc.connections) {
+    c.routing = routing ?? "elbow";
+    delete c.labelT;
+    delete c.labelOffset;
+  }
+  avoidCollisions(doc);
   placeLabels(doc);
 }
 
@@ -850,6 +901,7 @@ const q = (s: string) => s.replace(/"/g, "'");
 export function toMermaid(doc: Doc): string {
   const mid = (id: string) => "n_" + id.replace(/[^a-zA-Z0-9]/g, "_");
   const lines = ["flowchart LR"];
+  if (docMode(doc) === "logic" && doc.description) lines.push(`  %% ${doc.description.replace(/\s*\n\s*/g, " ")}`); // pré-condições e invariantes ficam na descrição
   const emit = (pid: string | undefined, indent: string) => {
     for (const g of doc.groups.filter((x) => x.parent === pid)) {
       lines.push(`${indent}subgraph ${mid(g.id)}["${q(g.label)}"]`);
@@ -859,6 +911,32 @@ export function toMermaid(doc: Doc): string {
     for (const n of doc.nodes.filter((x) => x.parent === pid)) {
       const t = n.technology ? `<br/><i>${q(n.technology)}</i>` : "";
       const shape = n.kind === "domain" ? (n.ddd?.role === "domain-event" ? [">", "]"] : n.ddd?.role === "command" ? ["([", "])"] : n.ddd?.role === "aggregate-root" ? ["[[", "]]"] : ["[", "]"]) : n.kind === "database" || n.kind === "cache" ? ["[(", ")]"] : n.kind === "queue" || n.kind === "system" ? ["[[", "]]"] : n.kind === "actor" || n.kind === "endpoint" ? ["([", "])"] : ["[", "]"];
+      const lg = n.logic;
+      if (isDataRole(lg?.role)) {
+        // dado: nome da chave, tipo e valor inicial (sem isso o leitor não sabe com o que cada variável começa)
+        const init = lg.value !== undefined ? ` = ${JSON.stringify(lg.value)}` : "";
+        // o texto do dado traz o significado (ex.: «pares [de, para]: de vem antes de para»), que o nome e o tipo não dizem
+        lines.push(`${indent}${mid(n.id)}["${q(n.label)}<br/>${q(`${LOGIC_ROLES[lg.role].label} ${lg.key}${lg.type ? `: ${lg.type}` : ""}${init}`)}${lg.text ? `<br/><i>${q(lg.text)}</i>` : ""}"]`);
+        continue;
+      }
+      if (lg) {
+        // Logic: o Mermaid carrega a lógica (condição, efeitos, parada), senão o leitor só vê os títulos
+        const detail = [
+          lg.when ? `se ${lg.when}` : "",
+          lg.on ? `conforme ${lg.on}` : "",
+          lg.until ? `para quando ${lg.until}` : "",
+          lg.foreach ? `para cada ${lg.as ?? "item"} em ${lg.foreach}` : "",
+          ...(lg.then ?? []),
+          lg.role === "end" ? (lg.outcome === "erro" ? "desfecho: erro" : "desfecho: ok") : "",
+          lg.role === "end" && lg.text ? lg.text : "",
+          // cenário: o caso completo (entrada → esperado), que é o que o leitor mais usa para conferir o que entendeu
+          ...(lg.role === "scenario" ? (lg.examples ?? []).map((e) => `${e.name}: ${JSON.stringify(e.given)} → ${JSON.stringify(e.expect)}`) : []),
+        ].filter(Boolean).map(q);
+        const body = `${q(n.label)}${detail.length ? "<br/>" + detail.join("<br/>") : ""}`;
+        const sh = lg.role === "decision" || lg.role === "switch" ? ["{", "}"] : lg.role === "start" || lg.role === "end" ? ["([", "])"] : lg.role === "loop" ? ["{{", "}}"] : ["[", "]"];
+        lines.push(`${indent}${mid(n.id)}${sh[0]}"${body}"${sh[1]}`);
+        continue;
+      }
       const name = n.kind === "system" && n.ref ? `↗ ${n.label}` : n.label;
       lines.push(`${indent}${mid(n.id)}${shape[0]}"${q(name)}${t}"${shape[1]}`);
     }
@@ -866,9 +944,10 @@ export function toMermaid(doc: Doc): string {
   emit(undefined, "  ");
   for (const n of doc.nodes) if (n.owner) lines.push(`  ${mid(n.owner)} -.- ${mid(n.id)}`);
   for (const c of doc.connections) {
-    const txt = q([c.label, c.protocol].filter(Boolean).join(" · ") || CONNECTION_TYPES[c.type].label);
+    const logicEdge = docMode(doc) === "logic";
+    const txt = q([c.label, c.protocol].filter(Boolean).join(" · ") || (logicEdge ? "" : CONNECTION_TYPES[c.type].label));
     const arrow = c.type === "async" || c.type === "dependency" || c.type === "realization" ? "-.->" : c.type === "stream" ? "==>" : c.type === "association" ? "---" : "-->";
-    lines.push(`  ${mid(c.from)} ${arrow}|"${txt}"| ${mid(c.to)}`);
+    lines.push(`  ${mid(c.from)} ${arrow}${txt ? `|"${txt}"|` : ""} ${mid(c.to)}`);
   }
   return lines.join("\n");
 }
@@ -984,15 +1063,21 @@ export function normalizeDoc(raw: any): Doc {
     ...(raw?.mode === "domain" || raw?.mode === "logic" ? { mode: raw.mode as "domain" | "logic" } : {}),
     schema: SCHEMA_VERSION,
     groups: Array.isArray(raw?.groups) ? raw.groups : [],
-    nodes: Array.isArray(raw?.nodes) ? raw.nodes : [],
+    nodes: Array.isArray(raw?.nodes) ? raw.nodes.map((n: any) => (n?.logic?.role === "action" ? { ...n, logic: normalizeLogicRole(n.logic) } : n)) : [],
     notes: Array.isArray(raw?.notes) ? raw.notes : [],
     connections: Array.isArray(raw?.connections) ? raw.connections : [],
     ink: Array.isArray(raw?.ink) ? raw.ink : [],
     customAssets: Array.isArray(raw?.customAssets) ? raw.customAssets : [],
   };
+  // modo Domain: o papel `decision` agora só existe no modo logic (vira policy / process-manager ao abrir)
+  if (out.mode === "domain") Object.assign(out, migrateDddDecisions(out.nodes, out.connections));
+  // modo Logic: a guarda «só roda se» da Ação virou uma Decisão antes dela
+  if (out.mode === "logic") Object.assign(out, migrateRuleGuards(out.nodes, out.connections));
+  // modo Logic: o antigo `fact` virou Input, Output ou Variable (pelo uso no fluxo)
+  if (out.mode === "logic") out.nodes = migrateFacts(out.nodes, out.connections);
   // modo Logic: o tamanho dos elementos vem do conteúdo; arquivos gravados por versões anteriores são ajustados ao abrir
   if (out.mode === "logic" && out.nodes.some((n: NodeEl) => n.logic)) {
-    const names = factNames(out);
+    const names = dataNames(out);
     for (const n of out.nodes as NodeEl[]) {
       const s = n.logic ? logicSize(n, names) : undefined;
       if (s) Object.assign(n, s);

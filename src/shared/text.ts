@@ -1,6 +1,9 @@
 /** Texto para o desenho: encurtar e quebrar nomes sem perder informação (o nome completo vai para o tooltip). */
 
-export const truncate = (s: string, max: number) => (s.length > max ? (max <= 1 ? "…" : s.slice(0, max - 1) + "…") : s);
+/** Marcas de destaque (U+0001..U+0004) não ocupam largura. */
+const vis = (s: string) => s.replace(/[-]/g, "").length;
+
+export const truncate = (s: string, max: number) => (vis(s) > max ? (max <= 1 ? "…" : s.slice(0, max - 1) + "…") : s);
 
 /**
  * Quebra um nome em até `lines` linhas de no máximo `max` caracteres, em espaços e hífens (quebra no meio da palavra só se ela
@@ -12,11 +15,11 @@ export function wrapLabel(text: string, max: number, lines = 2): string[] {
   const out: string[] = [];
   let cur = "";
   for (const w of words) {
-    if ((cur + w).trimEnd().length <= width) cur += w;
+    if (vis((cur + w).trimEnd()) <= width) cur += w;
     else {
       if (cur.trim()) out.push(cur.trimEnd());
       cur = w;
-      while (cur.trimEnd().length > width && out.length < lines - 1) {
+      while (vis(cur.trimEnd()) > width && out.length < lines - 1) {
         out.push(cur.slice(0, width));
         cur = cur.slice(width);
       }

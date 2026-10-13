@@ -1,0 +1,1855 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-hquwum",
+  "title": "Menor caminho em grade (A*)",
+  "description": "Menor número de passos entre duas casas de uma grade com obstáculos. A* é como o Dijkstra, mas escolhe, entre as casas ainda por visitar (abertas), a de menor soma «passos já dados + estimativa até o fim», onde a estimativa é a distância em linha reta contando só passos retos (nunca superestima, por isso o primeiro caminho que chega ao fim é o menor). Cada casa vira um número (linha × largura + coluna). As abertas são pares [casa, estimativa total]; as distâncias, pares [casa, passos]. Para cada casa escolhida, testa os 4 vizinhos: dentro da grade, sem obstáculo, ainda não fechado e com caminho melhor que o já conhecido.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 302,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1122,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1122,
+      "y": 166,
+      "w": 306,
+      "h": 940,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1122,
+      "y": 1096,
+      "w": 376,
+      "h": 271,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1122,
+      "y": 1361,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "grade",
+      "label": "Grade",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "grade",
+        "type": "lista",
+        "text": "Lista de linhas de texto, todas do mesmo tamanho: \".\" é casa livre e \"#\" é obstáculo. Tem pelo menos uma linha e uma coluna."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Casa de início",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "inicio",
+        "type": "lista",
+        "text": "[linha, coluna] a partir de 0. Dentro da grade e sem obstáculo."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fim",
+      "label": "Casa de fim",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "fim",
+        "type": "lista",
+        "text": "[linha, coluna] a partir de 0. Dentro da grade e sem obstáculo."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "dirs",
+      "label": "Direções",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "dirs",
+        "type": "lista",
+        "text": "Os quatro passos possíveis, [mudança de linha, mudança de coluna]: cima, baixo, esquerda, direita.",
+        "value": [
+          [
+            -1,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            -1
+          ],
+          [
+            0,
+            1
+          ]
+        ]
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "h",
+      "label": "Linhas",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "H",
+        "type": "inteiro",
+        "text": "Quantas linhas tem a grade."
+      },
+      "x": 1150,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "l",
+      "label": "Colunas",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "L",
+        "type": "inteiro",
+        "text": "Quantas colunas tem a grade (o tamanho da primeira linha)."
+      },
+      "x": 1150,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "aberta",
+      "label": "Casas abertas",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "aberta",
+        "type": "lista",
+        "text": "Pares [casa, estimativa total]: casas alcançadas ainda por visitar. A estimativa total é passos já dados mais a estimativa até o fim."
+      },
+      "x": 1150,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "gs",
+      "label": "Passos até cada casa",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "gs",
+        "type": "lista",
+        "text": "Pares [casa, passos]: o menor número de passos até a casa que se conhece."
+      },
+      "x": 1150,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fechados",
+      "label": "Casas visitadas",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "fechados",
+        "type": "lista",
+        "text": "Casas já visitadas; o menor caminho até elas já é definitivo."
+      },
+      "x": 1150,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "achou",
+      "label": "Fim alcançado",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "achou",
+        "type": "lógico",
+        "text": "Verdadeiro quando a casa escolhida é a do fim."
+      },
+      "x": 1150,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "custo",
+      "label": "Menor número de passos",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "custo",
+        "type": "número",
+        "text": "Resposta: passos do início ao fim, ou -1 se não há caminho."
+      },
+      "x": 1150,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fmin",
+      "label": "Menor estimativa",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "fmin",
+        "type": "número",
+        "text": "A menor estimativa total entre as casas abertas."
+      },
+      "x": 1150,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "atual",
+      "label": "Casa escolhida",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "atual",
+        "type": "número",
+        "text": "Casa aberta com a menor estimativa total (a primeira da lista, se há empate)."
+      },
+      "x": 1150,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "r",
+      "label": "Linha da casa escolhida",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "r",
+        "type": "número",
+        "text": "Linha da casa escolhida."
+      },
+      "x": 1150,
+      "y": 626,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "c",
+      "label": "Coluna da casa escolhida",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "c",
+        "type": "número",
+        "text": "Coluna da casa escolhida."
+      },
+      "x": 1150,
+      "y": 684,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "gatual",
+      "label": "Passos até a casa escolhida",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "gatual",
+        "type": "número",
+        "text": "Passos já dados até a casa escolhida."
+      },
+      "x": 1150,
+      "y": 742,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "r2",
+      "label": "Linha do vizinho",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "r2",
+        "type": "número",
+        "text": "Linha do vizinho em exame."
+      },
+      "x": 1150,
+      "y": 800,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "c2",
+      "label": "Coluna do vizinho",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "c2",
+        "type": "número",
+        "text": "Coluna do vizinho em exame."
+      },
+      "x": 1150,
+      "y": 858,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "id2",
+      "label": "Número do vizinho",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "id2",
+        "type": "número",
+        "text": "Linha × largura + coluna do vizinho."
+      },
+      "x": 1150,
+      "y": 916,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tent",
+      "label": "Passos pelo caminho de agora",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "tent",
+        "type": "número",
+        "text": "Passos até o vizinho passando pela casa escolhida: gatual + 1."
+      },
+      "x": 1150,
+      "y": 974,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "antigo",
+      "label": "Passos já conhecidos",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "antigo",
+        "type": "número",
+        "text": "O menor número de passos já conhecido até o vizinho; vazio se ainda não foi alcançado."
+      },
+      "x": 1150,
+      "y": 1032,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio-fluxo",
+      "label": "Achar o menor caminho",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram grade, inicio e fim."
+      },
+      "x": 335,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "g-vazia",
+      "label": "A grade tem alguma linha?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(grade) >= 1",
+        "text": "Sem linhas não há grade.",
+        "examples": [
+          {
+            "name": "tem",
+            "given": {
+              "grade": [
+                "."
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "vazia",
+            "given": {
+              "grade": []
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 124,
+      "w": 330,
+      "h": 87
+    },
+    {
+      "id": "mede",
+      "label": "Medir a grade",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Linhas e colunas (o tamanho da primeira linha).",
+        "then": [
+          "H := tamanho(grade)",
+          "L := tamanho(partir(grade[0], \"\"))"
+        ],
+        "examples": [
+          {
+            "name": "2×3",
+            "given": {
+              "grade": [
+                "...",
+                "..#"
+              ]
+            },
+            "expect": {
+              "H": 2,
+              "L": 3
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 275,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "g-retangular",
+      "label": "Todas as linhas têm o mesmo tamanho?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "L >= 1 e vazio(filtrar(grade, tamanho(partir(item, \"\")) != L)) e vazio(filtrar(partir(juntar(grade, \"\"), \"\"), item != \".\" e item != \"#\"))",
+        "text": "Linhas de tamanhos diferentes, ou com qualquer letra que não seja . ou #, não formam uma grade.",
+        "examples": [
+          {
+            "name": "retangular",
+            "given": {
+              "grade": [
+                "..",
+                ".."
+              ],
+              "L": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "torta",
+            "given": {
+              "grade": [
+                "..",
+                "..."
+              ],
+              "L": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 453,
+      "w": 330,
+      "h": 130
+    },
+    {
+      "id": "g-dentro",
+      "label": "Início e fim estão dentro da grade?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "entre(inicio[0], 0, H - 1) e entre(inicio[1], 0, L - 1) e entre(fim[0], 0, H - 1) e entre(fim[1], 0, L - 1)",
+        "text": "Linha entre 0 e H − 1 e coluna entre 0 e L − 1, nas duas casas.",
+        "examples": [
+          {
+            "name": "dentro",
+            "given": {
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                1,
+                1
+              ],
+              "H": 2,
+              "L": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "fora",
+            "given": {
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                2,
+                0
+              ],
+              "H": 2,
+              "L": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 647,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "g-livres",
+      "label": "Início e fim estão em casas livres?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "partir(grade[inicio[0]], \"\")[inicio[1]] != \"#\" e partir(grade[fim[0]], \"\")[fim[1]] != \"#\"",
+        "text": "Nenhuma das duas pode ser obstáculo.",
+        "examples": [
+          {
+            "name": "livres",
+            "given": {
+              "grade": [
+                "..",
+                ".."
+              ],
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                1,
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "obstáculo",
+            "given": {
+              "grade": [
+                "#.",
+                ".."
+              ],
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                1,
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 827,
+      "w": 330,
+      "h": 102
+    },
+    {
+      "id": "prepara",
+      "label": "Começar só com a casa de início",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A casa de início está aberta com 0 passos; nada visitado; sem caminho achado ainda.",
+        "then": [
+          "aberta := [[inicio[0] * L + inicio[1], abs(inicio[0] - fim[0]) + abs(inicio[1] - fim[1])]]",
+          "gs := [[inicio[0] * L + inicio[1], 0]]",
+          "fechados := []",
+          "achou := falso",
+          "custo := -1"
+        ],
+        "examples": [
+          {
+            "name": "começo",
+            "given": {
+              "inicio": [
+                0,
+                1
+              ],
+              "fim": [
+                1,
+                1
+              ],
+              "L": 3
+            },
+            "expect": {
+              "aberta": [
+                [
+                  1,
+                  1
+                ]
+              ],
+              "gs": [
+                [
+                  1,
+                  0
+                ]
+              ],
+              "fechados": [],
+              "achou": false,
+              "custo": -1
+            }
+          }
+        ]
+      },
+      "x": 80,
+      "y": 993,
+      "w": 440,
+      "h": 231
+    },
+    {
+      "id": "l-aberta",
+      "label": "Acabou a busca?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "achou ou vazio(aberta)",
+        "text": "Para quando o fim foi alcançado ou não resta casa aberta."
+      },
+      "x": 305,
+      "y": 1288,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "escolhe",
+      "label": "Escolher a casa de menor estimativa",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega a menor estimativa total, a primeira casa que a tem, tira-a das abertas e separa linha e coluna.",
+        "then": [
+          "fmin := primeiro(ordenar(mapear(aberta, item[1])))",
+          "atual := primeiro(filtrar(aberta, item[1] = fmin))[0]",
+          "aberta := filtrar(aberta, item[0] != atual)",
+          "r := piso(atual / L)",
+          "c := atual % L",
+          "gatual := primeiro(mapear(filtrar(gs, item[0] = atual), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "escolhe",
+            "given": {
+              "aberta": [
+                [
+                  4,
+                  3
+                ],
+                [
+                  1,
+                  2
+                ]
+              ],
+              "gs": [
+                [
+                  4,
+                  2
+                ],
+                [
+                  1,
+                  1
+                ]
+              ],
+              "L": 3
+            },
+            "expect": {
+              "fmin": 2,
+              "atual": 1,
+              "aberta": [
+                [
+                  4,
+                  3
+                ]
+              ],
+              "r": 0,
+              "c": 1,
+              "gatual": 1
+            }
+          }
+        ]
+      },
+      "x": 80,
+      "y": 1453,
+      "w": 440,
+      "h": 253
+    },
+    {
+      "id": "chegou",
+      "label": "É a casa do fim?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "r = fim[0] e c = fim[1]",
+        "text": "Como a estimativa nunca superestima, o primeiro caminho que chega ao fim é o menor.",
+        "examples": [
+          {
+            "name": "fim",
+            "given": {
+              "r": 1,
+              "c": 1,
+              "fim": [
+                1,
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "ainda não",
+            "given": {
+              "r": 0,
+              "c": 1,
+              "fim": [
+                1,
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 1770,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "achou-fim",
+      "label": "Registrar os passos do fim",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O custo é o número de passos até esta casa.",
+        "then": [
+          "custo := gatual",
+          "achou := verdadeiro"
+        ],
+        "examples": [
+          {
+            "name": "registra",
+            "given": {
+              "gatual": 6
+            },
+            "expect": {
+              "custo": 6,
+              "achou": true
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1949,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "fecha",
+      "label": "Visitar a casa escolhida",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Passa a casa para as visitadas: o menor caminho até ela já é definitivo.",
+        "then": [
+          "fechados := adicionar(fechados, atual)"
+        ],
+        "examples": [
+          {
+            "name": "fecha",
+            "given": {
+              "fechados": [],
+              "atual": 4
+            },
+            "expect": {
+              "fechados": [
+                4
+              ]
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1959.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "l-dirs",
+      "label": "Para cada direção",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "dirs",
+        "as": "dir",
+        "text": "Os quatro vizinhos da casa escolhida. dir[0] é a mudança de linha e dir[1] a de coluna."
+      },
+      "x": 305,
+      "y": 2127,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "vizinho",
+      "label": "Ir para o vizinho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Calcula a linha e a coluna do vizinho.",
+        "then": [
+          "r2 := r + dir[0]",
+          "c2 := c + dir[1]"
+        ],
+        "examples": [
+          {
+            "name": "direita",
+            "given": {
+              "r": 1,
+              "c": 1,
+              "dir": [
+                0,
+                1
+              ]
+            },
+            "expect": {
+              "r2": 1,
+              "c2": 2
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 2278,
+      "w": 330,
+      "h": 114
+    },
+    {
+      "id": "v-dentro",
+      "label": "O vizinho está dentro da grade?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "entre(r2, 0, H - 1) e entre(c2, 0, L - 1)",
+        "text": "Linha de 0 a H − 1 e coluna de 0 a L − 1.",
+        "examples": [
+          {
+            "name": "dentro",
+            "given": {
+              "r2": 0,
+              "c2": 1,
+              "H": 2,
+              "L": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "fora",
+            "given": {
+              "r2": -1,
+              "c2": 0,
+              "H": 2,
+              "L": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 2456,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "v-id",
+      "label": "Numerar o vizinho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O número da casa é linha × largura + coluna.",
+        "then": [
+          "id2 := r2 * L + c2"
+        ],
+        "examples": [
+          {
+            "name": "id",
+            "given": {
+              "r2": 1,
+              "c2": 2,
+              "L": 3
+            },
+            "expect": {
+              "id2": 5
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 2636,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "v-livre",
+      "label": "Está livre e ainda não foi visitado?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "partir(grade[r2], \"\")[c2] != \"#\" e contem(fechados, id2) = falso",
+        "text": "Não pode ser obstáculo nem uma casa já visitada.",
+        "examples": [
+          {
+            "name": "livre",
+            "given": {
+              "grade": [
+                "..",
+                ".."
+              ],
+              "r2": 0,
+              "c2": 1,
+              "fechados": [],
+              "id2": 1
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "obstáculo",
+            "given": {
+              "grade": [
+                "#.",
+                ".."
+              ],
+              "r2": 0,
+              "c2": 0,
+              "fechados": [],
+              "id2": 0
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 2793,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "v-passos",
+      "label": "Contar os passos pelo caminho de agora",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Um passo a mais que a casa escolhida; e o que já se conhecia do vizinho.",
+        "then": [
+          "tent := gatual + 1",
+          "antigo := primeiro(mapear(filtrar(gs, item[0] = id2), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "novo",
+            "given": {
+              "gatual": 2,
+              "gs": [],
+              "id2": 7
+            },
+            "expect": {
+              "tent": 3
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 2973,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "v-nao-visto",
+      "label": "O vizinho é novo (nunca alcançado)?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(antigo)",
+        "text": "Sem passos conhecidos, é a primeira vez que se chega a ele.",
+        "examples": [
+          {
+            "name": "novo",
+            "given": {
+              "antigo": null
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "já",
+            "given": {
+              "antigo": 4
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 3165,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "v-melhor",
+      "label": "O caminho de agora é mais curto?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tent < antigo",
+        "text": "Só vale se tiver menos passos que o já conhecido.",
+        "examples": [
+          {
+            "name": "mais curto",
+            "given": {
+              "tent": 3,
+              "antigo": 4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "igual",
+            "given": {
+              "tent": 4,
+              "antigo": 4
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 3345,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "atualiza",
+      "label": "Guardar o caminho e abrir o vizinho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda os passos até o vizinho e o põe nas abertas com a estimativa total: passos + distância em linha reta até o fim.",
+        "then": [
+          "gs := adicionar(filtrar(gs, item[0] != id2), [id2, tent])",
+          "aberta := adicionar(filtrar(aberta, item[0] != id2), [id2, tent + abs(r2 - fim[0]) + abs(c2 - fim[1])])"
+        ],
+        "examples": [
+          {
+            "name": "abre",
+            "given": {
+              "gs": [],
+              "aberta": [],
+              "id2": 5,
+              "tent": 2,
+              "r2": 1,
+              "c2": 2,
+              "fim": [
+                1,
+                2
+              ]
+            },
+            "expect": {
+              "gs": [
+                [
+                  5,
+                  2
+                ]
+              ],
+              "aberta": [
+                [
+                  5,
+                  2
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 3525,
+      "w": 440,
+      "h": 155
+    },
+    {
+      "id": "pronto",
+      "label": "Passos devolvidos",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve custo: o menor número de passos, ou -1 se não há caminho."
+      },
+      "x": 590,
+      "y": 1549.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ruim",
+      "label": "Entrada inválida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Grade vazia, torta ou com letra inválida, ou início ou fim fora da grade ou sobre um obstáculo: nada a calcular."
+      },
+      "x": 590,
+      "y": 1078.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-livre",
+      "label": "Grade livre 3×3",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Do canto de cima à esquerda ao canto de baixo à direita: 4 passos.",
+        "examples": [
+          {
+            "name": "livre",
+            "given": {
+              "grade": [
+                "...",
+                "...",
+                "..."
+              ],
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                2,
+                2
+              ]
+            },
+            "expect": {
+              "custo": 4,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 1150,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-desvio",
+      "label": "Desvio por baixo da parede",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Uma parede na coluna do meio obriga a descer, atravessar e subir: 6 passos.",
+        "examples": [
+          {
+            "name": "desvio",
+            "given": {
+              "grade": [
+                ".#.",
+                ".#.",
+                "..."
+              ],
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                0,
+                2
+              ]
+            },
+            "expect": {
+              "custo": 6,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 1217,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-bloqueado",
+      "label": "Sem caminho",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Uma parede de ponta a ponta separa o início do fim: -1.",
+        "examples": [
+          {
+            "name": "bloqueado",
+            "given": {
+              "grade": [
+                "..#.",
+                "..#.",
+                "..#."
+              ],
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                0,
+                3
+              ]
+            },
+            "expect": {
+              "custo": -1,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 1284,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-invalido",
+      "label": "Início sobre obstáculo",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "A casa de início é um obstáculo: termina com erro.",
+        "examples": [
+          {
+            "name": "obstáculo",
+            "given": {
+              "grade": [
+                "#.",
+                ".."
+              ],
+              "inicio": [
+                0,
+                0
+              ],
+              "fim": [
+                1,
+                1
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 1415,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-fluxo-to-g-vazia",
+      "from": "inicio-fluxo",
+      "to": "g-vazia",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "g-vazia-to-mede",
+      "from": "g-vazia",
+      "to": "mede",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "g-vazia-to-entrada-ruim",
+      "from": "g-vazia",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 916,
+          "y": 167.5
+        },
+        {
+          "x": 916,
+          "y": 1046.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "mede-to-g-retangular",
+      "from": "mede",
+      "to": "g-retangular",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "g-retangular-to-g-dentro",
+      "from": "g-retangular",
+      "to": "g-dentro",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "g-retangular-to-entrada-ruim",
+      "from": "g-retangular",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 934,
+          "y": 518
+        },
+        {
+          "x": 934,
+          "y": 1046.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "g-dentro-to-g-livres",
+      "from": "g-dentro",
+      "to": "g-livres",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "g-dentro-to-entrada-ruim",
+      "from": "g-dentro",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 952,
+          "y": 705
+        },
+        {
+          "x": 952,
+          "y": 1046.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "g-livres-to-prepara",
+      "from": "g-livres",
+      "to": "prepara",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "g-livres-to-entrada-ruim",
+      "from": "g-livres",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prepara-to-l-aberta",
+      "from": "prepara",
+      "to": "l-aberta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-aberta-to-escolhe",
+      "from": "l-aberta",
+      "to": "escolhe",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "escolhe-to-chegou",
+      "from": "escolhe",
+      "to": "chegou",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "chegou-to-achou-fim",
+      "from": "chegou",
+      "to": "achou-fim",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "chegou-to-fecha",
+      "from": "chegou",
+      "to": "fecha",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "achou-fim-to-l-aberta",
+      "from": "achou-fim",
+      "to": "l-aberta",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 2006
+        },
+        {
+          "x": -46,
+          "y": 1338.5
+        }
+      ]
+    },
+    {
+      "id": "fecha-to-l-dirs",
+      "from": "fecha",
+      "to": "l-dirs",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-dirs-to-vizinho",
+      "from": "l-dirs",
+      "to": "vizinho",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "vizinho-to-v-dentro",
+      "from": "vizinho",
+      "to": "v-dentro",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "v-dentro-to-v-id",
+      "from": "v-dentro",
+      "to": "v-id",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "v-dentro-to-l-dirs",
+      "from": "v-dentro",
+      "to": "l-dirs",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 241,
+          "y": 2514
+        },
+        {
+          "x": 241,
+          "y": 2170.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "v-id-to-v-livre",
+      "from": "v-id",
+      "to": "v-livre",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "v-livre-to-v-passos",
+      "from": "v-livre",
+      "to": "v-passos",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "v-livre-to-l-dirs",
+      "from": "v-livre",
+      "to": "l-dirs",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 223,
+          "y": 2851
+        },
+        {
+          "x": 223,
+          "y": 2170.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "v-passos-to-v-nao-visto",
+      "from": "v-passos",
+      "to": "v-nao-visto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "v-nao-visto-to-atualiza",
+      "from": "v-nao-visto",
+      "to": "atualiza",
+      "type": "data",
+      "label": "sim",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "waypoints": [
+        {
+          "x": 741,
+          "y": 3223
+        },
+        {
+          "x": 741,
+          "y": 3493
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "v-nao-visto-to-v-melhor",
+      "from": "v-nao-visto",
+      "to": "v-melhor",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "v-melhor-to-atualiza",
+      "from": "v-melhor",
+      "to": "atualiza",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "v-melhor-to-l-dirs",
+      "from": "v-melhor",
+      "to": "l-dirs",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 191,
+          "y": 3403
+        },
+        {
+          "x": 191,
+          "y": 2170.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "atualiza-to-l-dirs",
+      "from": "atualiza",
+      "to": "l-dirs",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 173,
+          "y": 3602.5
+        },
+        {
+          "x": 173,
+          "y": 2170.5
+        }
+      ]
+    },
+    {
+      "id": "l-dirs-to-l-aberta",
+      "from": "l-dirs",
+      "to": "l-aberta",
+      "type": "data",
+      "label": "segue",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 2170.5
+        },
+        {
+          "x": -46,
+          "y": 1338.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "l-aberta-to-pronto",
+      "from": "l-aberta",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

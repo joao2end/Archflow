@@ -6,8 +6,6 @@ import {
   DDD_REL_KEYS,
   DDD_ROLES,
   DDD_ROLE_KEYS,
-  DECISION_GATES,
-  DECISION_GATE_KEYS,
   FLOW_RELS,
   SUBDOMAINS,
   docMode,
@@ -39,7 +37,7 @@ type Patch = (p: Record<string, unknown>) => void;
 const FIELD_LABEL: Record<DddField, [label: string, placeholder?: string]> = {
   intent: ["Intenção (o que faz)", "registrar o pedido do cliente"],
   invariants: ["Invariantes (uma por linha)", "total >= 0\npedido pago não aceita novos itens"],
-  payload: ["Payload (resumo em texto)", "pedidoId, total, criadoEm"],
+  payload: ["Payload (resumo em texto; só vale sem propriedades)", "pedidoId, total, criadoEm"],
   properties: ["Propriedades"],
   producedBy: ["Produzido por"],
   external: ["Evento de outro contexto (contexto.evento)", "pagamentos.pagamento-aprovado"],
@@ -52,11 +50,9 @@ const FIELD_LABEL: Record<DddField, [label: string, placeholder?: string]> = {
   compensates: ["Compensa com (commands)"],
   projectsFrom: ["Projeta de (eventos)"],
   step: ["Posição na linha do tempo"],
-  question: ["Pergunta que a decisão responde", "O pagamento tem tentativas restantes?"],
-  gate: ["Tipo de decisão"],
 };
 
-const TEXT_FIELDS: DddField[] = ["intent", "payload", "external", "actor", "goal", "question"];
+const TEXT_FIELDS: DddField[] = ["intent", "payload", "external", "actor", "goal"];
 const LIST_TEXT_FIELDS: DddField[] = ["invariants"];
 /** campo de id → papéis que ele aceita */
 const REF_ONE: Partial<Record<DddField, DddRole[]>> = { producedBy: ["command", "aggregate-root", "process-manager"], for: ["aggregate-root"] };
@@ -160,20 +156,6 @@ export function DomainFields({ node, patch }: { node: NodeEl; patch: Patch }) {
             </div>
           );
         if (f === "properties") return <PropertiesEditor key={f} role={ddd.role} value={ddd.properties ?? []} onChange={(v) => upd({ properties: v })} />;
-        if (f === "gate")
-          return (
-            <label className="field" key={f}>
-              <span>{label}</span>
-              <select className="input" value={ddd.gate ?? "exclusive"} onChange={(e) => upd({ gate: e.target.value === "exclusive" ? undefined : e.target.value })}>
-                {DECISION_GATE_KEYS.map((g) => (
-                  <option key={g} value={g}>
-                    {DECISION_GATES[g].label}
-                  </option>
-                ))}
-              </select>
-              <div className="callout">{DECISION_GATES[ddd.gate ?? "exclusive"].hint}</div>
-            </label>
-          );
         if (f === "step")
           return (
             <label className="field" key={f}>

@@ -2,14 +2,14 @@
   "schema": "archflow/1",
   "id": "engine-de-precificacao",
   "title": "Engine de precificação",
-  "description": "Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze regras em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada regra e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.",
+  "description": "Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze ações em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada ação e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.",
   "mode": "logic",
   "groups": [
     {
       "id": "entradas",
-      "label": "Dados de entrada",
+      "label": "Entradas",
       "kind": "layer",
-      "tag": "Dados",
+      "tag": "Input",
       "x": -408,
       "y": -10,
       "w": 306,
@@ -20,8 +20,8 @@
       "id": "resultados",
       "label": "Resultados",
       "kind": "layer",
-      "tag": "Dados",
-      "x": 3852,
+      "tag": "Output",
+      "x": 3302,
       "y": -10,
       "w": 306,
       "h": 244,
@@ -32,7 +32,7 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 3852,
+      "x": 3302,
       "y": 224,
       "w": 376,
       "h": 621,
@@ -43,7 +43,7 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 3852,
+      "x": 3302,
       "y": 839,
       "w": 376,
       "h": 383,
@@ -57,7 +57,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "grupo",
         "type": "lista",
         "text": "Os produtos do grupo, da maior receita de 1 mês para a menor (empate: maior custo). O primeiro é a referência."
@@ -73,7 +73,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "tipo_grupo",
         "type": "texto",
         "text": "Estratégia do produto: \"lucro\", \"imagem\" ou \"trafego\"."
@@ -89,7 +89,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "custo",
         "type": "dinheiro",
         "text": "Custo do produto."
@@ -105,7 +105,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "margem_objetivo",
         "type": "percentual",
         "text": "Margem objetivo da categoria (herdada da árvore divisão → departamento → categoria)."
@@ -121,7 +121,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "preco_concorrente",
         "type": "dinheiro",
         "text": "Preço de referência do concorrente (mínimo, médio ou máximo, conforme a configuração)."
@@ -137,7 +137,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "indice_notabilidade",
         "type": "número",
         "text": "Multiplica o preço do concorrente em imagem e tráfego."
@@ -153,7 +153,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "margem_minima",
         "type": "percentual",
         "text": "Margem mínima da notabilidade (piso de imagem e tráfego)."
@@ -169,7 +169,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "preco_atual",
         "type": "dinheiro",
         "text": "Preço praticado hoje."
@@ -185,7 +185,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "variacao_minima",
         "type": "percentual",
         "text": "Diferença abaixo da qual o preço atual é mantido.",
@@ -202,7 +202,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "aumento_maximo",
         "type": "percentual",
         "text": "Teto de aumento sobre o preço atual.",
@@ -219,7 +219,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "reducao_maxima",
         "type": "percentual",
         "text": "Piso de redução sobre o preço atual.",
@@ -236,7 +236,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "grupo_remarcacao",
         "type": "lógico",
         "text": "O produto está num grupo de remarcação (vale o menor PMC)."
@@ -252,7 +252,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "pmc",
         "type": "dinheiro",
         "text": "Menor preço máximo ao consumidor do grupo de remarcação (0 = sem PMC)."
@@ -268,7 +268,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "ancora",
         "type": "lógico",
         "text": "PBM, farmácia popular ou marca própria."
@@ -284,7 +284,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "eh_referencia",
         "type": "lógico",
         "text": "Primeiro do grupo no cluster."
@@ -300,7 +300,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "preco_referencia_grupo",
         "type": "dinheiro",
         "text": "Preço final já calculado da referência do grupo."
@@ -316,7 +316,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "preco_fixo",
         "type": "dinheiro",
         "text": "Preço fixo cadastrado; vale quando maior que zero."
@@ -332,7 +332,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "reaplicar_ajustes",
         "type": "lógico",
         "text": "Restaura o preço digitado gravado, sem propagar de novo.",
@@ -349,7 +349,7 @@
       "kind": "logic",
       "parent": "entradas",
       "logic": {
-        "role": "fact",
+        "role": "input",
         "key": "preco_digitado",
         "type": "dinheiro",
         "text": "Preço digitado pelo usuário e gravado.",
@@ -366,12 +366,12 @@
       "kind": "logic",
       "parent": "resultados",
       "logic": {
-        "role": "fact",
+        "role": "output",
         "key": "preco",
         "type": "dinheiro",
-        "text": "O preço que o fluxo vai calculando: cada regra pode reescrevê-lo."
+        "text": "O preço que o fluxo vai calculando: cada ação pode reescrevê-lo."
       },
-      "x": 3880,
+      "x": 3330,
       "y": 44,
       "w": 250,
       "h": 46
@@ -382,12 +382,12 @@
       "kind": "logic",
       "parent": "resultados",
       "logic": {
-        "role": "fact",
+        "role": "output",
         "key": "recomendacao",
         "type": "texto",
         "text": "Resultado: \"keep\", \"raise\" ou \"reduce\"."
       },
-      "x": 3880,
+      "x": 3330,
       "y": 102,
       "w": 250,
       "h": 46
@@ -398,12 +398,12 @@
       "kind": "logic",
       "parent": "resultados",
       "logic": {
-        "role": "fact",
+        "role": "output",
         "key": "alerta_pendente",
         "type": "lógico",
         "text": "Há alerta pendente quando o preço muda."
       },
-      "x": 3880,
+      "x": 3330,
       "y": 160,
       "w": 250,
       "h": 46
@@ -416,7 +416,7 @@
         "role": "start",
         "text": "Entra o grupo de produtos de um cluster, com as configurações de margem, variação e PMC."
       },
-      "x": 1700,
+      "x": 1425,
       "y": 0,
       "w": 280,
       "h": 60
@@ -431,7 +431,7 @@
         "as": "produto",
         "text": "Da maior receita para a menor; o primeiro é a referência."
       },
-      "x": 1670,
+      "x": 1395,
       "y": 124,
       "w": 340,
       "h": 87
@@ -485,10 +485,10 @@
           }
         ]
       },
-      "x": 1445,
+      "x": 1170,
       "y": 275,
       "w": 440,
-      "h": 286
+      "h": 132
     },
     {
       "id": "custo-valido",
@@ -519,8 +519,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 625,
+      "x": 1400,
+      "y": 471,
       "w": 330,
       "h": 101
     },
@@ -553,8 +553,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 790,
+      "x": 1400,
+      "y": 636,
       "w": 330,
       "h": 115
     },
@@ -567,8 +567,8 @@
         "outcome": "erro",
         "text": "O produto tem um dado que impede o cálculo: o fluxo para e avisa."
       },
-      "x": 1925,
-      "y": 982.5,
+      "x": 1650,
+      "y": 828.5,
       "w": 280,
       "h": 60
     },
@@ -610,8 +610,8 @@
           }
         ]
       },
-      "x": 1475,
-      "y": 969,
+      "x": 1200,
+      "y": 815,
       "w": 380,
       "h": 87
     },
@@ -638,10 +638,10 @@
           }
         ]
       },
-      "x": 1190,
-      "y": 1132,
+      "x": 915,
+      "y": 966,
       "w": 440,
-      "h": 136
+      "h": 93
     },
     {
       "id": "partida-concorrente",
@@ -666,10 +666,10 @@
           }
         ]
       },
-      "x": 1700,
-      "y": 1120,
+      "x": 1425,
+      "y": 966,
       "w": 440,
-      "h": 160
+      "h": 93
     },
     {
       "id": "grupo-desconhecido",
@@ -680,8 +680,8 @@
         "outcome": "erro",
         "text": "Não há como partir o preço: a engine para e avisa."
       },
-      "x": 2210,
-      "y": 1170,
+      "x": 1935,
+      "y": 982.5,
       "w": 280,
       "h": 60
     },
@@ -714,8 +714,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 1344,
+      "x": 1400,
+      "y": 1123,
       "w": 330,
       "h": 101
     },
@@ -742,10 +742,10 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 1509,
+      "x": 1400,
+      "y": 1288,
       "w": 330,
-      "h": 121
+      "h": 93
     },
     {
       "id": "abaixo-do-piso",
@@ -782,8 +782,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 1694,
+      "x": 1400,
+      "y": 1445,
       "w": 330,
       "h": 116
     },
@@ -810,10 +810,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 1874,
-      "w": 440,
-      "h": 136
+      "x": 1400,
+      "y": 1625,
+      "w": 330,
+      "h": 107
     },
     {
       "id": "diferenca-pequena",
@@ -846,8 +846,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 2074,
+      "x": 1400,
+      "y": 1796,
       "w": 330,
       "h": 116
     },
@@ -874,10 +874,10 @@
           }
         ]
       },
-      "x": 1475,
-      "y": 2254,
+      "x": 1200,
+      "y": 1980,
       "w": 330,
-      "h": 121
+      "h": 93
     },
     {
       "id": "tem-preco-atual",
@@ -908,8 +908,8 @@
           }
         ]
       },
-      "x": 1875,
-      "y": 2264,
+      "x": 1600,
+      "y": 1976,
       "w": 330,
       "h": 101
     },
@@ -947,10 +947,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 2439,
+      "x": 1345,
+      "y": 2141,
       "w": 440,
-      "h": 190
+      "h": 142
     },
     {
       "id": "preco-mudou",
@@ -983,8 +983,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 2693,
+      "x": 1400,
+      "y": 2347,
       "w": 330,
       "h": 101
     },
@@ -992,7 +992,7 @@
       "id": "faixa-do-preco",
       "label": "Em que faixa está o preço?",
       "kind": "logic",
-      "description": "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a regra de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.",
+      "description": "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a ação de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.",
       "logic": {
         "role": "switch",
         "text": "Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo.",
@@ -1026,8 +1026,8 @@
           }
         ]
       },
-      "x": 1650,
-      "y": 2858,
+      "x": 1375,
+      "y": 2512,
       "w": 380,
       "h": 101
     },
@@ -1054,9 +1054,9 @@
         ]
       },
       "x": 0,
-      "y": 3030.5,
+      "y": 2684,
       "w": 330,
-      "h": 121
+      "h": 93
     },
     {
       "id": "faixa-alta",
@@ -1081,9 +1081,9 @@
         ]
       },
       "x": 400,
-      "y": 3023,
-      "w": 440,
-      "h": 136
+      "y": 2684,
+      "w": 330,
+      "h": 93
     },
     {
       "id": "faixa-200",
@@ -1107,10 +1107,10 @@
           }
         ]
       },
-      "x": 910,
-      "y": 3030.5,
+      "x": 800,
+      "y": 2684,
       "w": 330,
-      "h": 121
+      "h": 93
     },
     {
       "id": "faixa-100",
@@ -1134,10 +1134,10 @@
           }
         ]
       },
-      "x": 1310,
-      "y": 3030.5,
+      "x": 1200,
+      "y": 2684,
       "w": 330,
-      "h": 121
+      "h": 93
     },
     {
       "id": "faixa-ate-10",
@@ -1161,10 +1161,10 @@
           }
         ]
       },
-      "x": 1710,
-      "y": 3023,
-      "w": 440,
-      "h": 136
+      "x": 1600,
+      "y": 2677,
+      "w": 330,
+      "h": 107
     },
     {
       "id": "faixa-ate-50-cima",
@@ -1188,10 +1188,10 @@
           }
         ]
       },
-      "x": 2220,
-      "y": 3023,
-      "w": 440,
-      "h": 136
+      "x": 2000,
+      "y": 2684,
+      "w": 330,
+      "h": 93
     },
     {
       "id": "faixa-ate-50-baixo",
@@ -1215,10 +1215,10 @@
           }
         ]
       },
-      "x": 2730,
-      "y": 3023,
-      "w": 440,
-      "h": 136
+      "x": 2400,
+      "y": 2684,
+      "w": 330,
+      "h": 93
     },
     {
       "id": "faixa-resto",
@@ -1242,10 +1242,10 @@
           }
         ]
       },
-      "x": 3240,
-      "y": 3023,
-      "w": 440,
-      "h": 136
+      "x": 2800,
+      "y": 2684,
+      "w": 330,
+      "h": 93
     },
     {
       "id": "passou-do-pmc",
@@ -1280,8 +1280,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 3223,
+      "x": 1400,
+      "y": 2848,
       "w": 330,
       "h": 87
     },
@@ -1308,10 +1308,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 3374,
-      "w": 440,
-      "h": 121
+      "x": 1400,
+      "y": 2999,
+      "w": 330,
+      "h": 93
     },
     {
       "id": "segue-a-referencia",
@@ -1346,8 +1346,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 3559,
+      "x": 1400,
+      "y": 3156,
       "w": 330,
       "h": 130
     },
@@ -1374,10 +1374,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 3753,
-      "w": 440,
-      "h": 121
+      "x": 1400,
+      "y": 3350,
+      "w": 330,
+      "h": 107
     },
     {
       "id": "e-ancora",
@@ -1408,8 +1408,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 3938,
+      "x": 1400,
+      "y": 3521,
       "w": 330,
       "h": 102
     },
@@ -1419,7 +1419,7 @@
       "kind": "logic",
       "logic": {
         "role": "rule",
-        "text": "O preço volta ao atual e as regras seguintes não o reescrevem.",
+        "text": "O preço volta ao atual e as ações seguintes não o reescrevem.",
         "then": [
           "preco := preco_atual",
           "travar preco"
@@ -1437,10 +1437,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 4104,
+      "x": 1345,
+      "y": 3687,
       "w": 440,
-      "h": 136
+      "h": 108
     },
     {
       "id": "tem-preco-fixo",
@@ -1471,8 +1471,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 4304,
+      "x": 1400,
+      "y": 3859,
       "w": 330,
       "h": 101
     },
@@ -1501,10 +1501,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 4469,
+      "x": 1345,
+      "y": 4024,
       "w": 440,
-      "h": 151
+      "h": 123
     },
     {
       "id": "segue-referencia-lucro",
@@ -1537,8 +1537,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 4684,
+      "x": 1400,
+      "y": 4211,
       "w": 330,
       "h": 115
     },
@@ -1565,22 +1565,80 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 4863,
-      "w": 440,
-      "h": 121
+      "x": 1400,
+      "y": 4390,
+      "w": 330,
+      "h": 107
     },
     {
       "id": "recomendar",
-      "label": "Recomendar",
+      "label": "Os preços coincidem nos centavos?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "arredondar(preco, 2) = arredondar(preco_atual, 2)",
+        "text": "Se o novo preço e o atual são iguais até os centavos, a recomendação é manter.",
+        "examples": [
+          {
+            "name": "igual",
+            "given": {
+              "preco": 90,
+              "preco_atual": 90
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "diferente",
+            "given": {
+              "preco": 99.99,
+              "preco_atual": 90
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1400,
+      "y": 4561,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "recomendar-keep",
+      "label": "Recomendar manter",
       "kind": "logic",
       "logic": {
         "role": "rule",
-        "text": "Keep se os preços coincidem nos centavos; senão raise ou reduce. O alerta fica pendente quando o preço muda.",
+        "text": "Recomendação \"keep\".",
         "then": [
-          "recomendacao := se arredondar(preco, 2) = arredondar(preco_atual, 2) entao \"keep\" senao (se preco > preco_atual entao \"raise\" senao \"reduce\")",
-          "alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"
+          "recomendacao := \"keep\""
         ],
+        "examples": [
+          {
+            "name": "mantém",
+            "given": {},
+            "expect": {
+              "recomendacao": "keep"
+            }
+          }
+        ]
+      },
+      "x": 1200,
+      "y": 4752.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "recomendar-subiu",
+      "label": "O preço novo é maior que o atual?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "preco > preco_atual",
+        "text": "Entre os preços diferentes, decide se a recomendação é subir ou reduzir.",
         "examples": [
           {
             "name": "sobe",
@@ -1589,8 +1647,7 @@
               "preco_atual": 90
             },
             "expect": {
-              "recomendacao": "raise",
-              "alerta_pendente": true
+              "caminho": "sim"
             }
           },
           {
@@ -1600,7 +1657,84 @@
               "preco_atual": 90
             },
             "expect": {
-              "recomendacao": "reduce",
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1600,
+      "y": 4741,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "recomendar-raise",
+      "label": "Recomendar subir",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Recomendação \"raise\".",
+        "then": [
+          "recomendacao := \"raise\""
+        ],
+        "examples": [
+          {
+            "name": "sobe",
+            "given": {},
+            "expect": {
+              "recomendacao": "raise"
+            }
+          }
+        ]
+      },
+      "x": 1200,
+      "y": 4921,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "recomendar-reduce",
+      "label": "Recomendar reduzir",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Recomendação \"reduce\".",
+        "then": [
+          "recomendacao := \"reduce\""
+        ],
+        "examples": [
+          {
+            "name": "cai",
+            "given": {},
+            "expect": {
+              "recomendacao": "reduce"
+            }
+          }
+        ]
+      },
+      "x": 1600,
+      "y": 4921,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "recomendar-alerta",
+      "label": "Marcar o alerta pendente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O alerta fica pendente quando o preço muda.",
+        "then": [
+          "alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"
+        ],
+        "examples": [
+          {
+            "name": "muda",
+            "given": {
+              "preco": 99.99,
+              "preco_atual": 90
+            },
+            "expect": {
               "alerta_pendente": true
             }
           },
@@ -1611,16 +1745,15 @@
               "preco_atual": 90
             },
             "expect": {
-              "recomendacao": "keep",
               "alerta_pendente": false
             }
           }
         ]
       },
-      "x": 1620,
-      "y": 5048,
+      "x": 1345,
+      "y": 5078,
       "w": 440,
-      "h": 280
+      "h": 107
     },
     {
       "id": "reaplicar-ajustes",
@@ -1653,8 +1786,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 5392,
+      "x": 1400,
+      "y": 5249,
       "w": 330,
       "h": 101
     },
@@ -1681,10 +1814,10 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 5557,
+      "x": 1400,
+      "y": 5414,
       "w": 330,
-      "h": 121
+      "h": 93
     },
     {
       "id": "e-a-referencia",
@@ -1715,8 +1848,8 @@
           }
         ]
       },
-      "x": 1675,
-      "y": 5742,
+      "x": 1400,
+      "y": 5571,
       "w": 330,
       "h": 101
     },
@@ -1742,10 +1875,10 @@
           }
         ]
       },
-      "x": 1620,
-      "y": 5907,
-      "w": 440,
-      "h": 121
+      "x": 1400,
+      "y": 5736,
+      "w": 330,
+      "h": 107
     },
     {
       "id": "fim",
@@ -1756,8 +1889,8 @@
         "outcome": "ok",
         "text": "Cada produto sai com preço, recomendação (keep, raise, reduce) e alerta."
       },
-      "x": 1955,
-      "y": 388,
+      "x": 1680,
+      "y": 311,
       "w": 280,
       "h": 60
     },
@@ -1833,6 +1966,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -1857,6 +1993,9 @@
               "segue-referencia-lucro",
               "igualar-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "para-cada-produto",
@@ -1865,7 +2004,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 278,
       "w": 320,
       "h": 70
@@ -1940,6 +2079,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -1965,6 +2107,8 @@
               "segue-referencia-lucro",
               "igualar-referencia-lucro",
               "recomendar",
+              "recomendar-keep",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "para-cada-produto",
@@ -1973,7 +2117,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 360,
       "w": 320,
       "h": 55
@@ -2047,6 +2191,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -2073,6 +2220,9 @@
               "segue-referencia-lucro",
               "igualar-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-reduce",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "para-cada-produto",
@@ -2081,7 +2231,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 427,
       "w": 320,
       "h": 55
@@ -2156,6 +2306,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -2180,6 +2333,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "para-cada-produto",
@@ -2188,7 +2344,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 494,
       "w": 320,
       "h": 55
@@ -2246,6 +2402,8 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-keep",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -2255,7 +2413,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 561,
       "w": 320,
       "h": 55
@@ -2315,6 +2473,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -2324,7 +2485,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 628,
       "w": 320,
       "h": 55
@@ -2384,6 +2545,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -2393,7 +2557,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 695,
       "w": 320,
       "h": 55
@@ -2442,7 +2606,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 893,
       "w": 320,
       "h": 55
@@ -2489,7 +2653,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 960,
       "w": 320,
       "h": 70
@@ -2537,7 +2701,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 1042,
       "w": 320,
       "h": 70
@@ -2611,6 +2775,9 @@
               "tem-preco-fixo",
               "segue-referencia-lucro",
               "recomendar",
+              "recomendar-subiu",
+              "recomendar-raise",
+              "recomendar-alerta",
               "reaplicar-ajustes",
               "e-a-referencia",
               "guardar-referencia",
@@ -2622,7 +2789,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 1124,
       "w": 320,
       "h": 70
@@ -2652,7 +2819,7 @@
           }
         ]
       },
-      "x": 3880,
+      "x": 3330,
       "y": 762,
       "w": 320,
       "h": 55
@@ -2717,12 +2884,12 @@
       },
       "waypoints": [
         {
-          "x": 2251,
-          "y": 675.5
+          "x": 1976,
+          "y": 521.5
         },
         {
-          "x": 2251,
-          "y": 950.5
+          "x": 1976,
+          "y": 796.5
         }
       ],
       "labelT": 0.5
@@ -2803,7 +2970,7 @@
       "logic": {
         "branch": "outros"
       },
-      "labelT": 0.74
+      "labelT": 0.5
     },
     {
       "id": "partida-lucro-to-partida-zerou",
@@ -2849,12 +3016,12 @@
       },
       "waypoints": [
         {
-          "x": 2069,
-          "y": 1394.5
+          "x": 1794,
+          "y": 1173.5
         },
         {
-          "x": 2069,
-          "y": 1662
+          "x": 1794,
+          "y": 1413
         }
       ],
       "labelT": 0.5
@@ -2894,12 +3061,12 @@
       },
       "waypoints": [
         {
-          "x": 2142,
-          "y": 1752
+          "x": 1812,
+          "y": 1503
         },
         {
-          "x": 2142,
-          "y": 2042
+          "x": 1812,
+          "y": 1764
         }
       ],
       "labelT": 0.5
@@ -2949,12 +3116,12 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 2251,
-          "y": 2314.5
+          "x": 1976,
+          "y": 2026.5
         },
         {
-          "x": 2251,
-          "y": 2661
+          "x": 1976,
+          "y": 2315
         }
       ]
     },
@@ -2984,12 +3151,12 @@
       },
       "waypoints": [
         {
-          "x": 2269,
-          "y": 2314.5
+          "x": 1994,
+          "y": 2026.5
         },
         {
-          "x": 2269,
-          "y": 2661
+          "x": 1994,
+          "y": 2315
         }
       ],
       "labelT": 0.5
@@ -3029,12 +3196,12 @@
       },
       "waypoints": [
         {
-          "x": 3762,
-          "y": 2743.5
+          "x": 3212,
+          "y": 2397.5
         },
         {
-          "x": 3762,
-          "y": 3191
+          "x": 3212,
+          "y": 2816
         }
       ],
       "labelT": 0.5
@@ -3089,7 +3256,7 @@
       "logic": {
         "case": "entre(preco, 100, 101)"
       },
-      "labelT": 0.5
+      "labelT": 0.46
     },
     {
       "id": "faixa-do-preco-to-faixa-ate-10",
@@ -3241,12 +3408,12 @@
       },
       "waypoints": [
         {
-          "x": 2106,
-          "y": 3266.5
+          "x": 1776,
+          "y": 2891.5
         },
         {
-          "x": 2106,
-          "y": 3527
+          "x": 1776,
+          "y": 3124
         }
       ],
       "labelT": 0.5
@@ -3286,12 +3453,12 @@
       },
       "waypoints": [
         {
-          "x": 2124,
-          "y": 3624
+          "x": 1794,
+          "y": 3221
         },
         {
-          "x": 2124,
-          "y": 3906
+          "x": 1794,
+          "y": 3489
         }
       ],
       "labelT": 0.5
@@ -3331,12 +3498,12 @@
       },
       "waypoints": [
         {
-          "x": 2142,
-          "y": 3989
+          "x": 1867,
+          "y": 3572
         },
         {
-          "x": 2142,
-          "y": 4272
+          "x": 1867,
+          "y": 3827
         }
       ],
       "labelT": 0.5
@@ -3376,12 +3543,12 @@
       },
       "waypoints": [
         {
-          "x": 2106,
-          "y": 4354.5
+          "x": 1831,
+          "y": 3909.5
         },
         {
-          "x": 2106,
-          "y": 4652
+          "x": 1831,
+          "y": 4179
         }
       ],
       "labelT": 0.5
@@ -3421,12 +3588,12 @@
       },
       "waypoints": [
         {
-          "x": 2124,
-          "y": 4741.5
+          "x": 1794,
+          "y": 4268.5
         },
         {
-          "x": 2124,
-          "y": 5016
+          "x": 1794,
+          "y": 4529
         }
       ],
       "labelT": 0.5
@@ -3441,8 +3608,97 @@
       "animated": true
     },
     {
-      "id": "recomendar-to-reaplicar-ajustes",
+      "id": "recomendar-to-recomendar-keep",
       "from": "recomendar",
+      "to": "recomendar-keep",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "recomendar-to-recomendar-subiu",
+      "from": "recomendar",
+      "to": "recomendar-subiu",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "recomendar-subiu-to-recomendar-raise",
+      "from": "recomendar-subiu",
+      "to": "recomendar-raise",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "recomendar-subiu-to-recomendar-reduce",
+      "from": "recomendar-subiu",
+      "to": "recomendar-reduce",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "recomendar-keep-to-recomendar-alerta",
+      "from": "recomendar-keep",
+      "to": "recomendar-alerta",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 2012,
+          "y": 4799
+        },
+        {
+          "x": 2012,
+          "y": 5046
+        }
+      ]
+    },
+    {
+      "id": "recomendar-raise-to-recomendar-alerta",
+      "from": "recomendar-raise",
+      "to": "recomendar-alerta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "recomendar-reduce-to-recomendar-alerta",
+      "from": "recomendar-reduce",
+      "to": "recomendar-alerta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "recomendar-alerta-to-reaplicar-ajustes",
+      "from": "recomendar-alerta",
       "to": "reaplicar-ajustes",
       "type": "data",
       "label": "",
@@ -3475,12 +3731,12 @@
       },
       "waypoints": [
         {
-          "x": 2087,
-          "y": 5442.5
+          "x": 1776,
+          "y": 5299.5
         },
         {
-          "x": 2087,
-          "y": 5710
+          "x": 1776,
+          "y": 5539
         }
       ],
       "labelT": 0.5
@@ -3520,11 +3776,11 @@
       },
       "waypoints": [
         {
-          "x": -46,
-          "y": 5792.5
+          "x": -64,
+          "y": 5621.5
         },
         {
-          "x": -46,
+          "x": -64,
           "y": 167.5
         }
       ],
@@ -3540,11 +3796,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
-          "y": 5967.5
+          "x": -82,
+          "y": 5789.5
         },
         {
-          "x": -64,
+          "x": -82,
           "y": 167.5
         }
       ]

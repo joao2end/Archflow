@@ -188,7 +188,7 @@ test("erros acionáveis para a IA e isolamento entre os modos", async () => {
   assert.doesNotMatch((await call("get_schema_guide")).text, /modo DOMAIN/);
 });
 
-test("fluxo pelo MCP: decisão, condição, senão, loop e para cada; recusado fora do modo domain", async () => {
+test("fluxo pelo MCP: policy com ramos, condição, senão, loop e para cada; decision não existe no modo domain", async () => {
   await call("new_diagram", { title: "Fluxo", mode: "domain" });
   await call("add_groups", { groups: [{ id: "fluxo", label: "Fluxo", kind: "context", subdomain: "core" }] });
   const comps = await call("add_components", {
@@ -197,7 +197,7 @@ test("fluxo pelo MCP: decisão, condição, senão, loop e para cada; recusado f
       { id: "cobrar", label: "Cobrar", parent: "fluxo", ddd: { role: "command" } },
       { id: "desistir", label: "Desistir", parent: "fluxo", ddd: { role: "command" } },
       { id: "recusado", label: "Pagamento recusado", parent: "fluxo", ddd: { role: "domain-event", external: "pagamentos.recusado" } },
-      { id: "ha-tentativas", label: "Há tentativas?", parent: "fluxo", ddd: { role: "decision", question: "ainda há tentativas?", gate: "exclusive" } },
+      { id: "ha-tentativas", label: "Há tentativas?", parent: "fluxo", ddd: { role: "policy", intent: "ainda há tentativas?" } },
     ],
   });
   assert.match(comps.text, /ok: 5\/5/);
@@ -212,29 +212,33 @@ test("fluxo pelo MCP: decisão, condição, senão, loop e para cada; recusado f
   });
   assert.match(links.text, /ok: 5\/5/);
 
-  // validação limpa de erros e avisos de fluxo; a descrição mostra a decisão e o loop
+  // validação limpa de erros e avisos de fluxo; a descrição mostra os ramos e o loop
   const val = (await call("validate_diagram")).text;
-  assert.doesNotMatch(val, /\[D02[4-9] |\[D03[1-2] /, val);
+  assert.doesNotMatch(val, /\[D02[5-9] |\[D03[1-2] /, val);
   const md = (await call("get_diagram")).text;
-  assert.match(md, /### Decisões\n- `ha-tentativas` \*\*Há tentativas\?\*\* \(exclusiva\): ainda há tentativas\? → se tentativas < 3 · repete até pagamento aprovado, máx. 3: `cobrar` ↻; senão: `desistir`/);
+  assert.match(md, /### Policies\n- `ha-tentativas` \*\*Há tentativas\?\*\* — ainda há tentativas\? → se tentativas < 3 · repete até pagamento aprovado, máx. 3: `cobrar` ↻; senão: `desistir`/);
   assert.match(md, /## Fluxo condicional, loops e iterações/);
-  assert.match((await call("generate_code")).text, /export class HaTentativas \{[\s\S]*decide\(event: DomainEvent\): "cobrar" \| "desistir"/);
+  assert.match((await call("generate_code")).text, /Ramo: senão → desistir[\s\S]*export class HaTentativas \{/);
 
   // entradas inválidas voltam com mensagem acionável
   assert.match((await call("connect", { connections: [{ from: "ha-tentativas", to: "cobrar", ddd: { rel: "triggers", loop: {} } }] })).text, /condição de parada/);
   assert.match((await call("connect", { connections: [{ from: "ha-tentativas", to: "cobrar", ddd: { rel: "triggers", condition: "x", otherwise: true } }] })).text, /OU otherwise/);
   assert.match((await call("connect", { connections: [{ from: "pag", to: "cobrar", ddd: { rel: "uses", condition: "x" } }] })).text, /só valem em relações de fluxo/);
 
-  // decisão sem senão e com um só ramo: a validação aponta
-  await call("add_components", { components: [{ id: "d2", label: "Segunda decisão", parent: "fluxo", ddd: { role: "decision" } }] });
-  await call("connect", { connections: [{ from: "recusado", to: "d2" }, { from: "d2", to: "cobrar", ddd: { rel: "triggers", condition: "x" } }] });
+  // ramos condicionais sem senão: a validação aponta
+  await call("add_components", { components: [{ id: "p2", label: "Segunda policy", parent: "fluxo", ddd: { role: "policy" } }] });
+  await call("connect", { connections: [{ from: "recusado", to: "p2" }, { from: "p2", to: "cobrar", ddd: { rel: "triggers", condition: "x" } }, { from: "p2", to: "desistir", ddd: { rel: "triggers", condition: "y" } }] });
   const after = (await call("validate_diagram")).text;
-  assert.match(after, /\[D024 erro\] decisão `d2`/);
+  assert.match(after, /\[D026 aviso\] `p2`/);
+
+  // decision é só do modo logic
+  const dec = await call("add_components", { components: [{ id: "d9", label: "D9", parent: "fluxo", ddd: { role: "decision" } }] });
+  assert.equal(dec.isError, true);
 
   // fora do modo domain nada disso existe
   await call("new_diagram", { title: "Arq" });
-  const arch = await call("add_components", { components: [{ id: "x", label: "X", ddd: { role: "decision" } }] });
+  const arch = await call("add_components", { components: [{ id: "x", label: "X", ddd: { role: "policy" } }] });
   assert.equal(arch.isError, true);
   assert.match(arch.text, /modo "domain"/);
-  assert.doesNotMatch((await call("get_schema_guide")).text, /Decisões, condições/);
+  assert.doesNotMatch((await call("get_schema_guide")).text, /Condições, loops/);
 });

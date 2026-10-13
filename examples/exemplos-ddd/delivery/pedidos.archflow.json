@@ -536,30 +536,13 @@
       "id": "entregue-no-prazo",
       "label": "Entregue no prazo?",
       "kind": "domain",
-      "description": "Decisão EXCLUSIVA: segue um único ramo, o primeiro cuja condição vale; o \"senão\" cobre o resto.",
+      "description": "Policy com ramos condicionais: segue um único ramo, o primeiro cuja condição vale; o \"senão\" cobre o resto (aqui, três saídas).",
       "parent": "pedidos",
       "ddd": {
-        "role": "decision",
-        "gate": "exclusive",
-        "question": "a entrega chegou dentro do prazo prometido?"
+        "role": "policy",
+        "intent": "a entrega chegou no prazo? Se atrasou muito, reembolsa; senão registra o atraso"
       },
       "x": 748,
-      "y": 798,
-      "w": 184,
-      "h": 72
-    },
-    {
-      "id": "atraso-grave",
-      "label": "Atraso grave?",
-      "kind": "domain",
-      "description": "Decisões podem ser encadeadas: o \"senão\" da primeira leva à segunda.",
-      "parent": "pedidos",
-      "ddd": {
-        "role": "decision",
-        "gate": "exclusive",
-        "question": "o atraso passou de 30 minutos?"
-      },
-      "x": 988,
       "y": 798,
       "w": 184,
       "h": 72
@@ -740,7 +723,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "confirmar-pedido-to-pedido",
@@ -766,7 +759,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.58
+      "labelT": 0.54
     },
     {
       "id": "cancelar-pedido-to-pedido",
@@ -779,6 +772,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -792,7 +791,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.5
+      "labelT": 0.58
     },
     {
       "id": "concluir-pedido-to-pedido",
@@ -805,6 +804,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -818,7 +823,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.5
+      "labelT": 0.58
     },
     {
       "id": "conceder-reembolso-to-pedido",
@@ -831,6 +836,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 974,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -857,6 +868,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 1214,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -883,6 +900,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 632
+        },
+        {
+          "x": -14,
+          "y": 1036
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -896,7 +923,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.46
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 632
+        },
+        {
+          "x": 254,
+          "y": 1004
+        }
+      ],
+      "labelT": 0.42
     },
     {
       "id": "pedido-to-dinheiro",
@@ -909,7 +946,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.26
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 632
+        },
+        {
+          "x": 494,
+          "y": 788
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "pedido-criado-to-fluxo-do-pedido",
@@ -922,7 +969,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.8200000000000001
+      "labelT": 0.18
     },
     {
       "id": "pagamento-aprovado-to-fluxo-do-pedido",
@@ -935,7 +982,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.42
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 384
+        },
+        {
+          "x": 466,
+          "y": 788
+        }
+      ],
+      "labelT": 0.62
     },
     {
       "id": "cobranca-desistida-to-fluxo-do-pedido",
@@ -948,7 +1005,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.66
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 168
+        },
+        {
+          "x": 466,
+          "y": 788
+        }
+      ],
+      "labelT": 0.42
     },
     {
       "id": "preparo-recusado-to-fluxo-do-pedido",
@@ -961,7 +1028,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.3
+      "labelT": 0.62
     },
     {
       "id": "fluxo-do-pedido-to-confirmar-pedido",
@@ -974,7 +1041,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 788
+        },
+        {
+          "x": 254,
+          "y": 632
+        }
+      ],
+      "labelT": 0.54
     },
     {
       "id": "fluxo-do-pedido-to-cancelar-pedido",
@@ -987,7 +1064,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 788
+        },
+        {
+          "x": 494,
+          "y": 632
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "pedido-entregue-to-entregue-no-prazo",
@@ -1000,7 +1087,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.38
+      "waypoints": [
+        {
+          "x": 974,
+          "y": 384
+        },
+        {
+          "x": 946,
+          "y": 788
+        }
+      ],
+      "labelT": 0.54
     },
     {
       "id": "entregue-no-prazo-to-concluir-pedido",
@@ -1014,26 +1111,21 @@
         "rel": "triggers",
         "condition": "minutos de atraso = 0"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 706,
+          "y": 788
+        },
+        {
+          "x": 734,
+          "y": 632
+        }
+      ],
+      "labelT": 0.54
     },
     {
-      "id": "entregue-no-prazo-to-atraso-grave",
+      "id": "entregue-no-prazo-to-conceder-reembolso",
       "from": "entregue-no-prazo",
-      "to": "atraso-grave",
-      "type": "dependency",
-      "label": "senão",
-      "routing": "curve",
-      "animated": true,
-      "ddd": {
-        "rel": "triggers",
-        "otherwise": true
-      },
-      "labelT": 0.5,
-      "labelOffset": 50
-    },
-    {
-      "id": "atraso-grave-to-conceder-reembolso",
-      "from": "atraso-grave",
       "to": "conceder-reembolso",
       "type": "dependency",
       "label": "se atraso > 30 minutos",
@@ -1043,11 +1135,21 @@
         "rel": "triggers",
         "condition": "atraso > 30 minutos"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 946,
+          "y": 788
+        },
+        {
+          "x": 974,
+          "y": 632
+        }
+      ],
+      "labelT": 0.58
     },
     {
-      "id": "atraso-grave-to-registrar-atraso",
-      "from": "atraso-grave",
+      "id": "entregue-no-prazo-to-registrar-atraso",
+      "from": "entregue-no-prazo",
       "to": "registrar-atraso",
       "type": "dependency",
       "label": "senão",
@@ -1057,7 +1159,17 @@
         "rel": "triggers",
         "otherwise": true
       },
-      "labelT": 0.54
+      "waypoints": [
+        {
+          "x": 974,
+          "y": 788
+        },
+        {
+          "x": 974,
+          "y": 632
+        }
+      ],
+      "labelT": 0.7
     },
     {
       "id": "pedido-criado-to-pedidos-do-cliente",
@@ -1070,7 +1182,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.3
+      "labelT": 0.5
     },
     {
       "id": "pedido-confirmado-to-pedidos-do-cliente",
@@ -1083,7 +1195,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.8200000000000001
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 632
+        }
+      ],
+      "labelT": 0.9
     },
     {
       "id": "pedido-concluido-to-pedidos-do-cliente",
@@ -1109,8 +1227,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.26,
-      "labelOffset": -25
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 912
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "criar-pedido-to-pedido-repo",
@@ -1123,7 +1246,7 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.5
+      "labelT": 0.62
     }
   ],
   "customAssets": []

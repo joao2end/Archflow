@@ -1,0 +1,282 @@
+{
+  "enunciado": "Dados os nós (lista de números distintos) e as dependências (lista de pares [de, para], significando que «de» precisa vir antes de «para»), devolver uma ordem em que todo nó vem depois de quem ele depende. Quando mais de um nó puder vir, escolher sempre o de MENOR número. Se houver ciclo (inclusive um nó dependendo de si mesmo), não existe ordem: terminar com erro.",
+  "cases": [
+    {
+      "name": "grafo vazio",
+      "given": {
+        "nos": [],
+        "arestas": []
+      },
+      "expect": {
+        "ordem": [],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "um nó",
+      "given": {
+        "nos": [
+          1
+        ],
+        "arestas": []
+      },
+      "expect": {
+        "ordem": [
+          1
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "sem dependências, nós fora de ordem",
+      "given": {
+        "nos": [
+          3,
+          1,
+          2
+        ],
+        "arestas": []
+      },
+      "expect": {
+        "ordem": [
+          1,
+          2,
+          3
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "cadeia",
+      "given": {
+        "nos": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "ordem": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "cadeia invertida",
+      "given": {
+        "nos": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            3,
+            2
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "expect": {
+        "ordem": [
+          3,
+          2,
+          1,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "diamante",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "arestas": [
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "expect": {
+        "ordem": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "clássico de 6 nós",
+      "given": {
+        "nos": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "arestas": [
+          [
+            5,
+            2
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "ordem": [
+          4,
+          5,
+          0,
+          2,
+          3,
+          1
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "ciclo de três",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "nó depende de si mesmo",
+      "given": {
+        "nos": [
+          1
+        ],
+        "arestas": [
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "ciclo depois de um prefixo válido",
+      "given": {
+        "nos": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    }
+  ]
+}

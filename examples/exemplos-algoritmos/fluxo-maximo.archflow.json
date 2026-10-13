@@ -1,0 +1,1638 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-uxwin6",
+  "title": "Fluxo máximo (Edmonds-Karp)",
+  "description": "Maior fluxo possível da fonte ao sumidouro. Guarda o grafo residual: para cada aresta, quanto ainda cabe passar. Repete: acha, por busca em largura, o caminho com menos arestas entre a fonte e o sumidouro que ainda tem capacidade restante em todas as arestas; se não há, terminou. Senão, o gargalo (a menor capacidade restante do caminho) é o quanto se envia: sobe o fluxo total, diminui a capacidade restante de cada aresta do caminho e aumenta a da aresta contrária (o que permite desfazer fluxo mais tarde). A fila da busca é uma lista que só cresce, lida por uma posição h. Mapas são listas de pares ou trios.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 476,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1522,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1522,
+      "y": 108,
+      "w": 306,
+      "h": 650,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1522,
+      "y": 748,
+      "w": 376,
+      "h": 271,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1522,
+      "y": 1013,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "nos",
+      "label": "Nós",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "nos",
+        "type": "lista",
+        "text": "Números distintos."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "arestas",
+      "label": "Arestas",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "arestas",
+        "type": "lista",
+        "text": "Trios [de, para, capacidade]: seta de «de» para «para» que aguenta no máximo «capacidade» (inteiro ≥ 0). Aceita paralelas e nos dois sentidos. Os números têm de estar em nos."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fonte",
+      "label": "Fonte",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "fonte",
+        "type": "número",
+        "text": "De onde o fluxo sai. Está em nos."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "sumidouro",
+      "label": "Sumidouro",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "sumidouro",
+        "type": "número",
+        "text": "Para onde o fluxo vai. Está em nos e é diferente da fonte."
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inf",
+      "label": "Infinito",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "inf",
+        "type": "número",
+        "text": "Maior que qualquer capacidade possível: valor inicial do gargalo.",
+        "value": 1000000
+      },
+      "x": -380,
+      "y": 276,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "res",
+      "label": "Capacidade restante",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "res",
+        "type": "lista",
+        "text": "Trios [de, para, restante]: quanto ainda passa de «de» para «para». Começa igual a arestas. A soma dos trios do mesmo par é a capacidade restante daquele par."
+      },
+      "x": 1550,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fluxo",
+      "label": "Fluxo total",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "fluxo",
+        "type": "número",
+        "text": "Resposta: o maior fluxo da fonte ao sumidouro."
+      },
+      "x": 1550,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "terminou",
+      "label": "Sem mais caminhos",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "terminou",
+        "type": "lógico",
+        "text": "Verdadeiro quando a busca não achou caminho até o sumidouro."
+      },
+      "x": 1550,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "visitados",
+      "label": "Nós alcançados",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "visitados",
+        "type": "lista",
+        "text": "Os nós já alcançados na busca de agora."
+      },
+      "x": 1550,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fila",
+      "label": "Fila da busca",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "fila",
+        "type": "lista",
+        "text": "Os nós alcançados, na ordem em que foram achados. Só cresce; h marca o próximo a examinar."
+      },
+      "x": 1550,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "h",
+      "label": "Próximo da fila",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "h",
+        "type": "inteiro",
+        "text": "Posição, em fila, do próximo nó a examinar."
+      },
+      "x": 1550,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "pai",
+      "label": "Quem trouxe cada nó",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "pai",
+        "type": "lista",
+        "text": "Pares [nó, anterior]: de que nó a busca chegou ao nó."
+      },
+      "x": 1550,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "u",
+      "label": "Nó examinado",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "u",
+        "type": "número",
+        "text": "O nó que a busca está examinando agora."
+      },
+      "x": -380,
+      "y": 334,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "cand",
+      "label": "Setas com capacidade",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "cand",
+        "type": "lista",
+        "text": "As setas que saem de u e ainda têm capacidade restante maior que zero."
+      },
+      "x": 1550,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "x",
+      "label": "Nó do caminho",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "x",
+        "type": "número",
+        "text": "Nó em que a volta do caminho está, do sumidouro para a fonte."
+      },
+      "x": -380,
+      "y": 392,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "p",
+      "label": "Nó anterior",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "p",
+        "type": "número",
+        "text": "O nó de onde a busca chegou a x."
+      },
+      "x": 1550,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "c",
+      "label": "Capacidade da seta",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "c",
+        "type": "número",
+        "text": "A capacidade restante da seta de p para x."
+      },
+      "x": 1550,
+      "y": 626,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "gargalo",
+      "label": "Gargalo do caminho",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "gargalo",
+        "type": "número",
+        "text": "A menor capacidade restante entre as setas do caminho achado."
+      },
+      "x": 1550,
+      "y": 684,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Calcular o fluxo máximo",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram nos, arestas, fonte e sumidouro."
+      },
+      "x": 535,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ok",
+      "label": "A entrada é válida?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "fonte != sumidouro e contem(nos, fonte) e contem(nos, sumidouro) e vazio(filtrar(arestas, contem(nos, item[0]) = falso ou contem(nos, item[1]) = falso ou item[2] < 0 ou item[2] >= inf))",
+        "text": "Fonte e sumidouro diferentes e em nos, arestas só entre nós de nos e toda capacidade entre 0 e menos de inf (1000000).",
+        "examples": [
+          {
+            "name": "ok",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  1
+                ]
+              ],
+              "fonte": 1,
+              "sumidouro": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "mesma",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  1
+                ]
+              ],
+              "fonte": 1,
+              "sumidouro": 1
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 124,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "prepara",
+      "label": "Começar com todo o fluxo por passar",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A capacidade restante é a original e o fluxo é zero.",
+        "then": [
+          "res := arestas",
+          "fluxo := 0",
+          "terminou := falso"
+        ],
+        "examples": [
+          {
+            "name": "copia",
+            "given": {
+              "arestas": [
+                [
+                  1,
+                  2,
+                  5
+                ]
+              ]
+            },
+            "expect": {
+              "res": [
+                [
+                  1,
+                  2,
+                  5
+                ]
+              ],
+              "fluxo": 0,
+              "terminou": false
+            }
+          }
+        ]
+      },
+      "x": 335,
+      "y": 303,
+      "w": 330,
+      "h": 135
+    },
+    {
+      "id": "l-aumenta",
+      "label": "Acabaram os caminhos?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "terminou",
+        "text": "Para quando a busca não acha mais caminho. Cada volta acha um caminho e envia fluxo por ele."
+      },
+      "x": 505,
+      "y": 502,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "ini-busca",
+      "label": "Começar a busca pela fonte",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Só a fonte foi alcançada; a fila tem só a fonte.",
+        "then": [
+          "visitados := [fonte]",
+          "fila := [fonte]",
+          "pai := []",
+          "h := 0"
+        ],
+        "examples": [
+          {
+            "name": "começa",
+            "given": {
+              "fonte": 1
+            },
+            "expect": {
+              "visitados": [
+                1
+              ],
+              "fila": [
+                1
+              ],
+              "pai": [],
+              "h": 0
+            }
+          }
+        ]
+      },
+      "x": 335,
+      "y": 653,
+      "w": 330,
+      "h": 156
+    },
+    {
+      "id": "l-busca",
+      "label": "A busca acabou?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "h >= tamanho(fila) ou contem(visitados, sumidouro)",
+        "text": "Para quando a fila esgotou ou o sumidouro foi alcançado."
+      },
+      "x": 505,
+      "y": 873,
+      "w": 340,
+      "h": 115
+    },
+    {
+      "id": "pega",
+      "label": "Pegar o próximo da fila",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Examina o nó da posição h e separa as setas dele que ainda têm capacidade.",
+        "then": [
+          "u := fila[h]",
+          "h := h + 1",
+          "cand := filtrar(res, item[0] = u e item[2] > 0)"
+        ],
+        "examples": [
+          {
+            "name": "pega",
+            "given": {
+              "fila": [
+                1
+              ],
+              "h": 0,
+              "res": [
+                [
+                  1,
+                  2,
+                  5
+                ],
+                [
+                  1,
+                  3,
+                  0
+                ]
+              ]
+            },
+            "expect": {
+              "u": 1,
+              "h": 1,
+              "cand": [
+                [
+                  1,
+                  2,
+                  5
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 1052,
+      "w": 440,
+      "h": 149
+    },
+    {
+      "id": "l-viz",
+      "label": "Para cada seta com capacidade",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "cand",
+        "as": "seta",
+        "text": "Cada seta que sai de u e ainda tem capacidade restante."
+      },
+      "x": 105,
+      "y": 1278.5,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "novo",
+      "label": "O outro lado ainda não foi alcançado?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "contem(visitados, seta[1]) = falso",
+        "text": "Só se alcança uma vez cada nó, pelo caminho mais curto.",
+        "examples": [
+          {
+            "name": "novo",
+            "given": {
+              "visitados": [
+                1
+              ],
+              "seta": [
+                1,
+                2,
+                5
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "já",
+            "given": {
+              "visitados": [
+                1,
+                2
+              ],
+              "seta": [
+                1,
+                2,
+                5
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 305,
+      "y": 1443,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "marca",
+      "label": "Alcançar o nó",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Marca o nó, guarda de onde veio e põe no fim da fila.",
+        "then": [
+          "visitados := adicionar(visitados, seta[1])",
+          "pai := adicionar(pai, [seta[1], u])",
+          "fila := adicionar(fila, seta[1])"
+        ],
+        "examples": [
+          {
+            "name": "marca",
+            "given": {
+              "visitados": [
+                1
+              ],
+              "pai": [],
+              "fila": [
+                1
+              ],
+              "seta": [
+                1,
+                2,
+                5
+              ],
+              "u": 1
+            },
+            "expect": {
+              "visitados": [
+                1,
+                2
+              ],
+              "pai": [
+                [
+                  2,
+                  1
+                ]
+              ],
+              "fila": [
+                1,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1647.5,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "chegou",
+      "label": "O sumidouro foi alcançado?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "contem(visitados, sumidouro)",
+        "text": "Se não foi, não há mais caminho com capacidade.",
+        "examples": [
+          {
+            "name": "sim",
+            "given": {
+              "visitados": [
+                1,
+                2
+              ],
+              "sumidouro": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não",
+            "given": {
+              "visitados": [
+                1
+              ],
+              "sumidouro": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 765,
+      "y": 1076,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "fim-busca",
+      "label": "Não há mais caminho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Encerra o laço de fora.",
+        "then": [
+          "terminou := verdadeiro"
+        ],
+        "examples": [
+          {
+            "name": "encerra",
+            "given": {
+              "terminou": false
+            },
+            "expect": {
+              "terminou": true
+            }
+          }
+        ]
+      },
+      "x": 915,
+      "y": 1275.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "ini-gargalo",
+      "label": "Medir o caminho da volta",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Parte do sumidouro; o gargalo começa infinito.",
+        "then": [
+          "x := sumidouro",
+          "gargalo := inf"
+        ],
+        "examples": [
+          {
+            "name": "parte",
+            "given": {
+              "sumidouro": 6,
+              "inf": 99
+            },
+            "expect": {
+              "x": 6,
+              "gargalo": 99
+            }
+          }
+        ]
+      },
+      "x": 515,
+      "y": 1265,
+      "w": 330,
+      "h": 114
+    },
+    {
+      "id": "l-gargalo",
+      "label": "A volta chegou à fonte?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "x = fonte",
+        "text": "Para quando x é a fonte."
+      },
+      "x": 705,
+      "y": 1457.5,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "passo-gargalo",
+      "label": "Ver a capacidade da seta",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega o nó anterior, a capacidade restante da seta e fica com a menor até agora.",
+        "then": [
+          "p := primeiro(mapear(filtrar(pai, item[0] = x), item[1]))",
+          "c := soma(mapear(filtrar(res, item[0] = p e item[1] = x), item[2]))",
+          "gargalo := min(gargalo, c)",
+          "x := p"
+        ],
+        "examples": [
+          {
+            "name": "passo",
+            "given": {
+              "pai": [
+                [
+                  2,
+                  1
+                ]
+              ],
+              "x": 2,
+              "res": [
+                [
+                  1,
+                  2,
+                  5
+                ]
+              ],
+              "gargalo": 99
+            },
+            "expect": {
+              "p": 1,
+              "c": 5,
+              "gargalo": 5,
+              "x": 1
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1623,
+      "w": 440,
+      "h": 184
+    },
+    {
+      "id": "ini-atualiza",
+      "label": "Voltar ao sumidouro para atualizar",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A segunda volta também parte do sumidouro.",
+        "then": [
+          "x := sumidouro"
+        ],
+        "examples": [
+          {
+            "name": "volta",
+            "given": {
+              "sumidouro": 6
+            },
+            "expect": {
+              "x": 6
+            }
+          }
+        ]
+      },
+      "x": 1020,
+      "y": 1668.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "l-atualiza",
+      "label": "A volta chegou à fonte?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "x = fonte",
+        "text": "Para quando x é a fonte."
+      },
+      "x": 505,
+      "y": 1871,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "passo-atualiza",
+      "label": "Enviar o gargalo por esta seta",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Diminui a capacidade restante da seta e aumenta a da seta contrária (o que permite desfazer o fluxo depois).",
+        "then": [
+          "p := primeiro(mapear(filtrar(pai, item[0] = x), item[1]))",
+          "res := adicionar(filtrar(res, item[0] != p ou item[1] != x), [p, x, soma(mapear(filtrar(res, item[0] = p e item[1] = x), item[2])) - gargalo])",
+          "res := adicionar(filtrar(res, item[0] != x ou item[1] != p), [x, p, soma(mapear(filtrar(res, item[0] = x e item[1] = p), item[2])) + gargalo])",
+          "x := p"
+        ],
+        "examples": [
+          {
+            "name": "envia",
+            "given": {
+              "pai": [
+                [
+                  2,
+                  1
+                ]
+              ],
+              "x": 2,
+              "gargalo": 3,
+              "res": [
+                [
+                  1,
+                  2,
+                  5
+                ]
+              ]
+            },
+            "expect": {
+              "p": 1,
+              "res": [
+                [
+                  1,
+                  2,
+                  2
+                ],
+                [
+                  2,
+                  1,
+                  3
+                ]
+              ],
+              "x": 1
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 2022,
+      "w": 440,
+      "h": 224
+    },
+    {
+      "id": "soma-fluxo",
+      "label": "Somar o gargalo ao fluxo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O caminho levou «gargalo» de fluxo.",
+        "then": [
+          "fluxo := fluxo + gargalo"
+        ],
+        "examples": [
+          {
+            "name": "soma",
+            "given": {
+              "fluxo": 2,
+              "gargalo": 3
+            },
+            "expect": {
+              "fluxo": 5
+            }
+          }
+        ]
+      },
+      "x": 765,
+      "y": 2087.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Fluxo devolvido",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve fluxo: o maior fluxo da fonte ao sumidouro."
+      },
+      "x": 735,
+      "y": 701,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ruim",
+      "label": "Entrada inválida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Fonte igual ao sumidouro, nó fora da lista ou capacidade fora de 0 a 999999: nada a calcular."
+      },
+      "x": 735,
+      "y": 340.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Rede de seis nós",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Capacidades como na figura clássica: o maior fluxo da fonte 1 ao sumidouro 6 é 23.",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  16
+                ],
+                [
+                  1,
+                  3,
+                  13
+                ],
+                [
+                  2,
+                  3,
+                  10
+                ],
+                [
+                  3,
+                  2,
+                  4
+                ],
+                [
+                  2,
+                  4,
+                  12
+                ],
+                [
+                  4,
+                  3,
+                  9
+                ],
+                [
+                  3,
+                  5,
+                  14
+                ],
+                [
+                  5,
+                  4,
+                  7
+                ],
+                [
+                  4,
+                  6,
+                  20
+                ],
+                [
+                  5,
+                  6,
+                  4
+                ]
+              ],
+              "fonte": 1,
+              "sumidouro": 6
+            },
+            "expect": {
+              "fluxo": 23,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 802,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-retorno",
+      "label": "Caminho que desfaz fluxo",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Com capacidade 1 em tudo, o primeiro caminho achado bloqueia o outro; só desfazendo parte dele pela seta contrária o fluxo total chega a 2.",
+        "examples": [
+          {
+            "name": "retorno",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "arestas": [
+                [
+                  1,
+                  3,
+                  1
+                ],
+                [
+                  1,
+                  4,
+                  1
+                ],
+                [
+                  2,
+                  4,
+                  1
+                ],
+                [
+                  2,
+                  6,
+                  1
+                ],
+                [
+                  3,
+                  2,
+                  1
+                ],
+                [
+                  3,
+                  5,
+                  1
+                ],
+                [
+                  4,
+                  2,
+                  1
+                ],
+                [
+                  5,
+                  6,
+                  1
+                ]
+              ],
+              "fonte": 1,
+              "sumidouro": 6
+            },
+            "expect": {
+              "fluxo": 2,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 869,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-sem-caminho",
+      "label": "Sem caminho",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Não há seta que leve ao sumidouro: fluxo 0.",
+        "examples": [
+          {
+            "name": "sem caminho",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  4
+                ]
+              ],
+              "fonte": 1,
+              "sumidouro": 3
+            },
+            "expect": {
+              "fluxo": 0,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 936,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-invalido",
+      "label": "Fonte igual ao sumidouro",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Termina com erro.",
+        "examples": [
+          {
+            "name": "mesma",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  1
+                ]
+              ],
+              "fonte": 1,
+              "sumidouro": 1
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 1067,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-entrada-ok",
+      "from": "inicio",
+      "to": "entrada-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "entrada-ok-to-prepara",
+      "from": "entrada-ok",
+      "to": "prepara",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entrada-ok-to-entrada-ruim",
+      "from": "entrada-ok",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prepara-to-l-aumenta",
+      "from": "prepara",
+      "to": "l-aumenta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-aumenta-to-ini-busca",
+      "from": "l-aumenta",
+      "to": "ini-busca",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ini-busca-to-l-busca",
+      "from": "ini-busca",
+      "to": "l-busca",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-busca-to-pega",
+      "from": "l-busca",
+      "to": "pega",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pega-to-l-viz",
+      "from": "pega",
+      "to": "l-viz",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-viz-to-novo",
+      "from": "l-viz",
+      "to": "novo",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "novo-to-marca",
+      "from": "novo",
+      "to": "marca",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "novo-to-l-viz",
+      "from": "novo",
+      "to": "l-viz",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 59,
+          "y": 1501
+        },
+        {
+          "x": 59,
+          "y": 1322
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "marca-to-l-viz",
+      "from": "marca",
+      "to": "l-viz",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1715
+        },
+        {
+          "x": -64,
+          "y": 1322
+        }
+      ]
+    },
+    {
+      "id": "l-viz-to-l-busca",
+      "from": "l-viz",
+      "to": "l-busca",
+      "type": "data",
+      "label": "segue",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "waypoints": [
+        {
+          "x": 23,
+          "y": 1322
+        },
+        {
+          "x": 23,
+          "y": 930.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "l-busca-to-chegou",
+      "from": "l-busca",
+      "to": "chegou",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "chegou-to-ini-gargalo",
+      "from": "chegou",
+      "to": "ini-gargalo",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "chegou-to-fim-busca",
+      "from": "chegou",
+      "to": "fim-busca",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fim-busca-to-l-aumenta",
+      "from": "fim-busca",
+      "to": "l-aumenta",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 59,
+          "y": 1322
+        },
+        {
+          "x": 59,
+          "y": 545.5
+        }
+      ]
+    },
+    {
+      "id": "ini-gargalo-to-l-gargalo",
+      "from": "ini-gargalo",
+      "to": "l-gargalo",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-gargalo-to-passo-gargalo",
+      "from": "l-gargalo",
+      "to": "passo-gargalo",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "passo-gargalo-to-l-gargalo",
+      "from": "passo-gargalo",
+      "to": "l-gargalo",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1715
+        },
+        {
+          "x": -64,
+          "y": 1501
+        }
+      ]
+    },
+    {
+      "id": "l-gargalo-to-ini-atualiza",
+      "from": "l-gargalo",
+      "to": "ini-atualiza",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ini-atualiza-to-l-atualiza",
+      "from": "ini-atualiza",
+      "to": "l-atualiza",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-atualiza-to-passo-atualiza",
+      "from": "l-atualiza",
+      "to": "passo-atualiza",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "passo-atualiza-to-l-atualiza",
+      "from": "passo-atualiza",
+      "to": "l-atualiza",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 173,
+          "y": 2134
+        },
+        {
+          "x": 173,
+          "y": 1914.5
+        }
+      ]
+    },
+    {
+      "id": "l-atualiza-to-soma-fluxo",
+      "from": "l-atualiza",
+      "to": "soma-fluxo",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "soma-fluxo-to-l-aumenta",
+      "from": "soma-fluxo",
+      "to": "l-aumenta",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 2134
+        },
+        {
+          "x": -46,
+          "y": 545.5
+        }
+      ]
+    },
+    {
+      "id": "l-aumenta-to-pronto",
+      "from": "l-aumenta",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

@@ -14,8 +14,8 @@ const build = (ops: Op[]): Doc => {
 };
 
 const base = (): Op[] => [
-  node("preco", { role: "fact", key: "preco" }),
-  node("limite", { role: "fact", key: "limite" }),
+  node("preco", { role: "input", key: "preco" }),
+  node("limite", { role: "input", key: "limite" }),
   node("ini", { role: "start" }),
   node("d", { role: "decision", when: "preco > limite" }),
   node("corta", { role: "rule", then: ["preco := limite"] }),
@@ -65,18 +65,16 @@ test("dados acoplados ao fluxo: quais passos usam um dado e quais dados um passo
   assert.deepEqual([...relatedTo(doc, "limite")], ["d", "corta"], "o limite é lido pela decisão e pela regra que corta");
 });
 
-test("o cartão da regra mostra os dados como etiquetas: lidos (contorno) e escritos (preenchidos); copias do item do laço viram uma linha", () => {
+test("o cartão da Ação mostra só a composição: efeitos sem rótulo e sem área de dados; cópias do item do laço viram uma linha", () => {
   const doc = build([
     ...base(),
     node("carrega", { role: "rule", then: ["custo := produto.custo", "margem := produto.margem", "preco := custo * (1 + margem)"] }),
   ]);
   const card = ruleCard(doc.nodes.find((n) => n.id === "carrega")!, { custo: "custo", margem: "margem" });
-  const dados = card.sections.find((s) => s.kind === "usa")!;
-  const por = new Map(dados.chips!.map((c) => [c.text, c.write]));
-  assert.equal(por.get("custo"), true);
-  assert.equal(por.get("preco"), true);
-  assert.equal(por.has("produto"), true, "o item do laço entra como um dado só, sem uma etiqueta por campo");
-  assert.equal(por.get("produto"), false);
-  assert.ok(card.sections.find((s) => s.kind === "entao")!.lines.some((l) => l.text.startsWith("traz de produto:")));
+  assert.deepEqual(card.sections.map((s) => s.kind), ["entao"], "nada de seção de dados");
+  const efeitos = card.sections[0];
+  assert.equal(efeitos.label, "", "sem a etiqueta ENTÃO");
+  assert.ok(efeitos.lines.some((l) => l.text.startsWith("traz de produto:")));
+  assert.ok(card.x < 40, "o conteúdo começa na margem, sem coluna reservada para etiqueta");
   assert.ok(card.h > 80);
 });

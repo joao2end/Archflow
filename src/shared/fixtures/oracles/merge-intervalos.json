@@ -1,0 +1,219 @@
+{
+  "enunciado": "Dada uma lista de intervalos [inicio, fim] JÁ ORDENADA pelo início, juntar os que se sobrepõem ou se tocam (o fim de um é igual ao início do próximo) e devolver a lista de intervalos disjuntos, na mesma ordem.",
+  "cases": [
+    {
+      "name": "lista vazia",
+      "given": {
+        "iv": []
+      },
+      "expect": {
+        "res": []
+      }
+    },
+    {
+      "name": "um intervalo",
+      "given": {
+        "iv": [
+          [
+            1,
+            3
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            3
+          ]
+        ]
+      }
+    },
+    {
+      "name": "sobrepõe dois e separa o resto",
+      "given": {
+        "iv": [
+          [
+            1,
+            3
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            15,
+            18
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            6
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            15,
+            18
+          ]
+        ]
+      }
+    },
+    {
+      "name": "se tocam no ponto",
+      "given": {
+        "iv": [
+          [
+            1,
+            4
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            5
+          ]
+        ]
+      }
+    },
+    {
+      "name": "um contém os outros",
+      "given": {
+        "iv": [
+          [
+            1,
+            10
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            4,
+            5
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            10
+          ]
+        ]
+      }
+    },
+    {
+      "name": "disjuntos",
+      "given": {
+        "iv": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "name": "cadeia que se toca",
+      "given": {
+        "iv": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "name": "contido seguido de outro grupo",
+      "given": {
+        "iv": [
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            9
+          ],
+          [
+            20,
+            21
+          ]
+        ]
+      },
+      "expect": {
+        "res": [
+          [
+            1,
+            5
+          ],
+          [
+            6,
+            9
+          ],
+          [
+            20,
+            21
+          ]
+        ]
+      }
+    }
+  ]
+}

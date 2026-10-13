@@ -10,12 +10,12 @@ const node = (id: string, label: string, logic: LogicNodeSpec): Op => ({ op: "ad
 function pricing(): Doc {
   const doc = emptyDoc("Engine de precificação", "logic");
   const ops: Op[] = [
-    node("custo", "Custo", { role: "fact", type: "dinheiro" }),
-    node("preco-atual", "Preço atual", { role: "fact", type: "dinheiro" }),
-    node("preco", "Preço", { role: "fact", type: "dinheiro", text: "o preço que a engine está calculando" }),
-    node("margem-objetivo", "Margem objetivo", { role: "fact", type: "percentual" }),
-    node("preco-fixo", "Preço fixo", { role: "fact", type: "dinheiro" }),
-    node("marca-propria", "Marca própria", { role: "fact", type: "lógico" }),
+    node("custo", "Custo", { role: "input", type: "dinheiro" }),
+    node("preco-atual", "Preço atual", { role: "input", type: "dinheiro" }),
+    node("preco", "Preço", { role: "input", type: "dinheiro", text: "o preço que a engine está calculando" }),
+    node("margem-objetivo", "Margem objetivo", { role: "input", type: "percentual" }),
+    node("preco-fixo", "Preço fixo", { role: "input", type: "dinheiro" }),
+    node("marca-propria", "Marca própria", { role: "input", type: "lógico" }),
     node("preco-partida", "Preço de partida (lucro)", {
       role: "rule",
       order: 1,
@@ -100,7 +100,7 @@ test("L001/L002/L003/L005/L007: sintaxe, dado desconhecido, sem exemplo, ordem r
   const { doc } = applyOps(emptyDoc("t", "logic"), [
     node("a", "A", { role: "rule", order: 1, when: "x > 1", then: [] }),
     node("b", "B", { role: "rule", order: 1, then: ["y := w + z"] }),
-    node("f", "F", { role: "fact", key: "z" }),
+    node("f", "F", { role: "input", key: "z" }),
   ]);
   doc.nodes.find((n) => n.id === "a")!.logic!.when = "x >"; // só chega por arquivo importado: as ops já recusam
   const rules = validateDetailed(doc).map((i) => i.rule);
@@ -109,11 +109,11 @@ test("L001/L002/L003/L005/L007: sintaxe, dado desconhecido, sem exemplo, ordem r
 
 test("as ops recusam logic fora do modo logic e campos fora do papel, com mensagem acionável", () => {
   const arch = emptyDoc("a");
-  const r1 = applyOps(arch, [node("x", "X", { role: "fact" })]);
+  const r1 = applyOps(arch, [node("x", "X", { role: "input" })]);
   assert.match(r1.results[0].error!, /modo "logic"/);
   const doc = emptyDoc("l", "logic");
-  const r2 = applyOps(doc, [node("x", "X", { role: "fact", when: "1 = 1" } as LogicNodeSpec)]);
-  assert.match(r2.results[0].error!, /não existe no papel "fact"/);
+  const r2 = applyOps(doc, [node("x", "X", { role: "input", when: "1 = 1" } as LogicNodeSpec)]);
+  assert.match(r2.results[0].error!, /não existe no papel "input"/);
   const r3 = applyOps(doc, [node("y", "Y", { role: "rule", then: ["preco = 1"] })]);
   assert.match(r3.results[0].error!, /dado := expressão/);
 });
@@ -121,7 +121,7 @@ test("as ops recusam logic fora do modo logic e campos fora do papel, com mensag
 test("describe mostra a fila com a explicação em português e o schema guide do modo", () => {
   const doc = pricing();
   const text = describe(doc);
-  assert.match(text, /Fila de regras/);
+  assert.match(text, /Fila de ações/);
   assert.match(text, /preço atual/); // nome de negócio do dado
   assert.match(text, /✔ exemplo/);
   assert.match(schemaGuide("logic"), /travar x/);

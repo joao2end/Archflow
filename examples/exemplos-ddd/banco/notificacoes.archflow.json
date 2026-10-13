@@ -225,7 +225,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.58
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 136
+        },
+        {
+          "x": -14,
+          "y": 788
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "avisar-conclusao-to-enviar-notificacao",
@@ -238,6 +248,16 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 788
+        },
+        {
+          "x": -14,
+          "y": 508
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -264,6 +284,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -277,8 +303,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.66,
-      "labelOffset": -50
+      "labelT": 0.5
     },
     {
       "id": "enviar-notificacao-to-notificacao-enviad",
@@ -291,8 +316,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.18,
-      "labelOffset": 50
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        },
+        {
+          "x": 254,
+          "y": 664
+        }
+      ],
+      "labelT": 0.46
     },
     {
       "id": "notificacao-to-canal",
@@ -305,6 +339,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 632
+        },
+        {
+          "x": -14,
+          "y": 912
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -318,7 +362,17 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.54
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        },
+        {
+          "x": 254,
+          "y": 912
+        }
+      ],
+      "labelT": 0.5
     }
   ],
   "customAssets": []

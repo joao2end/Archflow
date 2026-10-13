@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DECISION_GATES, DECISION_GATE_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
+import { CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type VaultDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -99,21 +99,23 @@ const modeEnum = z.enum(["architecture", "domain", "logic"]);
 const logicValue: z.ZodType = z.lazy(() => z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(logicValue), z.record(z.string(), logicValue)]));
 const logicNodeSchema = z
   .object({
-    role: z.enum(["start", "end", "rule", "decision", "switch", "loop", "fork", "join", "call", "fact", "scenario"]),
+    role: z.enum(["start", "end", "action", "rule", "decision", "switch", "loop", "fork", "join", "call", "input", "output", "variable", "scenario"]),
     on: z.string().optional().describe("switch: expressão que escolhe o caminho"),
     until: z.string().optional().describe("loop: condição de parada"),
     max: z.number().int().min(1).max(1000).optional().describe("loop: no máximo N voltas"),
     foreach: z.string().optional().describe("loop: expressão que devolve a lista"),
+    devolve: z.array(z.string()).optional().describe("call: efeitos que rodam quando a chamada dá certo (os dados que ela devolve), ex.: [\"cidade := cidade_do_servico\"]"),
+    falha: z.string().optional().describe("call: condição que simula a chamada falhando no exemplo; o fluxo segue pela seta branch \"erro\""),
     as: z.string().optional().describe("loop com foreach: nome do item"),
     outcome: z.enum(["ok", "erro"]).optional().describe("end: desfecho"),
-    order: z.number().optional().describe("rule: posição na fila (1, 2, 3…)"),
-    text: z.string().optional().describe("rule/scenario/fact: a frase do negócio"),
-    when: z.string().optional().describe("rule: condição, ex.: tipo em [\"imagem\", \"trafego\"] e preco < 10"),
-    then: z.array(z.string()).optional().describe("rule: efeitos, ex.: [\"preco := max(preco, piso)\", \"travar preco\"]"),
-    examples: z.array(z.object({ name: z.string(), given: z.record(z.string(), logicValue), expect: z.record(z.string(), logicValue) })).optional().describe("rule: exemplos da regra sozinha · scenario: exemplos da fila inteira"),
-    key: z.string().optional().describe("fact: nome nas expressões (preco_atual, categoria.margem)"),
-    type: z.string().optional(),
-    value: logicValue.optional().describe("fact: valor fixo"),
+    order: z.number().optional().describe("action (Ação): posição na fila (1, 2, 3…)"),
+    text: z.string().optional().describe("action/scenario/input/output/variable: a frase do negócio"),
+    when: z.string().optional().describe("decision: a condição (vale = seta sim), ex.: tipo em [\"imagem\", \"trafego\"] e preco < 10. A action não tem condição: ponha uma decision antes dela"),
+    then: z.array(z.string()).optional().describe("action: efeitos, ex.: [\"preco := max(preco, piso)\", \"travar preco\"]"),
+    examples: z.array(z.object({ name: z.string(), given: z.record(z.string(), logicValue), expect: z.record(z.string(), logicValue) })).optional().describe("action/decision/switch: exemplos do passo sozinho · scenario: exemplos da fila inteira"),
+    key: z.string().optional().describe("input/output/variable: nome nas expressões (preco_atual, categoria.margem)"),
+    type: z.string().optional().describe("input/output/variable: tipo na sintaxe do TypeScript (number, int, float, boolean, string, string[], { preco: number; cupom?: string }[], \"a\" | \"b\"). O app confere o valor fixo e os exemplos e avisa (L026)"),
+    value: logicValue.optional().describe("input/variable: valor fixo (na variável, o valor inicial)"),
   })
   .describe("modo logic: papel e campos (ver get_schema_guide)");
 const dddNodeSchema = z
@@ -145,9 +147,7 @@ const dddNodeSchema = z
     issues: z.array(z.string()).optional().describe("policy, process-manager: ids dos commands que dispara"),
     compensates: z.array(z.string()).optional().describe("process-manager: ids dos commands de compensação"),
     projectsFrom: z.array(z.string()).optional().describe("read-model: ids dos eventos que o alimentam"),
-    step: z.number().optional().describe("command, domain-event: posição na linha do tempo"),
-    question: z.string().optional().describe("decision: a pergunta que o ponto de decisão responde"),
-    gate: z.enum(DECISION_GATE_KEYS as [string, ...string[]]).optional().describe("decision: " + DECISION_GATE_KEYS.map((g) => `${g} = ${DECISION_GATES[g].hint}`).join(" · ")),
+    step: z.number().optional().describe("command: posição na linha do tempo (ordena os commands no auto_layout timeline)"),
   })
   .describe("modo domain, kind domain: papel DDD e campos do papel (campos fora do papel são rejeitados)");
 
@@ -380,7 +380,7 @@ server.registerTool(
     description:
       "Reorganiza automaticamente (camadas por fluxo de conexões; grupos dimensionados). `spacing` define a distância mínima entre componentes: compact (44px) | comfortable (80px, padrão) | spacious (120px); entre camadas é o dobro. `minGap` (px) sobrescreve o preset. Se o diagrama parecer apertado, use spacious. `gapX`/`gapY` (px) definem o espaçamento horizontal e vertical separadamente (sobrescrevem spacing/minGap). `routing` define o traçado de TODOS os conectores: curve (curva, padrão) | elbow (ortogonal) | straight (reta); omitido, preserva o traçado de cada conexão.",
     inputSchema: {
-      style: z.enum(["flow", "timeline", "pipeline"]).optional().describe("flow (padrão): camadas pelo fluxo das conexões. pipeline: só no modo logic (padrão nele): a fila de regras de cima para baixo, entradas à esquerda, resultados à direita, cenários no fim. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step"),
+      style: z.enum(["flow", "timeline", "pipeline", "grouped"]).optional().describe("flow (padrão): camadas pelo fluxo das conexões. pipeline: só no modo logic (padrão nele): a fila de regras de cima para baixo, entradas à esquerda, resultados à direita, cenários no fim. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step. grouped: só no modo domain; \"agrupar por tipo\", um quadro por tipo de componente (atores, commands, aggregates, eventos…) em cada contexto, ligados por conectores ortogonais que desviam dos componentes"),
       direction: z.enum(["LR", "TB"]).optional(),
       spacing: z.enum(["compact", "comfortable", "spacious"]).optional(),
       minGap: z.number().min(16).max(400).optional(),

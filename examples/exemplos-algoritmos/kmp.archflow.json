@@ -1,0 +1,1357 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-mgnv46",
+  "title": "Busca de padrão em texto (KMP)",
+  "description": "Acha todas as ocorrências de um padrão num texto sem reler o texto. Fase 1: monta a tabela de falhas do padrão, onde falha[i] é o tamanho do maior pedaço do começo do padrão que também é o final do padrão até a posição i (sem ser ele inteiro). Fase 2: percorre o texto uma vez guardando j, quantas letras do padrão já casaram; quando a próxima letra do texto não casa, em vez de recomeçar, j recua para falha[j − 1] e tenta de novo. Quando j chega ao tamanho do padrão, anota a posição e recua também, para achar ocorrências que se sobrepõem.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1772,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1772,
+      "y": 166,
+      "w": 306,
+      "h": 534,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1772,
+      "y": 690,
+      "w": 376,
+      "h": 353,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1772,
+      "y": 1037,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "texto",
+      "label": "Texto",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "texto",
+        "type": "texto",
+        "text": "Onde se procura. Pode ser vazio: o texto vazio vira uma lista vazia de letras (n = 0)."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "padrao",
+      "label": "Padrão",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "padrao",
+        "type": "texto",
+        "text": "O que se procura. Não pode ser vazio. Maiúscula e minúscula são letras diferentes."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "lt",
+      "label": "Letras do texto",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "lt",
+        "type": "lista",
+        "text": "As letras do texto, uma por item."
+      },
+      "x": 1800,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "lp",
+      "label": "Letras do padrão",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "lp",
+        "type": "lista",
+        "text": "As letras do padrão, uma por item."
+      },
+      "x": 1800,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "n",
+      "label": "Tamanho do texto",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "n",
+        "type": "inteiro",
+        "text": "Quantas letras tem o texto."
+      },
+      "x": 1800,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "m",
+      "label": "Tamanho do padrão",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "m",
+        "type": "inteiro",
+        "text": "Quantas letras tem o padrão."
+      },
+      "x": 1800,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "falha",
+      "label": "Tabela de falhas",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "falha",
+        "type": "lista",
+        "text": "Resposta: para cada posição i do padrão, o tamanho do maior começo do padrão que também termina em i, sem ser o padrão até i inteiro."
+      },
+      "x": 1800,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "k",
+      "label": "Prefixo em teste (fase 1)",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "k",
+        "type": "inteiro",
+        "text": "Na fase 1: tamanho do começo do padrão que está sendo comparado com o final."
+      },
+      "x": 1800,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "i",
+      "label": "Posição no padrão (fase 1)",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "i",
+        "type": "inteiro",
+        "text": "Na fase 1: a posição do padrão cuja falha se calcula agora."
+      },
+      "x": 1800,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "j",
+      "label": "Letras casadas (fase 2)",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "j",
+        "type": "inteiro",
+        "text": "Na fase 2: quantas letras do começo do padrão já casaram com o texto."
+      },
+      "x": 1800,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "t",
+      "label": "Posição no texto (fase 2)",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "t",
+        "type": "inteiro",
+        "text": "Na fase 2: a letra do texto lida agora."
+      },
+      "x": 1800,
+      "y": 626,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "posicoes",
+      "label": "Posições achadas",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "posicoes",
+        "type": "lista",
+        "text": "Resposta: onde cada ocorrência do padrão começa no texto, em ordem crescente."
+      },
+      "x": 1800,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Procurar o padrão no texto",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram texto e padrao."
+      },
+      "x": 660,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "padrao-ok",
+      "label": "O padrão tem pelo menos uma letra?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(padrao) >= 1",
+        "text": "Com padrão vazio não há o que procurar.",
+        "examples": [
+          {
+            "name": "tem",
+            "given": {
+              "padrao": "ab"
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "vazio",
+            "given": {
+              "padrao": ""
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 635,
+      "y": 124,
+      "w": 330,
+      "h": 102
+    },
+    {
+      "id": "separa",
+      "label": "Separar as letras",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Transforma os textos em listas de letras e guarda os tamanhos.",
+        "then": [
+          "lt := partir(texto, \"\")",
+          "lp := partir(padrao, \"\")",
+          "n := tamanho(lt)",
+          "m := tamanho(lp)"
+        ],
+        "examples": [
+          {
+            "name": "duas palavras",
+            "given": {
+              "texto": "ab",
+              "padrao": "a"
+            },
+            "expect": {
+              "lt": [
+                "a",
+                "b"
+              ],
+              "lp": [
+                "a"
+              ],
+              "n": 2,
+              "m": 1
+            }
+          }
+        ]
+      },
+      "x": 405,
+      "y": 290,
+      "w": 440,
+      "h": 156
+    },
+    {
+      "id": "prepara",
+      "label": "Começar as duas fases",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A tabela começa com 0 (o primeiro caractere nunca tem prefixo próprio); a fase 1 segue da posição 1 e a fase 2 do começo do texto.",
+        "then": [
+          "falha := [0]",
+          "k := 0",
+          "i := 1",
+          "posicoes := []",
+          "j := 0",
+          "t := 0"
+        ],
+        "examples": [
+          {
+            "name": "começo",
+            "given": {},
+            "expect": {
+              "falha": [
+                0
+              ],
+              "k": 0,
+              "i": 1,
+              "posicoes": [],
+              "j": 0,
+              "t": 0
+            }
+          }
+        ]
+      },
+      "x": 635,
+      "y": 510,
+      "w": 330,
+      "h": 254
+    },
+    {
+      "id": "l-falha",
+      "label": "A tabela de falhas está completa?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "i >= m",
+        "text": "Fase 1. Para quando i chegou a m. Cada volta calcula a falha de uma posição do padrão."
+      },
+      "x": 630,
+      "y": 828,
+      "w": 340,
+      "h": 116
+    },
+    {
+      "id": "l-recua-1",
+      "label": "O recuo terminou?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "k = 0 ou lp[i] = lp[k]",
+        "text": "Fase 1. Para quando k chegou a 0 ou quando a letra i do padrão casa com a letra k."
+      },
+      "x": 425,
+      "y": 1008,
+      "w": 340,
+      "h": 115
+    },
+    {
+      "id": "recua-1",
+      "label": "Recuar o prefixo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A letra não casou: tenta um começo menor, o da tabela na posição anterior.",
+        "then": [
+          "k := falha[k - 1]"
+        ],
+        "examples": [
+          {
+            "name": "recua",
+            "given": {
+              "k": 2,
+              "falha": [
+                0,
+                1,
+                0,
+                1
+              ]
+            },
+            "expect": {
+              "k": 1
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1198,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "casou-1",
+      "label": "A letra i casa com a letra k?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "lp[i] = lp[k]",
+        "text": "Se casa, o começo que casa fica uma letra maior.",
+        "examples": [
+          {
+            "name": "casa",
+            "given": {
+              "lp": [
+                "a",
+                "b",
+                "a"
+              ],
+              "i": 2,
+              "k": 0
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não casa",
+            "given": {
+              "lp": [
+                "a",
+                "b",
+                "c"
+              ],
+              "i": 2,
+              "k": 0
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1194,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "soma-k",
+      "label": "Crescer o prefixo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Mais uma letra casou.",
+        "then": [
+          "k := k + 1"
+        ],
+        "examples": [
+          {
+            "name": "cresce",
+            "given": {
+              "k": 1
+            },
+            "expect": {
+              "k": 2
+            }
+          }
+        ]
+      },
+      "x": 180,
+      "y": 1370.5,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "grava-falha",
+      "label": "Guardar a falha da posição i",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A falha de i é o k final; passa-se à próxima posição.",
+        "then": [
+          "falha := adicionar(falha, k)",
+          "i := i + 1"
+        ],
+        "examples": [
+          {
+            "name": "grava",
+            "given": {
+              "falha": [
+                0
+              ],
+              "k": 1,
+              "i": 2
+            },
+            "expect": {
+              "falha": [
+                0,
+                1
+              ],
+              "i": 3
+            }
+          }
+        ]
+      },
+      "x": 380,
+      "y": 1546,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "l-texto",
+      "label": "O texto acabou?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "t >= n",
+        "text": "Fase 2. Para quando t chegou a n. Cada volta lê uma letra do texto."
+      },
+      "x": 835,
+      "y": 1015,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "l-recua-2",
+      "label": "O recuo terminou?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "j = 0 ou lt[t] = lp[j]",
+        "text": "Fase 2. Para quando j chegou a 0 ou quando a letra do texto casa com a próxima letra do padrão."
+      },
+      "x": 910,
+      "y": 1187,
+      "w": 340,
+      "h": 115
+    },
+    {
+      "id": "recua-2",
+      "label": "Recuar as letras casadas",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A letra não casou: j volta para o que a tabela diz, sem reler o texto.",
+        "then": [
+          "j := falha[j - 1]"
+        ],
+        "examples": [
+          {
+            "name": "recua",
+            "given": {
+              "j": 2,
+              "falha": [
+                0,
+                1,
+                0,
+                1
+              ]
+            },
+            "expect": {
+              "j": 1
+            }
+          }
+        ]
+      },
+      "x": 580,
+      "y": 1377.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "casou-2",
+      "label": "A letra do texto casa com a do padrão?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "lt[t] = lp[j]",
+        "text": "Se casa, mais uma letra do padrão foi encontrada.",
+        "examples": [
+          {
+            "name": "casa",
+            "given": {
+              "lt": [
+                "a"
+              ],
+              "t": 0,
+              "lp": [
+                "a",
+                "b"
+              ],
+              "j": 0
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não casa",
+            "given": {
+              "lt": [
+                "x"
+              ],
+              "t": 0,
+              "lp": [
+                "a",
+                "b"
+              ],
+              "j": 0
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1090,
+      "y": 1366,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "soma-j",
+      "label": "Mais uma letra casada",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Avança j.",
+        "then": [
+          "j := j + 1"
+        ],
+        "examples": [
+          {
+            "name": "avança",
+            "given": {
+              "j": 1
+            },
+            "expect": {
+              "j": 2
+            }
+          }
+        ]
+      },
+      "x": 890,
+      "y": 1549.5,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "achou",
+      "label": "O padrão inteiro casou?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "j = m",
+        "text": "j chegou ao tamanho do padrão.",
+        "examples": [
+          {
+            "name": "achou",
+            "given": {
+              "j": 2,
+              "m": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "ainda não",
+            "given": {
+              "j": 1,
+              "m": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 635,
+      "y": 1724,
+      "w": 330,
+      "h": 87
+    },
+    {
+      "id": "registra",
+      "label": "Anotar a posição e recuar",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A ocorrência começa em t − m + 1. Depois j recua pela tabela, para poder achar a próxima ocorrência mesmo que se sobreponha.",
+        "then": [
+          "posicoes := adicionar(posicoes, t - m + 1)",
+          "j := falha[m - 1]"
+        ],
+        "examples": [
+          {
+            "name": "registra",
+            "given": {
+              "posicoes": [],
+              "t": 3,
+              "m": 2,
+              "falha": [
+                0,
+                1
+              ]
+            },
+            "expect": {
+              "posicoes": [
+                2
+              ],
+              "j": 1
+            }
+          }
+        ]
+      },
+      "x": 580,
+      "y": 1875,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "proxima",
+      "label": "Ir para a próxima letra do texto",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Avança t.",
+        "then": [
+          "t := t + 1"
+        ],
+        "examples": [
+          {
+            "name": "avança",
+            "given": {
+              "t": 4
+            },
+            "expect": {
+              "t": 5
+            }
+          }
+        ]
+      },
+      "x": 635,
+      "y": 2053,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "pronto",
+      "label": "Posições e tabela devolvidas",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve posicoes (onde o padrão aparece) e falha (a tabela do padrão)."
+      },
+      "x": 1320,
+      "y": 1214.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "padrao-vazio",
+      "label": "Padrão vazio",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Sem letras no padrão, não há o que procurar: termina sem devolver posicoes nem falha."
+      },
+      "x": 915,
+      "y": 338,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Padrão com recuos",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Em ababcabcabababd, o padrão ababd aparece só na posição 10; a tabela é 0, 0, 1, 2, 0.",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "texto": "ababcabcabababd",
+              "padrao": "ababd"
+            },
+            "expect": {
+              "posicoes": [
+                10
+              ],
+              "falha": [
+                0,
+                0,
+                1,
+                2,
+                0
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1800,
+      "y": 744,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-sobrepoe",
+      "label": "Ocorrências que se sobrepõem",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Em aaaa, aa aparece nas posições 0, 1 e 2.",
+        "examples": [
+          {
+            "name": "sobrepõe",
+            "given": {
+              "texto": "aaaa",
+              "padrao": "aa"
+            },
+            "expect": {
+              "posicoes": [
+                0,
+                1,
+                2
+              ],
+              "falha": [
+                0,
+                1
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1800,
+      "y": 811,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-recuo-1",
+      "label": "Recuo em cadeia na tabela",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Em aaab, a falha da letra b recua duas vezes (2 → 1 → 0): a tabela é 0, 1, 2, 0.",
+        "examples": [
+          {
+            "name": "aaab",
+            "given": {
+              "texto": "aaaaab",
+              "padrao": "aaab"
+            },
+            "expect": {
+              "posicoes": [
+                2
+              ],
+              "falha": [
+                0,
+                1,
+                2,
+                0
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1800,
+      "y": 878,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-recuo-2",
+      "label": "Recuo na busca sem perder letras",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Em mississippi, ao falhar no meio de issi, j recua pela tabela e a busca continua da mesma letra do texto: issi aparece nas posições 1 e 4.",
+        "examples": [
+          {
+            "name": "mississippi",
+            "given": {
+              "texto": "mississippi",
+              "padrao": "issi"
+            },
+            "expect": {
+              "posicoes": [
+                1,
+                4
+              ],
+              "falha": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1800,
+      "y": 945,
+      "w": 320,
+      "h": 70
+    },
+    {
+      "id": "caso-vazio",
+      "label": "Padrão vazio",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Não se procura padrão vazio: termina com erro.",
+        "examples": [
+          {
+            "name": "vazio",
+            "given": {
+              "texto": "abc",
+              "padrao": ""
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1800,
+      "y": 1091,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-padrao-ok",
+      "from": "inicio",
+      "to": "padrao-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "padrao-ok-to-separa",
+      "from": "padrao-ok",
+      "to": "separa",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "separa-to-prepara",
+      "from": "separa",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "padrao-ok-to-padrao-vazio",
+      "from": "padrao-ok",
+      "to": "padrao-vazio",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prepara-to-l-falha",
+      "from": "prepara",
+      "to": "l-falha",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-falha-to-l-recua-1",
+      "from": "l-falha",
+      "to": "l-recua-1",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "l-recua-1-to-recua-1",
+      "from": "l-recua-1",
+      "to": "recua-1",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "recua-1-to-l-recua-1",
+      "from": "recua-1",
+      "to": "l-recua-1",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1244.5
+        },
+        {
+          "x": -46,
+          "y": 1065.5
+        }
+      ]
+    },
+    {
+      "id": "l-recua-1-to-casou-1",
+      "from": "l-recua-1",
+      "to": "casou-1",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "casou-1-to-soma-k",
+      "from": "casou-1",
+      "to": "soma-k",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "casou-1-to-grava-falha",
+      "from": "casou-1",
+      "to": "grava-falha",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1664,
+          "y": 1244.5
+        },
+        {
+          "x": 1664,
+          "y": 1514
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "soma-k-to-grava-falha",
+      "from": "soma-k",
+      "to": "grava-falha",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "grava-falha-to-l-falha",
+      "from": "grava-falha",
+      "to": "l-falha",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 1603
+        },
+        {
+          "x": -82,
+          "y": 886
+        }
+      ]
+    },
+    {
+      "id": "l-falha-to-l-texto",
+      "from": "l-falha",
+      "to": "l-texto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "l-texto-to-l-recua-2",
+      "from": "l-texto",
+      "to": "l-recua-2",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "l-recua-2-to-recua-2",
+      "from": "l-recua-2",
+      "to": "recua-2",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "recua-2-to-l-recua-2",
+      "from": "recua-2",
+      "to": "l-recua-2",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1424
+        },
+        {
+          "x": -46,
+          "y": 1244.5
+        }
+      ]
+    },
+    {
+      "id": "l-recua-2-to-casou-2",
+      "from": "l-recua-2",
+      "to": "casou-2",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "casou-2-to-soma-j",
+      "from": "casou-2",
+      "to": "soma-j",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "casou-2-to-proxima",
+      "from": "casou-2",
+      "to": "proxima",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1484,
+          "y": 1424
+        },
+        {
+          "x": 1484,
+          "y": 2021
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "soma-j-to-achou",
+      "from": "soma-j",
+      "to": "achou",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "achou-to-registra",
+      "from": "achou",
+      "to": "registra",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "achou-to-proxima",
+      "from": "achou",
+      "to": "proxima",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1102,
+          "y": 1767.5
+        },
+        {
+          "x": 1102,
+          "y": 2021
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "registra-to-proxima",
+      "from": "registra",
+      "to": "proxima",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "proxima-to-l-texto",
+      "from": "proxima",
+      "to": "l-texto",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 2106.5
+        },
+        {
+          "x": -46,
+          "y": 1065.5
+        }
+      ]
+    },
+    {
+      "id": "l-texto-to-pronto",
+      "from": "l-texto",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

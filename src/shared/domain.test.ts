@@ -441,7 +441,7 @@ test("reshapeDdd: trocar o papel mantém só os campos que o novo papel aceita e
   const asAgg = reshapeDdd(old, "aggregate-root");
   assert.deepEqual(asAgg, { role: "aggregate-root", invariants: ["total >= 0"] });
   const asEvent = reshapeDdd(old, "domain-event");
-  assert.deepEqual(asEvent, { role: "domain-event", step: 2 });
+  assert.deepEqual(asEvent, { role: "domain-event" });
   const asRepo = reshapeDdd(old, "repository");
   assert.deepEqual(asRepo, { role: "repository" });
   for (const r of DDD_ROLE_KEYS) assert.equal(checkDddNode(reshapeDdd(old, r)), undefined, r);

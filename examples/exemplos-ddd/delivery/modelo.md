@@ -59,7 +59,7 @@ _exemplos-ddd/delivery/visao-geral.archflow.json_
 <!-- exemplos-ddd/delivery/visao-geral.archflow.json -->
 # Visão geral — domínio
 
-Delivery de comida (tour completo): mapa de contextos. O exemplo que usa todos os recursos do modo Domain: seis contextos com os oito padrões do Context Map, saga com compensação, decisões exclusivas (encadeadas), paralela e de junção, loop, "para cada", propriedades, eventos entre contextos, read models e anotações.
+Delivery de comida (tour completo): mapa de contextos. O exemplo que usa todos os recursos do modo Domain: seis contextos com os oito padrões do Context Map, saga com compensação, policy com ramos condicionais e em paralelo, saga que espera dois eventos, loop, "para cada", propriedades, eventos entre contextos, read models e anotações.
 
 > schema archflow/1 · modo domain · 0 contexto(s) · 0 aggregate(s) · 0 caso(s) de uso
 
@@ -139,9 +139,8 @@ O aggregate protege as regras do pedido inteiro: itens, total e estado mudam jun
 - evento `atraso-registrado` (payload: pedidoId, minutosDeAtraso)
 - repository `pedido-repo`
 
-### Decisões
-- `entregue-no-prazo` **Entregue no prazo?** (exclusiva): a entrega chegou dentro do prazo prometido? → se minutos de atraso = 0: `concluir-pedido`; senão: `atraso-grave`
-- `atraso-grave` **Atraso grave?** (exclusiva): o atraso passou de 30 minutos? → se atraso > 30 minutos: `conceder-reembolso`; senão: `registrar-atraso`
+### Policies
+- `entregue-no-prazo` **Entregue no prazo?** — a entrega chegou no prazo? Se atrasou muito, reembolsa; senão registra o atraso → se minutos de atraso = 0: `concluir-pedido`; se atraso > 30 minutos: `conceder-reembolso`; senão: `registrar-atraso`
 
 ### Process managers (sagas)
 - `fluxo-do-pedido` **Fluxo do pedido**: reage a pedido-criado, pagamento-aprovado, cobranca-desistida, preparo-recusado → dispara confirmar-pedido, cancelar-pedido · compensa com cancelar-pedido
@@ -165,9 +164,8 @@ O aggregate protege as regras do pedido inteiro: itens, total e estado mudam jun
 
 ## Fluxo condicional, loops e iterações
 - `entregue-no-prazo` —[se minutos de atraso = 0]→ `concluir-pedido`
-- `entregue-no-prazo` —[senão]→ `atraso-grave`
-- `atraso-grave` —[se atraso > 30 minutos]→ `conceder-reembolso`
-- `atraso-grave` —[senão]→ `registrar-atraso`
+- `entregue-no-prazo` —[se atraso > 30 minutos]→ `conceder-reembolso`
+- `entregue-no-prazo` —[senão]→ `registrar-atraso`
 
 ## Notas
 - A saga confirma ou cancela; depois da entrega, duas decisões em sequência escolhem entre concluir, reembolsar ou só registrar o atraso.
@@ -205,7 +203,6 @@ flowchart LR
     n_pedido_entregue>"Pedido entregue"]
     n_fluxo_do_pedido["Fluxo do pedido"]
     n_entregue_no_prazo["Entregue no prazo?"]
-    n_atraso_grave["Atraso grave?"]
     n_pedidos_do_cliente["Pedidos do cliente"]
     n_consulta_de_pedidos["Consulta de pedidos"]
     n_pedido_repo["Repositório de pedidos"]
@@ -239,9 +236,8 @@ flowchart LR
   n_fluxo_do_pedido -.->|"triggers"| n_cancelar_pedido
   n_pedido_entregue -.->|"triggers"| n_entregue_no_prazo
   n_entregue_no_prazo -.->|"se minutos de atraso = 0"| n_concluir_pedido
-  n_entregue_no_prazo -.->|"senão"| n_atraso_grave
-  n_atraso_grave -.->|"se atraso > 30 minutos"| n_conceder_reembolso
-  n_atraso_grave -.->|"senão"| n_registrar_atraso
+  n_entregue_no_prazo -.->|"se atraso > 30 minutos"| n_conceder_reembolso
+  n_entregue_no_prazo -.->|"senão"| n_registrar_atraso
   n_pedido_criado -.->|"triggers"| n_pedidos_do_cliente
   n_pedido_confirmado -.->|"triggers"| n_pedidos_do_cliente
   n_pedido_concluido -.->|"triggers"| n_pedidos_do_cliente
@@ -275,9 +271,7 @@ _Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira compra
 
 ### Policies
 - `cobrar-ao-criar-pedido` **Cobrar ao criar pedido** reage a pedido-criado → dispara cobrar — todo pedido criado gera uma cobrança
-
-### Decisões
-- `ha-tentativas` **Há tentativas?** (exclusiva): ainda há tentativas de cobrança para este pedido? → se tentativas < 3 · repete até pagamento aprovado, máx. 3: `cobrar` ↻; senão: `desistir-da-cobranca`
+- `ha-tentativas` **Há tentativas?** — ainda há tentativas de cobrança para este pedido? → se tentativas < 3 · repete até pagamento aprovado, máx. 3: `cobrar` ↻; senão: `desistir-da-cobranca`
 
 ### Domain services
 - `tradutor-do-gateway` **Tradutor do gateway** — converte o vocabulário do gateway no nosso
@@ -368,8 +362,8 @@ _Diferencial competitivo do negócio; onde vale investir no melhor modelo._
 - evento `pedido-pronto` (payload: pedidoId, restauranteId)
 - repository `ticket-repo`
 
-### Decisões
-- `ao-confirmar` **O que fazer ao confirmar?** (paralela): o que acontece assim que o pedido é confirmado? → sempre: `iniciar-preparo`; sempre: `imprimir-comanda`
+### Policies
+- `ao-confirmar` **O que fazer ao confirmar?** — o que acontece assim que o pedido é confirmado?
 
 ### Domain services
 - `estimador-de-preparo` **Estimador de preparo** — estima os minutos conforme os pratos e a fila da cozinha
@@ -468,8 +462,8 @@ Outro aggregate, com ciclo de vida próprio: a Entrega só o conhece pelo id.
 ### Policies
 - `alocar-ao-confirmar` **Alocar ao confirmar** reage a pedido-confirmado → dispara alocar-entregador — pedido confirmado procura um entregador
 
-### Decisões
-- `pronto-e-alocado` **Pronto e alocado?** (junção): o pedido está pronto E há um entregador alocado? → sempre: `retirar-pedido`
+### Process managers (sagas)
+- `pronto-e-alocado` **Pronto e alocado?**: reage a pedido-pronto, entregador-alocado → dispara retirar-pedido
 
 ### Domain services
 - `escolhedor-de-entregador` **Escolhedor de entregador** — o entregador livre mais próximo do restaurante

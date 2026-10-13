@@ -532,6 +532,12 @@
       "label": "executa",
       "routing": "curve",
       "animated": true,
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 260
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -597,7 +603,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "confirmar-pedido-to-pedido",
@@ -623,7 +639,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.58
+      "labelT": 0.54
     },
     {
       "id": "cancelar-pedido-to-pedido",
@@ -636,6 +652,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -662,6 +684,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 632
+        },
+        {
+          "x": -14,
+          "y": 1036
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -675,7 +707,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.46
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 632
+        },
+        {
+          "x": 254,
+          "y": 1004
+        }
+      ],
+      "labelT": 0.42
     },
     {
       "id": "pedido-to-dinheiro",
@@ -688,7 +730,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.26
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 632
+        },
+        {
+          "x": 494,
+          "y": 788
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "pedido-criado-to-fluxo-de-checkout",
@@ -701,7 +753,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.8200000000000001
+      "labelT": 0.18
     },
     {
       "id": "pagamento-aprovado-to-fluxo-de-checkout",
@@ -714,7 +766,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.42
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 384
+        },
+        {
+          "x": 466,
+          "y": 788
+        }
+      ],
+      "labelT": 0.62
     },
     {
       "id": "cobranca-desistida-to-fluxo-de-checkout",
@@ -727,7 +789,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.66
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 168
+        },
+        {
+          "x": 466,
+          "y": 788
+        }
+      ],
+      "labelT": 0.42
     },
     {
       "id": "estoque-reservado-to-fluxo-de-checkout",
@@ -753,7 +825,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.46
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 788
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "fluxo-de-checkout-to-confirmar-pedido",
@@ -766,7 +844,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 788
+        },
+        {
+          "x": 254,
+          "y": 632
+        }
+      ],
+      "labelT": 0.54
     },
     {
       "id": "fluxo-de-checkout-to-cancelar-pedido",
@@ -779,7 +867,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 788
+        },
+        {
+          "x": 494,
+          "y": 632
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "pedido-criado-to-pedidos-do-cliente",
@@ -792,7 +890,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.3
+      "labelT": 0.5
     },
     {
       "id": "pedido-confirmado-to-pedidos-do-cliente",
@@ -805,7 +903,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.8200000000000001
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 632
+        }
+      ],
+      "labelT": 0.9
     },
     {
       "id": "pedido-cancelado-to-pedidos-do-cliente",
@@ -818,7 +922,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.26
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 912
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "criar-pedido-to-pedido-repo",
@@ -831,7 +941,7 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.5
+      "labelT": 0.62
     },
     {
       "id": "pedidos-api-to-pedido",
@@ -841,6 +951,12 @@
       "label": "implementado por",
       "routing": "curve",
       "animated": true,
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 632
+        }
+      ],
       "labelT": 0.5
     }
   ],

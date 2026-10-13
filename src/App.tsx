@@ -35,9 +35,9 @@ export default function App() {
           <Minimap />
           <EmptyHint />
           <DrawBar />
-          <PlayPanel />
         </>
       )}
+      <PlayPanel />
       <Toast />
       <Modals />
     </>

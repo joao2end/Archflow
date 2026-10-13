@@ -1,0 +1,356 @@
+{
+  "enunciado": "Dada uma expressão já separada em símbolos (lista `simbolos`: números e os textos \"+\", \"-\", \"*\", \"/\", \"(\" e \")\"), converter para a notação pós-fixa (os operandos vêm antes do operador): devolver a lista `saida`. \"*\" e \"/\" têm precedência sobre \"+\" e \"-\"; operadores de mesma precedência agrupam da esquerda para a direita (8 − 3 − 2 é (8 − 3) − 2); parênteses mudam a ordem e não aparecem na saída. Parêntese que fecha sem ter aberto, ou que abre sem fechar, termina com erro.",
+  "cases": [
+    {
+      "name": "sem símbolos",
+      "given": {
+        "simbolos": []
+      },
+      "expect": {
+        "saida": [],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "um número",
+      "given": {
+        "simbolos": [
+          3
+        ]
+      },
+      "expect": {
+        "saida": [
+          3
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "uma soma",
+      "given": {
+        "simbolos": [
+          3,
+          "+",
+          4
+        ]
+      },
+      "expect": {
+        "saida": [
+          3,
+          4,
+          "+"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "multiplicação antes da soma",
+      "given": {
+        "simbolos": [
+          3,
+          "+",
+          4,
+          "*",
+          2
+        ]
+      },
+      "expect": {
+        "saida": [
+          3,
+          4,
+          2,
+          "*",
+          "+"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "multiplicação no começo",
+      "given": {
+        "simbolos": [
+          3,
+          "*",
+          4,
+          "+",
+          2
+        ]
+      },
+      "expect": {
+        "saida": [
+          3,
+          4,
+          "*",
+          2,
+          "+"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "subtração agrupa pela esquerda",
+      "given": {
+        "simbolos": [
+          8,
+          "-",
+          3,
+          "-",
+          2
+        ]
+      },
+      "expect": {
+        "saida": [
+          8,
+          3,
+          "-",
+          2,
+          "-"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "divisão agrupa pela esquerda",
+      "given": {
+        "simbolos": [
+          8,
+          "/",
+          4,
+          "/",
+          2
+        ]
+      },
+      "expect": {
+        "saida": [
+          8,
+          4,
+          "/",
+          2,
+          "/"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "parênteses mudam a ordem",
+      "given": {
+        "simbolos": [
+          "(",
+          3,
+          "+",
+          4,
+          ")",
+          "*",
+          2
+        ]
+      },
+      "expect": {
+        "saida": [
+          3,
+          4,
+          "+",
+          2,
+          "*"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "parênteses no meio",
+      "given": {
+        "simbolos": [
+          2,
+          "*",
+          "(",
+          3,
+          "+",
+          4,
+          ")",
+          "*",
+          5
+        ]
+      },
+      "expect": {
+        "saida": [
+          2,
+          3,
+          4,
+          "+",
+          "*",
+          5,
+          "*"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "parênteses duplos",
+      "given": {
+        "simbolos": [
+          "(",
+          "(",
+          1,
+          "+",
+          2,
+          ")",
+          ")"
+        ]
+      },
+      "expect": {
+        "saida": [
+          1,
+          2,
+          "+"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "operadores repetidos na pilha",
+      "given": {
+        "simbolos": [
+          1,
+          "+",
+          2,
+          "+",
+          3,
+          "+",
+          4
+        ]
+      },
+      "expect": {
+        "saida": [
+          1,
+          2,
+          "+",
+          3,
+          "+",
+          4,
+          "+"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "duas multiplicações separadas por soma",
+      "given": {
+        "simbolos": [
+          1,
+          "*",
+          2,
+          "+",
+          3,
+          "*",
+          4
+        ]
+      },
+      "expect": {
+        "saida": [
+          1,
+          2,
+          "*",
+          3,
+          4,
+          "*",
+          "+"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "mistura de tudo",
+      "given": {
+        "simbolos": [
+          10,
+          "-",
+          2,
+          "*",
+          "(",
+          3,
+          "+",
+          1,
+          ")",
+          "/",
+          2
+        ]
+      },
+      "expect": {
+        "saida": [
+          10,
+          2,
+          3,
+          1,
+          "+",
+          "*",
+          2,
+          "/",
+          "-"
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "fecha sem abrir",
+      "given": {
+        "simbolos": [
+          ")"
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "fecha sem abrir depois de um número",
+      "given": {
+        "simbolos": [
+          1,
+          ")"
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "fecha sem abrir, com operador na pilha",
+      "given": {
+        "simbolos": [
+          1,
+          "+",
+          2,
+          ")"
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "abre e não fecha",
+      "given": {
+        "simbolos": [
+          "(",
+          1
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "abre no meio e não fecha",
+      "given": {
+        "simbolos": [
+          1,
+          "+",
+          "(",
+          2
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    }
+  ]
+}

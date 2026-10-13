@@ -13,8 +13,8 @@
       "ref": {
         "diagram": "exemplos-ddd/loja/pedidos.archflow.json"
       },
-      "x": 670,
-      "y": 0,
+      "x": 28,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -25,8 +25,8 @@
       "ref": {
         "diagram": "exemplos-ddd/loja/pagamentos.archflow.json"
       },
-      "x": 1401,
-      "y": 0,
+      "x": 268,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -37,8 +37,8 @@
       "ref": {
         "diagram": "exemplos-ddd/loja/estoque.archflow.json"
       },
-      "x": 0,
-      "y": 0,
+      "x": 508,
+      "y": 54,
       "w": 184,
       "h": 72
     }
@@ -57,7 +57,8 @@
         "rel": "context-relation",
         "pattern": "partnership"
       },
-      "labelT": 0.5
+      "labelT": 0.5,
+      "labelOffset": 50
     },
     {
       "id": "estoque-to-pedidos",
@@ -71,6 +72,16 @@
         "rel": "context-relation",
         "pattern": "customer-supplier"
       },
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 12
+        },
+        {
+          "x": 226,
+          "y": 12
+        }
+      ],
       "labelT": 0.5
     }
   ],

@@ -1,6 +1,6 @@
 import { ColorPicker } from "./colorpicker";
 import { BG_PRESETS, PresetPattern } from "./bgpresets";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { assetsForMode, searchAssets } from "../shared/catalog";
 import { ASSET_CATEGORIES } from "../shared/catalog";
@@ -42,27 +42,47 @@ export function ConnSample({ type }: { type: ConnectionType }) {
   );
 }
 
-export function TextField({ value, onCommit, multiline, id, placeholder, label }: { value: string; onCommit: (v: string) => void; multiline?: boolean; id?: string; placeholder?: string; label?: string }) {
+export function TextField({ value, onCommit, onDraft, multiline, mono, id, placeholder, label }: { value: string; mono?: boolean; onCommit: (v: string) => void; /** chamado a cada tecla, antes de confirmar (validação ao vivo) */ onDraft?: (v: string) => void; multiline?: boolean; id?: string; placeholder?: string; label?: string }) {
   const [v, setV] = useState(value);
   const focused = useRef(false);
+  const area = useRef<HTMLTextAreaElement>(null);
+  // a caixa cresce com o texto (sem barra de rolagem interna) até 60% da altura da tela
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight + 2, window.innerHeight * 0.6)}px`;
+    };
+    fit();
+    let w = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== w) (w = el.clientWidth), fit(); // o painel foi alargado: o texto reflui
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [v, multiline]);
   useEffect(() => {
     if (!focused.current) setV(value);
   }, [value]);
   const common = {
     id,
-    className: "input",
+    className: mono ? "input mono" : "input",
     value: v,
     placeholder,
     "aria-label": label,
     onFocus: () => (focused.current = true),
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV(e.target.value),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setV(e.target.value);
+      onDraft?.(e.target.value);
+    },
     onBlur: () => {
       focused.current = false;
       if (v !== value) onCommit(v);
     },
   };
   return multiline ? (
-    <textarea {...common} rows={3} />
+    <textarea {...common} ref={area} rows={3} />
   ) : (
     <input
       {...common}
@@ -495,6 +515,11 @@ export function Library() {
       const host = sel?.kind === "endpoint" ? s.doc.nodes.find((n) => n.id === sel.owner) : sel;
       if (host && host.kind !== "endpoint") return placeAsset(id, 0, 0, undefined, host.id); // vira endpoint do serviço selecionado
     }
+    // fluxo lógico: o novo passo entra logo abaixo do selecionado (e fica selecionado), em vez de sorteado no centro e sobreposto
+    if (s.doc.mode === "logic" && s.sel.length === 1) {
+      const sel = s.doc.nodes.find((n) => n.id === s.sel[0]);
+      if (sel) return placeAsset(id, Math.round(sel.x / 8) * 8, Math.round((sel.y + sel.h + 64) / 8) * 8);
+    }
     const x = (window.innerWidth / 2 - s.view.x) / s.view.z - 92 + Math.random() * 80 - 40;
     const y = (window.innerHeight / 2 - s.view.y) / s.view.z - 36 + Math.random() * 80 - 40;
     placeAsset(id, Math.round(x / 8) * 8, Math.round(y / 8) * 8);
@@ -585,6 +610,61 @@ export function Library() {
 
 /* ───────── inspector ───────── */
 
+const LS_INSP_W = "archflow.inspector-w.v1";
+const clampInsp = (w: number) => Math.round(Math.min(Math.max(300, w), Math.min(820, window.innerWidth - 140)));
+try {
+  const w = +(localStorage.getItem(LS_INSP_W) ?? 0);
+  if (w) document.documentElement.style.setProperty("--insp-w", `${clampInsp(w)}px`);
+} catch {
+  /* sem armazenamento: largura padrão */
+}
+
+/** Alça na borda esquerda do inspetor: arraste para alargar (e dê dois cliques para voltar ao tamanho padrão). */
+function InspectorGrip() {
+  const setW = (w: number | null) => {
+    const root = document.documentElement;
+    if (w === null) root.style.removeProperty("--insp-w");
+    else root.style.setProperty("--insp-w", `${clampInsp(w)}px`);
+    try {
+      if (w === null) localStorage.removeItem(LS_INSP_W);
+      else localStorage.setItem(LS_INSP_W, String(clampInsp(w)));
+    } catch {
+      /* ignora */
+    }
+  };
+  return (
+    <div
+      className="insp-grip"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Alargar o painel (arraste; dois cliques restauram)"
+      title="Arraste para alargar · dois cliques restauram"
+      tabIndex={0}
+      onDoubleClick={() => setW(null)}
+      onKeyDown={(e) => {
+        const cur = e.currentTarget.parentElement!.getBoundingClientRect().width;
+        if (e.key === "ArrowLeft") (e.preventDefault(), setW(cur + 40));
+        else if (e.key === "ArrowRight") (e.preventDefault(), setW(cur - 40));
+      }}
+      onPointerDown={(e) => {
+        const panel = e.currentTarget.parentElement!;
+        const startX = e.clientX;
+        const startW = panel.getBoundingClientRect().width;
+        const move = (m: PointerEvent) => setW(startW + (startX - m.clientX));
+        const up = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          document.body.classList.remove("insp-resizing");
+        };
+        document.body.classList.add("insp-resizing");
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+        e.preventDefault();
+      }}
+    />
+  );
+}
+
 const PALETTE = ["#706fd3", "#2f80ed", "#14a38b", "#e08a1e", "#c2410c", "#d6453d", "#7a5af8", "#7a7a8c"];
 
 const FILL_COLORS = ["#ffffff", "#f7f1e3", "#eef2f7", "#e8f3ec", "#fdf0f0", "#2d2a2e", "#14161c"];
@@ -623,6 +703,7 @@ export function Inspector() {
   if (sel.length > 1) {
     return (
       <aside className="hud glass inspector">
+        <InspectorGrip />
         <div className="insp-head">
           <div>
             <div className="kicker">Seleção múltipla</div>
@@ -670,6 +751,7 @@ export function Inspector() {
     const badgeAsset = isLogic && lrole ? { icon: `t:${lrole.badge}`, color: lrole.color, name: lrole.label } : isDomain && role ? { icon: `t:${DDD_BADGES[node.ddd!.role]}`, color: role.color, name: role.label } : asset;
     return (
       <aside className="hud glass inspector" aria-label="Propriedades do componente">
+        <InspectorGrip />
         <div className="insp-head">
           {badgeAsset ? <AssetBadge asset={badgeAsset} size={46} /> : <AssetBadge asset={{ icon: `t:${node.label.slice(0, 2).toUpperCase()}`, color: "#706fd3", name: node.label }} size={46} />}
           <div>
@@ -750,9 +832,10 @@ export function Inspector() {
     const name = (x: string) => doc.nodes.find((n) => n.id === x)?.label ?? doc.groups.find((g) => g.id === x)?.label ?? x;
     return (
       <aside className="hud glass inspector" aria-label="Propriedades da conexão">
+        <InspectorGrip />
         <div className="insp-head">
           <div>
-            <div className="kicker">Conexão · {t.label}</div>
+            <div className="kicker">{docMode(doc) === "logic" ? "Seta do fluxo" : `Conexão · ${t.label}`}</div>
             <div className="ttl" role="heading" aria-level={2}>
               {name(conn.from)} → {name(conn.to)}
             </div>
@@ -767,17 +850,19 @@ export function Inspector() {
             </button>
           ))}
         </div>
-        <div className="callout">{t.semantics}</div>
+        {docMode(doc) !== "logic" && <div className="callout">{t.semantics}</div>}
         {docMode(doc) === "domain" && <DddConnFields conn={conn} patch={patch} />}
         {docMode(doc) === "logic" && <LogicConnFields conn={conn} patch={patch} />}
         <label className="field">
           <span>Rótulo</span>
           <TextField id="insp-first" value={conn.label ?? ""} placeholder="ex.: cria pedido" onCommit={(v) => patch({ label: v || undefined })} />
         </label>
-        <label className="field">
-          <span>Protocolo</span>
-          <TextField value={conn.protocol ?? ""} placeholder="HTTPS/REST · gRPC · AMQP · TCP/5432" onCommit={(v) => patch({ protocol: v || undefined })} />
-        </label>
+        {docMode(doc) !== "logic" && (
+          <label className="field">
+            <span>Protocolo</span>
+            <TextField value={conn.protocol ?? ""} placeholder="HTTPS/REST · gRPC · AMQP · TCP/5432" onCommit={(v) => patch({ protocol: v || undefined })} />
+          </label>
+        )}
         <div className="field">
           <span className="lbl-s">Traçado</span>
           <div className="seg" role="radiogroup">
@@ -801,6 +886,8 @@ export function Inspector() {
             <button className="switch" role="switch" aria-checked={conn.animated !== false} aria-label="Animar fluxo" onClick={() => patch({ animated: conn.animated === false })} />
           </div>
         )}
+        {docMode(doc) !== "logic" && (
+        <>
         <div className="callout">
           {conn.interface ? (
             <>
@@ -816,6 +903,8 @@ export function Inspector() {
         <button className="btn primary" style={{ width: "100%", justifyContent: "center", marginBottom: 10 }} onClick={() => set({ modal: { type: "interface", id } })}>
           <Glyph name="code" size={17} /> {conn.interface ? "Editar interface" : "Definir interface"}
         </button>
+        </>
+        )}
         {actions}
       </aside>
     );
@@ -824,6 +913,7 @@ export function Inspector() {
   if (group) {
     return (
       <aside className="hud glass inspector" aria-label="Propriedades do grupo">
+        <InspectorGrip />
         <div className="insp-head">
           <div>
             <div className="kicker">Grupo · {group.kind}</div>
@@ -868,6 +958,7 @@ export function Inspector() {
   if (note) {
     return (
       <aside className="hud glass inspector">
+        <InspectorGrip />
         <div className="insp-head">
           <div>
             <div className="kicker">{note.variant === "text" ? "Texto" : note.variant === "list" ? "Lista" : "Nota"}</div>

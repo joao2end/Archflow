@@ -9,8 +9,6 @@ import {
   CONTEXT_PATTERN_KEYS,
   DDD_REL_PAIRS,
   DDD_RELS,
-  DECISION_GATES,
-  DECISION_GATE_KEYS,
   FLOW_RELS,
   DDD_REL_KEYS,
   DDD_ROLES,
@@ -48,6 +46,83 @@ export const issueText = (i: Issue) => `[${i.rule} ${i.severity}] ${i.message}`;
 
 const LIST_FIELDS: DddField[] = ["invariants", "realizedBy", "reactsTo", "issues", "compensates", "projectsFrom"];
 
+/**
+ * Arquivos antigos tinham o papel `decision` no modo domain; agora ele só existe no modo logic. Ao abrir:
+ *  - decisão encadeada em outra decisão vira uma só (os ramos da segunda passam para a primeira, na mesma ordem);
+ *  - decisão que recebe só eventos vira `policy` (a pergunta vira `intent`), ou `process-manager` se era uma junção
+ *    (espera todos os eventos: ficam em `reactsTo`); as conexões e as condições dos ramos continuam as mesmas;
+ *  - decisão que recebe de policy/saga é desfeita: a origem liga direto aos destinos, com as condições dos ramos.
+ */
+export function migrateDddDecisions(nodes: NodeEl[], connections: ConnectionEl[]): { nodes: NodeEl[]; connections: ConnectionEl[] } {
+  const isDec = (n?: NodeEl) => (n?.ddd as { role?: string } | undefined)?.role === "decision";
+  if (!nodes.some(isDec)) return { nodes, connections };
+  let ns = nodes.map((n) => ({ ...n }));
+  let cs = connections.map((c) => ({ ...c }));
+  const ids = new Set<string>([...ns.map((n) => n.id), ...cs.map((c) => c.id)]);
+  const fresh = (base: string) => {
+    let id = base,
+      i = 2;
+    while (ids.has(id)) id = `${base}-${i++}`;
+    ids.add(id);
+    return id;
+  };
+  const byId = () => new Map(ns.map((n) => [n.id, n]));
+  const and = (a?: string, b?: string) => (a && b ? `(${a}) e (${b})` : a ?? b);
+  const flowOf = (c: ConnectionEl) => c.ddd?.rel === "triggers";
+
+  // 1. decisão → decisão: os ramos da segunda passam para a primeira
+  for (let guard = 0; guard < 100; guard++) {
+    const m = byId();
+    const link = cs.find((c) => flowOf(c) && isDec(m.get(c.from)) && isDec(m.get(c.to)));
+    if (!link) break;
+    const branches = cs.filter((c) => c.from === link.to && flowOf(c));
+    const merged = branches.map((b) => {
+      const cond = and(link.ddd?.condition, b.ddd?.condition);
+      const otherwise = b.ddd?.otherwise && !link.ddd?.condition ? true : undefined;
+      const { condition: _c, otherwise: _o, ...rest } = b.ddd!;
+      return { ...b, id: fresh(`${link.from}-to-${b.to}`), from: link.from, ddd: { ...rest, ...(cond ? { condition: cond } : {}), ...(otherwise ? { otherwise } : {}) } } as ConnectionEl;
+    });
+    const at = cs.indexOf(link);
+    cs = [...cs.slice(0, at), ...merged, ...cs.slice(at + 1)];
+    if (!cs.some((c) => c.to === link.to)) {
+      cs = cs.filter((c) => c.from !== link.to);
+      ns = ns.filter((n) => n.id !== link.to);
+    }
+  }
+
+  // 2. as decisões que sobraram
+  for (const d of ns.filter(isDec)) {
+    const spec = d.ddd as unknown as { question?: string; gate?: string };
+    const m = byId();
+    const incoming = cs.filter((c) => c.to === d.id && flowOf(c));
+    const outgoing = cs.filter((c) => c.from === d.id && flowOf(c));
+    const fromEvents = incoming.every((c) => (m.get(c.from)?.ddd?.role as string | undefined) === "domain-event");
+    if (fromEvents) {
+      const reaction = spec.gate === "join";
+      const issues = outgoing.map((c) => c.to).filter((id) => m.get(id)?.ddd?.role === "command");
+      d.ddd = reaction
+        ? { role: "process-manager", ...(spec.question ? { intent: spec.question } : {}), reactsTo: incoming.map((c) => c.from), ...(issues.length ? { issues } : {}) }
+        : { role: "policy", ...(spec.question ? { intent: spec.question } : {}) };
+      if (spec.gate === "parallel") cs = cs.map((c) => (c.from === d.id && c.ddd ? { ...c, ddd: { ...c.ddd, condition: undefined, otherwise: undefined } } : c));
+      continue;
+    }
+    // vem de policy/saga: desfaz a decisão, a origem liga direto aos destinos
+    const made: ConnectionEl[] = [];
+    for (const i of incoming)
+      for (const o of outgoing) {
+        const cond = and(i.ddd?.condition, o.ddd?.condition);
+        const { condition: _c, otherwise: _o, ...rest } = o.ddd!;
+        made.push({ ...o, id: fresh(`${i.from}-to-${o.to}`), from: i.from, ddd: { ...rest, ...(cond ? { condition: cond } : {}), ...(o.ddd?.otherwise && !i.ddd?.condition ? { otherwise: true } : {}) } } as ConnectionEl);
+      }
+    cs = [...cs.filter((c) => c.from !== d.id && c.to !== d.id), ...made];
+    ns = ns.filter((n) => n.id !== d.id);
+  }
+  return { nodes: ns, connections: cs };
+}
+
+/** Os dados de um evento para a descrição: `properties` vence o `payload` (texto legado), que só vale sozinho. */
+const eventPayload = (e: NodeEl) => (e.ddd!.properties?.length ? ` (payload: ${propertiesSummary(e.ddd!.properties)})` : e.ddd!.payload ? ` (payload: ${e.ddd!.payload})` : "");
+
 /** Valida o objeto `ddd` de um nó. Devolve a mensagem de erro (acionável) ou undefined. */
 export function checkDddNode(ddd: unknown): string | undefined {
   if (!ddd || typeof ddd !== "object") return "ddd deve ser um objeto { role, ... }";
@@ -57,6 +132,7 @@ export function checkDddNode(ddd: unknown): string | undefined {
   const allowed = new Set<string>(["role", ...DDD_ROLES[role as keyof typeof DDD_ROLES].fields]);
   for (const k of Object.keys(d)) {
     if (d[k] === undefined) continue;
+    if (k === "step" && role === "domain-event") continue; // legado: já foi aceito em evento, sem efeito
     if (!allowed.has(k)) return `campo "${k}" não existe no papel "${role}". Campos do papel: ${[...allowed].filter((f) => f !== "role").join(", ") || "(nenhum)"}`;
   }
   for (const f of LIST_FIELDS) {
@@ -64,14 +140,13 @@ export function checkDddNode(ddd: unknown): string | undefined {
     if (v !== undefined && (!Array.isArray(v) || v.some((x) => typeof x !== "string"))) return `ddd.${f} deve ser uma lista de textos`;
   }
   if (d.step !== undefined && (typeof d.step !== "number" || !Number.isFinite(d.step))) return "ddd.step deve ser um número";
-  for (const f of ["intent", "payload", "producedBy", "external", "for", "actor", "goal", "question"]) {
+  for (const f of ["intent", "payload", "producedBy", "external", "for", "actor", "goal"]) {
     if (d[f] !== undefined && typeof d[f] !== "string") return `ddd.${f} deve ser texto`;
   }
   if (d.properties !== undefined) {
     const e = checkProperties(d.properties);
     if (e) return e;
   }
-  if (d.gate !== undefined && !DECISION_GATE_KEYS.includes(d.gate as never)) return `ddd.gate inválido "${String(d.gate)}". Válidos: ${DECISION_GATE_KEYS.join(", ")}`;
   return undefined;
 }
 
@@ -265,7 +340,7 @@ const quote = (m: Model, id: string) => `\`${id}\` (${label(m, id)})`;
 
 /* ───────────────────────── regras ───────────────────────── */
 
-const ROLE_NEEDS_LINK: DddNodeSpec["role"][] = ["aggregate-root", "policy", "domain-service", "application-service", "decision"];
+const ROLE_NEEDS_LINK: DddNodeSpec["role"][] = ["aggregate-root", "policy", "domain-service", "application-service"];
 const REF_FIELDS: { field: DddField; list: boolean; roles?: DddNodeSpec["role"][] }[] = [
   { field: "realizedBy", list: true },
   { field: "producedBy", list: false },
@@ -404,7 +479,11 @@ export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolea
   for (const n of doc.nodes) {
     if (n.owner || n.kind === "endpoint") continue;
     const must = isRole(n, ...ROLE_NEEDS_LINK) || n.kind === "actor" || n.kind === "system" || n.kind === "external";
-    if (must && !touched.has(n.id) && !referenced.has(n.id)) add("D012", "aviso", `${quote(m, n.id)} está isolado (sem conexão nem referência)`, n.id);
+    const refsOthers = REF_FIELDS.some(({ field }) => {
+      const v = (n.ddd as unknown as Record<string, unknown> | undefined)?.[field];
+      return Array.isArray(v) ? v.length > 0 : !!v;
+    }); // um campo de id (reactsTo, issues…) liga tanto quanto uma conexão
+    if (must && !touched.has(n.id) && !referenced.has(n.id) && !refsOthers) add("D012", "aviso", `${quote(m, n.id)} está isolado (sem conexão nem referência)`, n.id);
   }
 
   // D013 application-service sem regra de negócio
@@ -412,6 +491,11 @@ export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolea
     if ((a.ddd as { invariants?: string[] }).invariants?.length) add("D013", "aviso", `application-service ${quote(m, a.id)} não deve ter invariantes (regra de negócio vive no domínio)`, a.id);
     if (m.outOf(a.id, "emits").length) add("D013", "aviso", `application-service ${quote(m, a.id)} não emite eventos; quem emite é o aggregate ou o command`, a.id);
   }
+
+  // D033 domain-service é puro: quem busca no repository é o command/application-service
+  for (const s of m.byRole("domain-service"))
+    for (const c of m.outOf(s.id, "uses"))
+      if (isRole(m.nodes.get(c.to), "repository")) add("D033", "dica", `domain-service ${quote(m, s.id)} usa o repository ${quote(m, c.to)}, mas um domain-service é puro (sem I/O): prefira que o command ou o application-service busque no repository e passe os dados ao serviço`, s.id);
 
   // D016 ciclo de references-by-id entre aggregates
   const refEdges = new Map<string, string[]>();
@@ -455,7 +539,7 @@ export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolea
     if (m.outOf(r.id, "emits").length) add("D019", "erro", `read-model ${quote(m, r.id)} não emite eventos (é só leitura)`, r.id);
   }
 
-  // D024–D032 fluxo: decisões, condições, loops e iteração
+  // D025–D032 fluxo: condições, loops e iteração
   const flowOut = new Map<string, ConnectionEl[]>();
   const flowIn = new Map<string, ConnectionEl[]>();
   for (const c of doc.connections) {
@@ -476,26 +560,20 @@ export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolea
     }
     return false;
   };
-  for (const n of m.byRole("decision")) {
-    const gate = n.ddd!.gate ?? "exclusive";
-    const branches = (flowOut.get(n.id) ?? []).filter((c) => c.ddd!.rel === "triggers");
-    const incoming = flowIn.get(n.id) ?? [];
-    if (gate === "join") {
-      if (incoming.length < 2) add("D027", "erro", `junção ${quote(m, n.id)} com ${incoming.length} entrada(s): uma junção espera 2 ou mais caminhos`, n.id);
-      if (!branches.length) add("D024", "erro", `junção ${quote(m, n.id)} sem saída: ligue-a ao que acontece depois`, n.id);
-    } else {
-      if (branches.length < 2) add("D024", "erro", `decisão ${quote(m, n.id)} (${gate}) com ${branches.length} ramo(s): uma decisão tem pelo menos 2`, n.id);
-      if (!incoming.length) add("D027", "aviso", `decisão ${quote(m, n.id)} sem entrada: ligue um evento, policy ou saga a ela (rel "triggers")`, n.id);
-    }
-    if (gate === "exclusive") {
-      for (const b of branches) if (!b.ddd!.condition && !b.ddd!.otherwise) add("D025", "aviso", `ramo ${quote(m, n.id)} → ${quote(m, b.to)} sem condição: numa decisão exclusiva cada ramo tem uma condição ou é o padrão (senão)`, b.id);
+  // ramos condicionais: quem despacha vários ramos e põe condição em algum deles (policy, saga, command, evento)
+  for (const [from, outs] of flowOut) {
+    for (const rel of FLOW_RELS) {
+      // só são alternativas (e não consumidores independentes) os ramos que uma policy/saga dispara (`triggers`) e os desfechos de um command/aggregate (`emits`)
+      if (rel === "triggers" && !["policy", "process-manager"].includes(m.nodes.get(from)?.ddd?.role ?? "")) continue;
+      const branches = outs.filter((c) => c.ddd!.rel === rel);
+      if (!branches.some((b) => b.ddd!.condition || b.ddd!.otherwise)) continue;
+      for (const b of branches) if (!b.ddd!.condition && !b.ddd!.otherwise) add("D025", "aviso", `ramo ${quote(m, from)} → ${quote(m, b.to)} sem condição, mas os irmãos têm: cada ramo tem uma condição ou é o padrão (senão)`, b.id);
       const others = branches.filter((b) => b.ddd!.otherwise);
-      if (others.length > 1) add("D025", "aviso", `decisão ${quote(m, n.id)} com ${others.length} ramos "senão"; só um pode ser o padrão`, n.id);
-      if (branches.length >= 2 && !others.length) add("D026", "aviso", `decisão exclusiva ${quote(m, n.id)} sem ramo "senão": se nenhuma condição valer, o fluxo para`, n.id);
+      if (others.length > 1) add("D025", "aviso", `${quote(m, from)} com ${others.length} ramos "senão"; só um pode ser o padrão`, from);
+      if (branches.length >= 2 && !others.length) add("D026", "aviso", `${quote(m, from)} tem ramos com condição mas nenhum "senão": se nenhuma condição valer, o fluxo para`, from);
+      // ciclo que passa por ela sem nenhum loop declarado
+      if (branches.some((b) => !b.ddd!.loop && flowReaches(b.to, from))) add("D028", "aviso", `${quote(m, from)} está num ciclo sem loop declarado: marque a conexão de retorno com loop (until e/ou max) ou elimine o ciclo`, from);
     }
-    if (gate === "parallel") for (const b of branches) if (b.ddd!.condition || b.ddd!.otherwise) add("D031", "aviso", `ramo ${quote(m, n.id)} → ${quote(m, b.to)}: numa decisão paralela todos os ramos seguem; a condição não se aplica (use uma decisão exclusiva)`, b.id);
-    // ciclo que passa pela decisão sem nenhum loop declarado
-    if (branches.some((b) => !b.ddd!.loop && flowReaches(b.to, n.id))) add("D028", "aviso", `decisão ${quote(m, n.id)} está num ciclo sem loop declarado: marque a conexão de retorno com loop (until e/ou max) ou elimine o ciclo`, n.id);
   }
   for (const c of doc.connections) {
     const d = c.ddd;
@@ -626,7 +704,7 @@ export function describeDomain(doc: Doc, issues: Issue[]): string {
       const cmds = nodes.filter((n) => isRole(n, "command") && m.outOf(n.id, "triggers").some((c) => c.to === r.id));
       for (const c of cmds) L.push(bullet(`command \`${c.id}\`${c.ddd!.intent ? ` — ${c.ddd!.intent}` : ""}${c.ddd!.properties?.length ? ` (parâmetros: ${propertiesSummary(c.ddd!.properties)})` : ""}${c.ddd!.invariants?.length ? ` (invariantes: ${c.ddd!.invariants.join("; ")})` : ""}`));
       const evs = nodes.filter((n) => isRole(n, "domain-event") && !n.ddd!.external && (n.ddd!.producedBy === r.id || m.inOf(n.id, "emits").some((c) => c.from === r.id || cmds.some((k) => k.id === c.from)) || cmds.some((k) => n.ddd!.producedBy === k.id)));
-      for (const e of evs) L.push(bullet(`evento \`${e.id}\`${e.ddd!.properties?.length ? ` (payload: ${propertiesSummary(e.ddd!.properties)})` : e.ddd!.payload ? ` (payload: ${e.ddd!.payload})` : ""}`));
+      for (const e of evs) L.push(bullet(`evento \`${e.id}\`${eventPayload(e)}`));
       const repos = nodes.filter((n) => isRole(n, "repository") && n.ddd!.for === r.id);
       for (const rp of repos) L.push(bullet(`repository \`${rp.id}\``));
     }
@@ -636,12 +714,12 @@ export function describeDomain(doc: Doc, issues: Issue[]): string {
       L.push("", `### ${title}`);
       list.forEach((n) => L.push(bullet(fmt(n))));
     };
-    rest(["policy"], "Policies", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.reactsTo?.length ? ` reage a ${n.ddd!.reactsTo.join(", ")}` : ""}${n.ddd!.issues?.length ? ` → dispara ${n.ddd!.issues.join(", ")}` : ""}${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}`);
-    rest(["decision"], "Decisões", (n) => {
-      const branches = doc.connections.filter((c) => c.from === n.id && c.ddd?.rel === "triggers");
-      const gate = n.ddd!.gate ?? "exclusive";
-      return `\`${n.id}\` **${n.label}** (${DECISION_GATES[gate].label})${n.ddd!.question ? `: ${n.ddd!.question}` : ""} → ${branches.length ? branches.map((b) => `${flowText(b.ddd) || "sempre"}: \`${b.to}\`${b.ddd!.loop ? " ↻" : ""}`).join("; ") : "sem ramos"}`;
-    });
+    /** Ramos com condição, loop ou iteração que saem de um nó por `triggers`: "se x: `a` ↻; senão: `b`". */
+    const branchesOf = (id: string) => {
+      const bs = doc.connections.filter((c) => c.from === id && c.ddd?.rel === "triggers" && flowText(c.ddd));
+      return bs.length ? ` → ${bs.map((b) => `${flowText(b.ddd)}: \`${b.to}\`${b.ddd!.loop ? " ↻" : ""}`).join("; ")}` : "";
+    };
+    rest(["policy"], "Policies", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.reactsTo?.length ? ` reage a ${n.ddd!.reactsTo.join(", ")}` : ""}${n.ddd!.issues?.length ? ` → dispara ${n.ddd!.issues.join(", ")}` : ""}${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}${branchesOf(n.id)}`);
     rest(["process-manager"], "Process managers (sagas)", (n) => `\`${n.id}\` **${n.label}**: reage a ${(n.ddd!.reactsTo ?? []).join(", ") || "—"} → dispara ${(n.ddd!.issues ?? []).join(", ") || "—"}${n.ddd!.compensates?.length ? ` · compensa com ${n.ddd!.compensates.join(", ")}` : ""}`);
     rest(["domain-service"], "Domain services", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}`);
     rest(["application-service"], "Application services", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}`);
@@ -655,7 +733,7 @@ export function describeDomain(doc: Doc, issues: Issue[]): string {
     const orphanCmdEvents = orphanEvents.filter((e) => !rootsHere.some((r) => nodes.some((c) => isRole(c, "command") && m.outOf(c.id, "triggers").some((t) => t.to === r.id) && (e.ddd!.producedBy === c.id || m.inOf(e.id, "emits").some((x) => x.from === c.id)))));
     if (orphanCmdEvents.length) {
       L.push("", "### Eventos sem aggregate");
-      orphanCmdEvents.forEach((e) => L.push(bullet(`\`${e.id}\` **${e.label}**${e.ddd!.payload ? ` (payload: ${e.ddd!.payload})` : ""}`)));
+      orphanCmdEvents.forEach((e) => L.push(bullet(`\`${e.id}\` **${e.label}**${eventPayload(e)}`)));
     }
     const strayCmds = nodes.filter((n) => isRole(n, "command") && !m.outOf(n.id, "triggers").some((c) => isRole(m.nodes.get(c.to), "aggregate-root")));
     if (strayCmds.length) {
@@ -832,19 +910,37 @@ export function schemaGuideDomain(): string {
     "## Papéis (`ddd.role`) e seus campos",
     ...DDD_ROLE_KEYS.map((r) => `- \`${r}\` (${DDD_ROLES[r].label}): ${DDD_ROLES[r].hint} Campos: ${f(r)}`),
     "",
+    "## Campos de texto, em uma frase",
+    "- `intent` (command, policy, domain-service, application-service): o que o elemento faz, em uma frase de negócio (command: a mudança que ele pede; policy: a reação; serviços: o que o serviço faz).",
+    "- `invariants` (aggregate-root, entity, value-object, command): lista de textos livres, um por item, só DOCUMENTAL: o app não executa nem confere. Em aggregate, entity e value-object são as regras que sempre valem; no command, as condições para ele ser aceito. Viram comentário no código gerado e aparecem na história do caso de uso.",
+    "- `step` (só command): número que ordena os commands no `auto_layout` `timeline` (menor primeiro; sem `step`, vai para o fim na ordem de criação). Não tem outro efeito e não existe em evento.",
+    "- `actor` (use-case): TEXTO livre com quem executa (o nome do papel). Aparece no cartão, na descrição e na tabela do código. Não é uma ligação: para desenhar o ator, crie um componente `kind: \"actor\"` e ligue-o ao use-case por `association`; os dois são independentes (o app não confere se combinam).",
+    "- `external` (domain-event): `\"contexto.evento\"` = o id do grupo `context` do OUTRO diagrama + o id do evento nele; a visão geral do cofre confere se os dois existem (D006).",
+    "- `subdomain` (grupo context): `core`, `supporting` ou `generic`. É informativo: aparece na descrição, falta dá a dica D014 e um `generic` com mais de 5 aggregates dá a dica D015.",
+    "",
+    "## Qual elemento usar (quando dois parecem servir)",
+    "- `use-case`: o OBJETIVO de um ator, em linguagem de negócio (\"Fazer pedido\"). Não faz nada sozinho: precisa de pelo menos um realizador, ligado por `realizes` ou `ddd.realizedBy` (D001).",
+    "- `command`: a mudança concreta pedida a UM aggregate (aponta por `triggers` para exatamente um aggregate-root, D002) e quem emite o evento. Se o caso de uso muda um aggregate só, o command realiza o use-case direto, sem application-service.",
+    "- `application-service`: só quando o caso de uso atravessa vários passos (mais de um aggregate, serviço ou repository). Orquestra (carrega, chama o domínio, persiste), mas não tem regra (sem `invariants`) nem emite evento (D013): quem emite é o aggregate ou o command que ele chama. Realiza o use-case (`realizes`) e usa (`uses`) domain-service e repository.",
+    "- `policy`: reação simples e SEM estado: quando um evento acontece, dispara um command. `process-manager` (saga): o fluxo tem vários passos no tempo, guarda estado e pode compensar (`compensates`); precisa de um evento de entrada e de um command de saída (D018).",
+    "- `reactsTo` (policy e process-manager) é só a lista de eventos a que o elemento reage, igual nos dois papéis: o app não distingue «qualquer um» de «todos». Por convenção, a policy reage a cada evento por si; a saga é quem pode juntar vários (espera) e compensar.",
+    "- `description` (qualquer componente, de qualquer papel): texto livre sobre o componente; não é um campo do papel, por isso não aparece nas listas de campos. É onde se registra o que foi inferido ou assumido.",
+    "- **Quem emite um evento** (`emits`): o `command` (o normal), o `aggregate-root` ou o `process-manager` (marcos do processo). O `application-service` nunca emite (D013): ele só entrega ao publicador os eventos que o aggregate produziu.",
+    "",
     "## Subdomain (grupo context)",
     ...Object.entries(SUBDOMAINS).map(([k, v]) => `- \`${k}\`: ${v}`),
     "",
     "## Relações (`connect` com `ddd: { rel, pattern? }`; o `type` é inferido)",
     ...DDD_REL_KEYS.map((k) => `- \`${k}\` (${DDD_RELS[k].type}): ${DDD_RELS[k].semantics}`),
     "",
-    "## Decisões, condições, loops e iteração (só no modo domain)",
+    "## Condições, loops e iteração (só no modo domain)",
     "- **Condição num ramo**: `ddd.condition` (texto: \"atraso > 0\") em conexões `triggers`/`emits`; `ddd.otherwise: true` é o ramo padrão (senão). Os dois não se combinam.",
-    "- **Decisão** (`role: decision`, campos `question` e `gate`): depois de um evento, policy ou saga (`triggers` → decisão), cada saída é uma conexão `triggers` com a sua condição. `gate`: " + DECISION_GATE_KEYS.map((g) => `\`${g}\` (${DECISION_GATES[g].hint})`).join("; ") + ".",
-    "- **Decisão exclusiva** tem 2+ ramos, todos com condição ou `otherwise`, e um `otherwise` (senão). **Paralela** segue todos (sem condição). **Junção** precisa de 2+ entradas.",
-    "- **Loop**: marque a conexão que VOLTA a um passo anterior com `ddd.loop: { until, max }` (pelo menos um dos dois: sem condição de parada é erro). Ciclo que passa por uma decisão sem loop declarado é aviso.",
+    "- **Não existe `decision` no modo domain** (ela é só do modo logic). Para escolher um caminho, a `policy` (ou a saga) que reage ao evento liga-se por `triggers` a mais de um command, cada ramo com `condition` (por convenção de leitura, segue o primeiro ramo cuja condição é verdadeira, na ordem das conexões; o app não executa isso) ou `otherwise` (o padrão); ramos sem condição seguem todos (paralelo). Para modelar uma espera por vários eventos (agir só quando todos chegaram), use um `process-manager` com todos eles em `reactsTo`: o app só documenta isso, não executa nem confere a espera.",
+    "- `condition`, `loop.until` e `foreach` são TEXTO livre em linguagem de negócio (`atraso > 0`, `pagamento aprovado`, `item do pedido`): NÃO são as expressões do modo logic. O app não as interpreta nem executa; só as mostra no rótulo da conexão, na descrição e no código gerado. A ordem dos ramos é a ordem em que as conexões foram criadas, só para leitura. `condition` e `otherwise` não se combinam; `foreach`, `condition` e `loop` podem aparecer juntos na mesma conexão. `loop.max` é um inteiro de 1 a 1000 (sem padrão) e a conexão com `loop` deve voltar a um passo anterior (senão, dica D030).",
+    "- Quando algum ramo de um nó tem condição, todos os irmãos têm `condition` ou `otherwise`, só um é `otherwise`, e é bom ter um (senão, se nenhuma condição valer o fluxo para): avisos D025 e D026.",
+    "- **Loop**: marque a conexão que VOLTA a um passo anterior com `ddd.loop: { until, max }` (pelo menos um dos dois: sem condição de parada é erro). Ciclo que passa por um nó com ramos condicionais sem loop declarado é aviso (D028).",
     "- **Iteração**: `ddd.foreach` (\"item do pedido\") em `triggers`/`emits` = repete para cada elemento.",
-    "- Exemplo (retentativa de cobrança): `pagamento-recusado` —triggers→ decisão `ha-tentativas`; `ha-tentativas` —triggers [condition: \"tentativas < 3\", loop: { until: \"pagamento aprovado\", max: 3 }]→ command `cobrar`; `ha-tentativas` —triggers [otherwise]→ command `desistir-da-cobranca`.",
+    "- Exemplo (retentativa de cobrança): `pagamento-recusado` —triggers→ policy `ha-tentativas`; `ha-tentativas` —triggers [condition: \"tentativas < 3\", loop: { until: \"pagamento aprovado\", max: 3 }]→ command `cobrar`; `ha-tentativas` —triggers [otherwise]→ command `desistir-da-cobranca`.",
     "- Isto NÃO existe no modo architecture: lá o fluxo é só o tipo da conexão.",
     "",
     "## Regras dos conectores (modo domain)",
@@ -859,7 +955,9 @@ export function schemaGuideDomain(): string {
     ...CONTEXT_PATTERN_KEYS.map((k) => `- \`${k}\` (${CONTEXT_PATTERNS[k].label}): ${CONTEXT_PATTERNS[k].hint}`),
     "",
     "## Convenções que o validador exige",
-    "- Todo `use-case` é realizado por um `command` (rel `realizes`, ou `ddd.realizedBy`).",
+    "- Cada campo de id equivale a uma conexão: `reactsTo` (policy, saga) = `triggers` de um evento para o elemento; `issues` (policy, saga) = `triggers` do elemento para um command; `realizedBy` (use-case) = `realizes`; `producedBy` (evento) = `emits` do produtor; `projectsFrom` (read-model) = `triggers` de um evento para o read-model.",
+    "- **Campos que repetem conexões** (`realizedBy`, `producedBy`, `reactsTo`, `issues`, `projectsFrom`): guardam **ids de nós** (nunca rótulos) e valem **junto** com a conexão equivalente (`realizes`, `emits`, `triggers`): o app une os dois, então se divergirem vale tudo o que aparece em qualquer um. Id que não existe é erro D020. Prefira a conexão (aparece no quadro); o campo serve a quem importa dados sem desenhar as setas. `compensates` (process-manager) são os ids dos commands que DESFAZEM o que a saga já fez (os compensadores, não os compensados; id inexistente é D020; o código gerado lista o método `compensate`) e, como `for`, não têm conexão equivalente (`for` guarda um só id, o aggregate-root do repository).",
+    "- Todo `use-case` precisa de pelo menos um realizador (D001): um `command` (o rastreio segue command → aggregate → evento) ou, para um caso de uso que só consulta ou que atravessa vários passos, um `application-service` ou `domain-service` (o rastreio termina nele). Ligue por `realizes` ou liste o id em `ddd.realizedBy`; o app só confere que o id existe (D020), não o papel.",
     "- Todo `command` aponta (rel `triggers`) para exatamente UM `aggregate-root`.",
     "- Todo `domain-event` tem produtor: rel `emits` de um command/aggregate-root, ou `ddd.producedBy`. Cópia de evento de outro contexto usa `ddd.external: \"contexto.evento\"`.",
     "- `entity` e `value-object` ficam dentro de um aggregate: `aggregate-root` —contains→ entity/value-object.",
@@ -868,8 +966,9 @@ export function schemaGuideDomain(): string {
     "- Commands no imperativo (`criar-pedido`), eventos no passado (`pedido-criado`).",
     "",
     "## Propriedades (estrutura de entity, value-object, aggregate-root, command, domain-event e read-model)",
-    "- `ddd.properties`: lista de `{ name, type?, optional?, key?, description?, example? }`. Descreve a estrutura campo a campo: `type` é texto livre (`uuid`, `texto`, `inteiro`, `data`, `Item[]` ou o nome de outro value-object do contexto), `key: true` marca o identificador, `optional: true` o que pode faltar, `description` diz o que o campo significa e por que existe.",
-    "- Em command são os parâmetros; em domain-event, os campos do payload (prefira `properties` a `payload`); em read-model, as colunas.",
+    "- `ddd.properties`: lista de `{ name, type?, optional?, key?, description?, example? }`. Descreve a estrutura campo a campo: `type` é texto livre (`uuid`, `texto`, `inteiro`, `data`, `Item[]` ou o nome de outro value-object do contexto), `key: true` marca o identificador (só muda o código gerado da entity: nome e tipo do id; no value-object não vale, porque ele não tem identidade), `optional: true` o que pode faltar (sem ele o campo é obrigatório), `description` diz o que o campo significa e por que existe, e `example` é texto livre que vira um `ex.:` no comentário do código.",
+    "- Em command são os parâmetros; em domain-event, os campos do evento; em read-model, as colunas.",
+    "- `payload` (só domain-event) é um resumo em TEXTO LIVRE, herdado de versões antigas: serve só quando o evento não tem `properties`. Se os dois existirem, vale `properties` (a descrição do modelo e o código gerado ignoram o `payload`); a história do caso de uso mostra os dois. Prefira sempre `properties`.",
     "- Preencha ao menos as propriedades do aggregate-root, das entities e dos value objects: elas aparecem no passo a passo da apresentação, na descrição do modelo e viram campos tipados no código gerado.",
     "",
     "## Fluxo recomendado",

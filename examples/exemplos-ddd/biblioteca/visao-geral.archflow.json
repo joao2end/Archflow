@@ -13,8 +13,8 @@
       "ref": {
         "diagram": "exemplos-ddd/biblioteca/emprestimos.archflow.json"
       },
-      "x": 0,
-      "y": 0,
+      "x": 28,
+      "y": 54,
       "w": 184,
       "h": 72
     },
@@ -25,8 +25,8 @@
       "ref": {
         "diagram": "exemplos-ddd/biblioteca/acervo.archflow.json"
       },
-      "x": 629,
-      "y": 0,
+      "x": 268,
+      "y": 54,
       "w": 184,
       "h": 72
     }
@@ -45,7 +45,8 @@
         "rel": "context-relation",
         "pattern": "customer-supplier"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     }
   ],
   "customAssets": []

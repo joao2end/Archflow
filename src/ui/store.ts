@@ -2,8 +2,8 @@ import { useSyncExternalStore } from "react";
 import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, examplePath, type DddExample } from "../shared/examples";
-import { runFlow, runPipeline, hasFlow, type Run } from "../shared/logic";
-import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode } from "../shared/schema";
+import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shared/logic";
+import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type LogicNodeSpec } from "../shared/schema";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -149,8 +149,8 @@ const LS_LIB = "archflow.library.v1";
 const LS_PREFS = "archflow.prefs.v1";
 const LS_PLAY_SPEED = "archflow.play-speed.v1";
 /** Velocidades oferecidas na reprodução (múltiplos de 1x). */
-export const PLAY_SPEEDS = [0.25, 0.5, 1, 1.5, 2, 4];
-export const PLAY_STEP_MS = 850;
+export const PLAY_SPEEDS = [0.5, 1, 2, 4, 8];
+export const PLAY_STEP_MS = 8000;
 const LS_TREE = "archflow.tree.v1";
 const LS_WELCOME = "archflow.welcome.v1";
 
@@ -349,10 +349,21 @@ export function newAssetId(name: string) {
 }
 
 /** `owner`: ao soltar um endpoint sobre um serviço, ele passa a pertencer a esse serviço. */
+const LOGIC_PLACEHOLDER: Record<string, LogicNodeSpec> = {
+  "logic-decision": { role: "decision", when: "condicao" },
+  "logic-loop": { role: "loop", until: "condicao" },
+};
+
 export function placeAsset(assetId: string, x: number, y: number, parent?: string, owner?: string) {
-  const [r] = run([owner ? { op: "add_node", asset: assetId, owner } : { op: "add_node", asset: assetId, x, y, parent }]);
+  // Decision e Loop não existem sem condição; nascem com a provisória «condicao», que o inspetor mostra e a validação (L002) acusa até ser trocada.
+  // Um Cenário nasce com o 1º exemplo já preenchido com as entradas do fluxo e o nome «Caso N» em português (em vez de «Scenario»).
+  const isScenario = assetId === "logic-scenario";
+  const logic = isScenario ? ({ role: "scenario", examples: [starterExample(state.doc)] } as LogicNodeSpec) : LOGIC_PLACEHOLDER[assetId];
+  const label = isScenario ? `Caso ${state.doc.nodes.filter((n) => n.logic?.role === "scenario").length + 1}` : undefined;
+  const [r] = run([owner ? { op: "add_node", asset: assetId, owner } : { op: "add_node", asset: assetId, x, y, parent, ...(logic ? { logic } : {}), ...(label ? { label } : {}) }]);
+  if (!r.ok) toastError(`Não deu para adicionar: ${r.error ?? "erro desconhecido"}`);
   if (r.ok && r.id) {
-    set({ sel: [r.id] });
+    set({ sel: [r.id], ...(isScenario ? { focusTick: state.focusTick + 1 } : {}) }); // Cenário novo: o campo Nome já vem selecionado para digitar o caso
     if (parent) {
       const d = structuredClone(state.doc);
       fitGroup(d, parent);

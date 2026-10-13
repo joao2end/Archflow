@@ -654,9 +654,9 @@ function FlowMotion() {
         <Tag x={198} y={18} text={`repete até pago · máx. 3`} color="var(--c-async)" />
         <Sticker x={F_EVT[0]} y={F_EVT[1]} w={112} h={44} role="domain-event" label="pagamento-recusado" fs={9.6} />
         <g transform={`translate(${F_DEC[0]} ${F_DEC[1]})`}>
-          <path d="M0,-30 L30,0 L0,30 L-30,0 z" style={{ fill: `color-mix(in srgb, ${DDD_ROLES.decision.color} 24%, var(--s-solid))`, stroke: DDD_ROLES.decision.color }} strokeWidth={1.6} />
+          <path d="M0,-30 L30,0 L0,30 L-30,0 z" style={{ fill: `color-mix(in srgb, ${DDD_ROLES.policy.color} 24%, var(--s-solid))`, stroke: DDD_ROLES.policy.color }} strokeWidth={1.6} />
           <text textAnchor="middle" y={-2} className="mo-badge" style={{ fill: "var(--ink)", fontSize: 8 }}>
-            DEC
+            POL
           </text>
           <text textAnchor="middle" y={9} className="mo-t2" style={{ fontSize: 7.6 }}>
             tentar?
@@ -763,11 +763,11 @@ function LogicMotion() {
       icon="mode-logic"
       tag="Modo Logic"
       title="Regras de negócio que o app executa e confere"
-      text="Decisões, laços e regras em ordem, com expressões curtas em português. Cada exemplo roda de verdade: o valor muda passo a passo e o ✔ só aparece se o resultado esperado bate."
+      text="Decisões, laços e ações em ordem, com expressões curtas em português. Cada exemplo roda de verdade: o valor muda passo a passo e o ✔ só aparece se o resultado esperado bate."
       cap={done ? "✔ exemplo: 9,50 → 10,67 confere" : `passo ${k + 1} de ${LSTEPS.length} · preço ${LSTEPS[k].preco}`}
       ok={done}
     >
-      <svg viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label="Um fluxo com início, decisão, regra e fim calcula o preço passo a passo e confere o exemplo">
+      <svg viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label="Um fluxo com início, decisão, ação e fim calcula o preço passo a passo e confere o exemplo">
         {LSTEPS.slice(1).map((_, i) => (
           <Poly key={i} pts={[[x0 + i * (w + gap) + w, y + h / 2], [x0 + (i + 1) * (w + gap), y + h / 2]]} color="var(--c-dep)" p={ease(seg(k - i, 0, 1))} />
         ))}
@@ -833,7 +833,7 @@ const TOOLS: { n: string; g: 0 | 1 | 2 | 3; d: string }[] = [
   { n: "connect", g: 1, d: "conexões tipadas, relações DDD e saídas sim/não/repete" },
   { n: "update_element", g: 1, d: "ajusta qualquer elemento" },
   { n: "remove_elements", g: 1, d: "remove elementos e conexões" },
-  { n: "auto_layout", g: 2, d: "fluxo em camadas, linha do tempo ou pipeline de regras" },
+  { n: "auto_layout", g: 2, d: "fluxo em camadas, linha do tempo ou pipeline de ações" },
   { n: "clear_diagram", g: 2, d: "limpa o quadro — só sob pedido" },
   { n: "validate_diagram", g: 3, d: "regras de arquitetura, D001–D032 e L001–L024 (roda os exemplos)" },
   { n: "trace", g: 3, d: "caso de uso → command → aggregate → evento" },

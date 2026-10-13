@@ -1,0 +1,373 @@
+{
+  "enunciado": "Dado um grafo dirigido com pesos (nós: lista de números; arestas: trios [de, para, peso], com peso ≥ 0 e menor que 1000000000), uma origem e um destino, devolver o custo do caminho mais barato da origem ao destino, ou -1 se o destino não for alcançável. Origem igual ao destino custa 0. Arestas paralelas e ciclos são possíveis.",
+  "cases": [
+    {
+      "name": "origem é o destino",
+      "given": {
+        "nos": [
+          1
+        ],
+        "arestas": [],
+        "origem": 1,
+        "destino": 1
+      },
+      "expect": {
+        "custo": 0
+      }
+    },
+    {
+      "name": "uma aresta",
+      "given": {
+        "nos": [
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            5
+          ]
+        ],
+        "origem": 1,
+        "destino": 2
+      },
+      "expect": {
+        "custo": 5
+      }
+    },
+    {
+      "name": "aresta no sentido contrário",
+      "given": {
+        "nos": [
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            2,
+            1,
+            3
+          ]
+        ],
+        "origem": 1,
+        "destino": 2
+      },
+      "expect": {
+        "custo": -1
+      }
+    },
+    {
+      "name": "inalcançável",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            1
+          ]
+        ],
+        "origem": 1,
+        "destino": 3
+      },
+      "expect": {
+        "custo": -1
+      }
+    },
+    {
+      "name": "atalho mais barato que a aresta direta",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            10
+          ],
+          [
+            1,
+            3,
+            3
+          ],
+          [
+            3,
+            2,
+            4
+          ]
+        ],
+        "origem": 1,
+        "destino": 2
+      },
+      "expect": {
+        "custo": 7
+      }
+    },
+    {
+      "name": "arestas de peso zero",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            0
+          ],
+          [
+            2,
+            3,
+            0
+          ]
+        ],
+        "origem": 1,
+        "destino": 3
+      },
+      "expect": {
+        "custo": 0
+      }
+    },
+    {
+      "name": "melhor caminho achado depois (relaxamento)",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            1,
+            3,
+            4
+          ],
+          [
+            2,
+            3,
+            2
+          ],
+          [
+            3,
+            4,
+            1
+          ],
+          [
+            2,
+            4,
+            7
+          ]
+        ],
+        "origem": 1,
+        "destino": 4
+      },
+      "expect": {
+        "custo": 4
+      }
+    },
+    {
+      "name": "arestas paralelas",
+      "given": {
+        "nos": [
+          1,
+          2
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            2,
+            2
+          ]
+        ],
+        "origem": 1,
+        "destino": 2
+      },
+      "expect": {
+        "custo": 2
+      }
+    },
+    {
+      "name": "grafo com ciclo",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            2,
+            3,
+            1
+          ]
+        ],
+        "origem": 1,
+        "destino": 3
+      },
+      "expect": {
+        "custo": 2
+      }
+    },
+    {
+      "name": "clássico de 6 nós, até o 5",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            7
+          ],
+          [
+            1,
+            3,
+            9
+          ],
+          [
+            1,
+            6,
+            14
+          ],
+          [
+            2,
+            3,
+            10
+          ],
+          [
+            2,
+            4,
+            15
+          ],
+          [
+            3,
+            4,
+            11
+          ],
+          [
+            3,
+            6,
+            2
+          ],
+          [
+            4,
+            5,
+            6
+          ],
+          [
+            6,
+            5,
+            9
+          ]
+        ],
+        "origem": 1,
+        "destino": 5
+      },
+      "expect": {
+        "custo": 20
+      }
+    },
+    {
+      "name": "clássico de 6 nós, até o 4",
+      "given": {
+        "nos": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "arestas": [
+          [
+            1,
+            2,
+            7
+          ],
+          [
+            1,
+            3,
+            9
+          ],
+          [
+            1,
+            6,
+            14
+          ],
+          [
+            2,
+            3,
+            10
+          ],
+          [
+            2,
+            4,
+            15
+          ],
+          [
+            3,
+            4,
+            11
+          ],
+          [
+            3,
+            6,
+            2
+          ],
+          [
+            4,
+            5,
+            6
+          ],
+          [
+            6,
+            5,
+            9
+          ]
+        ],
+        "origem": 1,
+        "destino": 4
+      },
+      "expect": {
+        "custo": 20
+      }
+    }
+  ]
+}

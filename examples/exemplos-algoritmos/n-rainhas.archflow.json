@@ -1,0 +1,1269 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-4iwg92",
+  "title": "N-Rainhas (backtracking)",
+  "description": "Conta as disposições de n rainhas num tabuleiro n × n e guarda a primeira achada. Sem recursão no formato, a recursão é uma pilha: `rainhas` guarda, linha por linha, onde cada rainha já foi posta ([linha, coluna]). Em cada passo tenta-se a coluna `tentar` na linha seguinte: se ataca alguma rainha, passa à próxima coluna; se não ataca, põe a rainha e desce uma linha. Quando as colunas da linha acabam (ou quando as n rainhas foram postas), volta uma linha: tira a última rainha e continua da coluna seguinte à dela. Termina quando é preciso voltar com a pilha vazia.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1012,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1012,
+      "y": 166,
+      "w": 306,
+      "h": 418,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1012,
+      "y": 574,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1012,
+      "y": 772,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n",
+      "label": "Tamanho do tabuleiro",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "n",
+        "type": "inteiro",
+        "text": "O tabuleiro tem n linhas e n colunas, numeradas a partir de 0. Vai de 1 a 5: o motor do app executa no máximo 5000 passos, e n = 6 já passa disso (o algoritmo vale para qualquer n)."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "rainhas",
+      "label": "Rainhas postas (a pilha)",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "rainhas",
+        "type": "lista",
+        "text": "Pares [linha, coluna] das rainhas já postas, da linha 0 para baixo. A última é a da linha mais funda.",
+        "value": []
+      },
+      "x": 1040,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "linha",
+      "label": "Linha atual",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "linha",
+        "type": "inteiro",
+        "text": "A linha onde se tenta pôr a próxima rainha: quantas rainhas já estão postas."
+      },
+      "x": 1040,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tentar",
+      "label": "Coluna que se tenta",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "tentar",
+        "type": "inteiro",
+        "text": "A coluna que será testada na linha atual. Começa em 0.",
+        "value": 0
+      },
+      "x": 1040,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ataques",
+      "label": "Rainhas que atacam",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "ataques",
+        "type": "lista",
+        "text": "As rainhas postas que atacam a casa (linha atual, tentar): mesma coluna ou mesma diagonal."
+      },
+      "x": 1040,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "topo",
+      "label": "Rainha desfeita",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "topo",
+        "type": "lista",
+        "text": "O par [linha, coluna] da última rainha, que está sendo tirada ao voltar."
+      },
+      "x": 1040,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "acabou",
+      "label": "Busca terminada",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "acabou",
+        "type": "lógico",
+        "text": "Verdadeiro quando não há mais para onde voltar.",
+        "value": false
+      },
+      "x": 1040,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "total",
+      "label": "Quantidade de disposições",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "total",
+        "type": "inteiro",
+        "text": "Resposta: quantas disposições completas foram achadas.",
+        "value": 0
+      },
+      "x": 1040,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "primeira",
+      "label": "Primeira disposição",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "primeira",
+        "type": "lista",
+        "text": "Resposta: a coluna da rainha de cada linha, de cima para baixo, na primeira disposição achada. Vazia se não existe.",
+        "value": []
+      },
+      "x": 1040,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Contar as disposições das rainhas",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entra n."
+      },
+      "x": 280,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "n-valido",
+      "label": "n está entre 1 e 5?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "entre(n, 1, 5)",
+        "text": "Fora dessa faixa o diagrama não roda: n = 0 não é tabuleiro e, de n = 6 em diante, o motor passa do limite de 5000 passos.",
+        "examples": [
+          {
+            "name": "dentro",
+            "given": {
+              "n": 4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "fora",
+            "given": {
+              "n": 6
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 124,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "prepara",
+      "label": "Começar com o tabuleiro vazio",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Nenhuma rainha posta; tenta-se a coluna 0 da linha 0.",
+        "then": [
+          "rainhas := []",
+          "tentar := 0",
+          "total := 0",
+          "primeira := []",
+          "acabou := falso"
+        ],
+        "examples": [
+          {
+            "name": "zera",
+            "given": {
+              "n": 4
+            },
+            "expect": {
+              "rainhas": [],
+              "tentar": 0,
+              "total": 0,
+              "primeira": [],
+              "acabou": false
+            }
+          }
+        ]
+      },
+      "x": 80,
+      "y": 303,
+      "w": 330,
+      "h": 205
+    },
+    {
+      "id": "busca",
+      "label": "A busca terminou?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "acabou",
+        "text": "Para quando acabou é verdadeiro. Cada volta testa uma casa ou volta uma linha."
+      },
+      "x": 250,
+      "y": 572,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "esgotou",
+      "label": "As colunas da linha acabaram?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tentar >= n",
+        "text": "Se tentar passou da última coluna, nada mais cabe nesta linha.",
+        "examples": [
+          {
+            "name": "acabaram",
+            "given": {
+              "tentar": 4,
+              "n": 4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "ainda há",
+            "given": {
+              "tentar": 3,
+              "n": 4
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 80,
+      "y": 723,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "pilha-vazia",
+      "label": "Não há rainha para desfazer?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(rainhas) = 0",
+        "text": "Voltar com a pilha vazia significa que todas as casas da linha 0 já foram testadas.",
+        "examples": [
+          {
+            "name": "vazia",
+            "given": {
+              "rainhas": []
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "tem",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 901,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "encerra",
+      "label": "Encerrar a busca",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Não há mais para onde voltar.",
+        "then": [
+          "acabou := verdadeiro"
+        ],
+        "examples": [
+          {
+            "name": "encerra",
+            "given": {
+              "acabou": false
+            },
+            "expect": {
+              "acabou": true
+            }
+          }
+        ]
+      },
+      "x": 55,
+      "y": 1093,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "volta",
+      "label": "Voltar uma linha",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Tira a última rainha e passa a tentar a coluna seguinte à dela, na linha dela.",
+        "then": [
+          "topo := ultimo(rainhas)",
+          "tentar := topo[1] + 1",
+          "rainhas := filtrar(rainhas, item[0] != topo[0])"
+        ],
+        "examples": [
+          {
+            "name": "desfaz",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  3
+                ]
+              ]
+            },
+            "expect": {
+              "topo": [
+                1,
+                3
+              ],
+              "tentar": 4,
+              "rainhas": [
+                [
+                  0,
+                  1
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 200,
+      "y": 2066,
+      "w": 440,
+      "h": 149
+    },
+    {
+      "id": "testa",
+      "label": "Ver quem ataca a casa",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A linha atual é o tamanho da pilha. Uma rainha ataca a casa se está na mesma coluna ou se a distância em colunas é igual à distância em linhas (diagonal).",
+        "then": [
+          "linha := tamanho(rainhas)",
+          "ataques := filtrar(rainhas, item[1] = tentar ou abs(item[1] - tentar) = linha - item[0])"
+        ],
+        "examples": [
+          {
+            "name": "diagonal",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ]
+              ],
+              "tentar": 2
+            },
+            "expect": {
+              "linha": 1,
+              "ataques": [
+                [
+                  0,
+                  1
+                ]
+              ]
+            }
+          },
+          {
+            "name": "livre",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ]
+              ],
+              "tentar": 3
+            },
+            "expect": {
+              "linha": 1,
+              "ataques": []
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 888,
+      "w": 440,
+      "h": 141
+    },
+    {
+      "id": "segura",
+      "label": "A casa está livre de ataques?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(ataques)",
+        "text": "Nenhuma rainha posta ataca a casa.",
+        "examples": [
+          {
+            "name": "livre",
+            "given": {
+              "ataques": []
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "atacada",
+            "given": {
+              "ataques": [
+                [
+                  0,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 455,
+      "y": 1096,
+      "w": 330,
+      "h": 87
+    },
+    {
+      "id": "proxima-coluna",
+      "label": "Tentar a coluna ao lado",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A casa é atacada: passa à próxima coluna da mesma linha.",
+        "then": [
+          "tentar := tentar + 1"
+        ],
+        "examples": [
+          {
+            "name": "avança",
+            "given": {
+              "tentar": 2
+            },
+            "expect": {
+              "tentar": 3
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1257,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "coloca",
+      "label": "Pôr a rainha na casa",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Empilha [linha, tentar].",
+        "then": [
+          "rainhas := adicionar(rainhas, [linha, tentar])"
+        ],
+        "examples": [
+          {
+            "name": "empilha",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ]
+              ],
+              "linha": 1,
+              "tentar": 3
+            },
+            "expect": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  3
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1250,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "completa",
+      "label": "As n rainhas estão postas?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(rainhas) = n",
+        "text": "Com n rainhas postas sem ataque, achou-se uma disposição completa.",
+        "examples": [
+          {
+            "name": "completa",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  3
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  3,
+                  2
+                ]
+              ],
+              "n": 4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "falta",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ]
+              ],
+              "n": 4
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 1421,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "desce",
+      "label": "Descer para a próxima linha",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Recomeça pela coluna 0 na linha de baixo.",
+        "then": [
+          "tentar := 0"
+        ],
+        "examples": [
+          {
+            "name": "desce",
+            "given": {
+              "tentar": 3
+            },
+            "expect": {
+              "tentar": 0
+            }
+          }
+        ]
+      },
+      "x": 455,
+      "y": 1590.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "primeira-vez",
+      "label": "É a primeira disposição achada?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "total = 0",
+        "text": "Só a primeira é guardada.",
+        "examples": [
+          {
+            "name": "primeira",
+            "given": {
+              "total": 0
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "outra",
+            "given": {
+              "total": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 55,
+      "y": 1586,
+      "w": 330,
+      "h": 102
+    },
+    {
+      "id": "guarda",
+      "label": "Guardar as colunas da primeira",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Copia a coluna de cada rainha, de cima para baixo.",
+        "then": [
+          "primeira := mapear(rainhas, item[1])"
+        ],
+        "examples": [
+          {
+            "name": "guarda",
+            "given": {
+              "rainhas": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  3
+                ],
+                [
+                  2,
+                  0
+                ],
+                [
+                  3,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "primeira": [
+                1,
+                3,
+                0,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "x": 200,
+      "y": 1752,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "conta",
+      "label": "Contar a disposição",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Mais uma disposição completa.",
+        "then": [
+          "total := total + 1"
+        ],
+        "examples": [
+          {
+            "name": "conta",
+            "given": {
+              "total": 1
+            },
+            "expect": {
+              "total": 2
+            }
+          }
+        ]
+      },
+      "x": 200,
+      "y": 1909,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Contagem devolvida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve total e primeira."
+      },
+      "x": 480,
+      "y": 743.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "n-invalido",
+      "label": "n fora da faixa",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "n não está entre 1 e 5: não há o que contar."
+      },
+      "x": 480,
+      "y": 375.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-4",
+      "label": "n = 4",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Duas disposições; a primeira põe as rainhas nas colunas 1, 3, 0, 2.",
+        "examples": [
+          {
+            "name": "n4",
+            "given": {
+              "n": 4
+            },
+            "expect": {
+              "total": 2,
+              "primeira": [
+                1,
+                3,
+                0,
+                2
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1040,
+      "y": 628,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-fora",
+      "label": "n fora da faixa",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "n = 6 passa do que o motor executa: termina com erro, sem contar.",
+        "examples": [
+          {
+            "name": "n6",
+            "given": {
+              "n": 6
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1040,
+      "y": 826,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-3",
+      "label": "n = 3: não existe",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Em 3 × 3 não cabem 3 rainhas sem ataque: total 0 e primeira vazia.",
+        "examples": [
+          {
+            "name": "n3",
+            "given": {
+              "n": 3
+            },
+            "expect": {
+              "total": 0,
+              "primeira": [],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1040,
+      "y": 695,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-n-valido",
+      "from": "inicio",
+      "to": "n-valido",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "n-valido-to-prepara",
+      "from": "n-valido",
+      "to": "prepara",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "n-valido-to-n-invalido",
+      "from": "n-valido",
+      "to": "n-invalido",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prepara-to-busca",
+      "from": "prepara",
+      "to": "busca",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "busca-to-esgotou",
+      "from": "busca",
+      "to": "esgotou",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "esgotou-to-pilha-vazia",
+      "from": "esgotou",
+      "to": "pilha-vazia",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "esgotou-to-testa",
+      "from": "esgotou",
+      "to": "testa",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pilha-vazia-to-encerra",
+      "from": "pilha-vazia",
+      "to": "encerra",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pilha-vazia-to-volta",
+      "from": "pilha-vazia",
+      "to": "volta",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 886,
+          "y": 958.5
+        },
+        {
+          "x": 886,
+          "y": 2034
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "encerra-to-busca",
+      "from": "encerra",
+      "to": "busca",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1139.5
+        },
+        {
+          "x": -64,
+          "y": 615.5
+        }
+      ]
+    },
+    {
+      "id": "volta-to-busca",
+      "from": "volta",
+      "to": "busca",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 2140.5
+        },
+        {
+          "x": -82,
+          "y": 615.5
+        }
+      ]
+    },
+    {
+      "id": "testa-to-segura",
+      "from": "testa",
+      "to": "segura",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "segura-to-coloca",
+      "from": "segura",
+      "to": "coloca",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "segura-to-proxima-coluna",
+      "from": "segura",
+      "to": "proxima-coluna",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "proxima-coluna-to-busca",
+      "from": "proxima-coluna",
+      "to": "busca",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1303.5
+        },
+        {
+          "x": -46,
+          "y": 615.5
+        }
+      ]
+    },
+    {
+      "id": "coloca-to-completa",
+      "from": "coloca",
+      "to": "completa",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "completa-to-primeira-vez",
+      "from": "completa",
+      "to": "primeira-vez",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "completa-to-desce",
+      "from": "completa",
+      "to": "desce",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "desce-to-busca",
+      "from": "desce",
+      "to": "busca",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1637
+        },
+        {
+          "x": -64,
+          "y": 615.5
+        }
+      ]
+    },
+    {
+      "id": "primeira-vez-to-guarda",
+      "from": "primeira-vez",
+      "to": "guarda",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "primeira-vez-to-conta",
+      "from": "primeira-vez",
+      "to": "conta",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 867,
+          "y": 1637
+        },
+        {
+          "x": 867,
+          "y": 1877
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "guarda-to-conta",
+      "from": "guarda",
+      "to": "conta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "conta-to-volta",
+      "from": "conta",
+      "to": "volta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "busca-to-pronto",
+      "from": "busca",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

@@ -283,6 +283,16 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 788
+        },
+        {
+          "x": -14,
+          "y": 508
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -296,7 +306,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.42
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 384
+        },
+        {
+          "x": 254,
+          "y": 788
+        }
+      ],
+      "labelT": 0.33999999999999997
     },
     {
       "id": "liberar-ao-cancelar-pedido-to-liberar-es",
@@ -309,7 +329,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 788
+        },
+        {
+          "x": 466,
+          "y": 632
+        }
+      ],
+      "labelT": 0.54
     },
     {
       "id": "reservar-estoque-to-item-de-estoque",
@@ -323,7 +353,7 @@
         "rel": "triggers",
         "foreach": "item do pedido"
       },
-      "labelT": 0.09999999999999998,
+      "labelT": 0.33999999999999997,
       "labelOffset": -50
     },
     {
@@ -338,7 +368,17 @@
         "rel": "emits",
         "condition": "todos os itens têm saldo"
       },
-      "labelT": 0.18
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.3
     },
     {
       "id": "reservar-estoque-to-estoque-insuficiente",
@@ -352,7 +392,17 @@
         "rel": "emits",
         "otherwise": true
       },
-      "labelT": 0.54
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 416
+        },
+        {
+          "x": 466,
+          "y": 632
+        }
+      ],
+      "labelT": 0.66
     },
     {
       "id": "liberar-estoque-to-item-de-estoque",
@@ -391,6 +441,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 632
+        },
+        {
+          "x": -14,
+          "y": 912
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -404,7 +464,7 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.66
+      "labelT": 0.33999999999999997
     }
   ],
   "customAssets": []

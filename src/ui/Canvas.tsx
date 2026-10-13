@@ -1,10 +1,11 @@
 import { createContext, memo, type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
-import { DDD_BADGES, DDD_ROLES, DECISION_GATES, LOGIC_ROLES, docMode } from "../shared/schema";
+import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, docMode, isDataRole } from "../shared/schema";
 import { explain, parseExpr } from "../shared/expr";
-import { edgeIdsOf, factNames, logicStatus, relatedTo } from "../shared/logic";
-import { CARD_X, HEAD_H, LOGIC_ICON, figureText, isFailureScenario, ruleCard, scenarioTitle } from "../shared/logiccard";
+import { edgeIdsOf, dataNames, logicStatus, nextExit, relatedTo } from "../shared/logic";
+import { coverageGaps } from "../shared/logiceval";
+import { HEAD_H, LOGIC_ICON, figureText, isFailureScenario, ruleCard, scenarioTitle } from "../shared/logiccard";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { truncate, wrapLabel } from "../shared/text";
 import { IconSvg } from "./icons";
@@ -116,18 +117,14 @@ const DomainShape = memo(function DomainShape({ n, selected, hot, hovered }: { n
   const badge = DDD_BADGES[n.ddd!.role];
   const bw = Math.max(46, badge.length * 8.4 + 18);
   const chars = Math.floor((n.w - bw - 40) / 7);
-  const sub = n.ddd!.role === "decision" ? `${role.label} · ${DECISION_GATES[n.ddd!.gate ?? "exclusive"].label}` : n.ddd!.role === "use-case" && n.ddd!.actor ? `${role.label} · ${n.ddd!.actor}` : n.ddd!.external ? `${role.label} ← ${n.ddd!.external}` : role.label;
+  const sub = n.ddd!.role === "use-case" && n.ddd!.actor ? `${role.label} · ${n.ddd!.actor}` : n.ddd!.external ? `${role.label} ← ${n.ddd!.external}` : role.label;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${role.label}: ${n.label}`} transform={`translate(${n.x},${n.y})`} className={`node domain${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
       <title>{`${n.label}\n${role.label} — ${role.hint}${n.description ? "\n" + n.description : ""}`}</title>
       <rect className="node-body" width={n.w} height={n.h} rx={18} filter="url(#shadow)" style={fillStyle(n) ?? { fill: role.color, fillOpacity: 0.14 }} />
       <rect className="node-sheen" width={n.w} height={n.h} rx={18} fill="url(#sheen)" pointerEvents="none" />
       <rect className="node-ring" width={n.w} height={n.h} rx={18} pointerEvents="none" />
-      {n.ddd!.role === "decision" ? (
-        <polygon points={`${8 + bw / 2},6 ${8 + bw},${n.h / 2} ${8 + bw / 2},${n.h - 6} 8,${n.h / 2}`} fill={role.color} pointerEvents="none" />
-      ) : (
-        <rect x={8} y={8} width={bw} height={n.h - 16} rx={11} fill={role.color} pointerEvents="none" />
-      )}
+      <rect x={8} y={8} width={bw} height={n.h - 16} rx={11} fill={role.color} pointerEvents="none" />
       <text x={8 + bw / 2} y={n.h / 2 + 0.5} className="ep-badge" pointerEvents="none">
         {badge}
       </text>
@@ -153,13 +150,13 @@ const FLOW_EDGE: Record<string, { color: string; dash?: string }> = {
   loop: { color: "#c2548b", dash: "5 5" },
   case: { color: "#706fd3" },
 };
-const flowKey = (c: ConnectionEl) => (c.logic?.branch === "sim" ? "ok" : c.logic?.branch === "nao" ? "no" : c.logic?.branch === "repete" ? "loop" : c.logic?.case !== undefined ? "case" : "n");
+const flowKey = (c: ConnectionEl) => (c.logic?.branch === "sim" ? "ok" : c.logic?.branch === "nao" || c.logic?.branch === "erro" ? "no" : c.logic?.branch === "repete" ? "loop" : c.logic?.case !== undefined ? "case" : "n");
 
 /** Destaque de um elemento do fluxo: passo atual da reprodução, já percorrido, apagado ou relacionado ao selecionado. */
 export type Viz = "cur" | "vis" | "dim" | "rel";
 
 /** Legenda de cada elemento do fluxo (a primeira linha pequena do cartão). */
-const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Regra", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", fact: "Dado", scenario: "Cenário" };
+const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Ação", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", input: "Entrada", output: "Resultado", variable: "Variável", scenario: "Cenário" };
 
 /** Ícone no azulejo colorido do cartão (viewBox 24). */
 function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: number; y: number; size: number; color: string; round?: boolean }) {
@@ -183,7 +180,7 @@ function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: nu
  * legenda pequena e título; a condição ou o efeito em português logo abaixo; dados como etiquetas; estado dos exemplos como
  * um selo redondo. Sem losangos nem caixas de fluxograma antigo: o tipo do elemento vem do ícone, da legenda e da cor.
  */
-const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; names: Record<string, string>; viz?: Viz; badge?: number }) {
+const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status, gap, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names: Record<string, string>; viz?: Viz; badge?: number }) {
   const l = n.logic!;
   const role = LOGIC_ROLES[l.role];
   const color = (l.role === "end" && l.outcome === "erro") || isFailureScenario(n) ? "#d6453d" : role.color;
@@ -192,9 +189,16 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
   const w = n.w;
   const h = n.h;
   const dashed = l.role === "loop" || l.role === "call";
-  const R = l.role === "start" || l.role === "end" ? h / 2 : l.role === "fact" ? 14 : 16;
+  const R = l.role === "start" || l.role === "end" ? h / 2 : isDataRole(l.role) ? 14 : 16;
   const seal = (x: number, y: number) =>
-    status === "ok" || status === "fail" ? (
+    status !== "fail" && gap?.length ? (
+      // falta cobrir: nenhum exemplo ou cenário passa por aqui (ou por um dos ramos)
+      <g transform={`translate(${x},${y})`} pointerEvents="none" className="logic-seal logic-seal-gap">
+        <title>{`Sem cenário: ${gap.join(" ")}`}</title>
+        <circle r={9} fill="none" stroke="#c98a14" strokeWidth={2} strokeDasharray="3 2.5" />
+        <path d="M-3.5,0 L3.5,0" fill="none" stroke="#c98a14" strokeWidth={2.2} strokeLinecap="round" />
+      </g>
+    ) : status === "ok" || status === "fail" ? (
       <g transform={`translate(${x},${y})`} pointerEvents="none" className="logic-seal">
         <title>{status === "ok" ? "Os exemplos batem" : "Algum exemplo não bate"}</title>
         <circle r={9} fill={status === "ok" ? "#2f9e6b" : "#d6453d"} />
@@ -252,7 +256,7 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
   }
 
   /* dado: etiqueta compacta */
-  if (l.role === "fact") {
+  if (isDataRole(l.role)) {
     const sub = l.key ?? n.id.replace(/-/g, "_");
     return g(
       <>
@@ -261,7 +265,10 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
           {wrapLabel(n.label, Math.floor((w - 44) / 7), 1)[0]}
         </text>
         <text x={32} y={h / 2 + 12} className="logic-mono" pointerEvents="none">
-          {truncate(sub, Math.floor((w - 44) / 6))}
+          {truncate(sub, Math.floor((w - 44) / 6) - 4)}
+        </text>
+        <text x={w - 10} y={h / 2 + 12} textAnchor="end" className="logic-mono" style={{ fontWeight: 700, fill: color }} pointerEvents="none">
+          {role.badge}
         </text>
       </>,
     );
@@ -333,40 +340,68 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
             </text>
           </g>
         );
-        if (sec.chips) {
-          y += sec.rows! * 24 + 10;
-          return (
-            <g key="dados" pointerEvents="none">
-              <line x1={14} x2={w - 14} y1={top - 6} y2={top - 6} className="logic-rule-line" />
-              {pill}
-              {sec.chips.map((c, k) => (
-                <g key={k} transform={`translate(${CARD_X + c.x},${top + c.row * 24})`} className={`logic-chip${c.write ? " write" : ""}`}>
-                  <rect width={c.w} height={19} rx={9.5} />
-                  <text x={c.w / 2} y={13} textAnchor="middle">
-                    {c.text}
-                  </text>
-                </g>
-              ))}
-            </g>
-          );
-        }
+        let off = 0;
         const el = (
           <g key={sec.kind + top} pointerEvents="none">
             <line x1={14} x2={w - 14} y1={top - 6} y2={top - 6} className="logic-rule-line" />
-            {pill}
-            {sec.lines.map((ln, k) => (
-              <text key={k} x={CARD_X + (ln.indent ? 14 : 0)} y={top + 13 + k * 15} className={`logic-line${ln.cond ? " logic-cond" : ""}`}>
-                {ln.text}
-              </text>
-            ))}
+            {sec.label && pill}
+            {sec.items.map((it) => {
+              const iy = top + off;
+              off += it.h;
+              if (it.block)
+                return (
+                  <g key={iy} transform={`translate(${card.x},${iy})`}>
+                    {it.block.prims.map((p, k) =>
+                      p.kind === "bar" ? (
+                        <line key={k} x1={p.x} x2={p.x} y1={p.y} y2={p.y + p.h} className="logic-blk bar" />
+                      ) : (
+                        <g key={k} transform={`translate(${p.x},${p.y})`} className={`logic-blk ${p.kind}`}>
+                          {p.kind !== "op" && <rect width={p.w} height={p.h} rx={p.kind === "mode" ? 9 : 6} />}
+                          {(p.lines ?? []).map((t, i) => (
+                            <text key={i} x={p.kind === "var" || p.kind === "lit" || p.kind === "expr" ? 7 : p.w / 2} y={13 + i * 13} textAnchor={p.kind === "var" || p.kind === "lit" || p.kind === "expr" ? "start" : "middle"}>
+                              {t}
+                            </text>
+                          ))}
+                        </g>
+                      ),
+                    )}
+                  </g>
+                );
+              const ln = it.line!;
+              return (
+                <text key={iy} x={card.x + (ln.indent ? 14 : 0)} y={iy + 13} className={`logic-line${ln.cond ? " logic-cond" : ""}`}>
+                  {marked(ln.text)}
+                </text>
+              );
+            })}
           </g>
         );
-        y += sec.lines.length * 15 + 14;
+        y += Math.max(15, sec.items.reduce((a, it) => a + it.h, 0)) + 14;
         return el;
       })}
     </>,
   );
 });
+
+/** Texto do cartão com dados (azul) e operadores lógicos (negrito) destacados, a partir das marcas do `explain`. */
+function marked(text: string): ReactNode {
+  const out: ReactNode[] = [];
+  let kind = "";
+  let buf = "";
+  const flush = () => {
+    if (buf) out.push(kind ? <tspan key={out.length} className={kind === "v" ? "logic-var" : "logic-op"}>{buf}</tspan> : buf);
+    buf = "";
+  };
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code >= 1 && code <= 4) {
+      flush();
+      kind = code === 1 ? "v" : code === 3 ? "o" : "";
+    } else buf += ch;
+  }
+  flush();
+  return out;
+}
 
 /** Estilo inline do fundo (cor + transparência) de nós e grupos; vazio mantém o padrão do tema. */
 const fillStyle = (e: { fill?: string; fillOpacity?: number }): CSSProperties | undefined =>
@@ -380,13 +415,13 @@ const refName = (n: NodeEl) => {
 /** Assets personalizados do diagrama exibido (no visualizador, o diagrama é outro). */
 export const ViewerAssets = createContext<Asset[] | null>(null);
 
-export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; names?: Record<string, string>; viz?: Viz; badge?: number }) {
+export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, gap, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names?: Record<string, string>; viz?: Viz; badge?: number }) {
   const extra = useContext(ViewerAssets);
   const asset = extra?.find((a) => a.id === n.asset) ?? lookupAsset(n.asset);
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
-  if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} names={names ?? NO_NAMES} viz={viz} badge={badge} />;
+  if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
@@ -978,7 +1013,8 @@ export function DiagramDefs() {
 export function Canvas() {
   const doc = useStore((s) => s.doc);
   const lstatus = useMemo(() => (docMode(doc) === "logic" ? logicStatus(doc) : null), [doc]);
-  const lnames = useMemo(() => (docMode(doc) === "logic" ? factNames(doc) : NO_NAMES), [doc]);
+  const lgaps = useMemo(() => (docMode(doc) === "logic" ? coverageGaps(doc) : null), [doc]);
+  const lnames = useMemo(() => (docMode(doc) === "logic" ? dataNames(doc) : NO_NAMES), [doc]);
   const play = useStore((s) => s.play);
   const selId = useStore((s) => (s.sel.length === 1 ? s.sel[0] : null));
   // destaque do fluxo: reprodução de um cenário (passo atual, caminho já percorrido) ou os dados/passos ligados ao selecionado
@@ -1005,10 +1041,10 @@ export function Canvas() {
       if (sel?.logic && sel.logic.role !== "scenario") {
         const rel = relatedTo(doc, selId);
         if (rel.size) {
-          const factSel = sel.logic.role === "fact";
+          const factSel = isDataRole(sel.logic.role);
           for (const nd of doc.nodes) {
             if (nd.id === selId) continue;
-            const isFact = nd.logic?.role === "fact";
+            const isFact = isDataRole(nd.logic?.role);
             if (rel.has(nd.id)) nodes.set(nd.id, "rel");
             else if (factSel ? !isFact : isFact) nodes.set(nd.id, "dim");
           }
@@ -1426,10 +1462,12 @@ export function Canvas() {
         const to = connectTarget(e.clientX, e.clientY, d.from);
         if (to) {
           // no modo domain o tipo vem da relação de domínio (inferida pelos dois elementos); a barra de tipos é da arquitetura
-          const [r] = run([{ op: "add_connection", from: d.from, to, ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic" ? {} : { type: s.connType }) }]);
+          // decisão (modo lógica): a 1ª seta nasce «sim» e a 2ª «não»; antes ficava sem saída e só a validação reclamava
+          const logic = docMode(s.doc) === "logic" ? nextExit(s.doc, d.from) : undefined;
+          const [r] = run([{ op: "add_connection", from: d.from, to, ...(logic ? { logic } : {}), ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic" ? {} : { type: s.connType }) }]);
           if (r.ok && r.id) {
             select([r.id]);
-            set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão
+            if (logic?.case === undefined) set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão (a seta de um caso abre a própria condição)
           } else if (r.error) toastError(r.error);
         }
         break;
@@ -1634,7 +1672,7 @@ export function Canvas() {
             .filter(({ c }) => c.id === sel[0])
             .map(({ c, g }) => <EdgeHandles key={c.id} c={c} g={g} z={view.z} />)}
         {doc.nodes.filter((n) => !flow || flow.nodes.has(n.id)).map((n) => (
-          <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} status={lstatus?.get(n.id)} names={lnames} viz={viz.nodes.get(n.id)} badge={viz.badges.get(n.id)} />
+          <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} status={lstatus?.get(n.id)} gap={lgaps?.get(n.id)} names={lnames} viz={viz.nodes.get(n.id)} badge={viz.badges.get(n.id)} />
         ))}
         {flow &&
           doc.nodes

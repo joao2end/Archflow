@@ -314,7 +314,7 @@ export function FilesPanel() {
           <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "domain")} aria-label="Novo diagrama de domínio" data-tip="Novo diagrama de domínio (DDD)" data-tip-pos="bottom">
             <Glyph name="layers" size={17} />
           </button>
-          <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "logic")} aria-label="Novo diagrama de lógica" data-tip="Novo diagrama de lógica (regras)" data-tip-pos="bottom">
+          <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "logic")} aria-label="Novo diagrama de lógica" data-tip="Novo diagrama de lógica (ações e decisões)" data-tip-pos="bottom">
             <Glyph name="mode-logic" size={17} />
           </button>
           <button className="btn ghost icon sm" onClick={() => set({ modal: { type: "examples" } })} aria-label="Exemplos de DDD" data-tip="Exemplos de DDD (modelos prontos)" data-tip-pos="bottom">

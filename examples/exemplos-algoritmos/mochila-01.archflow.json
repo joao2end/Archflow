@@ -1,0 +1,1463 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-bpm13i",
+  "title": "Mochila 0/1 (programação dinâmica)",
+  "description": "Maior valor que cabe numa mochila de capacidade cap, escolhendo cada item no máximo uma vez, e quais itens são esses. A tabela guarda, para cada quantidade i de itens considerados (linha) e cada capacidade w (coluna), o maior valor possível. Cada célula é o maior entre deixar o item i (valor da linha de cima, mesma coluna) e levá-lo (valor da linha de cima na coluna w − peso, mais o valor do item), este só se o peso cabe em w. Como é preciso refazer o caminho, todas as linhas são guardadas. A volta parte da última célula: se o valor é igual ao da linha de cima, o item ficou de fora; senão foi levado e a capacidade diminui do peso dele.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 360,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1922,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1922,
+      "y": 108,
+      "w": 306,
+      "h": 534,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1922,
+      "y": 632,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1922,
+      "y": 830,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "pesos",
+      "label": "Pesos dos itens",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "pesos",
+        "type": "lista",
+        "text": "Peso de cada item (inteiro ≥ 1), na ordem dos itens. Pode estar vazia."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "valores",
+      "label": "Valores dos itens",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "valores",
+        "type": "lista",
+        "text": "Valor de cada item (inteiro ≥ 0), na mesma ordem e do mesmo tamanho que pesos."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "cap",
+      "label": "Capacidade",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "cap",
+        "type": "inteiro",
+        "text": "Peso total máximo da mochila (inteiro ≥ 0)."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "n",
+      "label": "Quantidade de itens",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "n",
+        "type": "inteiro",
+        "text": "Quantos itens existem."
+      },
+      "x": 1950,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tabela",
+      "label": "Tabela de valores",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "tabela",
+        "type": "lista",
+        "text": "Lista de linhas. A linha k tem cap + 1 números: no lugar w, o maior valor usando só os k primeiros itens e capacidade w. A linha 0 é só zeros."
+      },
+      "x": 1950,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "anterior",
+      "label": "Linha de cima",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "anterior",
+        "type": "lista",
+        "text": "A última linha pronta da tabela."
+      },
+      "x": 1950,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "atual",
+      "label": "Linha sendo montada",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "atual",
+        "type": "lista",
+        "text": "A linha do item da vez; as células entram da esquerda para a direita."
+      },
+      "x": 1950,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "i",
+      "label": "Item",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "i",
+        "type": "inteiro",
+        "text": "Quantos itens já foram considerados (na volta: o item que está sendo examinado)."
+      },
+      "x": 1950,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "w",
+      "label": "Capacidade da coluna",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "w",
+        "type": "inteiro",
+        "text": "A coluna da vez; na volta, a capacidade que ainda sobra."
+      },
+      "x": 1950,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "sem",
+      "label": "Valor deixando o item",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "sem",
+        "type": "inteiro",
+        "text": "O valor da linha de cima na mesma coluna."
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "com",
+      "label": "Valor levando o item",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "com",
+        "type": "inteiro",
+        "text": "O valor da linha de cima na coluna w − peso, mais o valor do item."
+      },
+      "x": 1950,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "melhor",
+      "label": "Valor da célula",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "melhor",
+        "type": "inteiro",
+        "text": "O maior entre deixar e levar (só deixar, se o peso não cabe)."
+      },
+      "x": 1950,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "valor",
+      "label": "Maior valor",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "valor",
+        "type": "inteiro",
+        "text": "Resposta: o maior valor total possível."
+      },
+      "x": -380,
+      "y": 276,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "escolhidos",
+      "label": "Itens escolhidos",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "escolhidos",
+        "type": "lista",
+        "text": "Resposta: as posições (a partir de 0) dos itens levados, em ordem crescente."
+      },
+      "x": 1950,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Resolver a mochila",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram pesos, valores e cap."
+      },
+      "x": 735,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ok",
+      "label": "A entrada é válida?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(pesos) = tamanho(valores) e cap >= 0 e vazio(filtrar(pesos, item < 1))",
+        "text": "Pesos e valores têm o mesmo tamanho, a capacidade não é negativa e nenhum peso é menor que 1.",
+        "examples": [
+          {
+            "name": "válida",
+            "given": {
+              "pesos": [
+                1,
+                2
+              ],
+              "valores": [
+                3,
+                4
+              ],
+              "cap": 5
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "peso zero",
+            "given": {
+              "pesos": [
+                0
+              ],
+              "valores": [
+                3
+              ],
+              "cap": 5
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 710,
+      "y": 124,
+      "w": 330,
+      "h": 115
+    },
+    {
+      "id": "prepara",
+      "label": "Preparar a tabela",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Conta os itens, zera os contadores e as listas.",
+        "then": [
+          "n := tamanho(pesos)",
+          "anterior := []",
+          "tabela := []",
+          "escolhidos := []",
+          "i := 0",
+          "w := 0"
+        ],
+        "examples": [
+          {
+            "name": "3 itens",
+            "given": {
+              "pesos": [
+                1,
+                2,
+                3
+              ]
+            },
+            "expect": {
+              "n": 3,
+              "anterior": [],
+              "tabela": [],
+              "escolhidos": [],
+              "i": 0,
+              "w": 0
+            }
+          }
+        ]
+      },
+      "x": 535,
+      "y": 303,
+      "w": 330,
+      "h": 212
+    },
+    {
+      "id": "l-zeros",
+      "label": "A linha 0 já tem cap + 1 zeros?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "w > cap",
+        "text": "Para quando w passou de cap. Sem itens, o valor é 0 em toda capacidade."
+      },
+      "x": 705,
+      "y": 579,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "zero-passo",
+      "label": "Acrescentar um zero à linha 0",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Põe 0 no fim da linha e avança a coluna.",
+        "then": [
+          "anterior := adicionar(anterior, 0)",
+          "w := w + 1"
+        ],
+        "examples": [
+          {
+            "name": "passo",
+            "given": {
+              "anterior": [],
+              "w": 0
+            },
+            "expect": {
+              "anterior": [
+                0
+              ],
+              "w": 1
+            }
+          }
+        ]
+      },
+      "x": 455,
+      "y": 744,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "guarda-base",
+      "label": "Guardar a linha 0 na tabela",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A tabela começa só com a linha de zeros.",
+        "then": [
+          "tabela := [anterior]"
+        ],
+        "examples": [
+          {
+            "name": "base",
+            "given": {
+              "anterior": [
+                0,
+                0
+              ]
+            },
+            "expect": {
+              "tabela": [
+                [
+                  0,
+                  0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 965,
+      "y": 754.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "l-itens",
+      "label": "Todos os itens foram considerados?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "i >= n",
+        "text": "Para quando i chegou a n. Cada volta monta a linha de um item."
+      },
+      "x": 705,
+      "y": 922,
+      "w": 340,
+      "h": 116
+    },
+    {
+      "id": "novo-item",
+      "label": "Passar ao próximo item",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Avança i (o item da vez é o de posição i − 1), começa uma linha vazia e volta à coluna 0.",
+        "then": [
+          "i := i + 1",
+          "atual := []",
+          "w := 0"
+        ],
+        "examples": [
+          {
+            "name": "item 1",
+            "given": {
+              "i": 0
+            },
+            "expect": {
+              "i": 1,
+              "atual": [],
+              "w": 0
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1102,
+      "w": 330,
+      "h": 149
+    },
+    {
+      "id": "l-colunas",
+      "label": "A linha já tem cap + 1 células?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "w > cap",
+        "text": "Para quando w passou de cap. Cada volta calcula uma célula."
+      },
+      "x": 500,
+      "y": 1315,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "deixa",
+      "label": "Valor deixando o item",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "É o valor da linha de cima, na mesma coluna.",
+        "then": [
+          "sem := anterior[w]"
+        ],
+        "examples": [
+          {
+            "name": "deixa",
+            "given": {
+              "anterior": [
+                0,
+                3,
+                3
+              ],
+              "w": 1
+            },
+            "expect": {
+              "sem": 3
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1484.5,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "cabe",
+      "label": "O peso do item cabe nesta capacidade?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "w >= pesos[i - 1]",
+        "text": "O item da vez é o de posição i − 1. Peso igual à capacidade ainda cabe.",
+        "examples": [
+          {
+            "name": "cabe",
+            "given": {
+              "w": 3,
+              "pesos": [
+                3
+              ],
+              "i": 1
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não cabe",
+            "given": {
+              "w": 2,
+              "pesos": [
+                3
+              ],
+              "i": 1
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 80,
+      "y": 1669.5,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "leva",
+      "label": "Valor levando o item",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Valor da linha de cima na coluna que sobra após o peso, mais o valor do item; vale o maior entre levar e deixar.",
+        "then": [
+          "com := anterior[w - pesos[i - 1]] + valores[i - 1]",
+          "melhor := max(sem, com)"
+        ],
+        "examples": [
+          {
+            "name": "leva",
+            "given": {
+              "anterior": [
+                0,
+                0,
+                0
+              ],
+              "w": 2,
+              "pesos": [
+                2
+              ],
+              "valores": [
+                3
+              ],
+              "i": 1,
+              "sem": 0
+            },
+            "expect": {
+              "com": 3,
+              "melhor": 3
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 1859,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "so-deixa",
+      "label": "Só dá para deixar o item",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O peso não cabe: a célula é o valor da linha de cima.",
+        "then": [
+          "melhor := sem"
+        ],
+        "examples": [
+          {
+            "name": "deixa",
+            "given": {
+              "sem": 4
+            },
+            "expect": {
+              "melhor": 4
+            }
+          }
+        ]
+      },
+      "x": 910,
+      "y": 1876.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "guarda-celula",
+      "label": "Guardar a célula",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Põe o valor no fim da linha e avança a coluna.",
+        "then": [
+          "atual := adicionar(atual, melhor)",
+          "w := w + 1"
+        ],
+        "examples": [
+          {
+            "name": "guarda",
+            "given": {
+              "atual": [
+                0
+              ],
+              "melhor": 3,
+              "w": 1
+            },
+            "expect": {
+              "atual": [
+                0,
+                3
+              ],
+              "w": 2
+            }
+          }
+        ]
+      },
+      "x": 655,
+      "y": 2051,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "fecha-item",
+      "label": "A linha pronta entra na tabela",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda a linha na tabela e a torna a linha de cima do próximo item.",
+        "then": [
+          "tabela := adicionar(tabela, atual)",
+          "anterior := atual"
+        ],
+        "examples": [
+          {
+            "name": "fecha",
+            "given": {
+              "tabela": [
+                [
+                  0,
+                  0
+                ]
+              ],
+              "atual": [
+                0,
+                3
+              ]
+            },
+            "expect": {
+              "tabela": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  3
+                ]
+              ],
+              "anterior": [
+                0,
+                3
+              ]
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 1481,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "resposta",
+      "label": "Ler a resposta e preparar a volta",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O maior valor é a última célula da última linha. A volta começa nessa célula.",
+        "then": [
+          "valor := anterior[cap]",
+          "w := cap",
+          "i := n"
+        ],
+        "examples": [
+          {
+            "name": "lê",
+            "given": {
+              "anterior": [
+                0,
+                3,
+                3
+              ],
+              "cap": 2,
+              "n": 1
+            },
+            "expect": {
+              "valor": 3,
+              "w": 2,
+              "i": 1
+            }
+          }
+        ]
+      },
+      "x": 910,
+      "y": 1102,
+      "w": 330,
+      "h": 149
+    },
+    {
+      "id": "l-volta",
+      "label": "Todos os itens foram examinados?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "i <= 0",
+        "text": "Para quando i chegou a 0. Cada volta examina um item, do último para o primeiro."
+      },
+      "x": 910,
+      "y": 1322,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "ficou-fora",
+      "label": "O valor é igual ao da linha de cima?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tabela[i][w] = tabela[i - 1][w]",
+        "text": "Se levar o item não melhora, ele ficou de fora. Em empate também.",
+        "examples": [
+          {
+            "name": "fora",
+            "given": {
+              "tabela": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0
+                ]
+              ],
+              "i": 1,
+              "w": 1
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "levado",
+            "given": {
+              "tabela": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  3
+                ]
+              ],
+              "i": 1,
+              "w": 1
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 910,
+      "y": 1480,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "pula",
+      "label": "O item ficou de fora",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Só passa ao item de cima.",
+        "then": [
+          "i := i - 1"
+        ],
+        "examples": [
+          {
+            "name": "pula",
+            "given": {
+              "i": 2
+            },
+            "expect": {
+              "i": 1
+            }
+          }
+        ]
+      },
+      "x": 480,
+      "y": 1681,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "anota",
+      "label": "O item foi levado",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Anota a posição do item (i − 1), tira o peso dele da capacidade e passa ao item de cima.",
+        "then": [
+          "escolhidos := adicionar(escolhidos, i - 1)",
+          "w := w - pesos[i - 1]",
+          "i := i - 1"
+        ],
+        "examples": [
+          {
+            "name": "anota",
+            "given": {
+              "escolhidos": [],
+              "i": 2,
+              "w": 7,
+              "pesos": [
+                1,
+                3
+              ]
+            },
+            "expect": {
+              "escolhidos": [
+                1
+              ],
+              "w": 4,
+              "i": 1
+            }
+          }
+        ]
+      },
+      "x": 880,
+      "y": 1660,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "ordena",
+      "label": "Pôr os escolhidos em ordem crescente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A volta os achou do último para o primeiro.",
+        "then": [
+          "escolhidos := ordenar(escolhidos)"
+        ],
+        "examples": [
+          {
+            "name": "ordena",
+            "given": {
+              "escolhidos": [
+                2,
+                1
+              ]
+            },
+            "expect": {
+              "escolhidos": [
+                1,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "x": 1310,
+      "y": 1491.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Valor e itens devolvidos",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve valor e escolhidos."
+      },
+      "x": 1390,
+      "y": 1697.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ruim",
+      "label": "Entrada inválida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Tamanhos diferentes, peso menor que 1 ou capacidade negativa: nada a calcular."
+      },
+      "x": 935,
+      "y": 379,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Quatro itens, capacidade 7",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Pesos 1, 3, 4, 5 e valores 1, 4, 5, 7: leva os itens 1 e 2 (pesos 3 + 4 = 7) e vale 9.",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "pesos": [
+                1,
+                3,
+                4,
+                5
+              ],
+              "valores": [
+                1,
+                4,
+                5,
+                7
+              ],
+              "cap": 7
+            },
+            "expect": {
+              "valor": 9,
+              "escolhidos": [
+                1,
+                2
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1950,
+      "y": 686,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-invalida",
+      "label": "Peso zero",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Um item de peso 0 não é aceito: termina com erro.",
+        "examples": [
+          {
+            "name": "peso zero",
+            "given": {
+              "pesos": [
+                0
+              ],
+              "valores": [
+                3
+              ],
+              "cap": 5
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1950,
+      "y": 884,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-nada",
+      "label": "Nada cabe",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "O único item pesa 3 e a mochila aguenta 2: valor 0 e nenhum item.",
+        "examples": [
+          {
+            "name": "nada",
+            "given": {
+              "pesos": [
+                3
+              ],
+              "valores": [
+                5
+              ],
+              "cap": 2
+            },
+            "expect": {
+              "valor": 0,
+              "escolhidos": [],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1950,
+      "y": 753,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-entrada-ok",
+      "from": "inicio",
+      "to": "entrada-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "entrada-ok-to-prepara",
+      "from": "entrada-ok",
+      "to": "prepara",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entrada-ok-to-entrada-ruim",
+      "from": "entrada-ok",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prepara-to-l-zeros",
+      "from": "prepara",
+      "to": "l-zeros",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-zeros-to-zero-passo",
+      "from": "l-zeros",
+      "to": "zero-passo",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "zero-passo-to-l-zeros",
+      "from": "zero-passo",
+      "to": "l-zeros",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 409,
+          "y": 801
+        },
+        {
+          "x": 409,
+          "y": 629.5
+        }
+      ]
+    },
+    {
+      "id": "l-zeros-to-guarda-base",
+      "from": "l-zeros",
+      "to": "guarda-base",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "guarda-base-to-l-itens",
+      "from": "guarda-base",
+      "to": "l-itens",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-itens-to-novo-item",
+      "from": "l-itens",
+      "to": "novo-item",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "novo-item-to-l-colunas",
+      "from": "novo-item",
+      "to": "l-colunas",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-colunas-to-deixa",
+      "from": "l-colunas",
+      "to": "deixa",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "deixa-to-cabe",
+      "from": "deixa",
+      "to": "cabe",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "cabe-to-leva",
+      "from": "cabe",
+      "to": "leva",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "cabe-to-so-deixa",
+      "from": "cabe",
+      "to": "so-deixa",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "leva-to-guarda-celula",
+      "from": "leva",
+      "to": "guarda-celula",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "so-deixa-to-guarda-celula",
+      "from": "so-deixa",
+      "to": "guarda-celula",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "guarda-celula-to-l-colunas",
+      "from": "guarda-celula",
+      "to": "l-colunas",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 2108
+        },
+        {
+          "x": -64,
+          "y": 1365.5
+        }
+      ]
+    },
+    {
+      "id": "l-colunas-to-fecha-item",
+      "from": "l-colunas",
+      "to": "fecha-item",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fecha-item-to-l-itens",
+      "from": "fecha-item",
+      "to": "l-itens",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 1538
+        },
+        {
+          "x": -82,
+          "y": 980
+        }
+      ]
+    },
+    {
+      "id": "l-itens-to-resposta",
+      "from": "l-itens",
+      "to": "resposta",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "resposta-to-l-volta",
+      "from": "resposta",
+      "to": "l-volta",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-volta-to-ficou-fora",
+      "from": "l-volta",
+      "to": "ficou-fora",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ficou-fora-to-pula",
+      "from": "ficou-fora",
+      "to": "pula",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ficou-fora-to-anota",
+      "from": "ficou-fora",
+      "to": "anota",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pula-to-l-volta",
+      "from": "pula",
+      "to": "l-volta",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1727.5
+        },
+        {
+          "x": -46,
+          "y": 1365.5
+        }
+      ]
+    },
+    {
+      "id": "anota-to-l-volta",
+      "from": "anota",
+      "to": "l-volta",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1727.5
+        },
+        {
+          "x": -64,
+          "y": 1365.5
+        }
+      ]
+    },
+    {
+      "id": "l-volta-to-ordena",
+      "from": "l-volta",
+      "to": "ordena",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ordena-to-pronto",
+      "from": "ordena",
+      "to": "pronto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    }
+  ],
+  "customAssets": []
+}

@@ -1,0 +1,1944 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-pympso",
+  "title": "Componentes fortemente conexos (Tarjan)",
+  "description": "Agrupa os nós de um grafo dirigido em componentes onde todos se alcançam. Faz uma busca em profundidade que numera os nós na ordem em que são descobertos (ind) e guarda para cada um o menor número alcançável por ele (low). Um nó cujo low é igual ao próprio número é a raiz de um componente: tudo que está na pilha acima dele, e ele mesmo, forma o componente. Sem recursão no formato, a busca usa uma pilha de chamadas e um ponteiro para a próxima aresta de cada nó. Mapas viram listas de pares [nó, valor].",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 244,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1632,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1632,
+      "y": 166,
+      "w": 306,
+      "h": 766,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1632,
+      "y": 922,
+      "w": 376,
+      "h": 219,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1632,
+      "y": 1135,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "nos",
+      "label": "Nós",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "nos",
+        "type": "lista",
+        "text": "Números distintos, em qualquer ordem. Pode estar vazia."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "arestas",
+      "label": "Arestas",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "arestas",
+        "type": "lista",
+        "text": "Pares [de, para]: seta de «de» para «para». Os dois números têm de estar em nos."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "contador",
+      "label": "Contador de descoberta",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "contador",
+        "type": "inteiro",
+        "text": "O próximo número de descoberta. Começa em 0."
+      },
+      "x": 1660,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ind",
+      "label": "Número de descoberta de cada nó",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "ind",
+        "type": "lista",
+        "text": "Pares [nó, número]: a ordem em que o nó foi descoberto. Um nó sem par ainda não foi visitado."
+      },
+      "x": 1660,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "low",
+      "label": "Menor número alcançável",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "low",
+        "type": "lista",
+        "text": "Pares [nó, número]: o menor número de descoberta que o nó alcança pela busca. Começa igual a ind e só diminui."
+      },
+      "x": 1660,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "prox",
+      "label": "Próxima aresta de cada nó",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "prox",
+        "type": "lista",
+        "text": "Pares [nó, posição]: quantas das setas que saem do nó já foram examinadas."
+      },
+      "x": 1660,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "pilha",
+      "label": "Pilha de componente",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "pilha",
+        "type": "lista",
+        "text": "Nós descobertos que ainda não foram atribuídos a um componente, do mais antigo ao mais novo."
+      },
+      "x": 1660,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "chamadas",
+      "label": "Pilha de chamadas",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "chamadas",
+        "type": "lista",
+        "text": "Os nós da busca em andamento, do início da busca até o nó de agora (o último)."
+      },
+      "x": 1660,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "componentes",
+      "label": "Componentes",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "componentes",
+        "type": "lista",
+        "text": "Resposta: cada componente é uma lista de nós em ordem crescente, na ordem em que foram concluídos."
+      },
+      "x": 1660,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "quantidade",
+      "label": "Quantidade de componentes",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "quantidade",
+        "type": "inteiro",
+        "text": "Resposta: quantos componentes existem."
+      },
+      "x": 1660,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "v",
+      "label": "Nó de agora",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "v",
+        "type": "número",
+        "text": "O último da pilha de chamadas: o nó que a busca está examinando."
+      },
+      "x": 1660,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "viz",
+      "label": "Vizinhos do nó de agora",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "viz",
+        "type": "lista",
+        "text": "Os «para» das setas que saem de v, na ordem de arestas."
+      },
+      "x": 1660,
+      "y": 626,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "k",
+      "label": "Posição da próxima seta",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "k",
+        "type": "inteiro",
+        "text": "Quantas setas de v já foram examinadas."
+      },
+      "x": 1660,
+      "y": 684,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "w",
+      "label": "Vizinho em exame",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "w",
+        "type": "número",
+        "text": "O vizinho de v que está sendo examinado."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "u",
+      "label": "Nó que chamou v",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "u",
+        "type": "número",
+        "text": "O nó logo abaixo de v na pilha de chamadas."
+      },
+      "x": 1660,
+      "y": 742,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "comp",
+      "label": "Componente em montagem",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "comp",
+        "type": "lista",
+        "text": "Os nós que saem da pilha de componente até a raiz."
+      },
+      "x": 1660,
+      "y": 800,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "topo",
+      "label": "Nó que sai da pilha",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "topo",
+        "type": "número",
+        "text": "O último nó da pilha de componente."
+      },
+      "x": 1660,
+      "y": 858,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Achar os componentes",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram nos e arestas."
+      },
+      "x": 590,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ok",
+      "label": "Toda aresta liga nós da lista?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(filtrar(arestas, contem(nos, item[0]) = falso ou contem(nos, item[1]) = falso))",
+        "text": "Nenhuma aresta pode citar um número que não está em nos.",
+        "examples": [
+          {
+            "name": "ok",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "fora",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  3
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 565,
+      "y": 124,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "prepara",
+      "label": "Começar sem nenhum nó visitado",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Todas as listas vazias e o contador em 0.",
+        "then": [
+          "contador := 0",
+          "ind := []",
+          "low := []",
+          "prox := []",
+          "pilha := []",
+          "chamadas := []",
+          "componentes := []"
+        ],
+        "examples": [
+          {
+            "name": "zera",
+            "given": {},
+            "expect": {
+              "contador": 0,
+              "ind": [],
+              "low": [],
+              "prox": [],
+              "pilha": [],
+              "chamadas": [],
+              "componentes": []
+            }
+          }
+        ]
+      },
+      "x": 390,
+      "y": 289,
+      "w": 330,
+      "h": 275
+    },
+    {
+      "id": "l-nos",
+      "label": "Para cada nó de nos",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "nos",
+        "as": "s",
+        "text": "Na ordem da lista. Cada nó ainda não visitado inicia uma busca."
+      },
+      "x": 560,
+      "y": 628,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "nao-visitado",
+      "label": "O nó ainda não foi visitado?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(primeiro(mapear(filtrar(ind, item[0] = s), item[1])))",
+        "text": "Sem número de descoberta, ainda não foi visitado.",
+        "examples": [
+          {
+            "name": "novo",
+            "given": {
+              "s": 1,
+              "ind": []
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "já visto",
+            "given": {
+              "s": 1,
+              "ind": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 779,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "visita-raiz",
+      "label": "Iniciar a busca neste nó",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Dá ao nó o próximo número de descoberta (ind e low iguais), põe o nó nas duas pilhas e zera o ponteiro das setas dele.",
+        "then": [
+          "ind := adicionar(filtrar(ind, item[0] != s), [s, contador])",
+          "low := adicionar(filtrar(low, item[0] != s), [s, contador])",
+          "prox := adicionar(filtrar(prox, item[0] != s), [s, 0])",
+          "contador := contador + 1",
+          "pilha := adicionar(pilha, s)",
+          "chamadas := adicionar(chamadas, s)"
+        ],
+        "examples": [
+          {
+            "name": "primeiro nó",
+            "given": {
+              "s": 7,
+              "contador": 0,
+              "ind": [],
+              "low": [],
+              "prox": [],
+              "pilha": [],
+              "chamadas": []
+            },
+            "expect": {
+              "ind": [
+                [
+                  7,
+                  0
+                ]
+              ],
+              "low": [
+                [
+                  7,
+                  0
+                ]
+              ],
+              "prox": [
+                [
+                  7,
+                  0
+                ]
+              ],
+              "contador": 1,
+              "pilha": [
+                7
+              ],
+              "chamadas": [
+                7
+              ]
+            }
+          }
+        ]
+      },
+      "x": 335,
+      "y": 944,
+      "w": 440,
+      "h": 266
+    },
+    {
+      "id": "visita-filho",
+      "label": "Descer até o vizinho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Dá ao vizinho o próximo número de descoberta (ind e low iguais), põe-no nas duas pilhas e zera o ponteiro das setas dele.",
+        "then": [
+          "ind := adicionar(filtrar(ind, item[0] != w), [w, contador])",
+          "low := adicionar(filtrar(low, item[0] != w), [w, contador])",
+          "prox := adicionar(filtrar(prox, item[0] != w), [w, 0])",
+          "contador := contador + 1",
+          "pilha := adicionar(pilha, w)",
+          "chamadas := adicionar(chamadas, w)"
+        ],
+        "examples": [
+          {
+            "name": "vizinho",
+            "given": {
+              "w": 2,
+              "contador": 1,
+              "ind": [
+                [
+                  1,
+                  0
+                ]
+              ],
+              "low": [
+                [
+                  1,
+                  0
+                ]
+              ],
+              "prox": [
+                [
+                  1,
+                  1
+                ]
+              ],
+              "pilha": [
+                1
+              ],
+              "chamadas": [
+                1
+              ]
+            },
+            "expect": {
+              "ind": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  2,
+                  1
+                ]
+              ],
+              "low": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  2,
+                  1
+                ]
+              ],
+              "prox": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  0
+                ]
+              ],
+              "contador": 2,
+              "pilha": [
+                1,
+                2
+              ],
+              "chamadas": [
+                1,
+                2
+              ]
+            }
+          }
+        ]
+      },
+      "x": 105,
+      "y": 2189,
+      "w": 440,
+      "h": 266
+    },
+    {
+      "id": "l-dfs",
+      "label": "A busca terminou?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "vazio(chamadas)",
+        "text": "Para quando não resta nó na pilha de chamadas. Cada volta examina uma seta do último nó ou o conclui."
+      },
+      "x": 560,
+      "y": 1274,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "frame",
+      "label": "Olhar o nó de agora",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega o último da pilha de chamadas, os vizinhos dele e quantas setas já foram examinadas.",
+        "then": [
+          "v := ultimo(chamadas)",
+          "viz := mapear(filtrar(arestas, item[0] = v), item[1])",
+          "k := primeiro(mapear(filtrar(prox, item[0] = v), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "frame",
+            "given": {
+              "chamadas": [
+                1
+              ],
+              "arestas": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  1,
+                  3
+                ]
+              ],
+              "prox": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            "expect": {
+              "v": 1,
+              "viz": [
+                2,
+                3
+              ],
+              "k": 0
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1425,
+      "w": 440,
+      "h": 163
+    },
+    {
+      "id": "tem-viz",
+      "label": "Ainda há setas por examinar?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "k < tamanho(viz)",
+        "text": "k é a posição da próxima seta; se chegou ao total, o nó está esgotado.",
+        "examples": [
+          {
+            "name": "há",
+            "given": {
+              "k": 0,
+              "viz": [
+                2
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "esgotado",
+            "given": {
+              "k": 1,
+              "viz": [
+                2
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 565,
+      "y": 1652,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "vizinho",
+      "label": "Examinar a próxima seta",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega o vizinho e avança o ponteiro do nó.",
+        "then": [
+          "w := viz[k]",
+          "prox := adicionar(filtrar(prox, item[0] != v), [v, k + 1])"
+        ],
+        "examples": [
+          {
+            "name": "próxima",
+            "given": {
+              "viz": [
+                2,
+                3
+              ],
+              "k": 1,
+              "v": 1,
+              "prox": [
+                [
+                  1,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "w": 3,
+              "prox": [
+                [
+                  1,
+                  2
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 1817,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "w-novo",
+      "label": "O vizinho ainda não foi visitado?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(primeiro(mapear(filtrar(ind, item[0] = w), item[1])))",
+        "text": "Sem número de descoberta, o vizinho é novo: a busca desce até ele.",
+        "examples": [
+          {
+            "name": "novo",
+            "given": {
+              "w": 2,
+              "ind": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "visto",
+            "given": {
+              "w": 1,
+              "ind": [
+                [
+                  1,
+                  0
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 365,
+      "y": 2009,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "w-na-pilha",
+      "label": "O vizinho está na pilha de componente?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "contem(pilha, w)",
+        "text": "Se está, ainda é alcançável de volta e pode baixar o low. Se não está, já pertence a um componente concluído e é ignorado.",
+        "examples": [
+          {
+            "name": "na pilha",
+            "given": {
+              "pilha": [
+                1,
+                2
+              ],
+              "w": 1
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "concluído",
+            "given": {
+              "pilha": [
+                3
+              ],
+              "w": 1
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 615,
+      "y": 2257,
+      "w": 330,
+      "h": 130
+    },
+    {
+      "id": "low-w",
+      "label": "Baixar o low pelo vizinho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O low do nó passa a ser o menor entre o dele e o número de descoberta do vizinho.",
+        "then": [
+          "low := adicionar(filtrar(low, item[0] != v), [v, min(primeiro(mapear(filtrar(low, item[0] = v), item[1])), primeiro(mapear(filtrar(ind, item[0] = w), item[1])))])"
+        ],
+        "examples": [
+          {
+            "name": "baixa",
+            "given": {
+              "low": [
+                [
+                  2,
+                  5
+                ]
+              ],
+              "v": 2,
+              "ind": [
+                [
+                  1,
+                  0
+                ]
+              ],
+              "w": 1
+            },
+            "expect": {
+              "low": [
+                [
+                  2,
+                  0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 2526.5,
+      "w": 440,
+      "h": 120
+    },
+    {
+      "id": "eh-raiz",
+      "label": "O low é igual ao número de descoberta?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "primeiro(mapear(filtrar(low, item[0] = v), item[1])) = primeiro(mapear(filtrar(ind, item[0] = v), item[1]))",
+        "text": "Se o nó não alcança nada mais antigo que ele mesmo, é a raiz de um componente.",
+        "examples": [
+          {
+            "name": "raiz",
+            "given": {
+              "low": [
+                [
+                  1,
+                  2
+                ]
+              ],
+              "ind": [
+                [
+                  1,
+                  2
+                ]
+              ],
+              "v": 1
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não",
+            "given": {
+              "low": [
+                [
+                  1,
+                  0
+                ]
+              ],
+              "ind": [
+                [
+                  1,
+                  2
+                ]
+              ],
+              "v": 1
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 820,
+      "y": 1823,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "inicia-comp",
+      "label": "Começar um componente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O componente em montagem está vazio.",
+        "then": [
+          "comp := []"
+        ],
+        "examples": [
+          {
+            "name": "vazio",
+            "given": {},
+            "expect": {
+              "comp": []
+            }
+          }
+        ]
+      },
+      "x": 765,
+      "y": 2013.5,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "l-pop",
+      "label": "A raiz já saiu da pilha?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "contem(comp, v)",
+        "text": "Para quando o nó de agora já está no componente."
+      },
+      "x": 1015,
+      "y": 2271.5,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "pop",
+      "label": "Tirar o último da pilha",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Passa o último nó da pilha de componente para o componente.",
+        "then": [
+          "topo := ultimo(pilha)",
+          "pilha := filtrar(pilha, item != topo)",
+          "comp := adicionar(comp, topo)"
+        ],
+        "examples": [
+          {
+            "name": "tira",
+            "given": {
+              "pilha": [
+                1,
+                2,
+                3
+              ],
+              "comp": []
+            },
+            "expect": {
+              "topo": 3,
+              "pilha": [
+                1,
+                2
+              ],
+              "comp": [
+                3
+              ]
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 2519,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "guarda-comp",
+      "label": "Guardar o componente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Acrescenta o componente, com os nós em ordem crescente, à resposta.",
+        "then": [
+          "componentes := adicionar(componentes, ordenar(comp))"
+        ],
+        "examples": [
+          {
+            "name": "guarda",
+            "given": {
+              "componentes": [],
+              "comp": [
+                3,
+                1,
+                2
+              ]
+            },
+            "expect": {
+              "componentes": [
+                [
+                  1,
+                  2,
+                  3
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 1020,
+      "y": 2540,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "desempilha",
+      "label": "Concluir o nó",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Tira o nó da pilha de chamadas.",
+        "then": [
+          "chamadas := filtrar(chamadas, item != v)"
+        ],
+        "examples": [
+          {
+            "name": "conclui",
+            "given": {
+              "chamadas": [
+                1,
+                2
+              ],
+              "v": 2
+            },
+            "expect": {
+              "chamadas": [
+                1
+              ]
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 2718,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "tem-pai",
+      "label": "Resta algum nó chamador?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(chamadas) > 0",
+        "text": "Se resta, o nó concluído passa o seu low para quem o chamou.",
+        "examples": [
+          {
+            "name": "resta",
+            "given": {
+              "chamadas": [
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "vazia",
+            "given": {
+              "chamadas": []
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 565,
+      "y": 2875,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "sobe-low",
+      "label": "Passar o low ao chamador",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O low do chamador passa a ser o menor entre o dele e o do nó concluído.",
+        "then": [
+          "u := ultimo(chamadas)",
+          "low := adicionar(filtrar(low, item[0] != u), [u, min(primeiro(mapear(filtrar(low, item[0] = u), item[1])), primeiro(mapear(filtrar(low, item[0] = v), item[1])))])"
+        ],
+        "examples": [
+          {
+            "name": "sobe",
+            "given": {
+              "chamadas": [
+                1
+              ],
+              "low": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  0
+                ]
+              ],
+              "v": 2
+            },
+            "expect": {
+              "u": 1,
+              "low": [
+                [
+                  2,
+                  0
+                ],
+                [
+                  1,
+                  0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 3040,
+      "w": 440,
+      "h": 141
+    },
+    {
+      "id": "conta",
+      "label": "Contar os componentes",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A quantidade é o tamanho da lista de componentes.",
+        "then": [
+          "quantidade := tamanho(componentes)"
+        ],
+        "examples": [
+          {
+            "name": "conta",
+            "given": {
+              "componentes": [
+                [
+                  1
+                ],
+                [
+                  2,
+                  3
+                ]
+              ]
+            },
+            "expect": {
+              "quantidade": 2
+            }
+          }
+        ]
+      },
+      "x": 710,
+      "y": 783,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Componentes devolvidos",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve quantidade e componentes."
+      },
+      "x": 845,
+      "y": 1047,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "entrada-ruim",
+      "label": "Aresta para nó inexistente",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Alguma aresta cita um número que não está em nos: nada a calcular."
+      },
+      "x": 790,
+      "y": 396.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Três componentes",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Oito nós: {1,2,3} formam um ciclo, {4,5,6} outro, {7,8} outro; as setas entre eles vão num só sentido. Os componentes saem na ordem 4-5-6, 1-2-3, 7-8.",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "arestas": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  3,
+                  1
+                ],
+                [
+                  3,
+                  4
+                ],
+                [
+                  4,
+                  5
+                ],
+                [
+                  5,
+                  6
+                ],
+                [
+                  6,
+                  4
+                ],
+                [
+                  7,
+                  6
+                ],
+                [
+                  7,
+                  8
+                ],
+                [
+                  8,
+                  7
+                ]
+              ]
+            },
+            "expect": {
+              "quantidade": 3,
+              "componentes": [
+                [
+                  4,
+                  5,
+                  6
+                ],
+                [
+                  1,
+                  2,
+                  3
+                ],
+                [
+                  7,
+                  8
+                ]
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1660,
+      "y": 976,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-cruzada",
+      "label": "Seta para componente já concluído",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "1→2 e 3→2: ao examinar 3→2, o nó 2 já está num componente concluído e é ignorado; sobram 3 componentes.",
+        "examples": [
+          {
+            "name": "cruzada",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3
+              ],
+              "arestas": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  3,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "quantidade": 3,
+              "componentes": [
+                [
+                  2
+                ],
+                [
+                  1
+                ],
+                [
+                  3
+                ]
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1660,
+      "y": 1043,
+      "w": 320,
+      "h": 70
+    },
+    {
+      "id": "caso-invalido",
+      "label": "Aresta para nó que não existe",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "A aresta 1→3 cita o nó 3, que não está em nos: termina com erro.",
+        "examples": [
+          {
+            "name": "fora",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  3
+                ]
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1660,
+      "y": 1189,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-entrada-ok",
+      "from": "inicio",
+      "to": "entrada-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "entrada-ok-to-prepara",
+      "from": "entrada-ok",
+      "to": "prepara",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "entrada-ok-to-entrada-ruim",
+      "from": "entrada-ok",
+      "to": "entrada-ruim",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "prepara-to-l-nos",
+      "from": "prepara",
+      "to": "l-nos",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-nos-to-nao-visitado",
+      "from": "l-nos",
+      "to": "nao-visitado",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "nao-visitado-to-visita-raiz",
+      "from": "nao-visitado",
+      "to": "visita-raiz",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "nao-visitado-to-l-nos",
+      "from": "nao-visitado",
+      "to": "l-nos",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 264,
+          "y": 829.5
+        },
+        {
+          "x": 264,
+          "y": 671.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "visita-raiz-to-l-dfs",
+      "from": "visita-raiz",
+      "to": "l-dfs",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-dfs-to-frame",
+      "from": "l-dfs",
+      "to": "frame",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "frame-to-tem-viz",
+      "from": "frame",
+      "to": "tem-viz",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "tem-viz-to-vizinho",
+      "from": "tem-viz",
+      "to": "vizinho",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tem-viz-to-eh-raiz",
+      "from": "tem-viz",
+      "to": "eh-raiz",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "vizinho-to-w-novo",
+      "from": "vizinho",
+      "to": "w-novo",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "w-novo-to-visita-filho",
+      "from": "w-novo",
+      "to": "visita-filho",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "w-novo-to-w-na-pilha",
+      "from": "w-novo",
+      "to": "w-na-pilha",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "visita-filho-to-l-dfs",
+      "from": "visita-filho",
+      "to": "l-dfs",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 41,
+          "y": 2322
+        },
+        {
+          "x": 41,
+          "y": 1317.5
+        }
+      ]
+    },
+    {
+      "id": "w-na-pilha-to-low-w",
+      "from": "w-na-pilha",
+      "to": "low-w",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.62
+    },
+    {
+      "id": "w-na-pilha-to-l-dfs",
+      "from": "w-na-pilha",
+      "to": "l-dfs",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 23,
+          "y": 2322
+        },
+        {
+          "x": 23,
+          "y": 1317.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "low-w-to-l-dfs",
+      "from": "low-w",
+      "to": "l-dfs",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 2586.5
+        },
+        {
+          "x": -46,
+          "y": 1317.5
+        }
+      ]
+    },
+    {
+      "id": "eh-raiz-to-inicia-comp",
+      "from": "eh-raiz",
+      "to": "inicia-comp",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "eh-raiz-to-desempilha",
+      "from": "eh-raiz",
+      "to": "desempilha",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1524,
+          "y": 1881
+        },
+        {
+          "x": 1524,
+          "y": 2686
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "inicia-comp-to-l-pop",
+      "from": "inicia-comp",
+      "to": "l-pop",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-pop-to-pop",
+      "from": "l-pop",
+      "to": "pop",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pop-to-l-pop",
+      "from": "pop",
+      "to": "l-pop",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 2586.5
+        },
+        {
+          "x": -82,
+          "y": 2322
+        }
+      ]
+    },
+    {
+      "id": "l-pop-to-guarda-comp",
+      "from": "l-pop",
+      "to": "guarda-comp",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "guarda-comp-to-desempilha",
+      "from": "guarda-comp",
+      "to": "desempilha",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "desempilha-to-tem-pai",
+      "from": "desempilha",
+      "to": "tem-pai",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "tem-pai-to-sobe-low",
+      "from": "tem-pai",
+      "to": "sobe-low",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tem-pai-to-l-dfs",
+      "from": "tem-pai",
+      "to": "l-dfs",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 2925.5
+        },
+        {
+          "x": -46,
+          "y": 1317.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "sobe-low-to-l-dfs",
+      "from": "sobe-low",
+      "to": "l-dfs",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 3110.5
+        },
+        {
+          "x": -64,
+          "y": 1317.5
+        }
+      ]
+    },
+    {
+      "id": "l-dfs-to-l-nos",
+      "from": "l-dfs",
+      "to": "l-nos",
+      "type": "data",
+      "label": "segue",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "waypoints": [
+        {
+          "x": 228,
+          "y": 1317.5
+        },
+        {
+          "x": 228,
+          "y": 671.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "l-nos-to-conta",
+      "from": "l-nos",
+      "to": "conta",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "conta-to-pronto",
+      "from": "conta",
+      "to": "pronto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    }
+  ],
+  "customAssets": []
+}

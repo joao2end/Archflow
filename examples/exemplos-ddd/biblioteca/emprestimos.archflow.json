@@ -378,6 +378,12 @@
       "label": "executa",
       "routing": "curve",
       "animated": true,
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 136
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -443,7 +449,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 384
+        },
+        {
+          "x": -14,
+          "y": 540
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "renovar-emprestimo-to-leitor",
@@ -485,7 +501,7 @@
         "rel": "emits",
         "otherwise": true
       },
-      "labelT": 0.5
+      "labelT": 0.66
     },
     {
       "id": "devolver-livro-to-leitor",
@@ -498,8 +514,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5,
-      "labelOffset": -50
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 416
+        }
+      ],
+      "labelT": 0.62
     },
     {
       "id": "devolver-livro-to-livro-devolvido",
@@ -525,8 +546,13 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.33999999999999997,
-      "labelOffset": -25
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 416
+        }
+      ],
+      "labelT": 0.54
     },
     {
       "id": "registrar-multa-to-multa-registrada",
@@ -552,6 +578,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 912
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -565,6 +601,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 508
+        },
+        {
+          "x": 254,
+          "y": 664
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -578,8 +624,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.14,
-      "labelOffset": 50
+      "waypoints": [
+        {
+          "x": 226,
+          "y": 1036
+        },
+        {
+          "x": 494,
+          "y": 1036
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "livro-devolvido-to-multar-atraso",
@@ -606,6 +661,16 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 1214,
+          "y": 664
+        },
+        {
+          "x": 1214,
+          "y": 508
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -619,7 +684,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.3
+      "labelT": 0.5
     },
     {
       "id": "livro-devolvido-to-emprestimos-ativos",
@@ -632,6 +697,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 664
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -645,6 +716,12 @@
       "ddd": {
         "rel": "uses"
       },
+      "waypoints": [
+        {
+          "x": 1214,
+          "y": 508
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -658,7 +735,17 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.54
+      "waypoints": [
+        {
+          "x": 1454,
+          "y": 880
+        },
+        {
+          "x": 1186,
+          "y": 880
+        }
+      ],
+      "labelT": 0.5
     }
   ],
   "customAssets": []

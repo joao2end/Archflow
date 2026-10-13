@@ -1,0 +1,740 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-p8sl40",
+  "title": "Merge de intervalos",
+  "description": "Junta intervalos [inicio, fim] sobrepostos ou que se tocam. Pré-condição: a lista iv já vem ordenada pelo início. Percorre uma vez guardando o intervalo em construção (ini, fim); cada novo intervalo ou estende o fim (se começa até o fim atual) ou fecha o atual e abre outro. No fim, fecha o último. O(n).",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1522,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1522,
+      "y": 108,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1522,
+      "y": 284,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "iv",
+      "label": "Intervalos ordenados",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "iv",
+        "type": "lista",
+        "text": "Lista de pares [inicio, fim] com inicio <= fim, em ordem crescente de inicio. Pode estar vazia."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "res",
+      "label": "Intervalos juntados",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "res",
+        "type": "lista",
+        "text": "Resposta: lista de pares [inicio, fim] disjuntos, na mesma ordem.",
+        "value": []
+      },
+      "x": 1550,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tem",
+      "label": "Há intervalo em construção",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "tem",
+        "type": "lógico",
+        "text": "Falso até o primeiro intervalo ser lido.",
+        "value": false
+      },
+      "x": 1550,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ini",
+      "label": "Início em construção",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "ini",
+        "type": "número",
+        "text": "Início do intervalo que está sendo montado."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fim",
+      "label": "Fim em construção",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "fim",
+        "type": "número",
+        "text": "Maior fim visto no intervalo que está sendo montado."
+      },
+      "x": 1550,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Juntar intervalos",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entra a lista iv, ordenada pelo início."
+      },
+      "x": 535,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "cada",
+      "label": "Para cada intervalo de iv",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "iv",
+        "as": "par",
+        "text": "Percorre iv na ordem. Em cada volta, par[0] é o início e par[1] é o fim do intervalo da vez."
+      },
+      "x": 505,
+      "y": 124,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "primeiro",
+      "label": "Ainda não há intervalo em construção?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tem = falso",
+        "text": "O primeiro intervalo da lista só abre o intervalo em construção.",
+        "examples": [
+          {
+            "name": "primeiro",
+            "given": {
+              "tem": false
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "depois",
+            "given": {
+              "tem": true
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 275,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "abre",
+      "label": "Abrir com o intervalo da vez",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O intervalo em construção passa a ser o da vez.",
+        "then": [
+          "ini := par[0]",
+          "fim := par[1]",
+          "tem := verdadeiro"
+        ],
+        "examples": [
+          {
+            "name": "abre",
+            "given": {
+              "par": [
+                4,
+                7
+              ]
+            },
+            "expect": {
+              "ini": 4,
+              "fim": 7,
+              "tem": true
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 455,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "encosta",
+      "label": "A vez começa até o fim atual?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "par[0] <= fim",
+        "text": "Começar no fim atual (igual) conta como tocar e junta.",
+        "examples": [
+          {
+            "name": "sobrepõe",
+            "given": {
+              "par": [
+                2,
+                6
+              ],
+              "fim": 3
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "toca",
+            "given": {
+              "par": [
+                4,
+                5
+              ],
+              "fim": 4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "separado",
+            "given": {
+              "par": [
+                8,
+                9
+              ],
+              "fim": 6
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 472,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "estende",
+      "label": "Estender o fim, se for maior",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O intervalo da vez pode ser menor e estar dentro do atual: o fim nunca encolhe.",
+        "then": [
+          "fim := max(fim, par[1])"
+        ],
+        "examples": [
+          {
+            "name": "estende",
+            "given": {
+              "fim": 3,
+              "par": [
+                2,
+                6
+              ]
+            },
+            "expect": {
+              "fim": 6
+            }
+          },
+          {
+            "name": "contido",
+            "given": {
+              "fim": 10,
+              "par": [
+                2,
+                3
+              ]
+            },
+            "expect": {
+              "fim": 10
+            }
+          }
+        ]
+      },
+      "x": 80,
+      "y": 675,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "fecha-abre",
+      "label": "Fechar o atual e abrir outro",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda [ini, fim] no resultado e começa um novo intervalo com o da vez.",
+        "then": [
+          "res := adicionar(res, [ini, fim])",
+          "ini := par[0]",
+          "fim := par[1]"
+        ],
+        "examples": [
+          {
+            "name": "fecha",
+            "given": {
+              "res": [],
+              "ini": 1,
+              "fim": 3,
+              "par": [
+                8,
+                10
+              ]
+            },
+            "expect": {
+              "res": [
+                [
+                  1,
+                  3
+                ]
+              ],
+              "ini": 8,
+              "fim": 10
+            }
+          }
+        ]
+      },
+      "x": 480,
+      "y": 654,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "sobrou",
+      "label": "Há intervalo em construção?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tem = verdadeiro",
+        "text": "Se a lista era vazia, não há o que fechar.",
+        "examples": [
+          {
+            "name": "sim",
+            "given": {
+              "tem": true
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "vazia",
+            "given": {
+              "tem": false
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 710,
+      "y": 282.5,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "fecha-ultimo",
+      "label": "Fechar o último intervalo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda [ini, fim] no resultado.",
+        "then": [
+          "res := adicionar(res, [ini, fim])"
+        ],
+        "examples": [
+          {
+            "name": "último",
+            "given": {
+              "res": [
+                [
+                  1,
+                  3
+                ]
+              ],
+              "ini": 8,
+              "fim": 10
+            },
+            "expect": {
+              "res": [
+                [
+                  1,
+                  3
+                ],
+                [
+                  8,
+                  10
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 910,
+      "y": 476,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Intervalos juntados",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve res."
+      },
+      "x": 990,
+      "y": 691.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-junta",
+      "label": "Sobrepõe e separa",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "[[1,3],[2,6],[8,10],[15,18]] vira [[1,6],[8,10],[15,18]].",
+        "examples": [
+          {
+            "name": "junta",
+            "given": {
+              "iv": [
+                [
+                  1,
+                  3
+                ],
+                [
+                  2,
+                  6
+                ],
+                [
+                  8,
+                  10
+                ],
+                [
+                  15,
+                  18
+                ]
+              ]
+            },
+            "expect": {
+              "res": [
+                [
+                  1,
+                  6
+                ],
+                [
+                  8,
+                  10
+                ],
+                [
+                  15,
+                  18
+                ]
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 338,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-vazio",
+      "label": "Lista vazia",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "[] devolve [].",
+        "examples": [
+          {
+            "name": "vazio",
+            "given": {
+              "iv": []
+            },
+            "expect": {
+              "res": [],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 405,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-cada",
+      "from": "inicio",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "cada-to-primeiro",
+      "from": "cada",
+      "to": "primeiro",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "primeiro-to-abre",
+      "from": "primeiro",
+      "to": "abre",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "primeiro-to-encosta",
+      "from": "primeiro",
+      "to": "encosta",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "encosta-to-estende",
+      "from": "encosta",
+      "to": "estende",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "encosta-to-fecha-abre",
+      "from": "encosta",
+      "to": "fecha-abre",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "abre-to-cada",
+      "from": "abre",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 522.5
+        },
+        {
+          "x": -46,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "estende-to-cada",
+      "from": "estende",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 721.5
+        },
+        {
+          "x": -64,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "fecha-abre-to-cada",
+      "from": "fecha-abre",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 721.5
+        },
+        {
+          "x": -82,
+          "y": 167.5
+        }
+      ]
+    },
+    {
+      "id": "cada-to-sobrou",
+      "from": "cada",
+      "to": "sobrou",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "sobrou-to-fecha-ultimo",
+      "from": "sobrou",
+      "to": "fecha-ultimo",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "sobrou-to-pronto",
+      "from": "sobrou",
+      "to": "pronto",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1396,
+          "y": 333
+        },
+        {
+          "x": 1396,
+          "y": 659.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "fecha-ultimo-to-pronto",
+      "from": "fecha-ultimo",
+      "to": "pronto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    }
+  ],
+  "customAssets": []
+}

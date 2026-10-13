@@ -473,7 +473,7 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
   return (
     <Modal
       wide
-      title="Lógica (regras de negócio)"
+      title="Lógica de negócio"
       onClose={close}
       foot={
         <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
@@ -481,7 +481,7 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
         </button>
       }
     >
-      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação das regras: cada exemplo é executado de verdade e comparado com o esperado. A aba Texto é o que uma IA lê (a fila com a explicação em português).</p>
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação: cada exemplo é executado de verdade e comparado com o esperado. A aba Texto é o que uma IA lê (o fluxo com a explicação em português).</p>
       <div className="tabs seg" role="tablist">
         <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
           Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
@@ -504,7 +504,7 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
             ))}
           </ul>
         ) : (
-          <div className="callout">Nenhum problema: todas as regras têm exemplos e todos os exemplos batem.</div>
+          <div className="callout">Nenhum problema: todas as ações têm exemplos e todos os exemplos batem.</div>
         ))}
       {tab === "text" && <pre className="code">{text}</pre>}
     </Modal>
@@ -722,7 +722,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
   const [gapY, setGapY] = useState(cfg.gapY);
   const [routing, setRouting] = useState(cfg.routing);
   const domain = useStore((s) => docMode(s.doc) === "domain");
-  const [style, setStyle] = useState<"flow" | "timeline">(domain ? "timeline" : "flow");
+  const [style, setStyle] = useState<"flow" | "timeline" | "grouped">(domain ? "timeline" : "flow");
   const apply = () => {
     try {
       localStorage.setItem(LS_LAYOUT, JSON.stringify({ gapX, gapY, routing }));
@@ -731,7 +731,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
     }
     const r = run([{ op: "layout", style, direction, gapX, gapY, routing: routing === "keep" ? undefined : routing }]);
     close();
-    toast(r[0]?.ok === false ? r[0].error ?? "Não foi possível aplicar o layout" : style === "timeline" ? "Linha do tempo aplicada" : "Layout automático aplicado");
+    toast(r[0]?.ok === false ? r[0].error ?? "Não foi possível aplicar o layout" : style === "timeline" ? "Linha do tempo aplicada" : style === "grouped" ? "Agrupado por tipo" : "Layout automático aplicado");
   };
   return (
     <Modal
@@ -753,8 +753,8 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
         {domain && (
           <section className="lay-sec">
             <h3>Estilo</h3>
-            <div className="lay-opts two" role="radiogroup" aria-label="Estilo do layout">
-              {([["timeline", "Linha do tempo", "Event Storming: ator → caso de uso → command → aggregate → evento"], ["flow", "Fluxo", "Camadas pelo fluxo das conexões"]] as const).map(([k, l, d]) => (
+            <div className="lay-opts" role="radiogroup" aria-label="Estilo do layout">
+              {([["timeline", "Linha do tempo", "Event Storming: ator → caso de uso → command → aggregate → evento"], ["grouped", "Agrupar por tipo", "Um quadro por tipo de componente, ligados por conectores"], ["flow", "Fluxo", "Camadas pelo fluxo das conexões"]] as const).map(([k, l, d]) => (
                 <button key={k} role="radio" aria-checked={style === k} className={`lay-opt ${style === k ? "active" : ""}`} onClick={() => setStyle(k)}>
                   <b>{l}</b>
                   <small>{d}</small>
@@ -763,7 +763,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
             </div>
           </section>
         )}
-        <section className="lay-sec" style={style === "timeline" ? { display: "none" } : undefined}>
+        <section className="lay-sec" style={style === "timeline" || style === "grouped" ? { display: "none" } : undefined}>
           <h3>Direção do fluxo</h3>
           <div className="lay-opts two" role="radiogroup" aria-label="Direção do fluxo">
             {([["LR", "Horizontal", "Da esquerda para a direita", "M4 12h16M14 6l6 6-6 6"], ["TB", "Vertical", "De cima para baixo", "M12 4v16M6 14l6 6 6-6"]] as const).map(([k, l, d, icon]) => (
@@ -776,7 +776,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
           </div>
         </section>
 
-        <section className="lay-sec" style={style === "timeline" ? { display: "none" } : undefined}>
+        <section className="lay-sec" style={style === "timeline" || style === "grouped" ? { display: "none" } : undefined}>
           <h3>Espaçamento</h3>
           <div className="seg" role="radiogroup" aria-label="Presets de espaçamento">
             {SPACING_PRESETS.map(([l, x, y]) => {

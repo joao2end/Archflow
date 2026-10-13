@@ -1,0 +1,343 @@
+{
+  "enunciado": "Dada uma grade retangular (lista de linhas de texto, em que \".\" é casa livre e \"#\" é obstáculo), uma casa de início e uma de fim (cada uma como [linha, coluna], a partir de 0), devolver o menor número de passos para ir do início ao fim, andando uma casa por vez para cima, baixo, esquerda ou direita (sem diagonais) e sem pisar em obstáculos; -1 se não há caminho. Início igual ao fim custa 0. Grade vazia, linhas de tamanhos diferentes, letra que não seja \".\" ou \"#\", início ou fim fora da grade ou sobre um obstáculo terminam com erro. Deve usar a busca A* com a distância em linha reta (soma das diferenças de linha e de coluna) como estimativa.",
+  "cases": [
+    {
+      "name": "início é o fim",
+      "given": {
+        "grade": [
+          "."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          0
+        ]
+      },
+      "expect": {
+        "custo": 0,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "corredor",
+      "given": {
+        "grade": [
+          "..."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          2
+        ]
+      },
+      "expect": {
+        "custo": 2,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "corredor bloqueado",
+      "given": {
+        "grade": [
+          ".#."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          2
+        ]
+      },
+      "expect": {
+        "custo": -1,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "grade livre 3×3",
+      "given": {
+        "grade": [
+          "...",
+          "...",
+          "..."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          2,
+          2
+        ]
+      },
+      "expect": {
+        "custo": 4,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "desvio por baixo de uma parede",
+      "given": {
+        "grade": [
+          ".#.",
+          ".#.",
+          "..."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          2
+        ]
+      },
+      "expect": {
+        "custo": 6,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "parede inteira no meio",
+      "given": {
+        "grade": [
+          "..#.",
+          "..#.",
+          "..#."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          3
+        ]
+      },
+      "expect": {
+        "custo": -1,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "labirinto 5×5",
+      "given": {
+        "grade": [
+          "....#",
+          "##.#.",
+          ".....",
+          ".####",
+          "....."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          4,
+          4
+        ]
+      },
+      "expect": {
+        "custo": 12,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "labirinto 5×7",
+      "given": {
+        "grade": [
+          "...#...",
+          "..##.#.",
+          "....#..",
+          "##.##.#",
+          "......."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          6
+        ]
+      },
+      "expect": {
+        "custo": 14,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "obstáculos no meio de uma grade 4×4",
+      "given": {
+        "grade": [
+          "....",
+          "..#.",
+          "..#.",
+          "...."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          2,
+          3
+        ]
+      },
+      "expect": {
+        "custo": 5,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "grade 5×5 com estimativa enganosa",
+      "given": {
+        "grade": [
+          "..#..",
+          ".....",
+          ".#...",
+          ".#...",
+          "...#."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          4,
+          4
+        ]
+      },
+      "expect": {
+        "custo": 8,
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "caractere que não é . nem #",
+      "given": {
+        "grade": [
+          "..",
+          ".x"
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          1,
+          0
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "grade vazia",
+      "given": {
+        "grade": [],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          0,
+          0
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "linhas de tamanhos diferentes",
+      "given": {
+        "grade": [
+          "..",
+          "..."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          1,
+          1
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "início sobre obstáculo",
+      "given": {
+        "grade": [
+          "#.",
+          ".."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          1,
+          1
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "fim fora da grade",
+      "given": {
+        "grade": [
+          "..",
+          ".."
+        ],
+        "inicio": [
+          0,
+          0
+        ],
+        "fim": [
+          2,
+          0
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "início com coluna negativa",
+      "given": {
+        "grade": [
+          "..",
+          ".."
+        ],
+        "inicio": [
+          0,
+          -1
+        ],
+        "fim": [
+          1,
+          1
+        ]
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    }
+  ]
+}

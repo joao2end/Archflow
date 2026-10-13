@@ -1,0 +1,86 @@
+{
+  "enunciado": "Num tabuleiro n × n (1 ≤ n ≤ 5), colocar n rainhas sem que duas se ataquem (nem na mesma linha, nem na mesma coluna, nem na mesma diagonal). Devolver quantas disposições existem (total) e a PRIMEIRA delas na ordem em que se tenta linha por linha, sempre da menor coluna para a maior: a coluna da rainha de cada linha, de cima para baixo (primeira, lista vazia se não existe nenhuma).",
+  "cases": [
+    {
+      "name": "n = 1",
+      "given": {
+        "n": 1
+      },
+      "expect": {
+        "total": 1,
+        "primeira": [
+          0
+        ]
+      }
+    },
+    {
+      "name": "n = 2: nenhuma",
+      "given": {
+        "n": 2
+      },
+      "expect": {
+        "total": 0,
+        "primeira": []
+      }
+    },
+    {
+      "name": "n = 3: nenhuma",
+      "given": {
+        "n": 3
+      },
+      "expect": {
+        "total": 0,
+        "primeira": []
+      }
+    },
+    {
+      "name": "n = 4",
+      "given": {
+        "n": 4
+      },
+      "expect": {
+        "total": 2,
+        "primeira": [
+          1,
+          3,
+          0,
+          2
+        ]
+      }
+    },
+    {
+      "name": "n = 0 não é tabuleiro",
+      "given": {
+        "n": 0
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "n = 6 passa do limite",
+      "given": {
+        "n": 6
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    },
+    {
+      "name": "n = 5",
+      "given": {
+        "n": 5
+      },
+      "expect": {
+        "total": 10,
+        "primeira": [
+          0,
+          2,
+          4,
+          1,
+          3
+        ]
+      }
+    }
+  ]
+}

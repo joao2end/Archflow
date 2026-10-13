@@ -506,8 +506,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001,
-      "labelOffset": 25
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "debitar-origem-to-conta",
@@ -533,8 +542,18 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.09999999999999998,
-      "labelOffset": 50
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        },
+        {
+          "x": 254,
+          "y": 664
+        }
+      ],
+      "labelT": 0.7,
+      "labelOffset": 25
     },
     {
       "id": "creditar-destino-to-conta",
@@ -560,7 +579,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.58
+      "labelT": 0.8200000000000001
     },
     {
       "id": "estornar-debito-to-conta",
@@ -573,6 +592,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 734,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -599,8 +624,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.58,
-      "labelOffset": -25
+      "labelT": 0.46
     },
     {
       "id": "concluir-transferencia-to-transferencia-",
@@ -613,7 +637,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.5
+      "labelT": 0.58
     },
     {
       "id": "falhar-transferencia-to-transferencia",
@@ -626,7 +650,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "labelT": 0.46
     },
     {
       "id": "falhar-transferencia-to-transferencia-fa",
@@ -652,6 +676,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 1454,
+          "y": 540
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -678,7 +708,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 632
+        },
+        {
+          "x": 466,
+          "y": 1036
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "conta-to-dinheiro",
@@ -691,7 +731,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 632
+        },
+        {
+          "x": 494,
+          "y": 788
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "transferencia-to-dinheiro",
@@ -704,7 +754,7 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.78
+      "labelT": 0.5
     },
     {
       "id": "transferencia-to-conta",
@@ -744,7 +794,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.42
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 384
+        },
+        {
+          "x": 254,
+          "y": 788
+        }
+      ],
+      "labelT": 0.33999999999999997
     },
     {
       "id": "transferencia-suspeita-to-fluxo-de-trans",
@@ -757,7 +817,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.38
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 384
+        },
+        {
+          "x": 466,
+          "y": 788
+        }
+      ],
+      "labelT": 0.33999999999999997
     },
     {
       "id": "origem-debitada-to-fluxo-de-transferenci",
@@ -771,7 +841,7 @@
         "rel": "triggers"
       },
       "labelT": 0.33999999999999997,
-      "labelOffset": 50
+      "labelOffset": -50
     },
     {
       "id": "destino-creditado-to-fluxo-de-transferen",
@@ -797,8 +867,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5,
-      "labelOffset": 25
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 788
+        },
+        {
+          "x": 254,
+          "y": 508
+        }
+      ],
+      "labelT": 0.74
     },
     {
       "id": "fluxo-de-transferencia-to-creditar-desti",
@@ -811,7 +890,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 466,
+          "y": 788
+        },
+        {
+          "x": 494,
+          "y": 632
+        }
+      ],
+      "labelT": 0.58
     },
     {
       "id": "fluxo-de-transferencia-to-estornar-debit",
@@ -824,6 +913,16 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 788
+        },
+        {
+          "x": 494,
+          "y": 632
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -837,6 +936,16 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 706,
+          "y": 788
+        },
+        {
+          "x": 734,
+          "y": 632
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -889,7 +998,17 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.66
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 788
+        }
+      ],
+      "labelT": 0.5
     }
   ],
   "customAssets": []

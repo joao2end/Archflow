@@ -8,7 +8,7 @@
  */
 import type { Doc, NodeEl } from "./schema";
 import { parseStatement } from "./expr";
-import { exitsOf, factKey, factNames, flowEdges, isFlowNode, pipelineSequence } from "./logic";
+import { exitsOf, dataKey, dataNames, flowEdges, isFlowNode, pipelineSequence } from "./logic";
 import { isFailureScenario, logicSize } from "./logiccard";
 
 export const LOGIC_GAP_Y = 64;
@@ -26,7 +26,7 @@ export interface LogicPlan {
 }
 
 export function logicLayout(doc: Doc): LogicPlan {
-  const names = factNames(doc);
+  const names = dataNames(doc);
   const pos = new Map<string, { x: number; y: number }>();
   const size = new Map<string, { w: number; h: number }>();
   const waypoints = new Map<string, { x: number; y: number }[]>();
@@ -90,7 +90,19 @@ export function logicLayout(doc: Doc): LogicPlan {
     const b = e.logic?.branch;
     return b === "sim" ? 0 : b === "nao" ? 2 : b === "outros" ? 3 : 1;
   };
-  rows.forEach((r) => r?.sort((a, b) => rank(a) - rank(b)));
+  // e, antes disso, junto do pai: filhos do mesmo pai ficam lado a lado em vez de separados por filhos de outro nó
+  // (a posição relativa do pai na própria camada, de 0 a 1, já ordenada porque as camadas vêm de cima para baixo)
+  const place = new Map<string, number>();
+  const parentSlot = (n: NodeEl) => {
+    const ps = forward.filter((x) => x.to === n.id && place.has(x.from)).map((x) => place.get(x.from)!);
+    return ps.length ? ps.reduce((s, v) => s + v, 0) / ps.length : 0.5;
+  };
+  rows.forEach((r) => {
+    if (!r) return;
+    const slot = new Map(r.map((n) => [n.id, parentSlot(n)]));
+    r.sort((a, b) => slot.get(a.id)! - slot.get(b.id)! || rank(a) - rank(b));
+    r.forEach((n, i) => place.set(n.id, r.length > 1 ? i / (r.length - 1) : 0.5));
+  });
 
   const widths = rows.map((r) => (r ?? []).reduce((s, n) => s + dim(n).w, 0) + Math.max(0, (r?.length ?? 1) - 1) * GAP_X);
   const maxW = Math.max(300, ...widths);
@@ -143,26 +155,16 @@ export function logicLayout(doc: Doc): LogicPlan {
     }
   }
 
-  // dados e cenários, agrupados nas laterais
-  const written = new Set<string>();
-  for (const r of doc.nodes.filter((n) => n.logic?.role === "rule"))
-    for (const t of r.logic!.then ?? []) {
-      try {
-        const s = parseStatement(t);
-        if (s.t === "assign" && s.value.t !== "id") written.add(s.name); // copiar um dado de outro lugar não faz dele um resultado
-      } catch {
-        /* a validação reporta */
-      }
-    }
-  const facts = doc.nodes.filter((n) => n.logic?.role === "fact");
-  const inputs = facts.filter((f) => !written.has(factKey(f)));
-  const outputs = facts.filter((f) => written.has(factKey(f)));
+  // dados e cenários, agrupados nas laterais: entradas à esquerda; resultados, variáveis e cenários à direita
+  const inputs = doc.nodes.filter((n) => n.logic?.role === "input");
+  const outputs = doc.nodes.filter((n) => n.logic?.role === "output");
+  const variables = doc.nodes.filter((n) => n.logic?.role === "variable");
   const scenarios = doc.nodes.filter((n) => n.logic?.role === "scenario");
   const flowRight = Math.max(maxW, ...[...pos.entries()].filter(([id]) => ids.has(id)).map(([id, p]) => p.x + size.get(id)!.w)) + 140;
   const flowLeftX = Math.min(flowLeft, ...[...pos.entries()].filter(([id]) => ids.has(id)).map(([, p]) => p.x)) - 160;
 
-  const stack = (list: NodeEl[], x: number) => {
-    let sy = 44;
+  const stack = (list: NodeEl[], x: number, from = 44) => {
+    let sy = from;
     for (const n of list) {
       const s = dim(n);
       pos.set(n.id, { x, y: sy });
@@ -173,6 +175,7 @@ export function logicLayout(doc: Doc): LogicPlan {
   stack(inputs, flowLeftX - 220 - SIDE_GAP + 120);
   const afterOut = stack(outputs, flowRight + 60);
   let sy = afterOut + 60;
+  if (variables.length) sy = stack(variables, flowRight + 60, sy) + 60; // as variáveis ficam abaixo dos resultados
   const okScenarios = scenarios.filter((n) => !isFailureScenario(n));
   const failScenarios = scenarios.filter(isFailureScenario);
   for (const list of [okScenarios, failScenarios]) {
@@ -186,8 +189,9 @@ export function logicLayout(doc: Doc): LogicPlan {
   for (const n of doc.nodes) if (!pos.has(n.id) && !n.owner) pos.set(n.id, { x: n.x, y: n.y });
 
   const groups = [
-    { id: "entradas", label: "Dados de entrada", tag: "Dados", members: inputs.map((n) => n.id) },
-    { id: "resultados", label: "Resultados", tag: "Dados", members: outputs.map((n) => n.id) },
+    { id: "entradas", label: "Entradas", tag: "Input", members: inputs.map((n) => n.id) },
+    { id: "resultados", label: "Resultados", tag: "Output", members: outputs.map((n) => n.id) },
+    { id: "variaveis", label: "Variáveis do fluxo", tag: "Variable", members: variables.map((n) => n.id) },
     { id: "cenarios", label: "Cenários que dão certo", tag: "Caminhos de sucesso", members: okScenarios.map((n) => n.id) },
     { id: "cenarios-falha", label: "Cenários que falham", tag: "Caminhos de falha", members: failScenarios.map((n) => n.id) },
   ].filter((g) => g.members.length);

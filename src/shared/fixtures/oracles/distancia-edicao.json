@@ -1,0 +1,135 @@
+{
+  "enunciado": "Dadas duas palavras `de` e `para` (textos, possivelmente vazios), devolver o menor número de operações para transformar `de` em `para`, onde uma operação é inserir uma letra, apagar uma letra ou trocar uma letra por outra. Maiúsculas e minúsculas são letras diferentes.",
+  "cases": [
+    {
+      "name": "as duas vazias",
+      "given": {
+        "de": "",
+        "para": ""
+      },
+      "expect": {
+        "resultado": 0
+      }
+    },
+    {
+      "name": "de vazia: inserir tudo",
+      "given": {
+        "de": "",
+        "para": "abc"
+      },
+      "expect": {
+        "resultado": 3
+      }
+    },
+    {
+      "name": "para vazia: apagar tudo",
+      "given": {
+        "de": "abc",
+        "para": ""
+      },
+      "expect": {
+        "resultado": 3
+      }
+    },
+    {
+      "name": "iguais",
+      "given": {
+        "de": "abc",
+        "para": "abc"
+      },
+      "expect": {
+        "resultado": 0
+      }
+    },
+    {
+      "name": "uma troca",
+      "given": {
+        "de": "a",
+        "para": "b"
+      },
+      "expect": {
+        "resultado": 1
+      }
+    },
+    {
+      "name": "letras trocadas de lugar",
+      "given": {
+        "de": "ab",
+        "para": "ba"
+      },
+      "expect": {
+        "resultado": 2
+      }
+    },
+    {
+      "name": "kitten → sitting",
+      "given": {
+        "de": "kitten",
+        "para": "sitting"
+      },
+      "expect": {
+        "resultado": 3
+      }
+    },
+    {
+      "name": "flaw → lawn",
+      "given": {
+        "de": "flaw",
+        "para": "lawn"
+      },
+      "expect": {
+        "resultado": 2
+      }
+    },
+    {
+      "name": "intention → execution",
+      "given": {
+        "de": "intention",
+        "para": "execution"
+      },
+      "expect": {
+        "resultado": 5
+      }
+    },
+    {
+      "name": "sunday → saturday",
+      "given": {
+        "de": "sunday",
+        "para": "saturday"
+      },
+      "expect": {
+        "resultado": 3
+      }
+    },
+    {
+      "name": "horse → ros",
+      "given": {
+        "de": "horse",
+        "para": "ros"
+      },
+      "expect": {
+        "resultado": 3
+      }
+    },
+    {
+      "name": "inserir no começo e trocar no fim",
+      "given": {
+        "de": "abc",
+        "para": "yabd"
+      },
+      "expect": {
+        "resultado": 2
+      }
+    },
+    {
+      "name": "maiúscula é outra letra",
+      "given": {
+        "de": "A",
+        "para": "a"
+      },
+      "expect": {
+        "resultado": 1
+      }
+    }
+  ]
+}

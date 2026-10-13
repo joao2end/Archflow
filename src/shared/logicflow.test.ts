@@ -106,7 +106,7 @@ test("ops: decisão exige condição, escolha aceita por valor ou por condiçõe
 test("layout em fluxo: camadas de cima para baixo, setas que pulam contornam por fora, sem sobreposição", () => {
   const doc = build([
     node("i", { role: "start" }), node("d", { role: "decision", when: "x > 1" }), node("a", { role: "rule", then: ["r := 1"] }), node("d2", { role: "decision", when: "x > 2" }), node("f", { role: "end" }),
-    node("dado", { role: "fact", key: "x" }),
+    node("dado", { role: "input", key: "x" }),
     edge("i", "d"), edge("d", "a", "sim"), edge("d", "d2", "nao"), edge("a", "d2"), edge("d2", "f", "sim"), edge("d2", "f", "nao"),
   ]);
   const { doc: laid } = applyOps(doc, [{ op: "layout" }]);
@@ -116,4 +116,30 @@ test("layout em fluxo: camadas de cima para baixo, setas que pulam contornam por
   assert.ok(skip.waypoints?.length, "o 'não' que pula a regra contorna por fora");
   for (const [i, a] of laid.nodes.entries())
     for (const b of laid.nodes.slice(i + 1)) assert.ok(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y, `${a.id} sobrepõe ${b.id}`);
+});
+
+test("organizar: o quadro de um grupo gravado sem `auto` acompanha os membros que o layout moveu", () => {
+  const doc = build([
+    node("dado", { role: "input", key: "x", type: "número", text: "x" }), node("i", { role: "start" }), node("a", { role: "rule", then: ["r := x"] }), node("f", { role: "end" }),
+    edge("i", "a"), edge("a", "f"),
+  ]);
+  // como um diagrama vindo de outro caminho: o grupo existe, em outro lugar, e não é `auto`
+  doc.groups.push({ id: "entradas", label: "Dados de entrada", kind: "layer", tag: "Dados", x: 5000, y: 5000, w: 200, h: 120 });
+  doc.nodes.find((n) => n.id === "dado")!.parent = "entradas";
+  const r = applyOps(doc, [{ op: "layout" } as Op]);
+  const g = r.doc.groups.find((x) => x.id === "entradas")!;
+  const m = r.doc.nodes.find((n) => n.id === "dado")!;
+  assert.ok(m.x >= g.x && m.y >= g.y && m.x + m.w <= g.x + g.w && m.y + m.h <= g.y + g.h, `membro (${m.x},${m.y}) fora do quadro (${g.x},${g.y},${g.w}x${g.h})`);
+});
+
+test("loop: a parada é conferida antes de cada volta e until, max e foreach valem juntos (a primeira que acontecer)", () => {
+  const mk = (l: Partial<LogicNodeSpec>) =>
+    build([
+      node("i", { role: "start" }), node("l", { role: "loop", ...l }), node("c", { role: "rule", then: ["n := n + 1"] }), node("f", { role: "end" }),
+      edge("i", "l"), edge("l", "c", "repete"), edge("c", "l"), edge("l", "f", "segue"),
+    ]);
+  assert.equal(runFlow(mk({ until: "n >= 0" }), { n: 0 }).env.n, 0, "until já valendo ao chegar: zero voltas");
+  assert.equal(runFlow(mk({ foreach: "lista", max: 2 }), { n: 0, lista: [1, 2, 3, 4, 5] }).env.n, 2, "max corta o foreach");
+  assert.equal(runFlow(mk({ foreach: "lista", until: "n >= 3" }), { n: 0, lista: [1, 2, 3, 4, 5] }).env.n, 3, "until corta o foreach");
+  assert.equal(runFlow(mk({ foreach: "lista", max: 9 }), { n: 0, lista: [1, 2] }).env.n, 2, "acabar a lista corta antes do max");
 });

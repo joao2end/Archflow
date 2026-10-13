@@ -1,0 +1,10 @@
+{
+  "enunciado": "Margem mínima (simulacao/margem-minima). Fora do grupo lucro, o piso é custo / (1 − margem mínima). O preço só sobe se for estritamente menor que o piso, e então below_min_margin (abaixo) fica verdadeiro. Lucro não passa por aqui. Escrito só a partir da descrição do diagrama, sem olhar o fluxo.",
+  "cases": [
+    { "name": "imagem abaixo do piso sobe até o piso", "given": { "notabilidade": "imagem", "custo": 70, "margem_minima": 0.3, "preco": 80, "abaixo": false }, "expect": { "preco": 100, "abaixo": true, "desfecho": "ok" } },
+    { "name": "tráfego abaixo do piso sobe até o piso", "given": { "notabilidade": "trafego", "custo": 50, "margem_minima": 0.5, "preco": 90, "abaixo": false }, "expect": { "preco": 100, "abaixo": true } },
+    { "name": "preço igual ao piso não é marcado (estritamente menor)", "given": { "notabilidade": "imagem", "custo": 70, "margem_minima": 0.3, "preco": 100, "abaixo": false }, "expect": { "preco": 100, "abaixo": false } },
+    { "name": "preço acima do piso fica como está", "given": { "notabilidade": "imagem", "custo": 70, "margem_minima": 0.3, "preco": 150, "abaixo": false }, "expect": { "preco": 150, "abaixo": false } },
+    { "name": "lucro não passa pela regra", "given": { "notabilidade": "lucro", "custo": 70, "margem_minima": 0.3, "preco": 80, "abaixo": false }, "expect": { "preco": 80, "abaixo": false } }
+  ]
+}

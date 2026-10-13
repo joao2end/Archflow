@@ -1,0 +1,272 @@
+{
+  "enunciado": "Dados um texto e um padrão (textos; o padrão não pode ser vazio), devolver todas as posições (a partir de 0) onde o padrão aparece no texto, em ordem crescente, contando também as ocorrências que se sobrepõem (em \"aaaa\", o padrão \"aa\" aparece nas posições 0, 1 e 2). Maiúscula e minúscula são letras diferentes. Devolver também a tabela de falhas do padrão: para cada posição i, o tamanho do maior pedaço do começo do padrão que também termina em i, sem ser o padrão até i inteiro. O texto é lido uma só vez, sem nunca voltar.",
+  "cases": [
+    {
+      "name": "texto vazio",
+      "given": {
+        "texto": "",
+        "padrao": "a"
+      },
+      "expect": {
+        "posicoes": [],
+        "falha": [
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "uma letra",
+      "given": {
+        "texto": "a",
+        "padrao": "a"
+      },
+      "expect": {
+        "posicoes": [
+          0
+        ],
+        "falha": [
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "texto igual ao padrão",
+      "given": {
+        "texto": "abc",
+        "padrao": "abc"
+      },
+      "expect": {
+        "posicoes": [
+          0
+        ],
+        "falha": [
+          0,
+          0,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "não aparece",
+      "given": {
+        "texto": "abc",
+        "padrao": "d"
+      },
+      "expect": {
+        "posicoes": [],
+        "falha": [
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "ocorrências que se sobrepõem",
+      "given": {
+        "texto": "aaaa",
+        "padrao": "aa"
+      },
+      "expect": {
+        "posicoes": [
+          0,
+          1,
+          2
+        ],
+        "falha": [
+          0,
+          1
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "sobreposição alternada",
+      "given": {
+        "texto": "abababab",
+        "padrao": "abab"
+      },
+      "expect": {
+        "posicoes": [
+          0,
+          2,
+          4
+        ],
+        "falha": [
+          0,
+          0,
+          1,
+          2
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "clássico (uma ocorrência)",
+      "given": {
+        "texto": "ababcabcabababd",
+        "padrao": "ababd"
+      },
+      "expect": {
+        "posicoes": [
+          10
+        ],
+        "falha": [
+          0,
+          0,
+          1,
+          2,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "três ocorrências",
+      "given": {
+        "texto": "aabaacaadaabaaba",
+        "padrao": "aaba"
+      },
+      "expect": {
+        "posicoes": [
+          0,
+          9,
+          12
+        ],
+        "falha": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "ocorrências em sequência",
+      "given": {
+        "texto": "abcabcabc",
+        "padrao": "abc"
+      },
+      "expect": {
+        "posicoes": [
+          0,
+          3,
+          6
+        ],
+        "falha": [
+          0,
+          0,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "recuo no padrão no meio do texto",
+      "given": {
+        "texto": "aaaaab",
+        "padrao": "aaab"
+      },
+      "expect": {
+        "posicoes": [
+          2
+        ],
+        "falha": [
+          0,
+          1,
+          2,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "mississippi",
+      "given": {
+        "texto": "mississippi",
+        "padrao": "issi"
+      },
+      "expect": {
+        "posicoes": [
+          1,
+          4
+        ],
+        "falha": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "padrão maior que o texto",
+      "given": {
+        "texto": "abc",
+        "padrao": "abcd"
+      },
+      "expect": {
+        "posicoes": [],
+        "falha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "maiúscula não é minúscula",
+      "given": {
+        "texto": "ABC",
+        "padrao": "abc"
+      },
+      "expect": {
+        "posicoes": [],
+        "falha": [
+          0,
+          0,
+          0
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "tabela de falhas com recuos em cadeia",
+      "given": {
+        "texto": "aabaabaaab",
+        "padrao": "aabaaab"
+      },
+      "expect": {
+        "posicoes": [
+          3
+        ],
+        "falha": [
+          0,
+          1,
+          0,
+          1,
+          2,
+          2,
+          3
+        ],
+        "desfecho": "ok"
+      }
+    },
+    {
+      "name": "padrão vazio",
+      "given": {
+        "texto": "abc",
+        "padrao": ""
+      },
+      "expect": {
+        "desfecho": "erro"
+      }
+    }
+  ]
+}

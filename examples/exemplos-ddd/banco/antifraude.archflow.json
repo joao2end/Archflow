@@ -218,7 +218,17 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.58
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 136
+        },
+        {
+          "x": -14,
+          "y": 788
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "analisar-ao-solicitar-to-analisar-transf",
@@ -231,6 +241,16 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 788
+        },
+        {
+          "x": -14,
+          "y": 508
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -244,8 +264,7 @@
       "ddd": {
         "rel": "triggers"
       },
-      "labelT": 0.66,
-      "labelOffset": -50
+      "labelT": 0.5
     },
     {
       "id": "analisar-transferencia-to-transferencia-",
@@ -258,8 +277,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.18,
-      "labelOffset": 50
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "analisar-transferencia-to-transferencia--2",
@@ -272,7 +300,13 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.54
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "analise-to-pontuacao-de-risco",
@@ -285,6 +319,16 @@
       "ddd": {
         "rel": "contains"
       },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 632
+        },
+        {
+          "x": -14,
+          "y": 912
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -298,7 +342,17 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.7
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        },
+        {
+          "x": 494,
+          "y": 632
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "analisar-transferencia-to-analise-repo",
@@ -311,7 +365,17 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.66
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 508
+        },
+        {
+          "x": 254,
+          "y": 788
+        }
+      ],
+      "labelT": 0.42
     }
   ],
   "customAssets": []

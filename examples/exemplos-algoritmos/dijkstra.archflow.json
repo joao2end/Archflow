@@ -1,0 +1,1050 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-60fr0a",
+  "title": "Menor caminho (Dijkstra)",
+  "description": "Custo do caminho mais barato entre dois nós de um grafo com pesos não negativos. Guarda a melhor distância conhecida de cada nó (lista de pares [nó, distância], todos começando em «infinito» menos a origem em 0). A cada volta de fora: pega, entre os nós ainda não fechados e já alcançados, o de menor distância, fecha-o e, para cada aresta que sai dele, vê se passar por ele melhora a distância do vizinho. Quando não sobra candidato alcançado, a distância do destino é a resposta. Sem fila de prioridade no formato, o menor candidato vem de ordenar as distâncias a cada volta.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 476,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1122,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1122,
+      "y": 108,
+      "w": 306,
+      "h": 534,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1122,
+      "y": 632,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "nos",
+      "label": "Nós",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "nos",
+        "type": "lista",
+        "text": "Números distintos."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "arestas",
+      "label": "Arestas",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "arestas",
+        "type": "lista",
+        "text": "Trios [de, para, peso]: seta dirigida de «de» para «para» com custo «peso» (≥ 0). Todo número citado está em nos."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "origem",
+      "label": "Origem",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "origem",
+        "type": "número",
+        "text": "Nó de onde se parte. Está em nos."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "destino",
+      "label": "Destino",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "destino",
+        "type": "número",
+        "text": "Nó aonde se quer chegar. Está em nos."
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inf",
+      "label": "Infinito",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "inf",
+        "type": "número",
+        "text": "Valor maior que qualquer caminho possível: significa «ainda não alcançado».",
+        "value": 1000000000
+      },
+      "x": -380,
+      "y": 276,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "dist",
+      "label": "Melhor distância de cada nó",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "dist",
+        "type": "lista",
+        "text": "Pares [nó, distância] com a menor distância conhecida da origem até o nó (infinito se ainda não alcançado)."
+      },
+      "x": 1150,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "feitos",
+      "label": "Nós fechados",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "feitos",
+        "type": "lista",
+        "text": "Nós cuja distância já é definitiva. Começa vazia.",
+        "value": []
+      },
+      "x": 1150,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "candidatos",
+      "label": "Candidatos",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "candidatos",
+        "type": "lista",
+        "text": "Os pares de dist cujo nó ainda não foi fechado e já foi alcançado (distância menor que infinito)."
+      },
+      "x": 1150,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "dmin",
+      "label": "Menor distância dos candidatos",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "dmin",
+        "type": "número",
+        "text": "A menor distância entre os candidatos."
+      },
+      "x": 1150,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "u",
+      "label": "Nó fechado agora",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "u",
+        "type": "número",
+        "text": "O nó de um candidato com a menor distância."
+      },
+      "x": 1150,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "saindo",
+      "label": "Arestas que saem de u",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "saindo",
+        "type": "lista",
+        "text": "Os trios cujo «de» é u."
+      },
+      "x": 1150,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "v",
+      "label": "Vizinho",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "v",
+        "type": "número",
+        "text": "O «para» da aresta da vez."
+      },
+      "x": -380,
+      "y": 334,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "novo",
+      "label": "Distância passando por u",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "novo",
+        "type": "número",
+        "text": "dmin + o peso da aresta da vez."
+      },
+      "x": 1150,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "antigo",
+      "label": "Distância conhecida do vizinho",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "antigo",
+        "type": "número",
+        "text": "A distância hoje guardada em dist para v."
+      },
+      "x": 1150,
+      "y": 568,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "buscado",
+      "label": "Destino a procurar",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "buscado",
+        "type": "número",
+        "text": "Cópia de destino, usada na busca em dist."
+      },
+      "x": -380,
+      "y": 392,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "custo",
+      "label": "Custo",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "custo",
+        "type": "número",
+        "text": "Resposta: custo do caminho mais barato, ou -1 se o destino não é alcançável."
+      },
+      "x": 1150,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Achar o menor caminho",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram nos, arestas, origem e destino."
+      },
+      "x": 335,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "prepara",
+      "label": "Iniciar as distâncias",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Nenhum nó foi alcançado, exceto a origem, que está a 0.",
+        "then": [
+          "dist := mapear(nos, [item, inf])",
+          "dist := adicionar(filtrar(dist, item[0] != origem), [origem, 0])"
+        ],
+        "examples": [
+          {
+            "name": "2 nós",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "origem": 1,
+              "inf": 99
+            },
+            "expect": {
+              "dist": [
+                [
+                  2,
+                  99
+                ],
+                [
+                  1,
+                  0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 124,
+      "w": 440,
+      "h": 141
+    },
+    {
+      "id": "externo",
+      "label": "Sobrou algum nó por fechar?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "vazio(filtrar(dist, contem(feitos, item[0]) = falso e item[1] < inf))",
+        "text": "Para quando todo nó alcançado já foi fechado (não resta candidato: nó não fechado com distância menor que infinito). Uma volta fecha um nó."
+      },
+      "x": 305,
+      "y": 329,
+      "w": 340,
+      "h": 115
+    },
+    {
+      "id": "fecha",
+      "label": "Fechar o candidato mais perto",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Candidato é nó ainda não fechado e já alcançado. Pega a menor distância entre os candidatos, fecha um nó com essa distância e separa as arestas que saem dele.",
+        "then": [
+          "candidatos := filtrar(dist, contem(feitos, item[0]) = falso e item[1] < inf)",
+          "dmin := primeiro(ordenar(mapear(candidatos, item[1])))",
+          "u := primeiro(filtrar(candidatos, item[1] = dmin))[0]",
+          "feitos := adicionar(feitos, u)",
+          "saindo := filtrar(arestas, item[0] = u)"
+        ],
+        "examples": [
+          {
+            "name": "fecha o 2",
+            "given": {
+              "dist": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  3,
+                  9
+                ]
+              ],
+              "feitos": [
+                1
+              ],
+              "inf": 99,
+              "arestas": [
+                [
+                  1,
+                  2,
+                  5
+                ],
+                [
+                  2,
+                  3,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "candidatos": [
+                [
+                  2,
+                  5
+                ],
+                [
+                  3,
+                  9
+                ]
+              ],
+              "dmin": 5,
+              "u": 2,
+              "feitos": [
+                1,
+                2
+              ],
+              "saindo": [
+                [
+                  2,
+                  3,
+                  1
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 508,
+      "w": 440,
+      "h": 219
+    },
+    {
+      "id": "interno",
+      "label": "Para cada aresta que sai de u",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "saindo",
+        "as": "aresta",
+        "text": "Uma volta por aresta que sai do nó recém-fechado. aresta[1] é o vizinho e aresta[2] o peso."
+      },
+      "x": 105,
+      "y": 798,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "calcula",
+      "label": "Calcular o caminho passando por u",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Distância até o vizinho passando por u, e a que já se conhecia.",
+        "then": [
+          "v := aresta[1]",
+          "novo := dmin + aresta[2]",
+          "antigo := primeiro(mapear(filtrar(dist, item[0] = v), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "passa por u",
+            "given": {
+              "aresta": [
+                2,
+                3,
+                1
+              ],
+              "dmin": 5,
+              "dist": [
+                [
+                  3,
+                  99
+                ]
+              ]
+            },
+            "expect": {
+              "v": 3,
+              "novo": 6,
+              "antigo": 99
+            }
+          }
+        ]
+      },
+      "x": 55,
+      "y": 956,
+      "w": 440,
+      "h": 162
+    },
+    {
+      "id": "melhora",
+      "label": "Passar por u é mais barato?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "novo < antigo",
+        "text": "Só vale se for estritamente menor que a distância conhecida.",
+        "examples": [
+          {
+            "name": "melhora",
+            "given": {
+              "novo": 6,
+              "antigo": 99
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "empata",
+            "given": {
+              "novo": 6,
+              "antigo": 6
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 135,
+      "y": 1182,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "atualiza",
+      "label": "Guardar a distância menor",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Troca o par antigo do vizinho pelo novo.",
+        "then": [
+          "dist := adicionar(filtrar(dist, item[0] != v), [v, novo])"
+        ],
+        "examples": [
+          {
+            "name": "troca",
+            "given": {
+              "dist": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  3,
+                  99
+                ]
+              ],
+              "v": 3,
+              "novo": 6
+            },
+            "expect": {
+              "dist": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  3,
+                  6
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 255,
+      "y": 1347,
+      "w": 440,
+      "h": 120
+    },
+    {
+      "id": "le-resposta",
+      "label": "Ler a distância do destino",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Procura o par do destino em dist.",
+        "then": [
+          "buscado := destino",
+          "custo := primeiro(mapear(filtrar(dist, item[0] = buscado), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "destino 3",
+            "given": {
+              "dist": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  3,
+                  6
+                ]
+              ],
+              "destino": 3
+            },
+            "expect": {
+              "buscado": 3,
+              "custo": 6
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 553.5,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "alcancou",
+      "label": "O destino foi alcançado?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "custo < inf",
+        "text": "Se a distância do destino continua infinita, não há caminho.",
+        "examples": [
+          {
+            "name": "sim",
+            "given": {
+              "custo": 6,
+              "inf": 99
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "não",
+            "given": {
+              "custo": 99,
+              "inf": 99
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 515,
+      "y": 791,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "sem-caminho",
+      "label": "Responder -1",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O destino não é alcançável.",
+        "then": [
+          "custo := -1"
+        ],
+        "examples": [
+          {
+            "name": "-1",
+            "given": {},
+            "expect": {
+              "custo": -1
+            }
+          }
+        ]
+      },
+      "x": 565,
+      "y": 990.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "pronto",
+      "label": "Custo devolvido",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve custo: o valor do caminho mais barato, ou -1."
+      },
+      "x": 535,
+      "y": 1202.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Seis nós, do 1 ao 5",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "1→3 (9), 3→6 (2), 6→5 (9): 20, mais barato que 1→3→4→5 (26).",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  7
+                ],
+                [
+                  1,
+                  3,
+                  9
+                ],
+                [
+                  1,
+                  6,
+                  14
+                ],
+                [
+                  2,
+                  3,
+                  10
+                ],
+                [
+                  2,
+                  4,
+                  15
+                ],
+                [
+                  3,
+                  4,
+                  11
+                ],
+                [
+                  3,
+                  6,
+                  2
+                ],
+                [
+                  4,
+                  5,
+                  6
+                ],
+                [
+                  6,
+                  5,
+                  9
+                ]
+              ],
+              "origem": 1,
+              "destino": 5
+            },
+            "expect": {
+              "custo": 20,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 686,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-sem-caminho",
+      "label": "Destino inalcançável",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "Só há a seta 1→2; do 1 ao 3 não há caminho.",
+        "examples": [
+          {
+            "name": "sem caminho",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3
+              ],
+              "arestas": [
+                [
+                  1,
+                  2,
+                  1
+                ]
+              ],
+              "origem": 1,
+              "destino": 3
+            },
+            "expect": {
+              "custo": -1,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1150,
+      "y": 753,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-prepara",
+      "from": "inicio",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prepara-to-externo",
+      "from": "prepara",
+      "to": "externo",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "externo-to-fecha",
+      "from": "externo",
+      "to": "fecha",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fecha-to-interno",
+      "from": "fecha",
+      "to": "interno",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "interno-to-calcula",
+      "from": "interno",
+      "to": "calcula",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "calcula-to-melhora",
+      "from": "calcula",
+      "to": "melhora",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "melhora-to-atualiza",
+      "from": "melhora",
+      "to": "atualiza",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "melhora-to-interno",
+      "from": "melhora",
+      "to": "interno",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 9,
+          "y": 1232.5
+        },
+        {
+          "x": 9,
+          "y": 841.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "atualiza-to-interno",
+      "from": "atualiza",
+      "to": "interno",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -9,
+          "y": 1407
+        },
+        {
+          "x": -9,
+          "y": 841.5
+        }
+      ]
+    },
+    {
+      "id": "interno-to-externo",
+      "from": "interno",
+      "to": "externo",
+      "type": "data",
+      "label": "segue",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 841.5
+        },
+        {
+          "x": -82,
+          "y": 386.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "externo-to-le-resposta",
+      "from": "externo",
+      "to": "le-resposta",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "le-resposta-to-alcancou",
+      "from": "le-resposta",
+      "to": "alcancou",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "alcancou-to-pronto",
+      "from": "alcancou",
+      "to": "pronto",
+      "type": "data",
+      "label": "sim",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "waypoints": [
+        {
+          "x": 941,
+          "y": 841.5
+        },
+        {
+          "x": 941,
+          "y": 1170.5
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "alcancou-to-sem-caminho",
+      "from": "alcancou",
+      "to": "sem-caminho",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "sem-caminho-to-pronto",
+      "from": "sem-caminho",
+      "to": "pronto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    }
+  ],
+  "customAssets": []
+}

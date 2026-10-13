@@ -2,10 +2,11 @@
  * Aparência dos elementos de lógica no quadro. Fonte única do conteúdo e do tamanho: o canvas desenha daqui e as ops usam o
  * mesmo tamanho (seleção, layout, setas).
  *
- * A regra é um cartão de ação (ENTÃO + dados que usa). A decisão, a escolha e o laço são figuras próprias do fluxograma
+ * A regra (Ação) é um cartão só com a composição da ação: os efeitos, sem rótulo e sem área de dados. A decisão, a escolha e o laço são figuras próprias do fluxograma
  * (losango, losango "CASE", cápsula de laço), com a condição escrita em português dentro.
  */
-import { branchesOf, explain, explainStatement, parseExpr, parseStatement, readsOf } from "./expr";
+import { COND_OPS, fromText, type CondOp, type Group } from "./conditions";
+import { branchesOf, explain, explainStatement, parseExpr, parseStatement, print, readsOf, stripMarks } from "./expr";
 import type { NodeEl } from "./schema";
 import { truncate, wrapLabel } from "./text";
 
@@ -25,6 +26,7 @@ const LINE_H = 15;
 export const HEAD_H = 54;
 /** Onde começa o conteúdo de cada seção (depois da etiqueta SE / ENTÃO / DADOS). */
 export const CARD_X = 76;
+export const PLAIN_X = 18;
 const CHARS = 52;
 
 /** Ícones (viewBox 24, traço) de cada elemento do fluxo. */
@@ -48,64 +50,187 @@ export interface CardLine {
   /** linha de condição de um ramo (destacada) */
   cond?: boolean;
 }
-/** Dado acoplado ao cartão: lido (contorno) ou escrito (preenchido). */
-export interface Chip {
-  text: string;
-  write: boolean;
+/** Peça desenhada de uma tabela de condições: célula de dado/valor/expressão, operador, rótulo de grupo E/OU e barra de aninhamento. */
+export interface Prim {
+  kind: "var" | "lit" | "expr" | "op" | "mode" | "bar";
   x: number;
+  y: number;
   w: number;
-  row: number;
+  h: number;
+  /** uma linha por item (células de expressão longa quebram) */
+  lines?: string[];
 }
+export interface BlockLayout {
+  w: number;
+  h: number;
+  /** largura que o conteúdo pede (decide se o cartão pode ser estreito) */
+  need: number;
+  prims: Prim[];
+}
+/** Uma linha de texto ou uma tabela, com a altura que ocupa na seção. */
+export interface CardItem {
+  h: number;
+  line?: CardLine;
+  block?: BlockLayout;
+}
+
+const CHIP_H = 19;
+const PITCH = 24;
+const OP_W = 46;
+const cellH = (lines: number) => (lines <= 1 ? CHIP_H : lines * 13 + 7);
+
+interface Operand {
+  kind: "var" | "lit" | "expr";
+  text: string;
+}
+/** Como um operando aparece: dado (nome de negócio), valor literal ou expressão. */
+function operandOf(src: string, names: Record<string, string>): Operand {
+  try {
+    const e = parseExpr(src);
+    if (e.t === "id") return { kind: "var", text: names[e.name] ?? (e.name.includes(".") ? e.name : e.name.replace(/_/g, " ")) };
+    if (e.t === "num" || e.t === "str" || e.t === "bool" || e.t === "nul" || e.t === "list") return { kind: "lit", text: explain(e, names) };
+    return { kind: "expr", text: print(e) };
+  } catch {
+    return { kind: "expr", text: src };
+  }
+}
+
+type RowSpec = { left: Operand; op: string; right?: Operand };
+
+type Row = RowSpec | { head: string } | { open: true } | { close: true };
+
+/** Tabela no estilo dos filtros do n8n: colunas dado | operador | valor alinhadas; grupos com TODAS/QUALQUER e barra de recuo. */
+function tableLayout(rows: Row[], BW: number): BlockLayout {
+  const IND = 12;
+  // 1ª passada: o que cada coluna pede e a maior profundidade (as colunas ficam alinhadas entre os níveis)
+  let maxL = 0;
+  let maxR = 0;
+  let maxInd = 0;
+  let ind = 0;
+  for (const r of rows) {
+    if ("open" in r) maxInd = Math.max(maxInd, (ind += IND));
+    else if ("close" in r) ind -= IND;
+    else if (!("head" in r)) {
+      maxL = Math.max(maxL, r.left.text.length * 6.3 + 14);
+      maxR = Math.max(maxR, r.right ? r.right.text.length * 6.3 + 14 : 0);
+    }
+  }
+  const hasRight = rows.some((r) => "left" in r && r.right);
+  const room = BW - maxInd - OP_W - 8;
+  const leftW = hasRight ? Math.max(60, Math.min(Math.ceil(maxL), Math.round(room * 0.55))) : room;
+  const leftEnd = maxInd + leftW;
+  const rightX = leftEnd + OP_W + 8;
+  const rightW = BW - rightX;
+  const chars = (w: number) => Math.max(4, Math.floor((w - 14) / 6.3));
+  const prims: Prim[] = [];
+  const stack: { x: number; y0: number }[] = [];
+  let y = 0;
+  let x0 = 0;
+  for (const r of rows) {
+    if ("head" in r) {
+      prims.push({ kind: "mode", x: x0, y, w: r.head.length * 6.4 + 16, h: 18, lines: [r.head] });
+      y += 22;
+    } else if ("open" in r) {
+      stack.push({ x: x0, y0: y });
+      x0 += IND;
+    } else if ("close" in r) {
+      const g = stack.pop()!;
+      prims.push({ kind: "bar", x: g.x + 3, y: g.y0 - 3, w: 0, h: y - g.y0 });
+      x0 = g.x;
+    } else {
+      const lLines = wrapLabel(r.left.text, chars(leftEnd - x0), 2);
+      const rLines = r.right ? wrapLabel(r.right.text, chars(rightW), 3) : [];
+      const h = cellH(Math.max(lLines.length, rLines.length));
+      prims.push({ kind: r.left.kind, x: x0, y, w: leftEnd - x0, h, lines: lLines });
+      if (r.op) prims.push({ kind: "op", x: leftEnd + 4, y, w: OP_W, h: CHIP_H, lines: [r.op] });
+      if (r.right) prims.push({ kind: r.right.kind, x: rightX, y, w: rightW, h, lines: rLines });
+      y += h + 5;
+    }
+  }
+  return { w: BW, h: Math.max(0, y - 5), need: maxInd + Math.min(maxL, room) + (hasRight ? OP_W + 8 + maxR : OP_W + 8), prims };
+}
+
+const OP_SHORT = (op: CondOp) => COND_OPS[op].short;
+
+/** Cartão do SE: a condição como tabela de linhas (dado | operador | valor). */
+function conditionRows(g: Group, names: Record<string, string>): Row[] {
+  const out: Row[] = [];
+  const walk = (grp: Group, top: boolean) => {
+    const head = !top || grp.items.length > 1;
+    if (head) out.push({ head: grp.mode === "e" ? "TODAS" : "QUALQUER" }, { open: true });
+    for (const it of grp.items) {
+      if (it.k === "group") walk(it, false);
+      else if (it.k === "raw") out.push({ left: operandOf(it.text, names), op: "" });
+      else out.push({ left: operandOf(it.left, names), op: OP_SHORT(it.op), right: COND_OPS[it.op].args === 0 ? undefined : { kind: "lit", text: COND_OPS[it.op].args === 2 ? `${operandOf(it.right ?? "", names).text} – ${operandOf(it.right2 ?? "", names).text}` : operandOf(it.right ?? "", names).text } });
+    }
+    if (head) out.push({ close: true });
+  };
+  walk(g, true);
+  return out;
+}
+
 export interface CardSection {
-  kind: "se" | "entao" | "usa";
+  kind: "se" | "entao";
   label: string;
   lines: CardLine[];
-  /** seção "usa": os dados como etiquetas, em linhas */
-  chips?: Chip[];
-  rows?: number;
+  /** o que se desenha, na ordem: linhas de texto e blocos de expressão */
+  items: CardItem[];
 }
 export interface RuleCard {
   w: number;
   h: number;
+  /** onde começa o conteúdo (coluna x) */
+  x: number;
   sections: CardSection[];
 }
 
 const wrap = (text: string, chars: number, max = 3) => wrapLabel(text, chars, max);
 const bad = (s: string): CardLine[] => [{ text: `⚠ ${s}` }];
+const lineItem = (line: CardLine): CardItem => ({ h: LINE_H, line });
 
 /** Cartão da regra. Regras curtas ficam mais estreitas, para um leque de ramos (faixas) não ficar largo demais. */
 export function ruleCard(n: NodeEl, names: Record<string, string> = {}): RuleCard {
-  const full = buildCard(n, names, RULE_W, 52);
-  const longest = Math.max(0, ...full.sections.flatMap((s) => s.lines.map((l) => l.text.length + (l.indent ? 3 : 0))), ...full.sections.map((s) => (s.chips ? Math.max(...s.chips.map((c) => c.x + c.w)) / 6.4 : 0)), n.label.length * 1.15);
+  const X = n.logic?.when ? CARD_X : PLAIN_X;
+  const full = buildCard(n, names, RULE_W, Math.floor((RULE_W - X - 20) / 6.4) - 2);
+  const longest = Math.max(0, ...full.sections.flatMap((s) => s.items.map((it) => (it.block ? it.block.need / 6.4 : stripMarks(it.line!.text).length + (it.line!.indent ? 3 : 0)))), n.label.length * 1.15);
   // só duas larguras (compacta e cheia): colunas de cartões com larguras quebradas ficam desalinhadas
-  const w = longest * 6.4 + CARD_X + 20 <= COMPACT_W ? COMPACT_W : RULE_W;
-  return w < RULE_W ? buildCard(n, names, w, Math.floor((w - CARD_X - 20) / 6.4)) : full;
+  const w = longest * 6.4 + X + 20 <= COMPACT_W ? COMPACT_W : RULE_W;
+  return w < RULE_W ? buildCard(n, names, w, Math.floor((w - X - 20) / 6.4) - 2, X) : full;
 }
 
-function buildCard(n: NodeEl, names: Record<string, string>, RW: number, CH: number): RuleCard {
+function buildCard(n: NodeEl, names: Record<string, string>, RW: number, CH: number, X = n.logic?.when ? CARD_X : PLAIN_X): RuleCard {
   const CHARS = CH;
   const l = n.logic!;
   const sections: CardSection[] = [];
   const reads = new Set<string>();
+  const BW = RW - X - 14;
 
   if (l.when) {
     try {
       const e = parseExpr(l.when);
       readsOf(e, reads);
-      sections.push({ kind: "se", label: "SE", lines: wrap(explain(e, names), CHARS).map((text) => ({ text })) });
+      const g = fromText(l.when);
+      if (!g) throw new Error("condição inválida");
+      const block = tableLayout(conditionRows(g, names), BW);
+      if (block.prims.length) sections.push({ kind: "se", label: "SE", lines: [], items: [{ h: block.h + 2, block }] });
     } catch {
-      sections.push({ kind: "se", label: "SE", lines: bad("condição inválida") });
+      sections.push({ kind: "se", label: "SE", lines: bad("condição inválida"), items: bad("condição inválida").map(lineItem) });
     }
   }
 
   const then: CardLine[] = [];
+  const thenItems: CardItem[] = [];
+  const pushLine = (...ls: CardLine[]) => {
+    then.push(...ls);
+    thenItems.push(...ls.map(lineItem));
+  };
   const copies: { from: string; names: string[] } | undefined = undefined as { from: string; names: string[] } | undefined;
   let copy = copies;
   const flushCopy = () => {
     if (!copy) return;
     const shown = copy.names.slice(0, 6).join(", ");
     const more = copy.names.length > 6 ? ` e mais ${copy.names.length - 6}` : "";
-    wrap(`traz de ${copy.from}: ${shown}${more}`, CHARS, 3).forEach((t) => then.push({ text: t }));
+    wrap(`traz de ${copy.from}: ${shown}${more}`, CHARS, 3).forEach((t) => pushLine({ text: t }));
     copy = undefined;
   };
   for (const src of l.then ?? []) {
@@ -122,60 +247,33 @@ function buildCard(n: NodeEl, names: Record<string, string>, RW: number, CH: num
       flushCopy();
       if (s.t === "assign") {
         readsOf(s.value, reads);
-        const br = branchesOf(s.value, names);
-        const target = names[s.name] ?? s.name.replace(/_/g, " ");
+        const br = branchesOf(s.value, names, true);
+        const target = `${names[s.name] ?? s.name.replace(/_/g, " ")}`;
         if (br) {
-          then.push({ text: `${target} passa a ser:` });
+          pushLine({ text: `${target} passa a ser:` });
           for (const b of br) {
             if (b.cond) {
-              wrap(`se ${b.cond}`, CHARS - 4, 2).forEach((t, i) => then.push({ text: t, indent: true, cond: i === 0 }));
-              wrap(`→ ${b.then}`, CHARS - 6, 2).forEach((t) => then.push({ text: t, indent: true }));
-            } else wrap(`senão → ${b.then}`, CHARS - 4, 2).forEach((t) => then.push({ text: t, indent: true, cond: true }));
+              wrap(`se ${b.cond}`, CHARS - 4, 2).forEach((t, i) => pushLine({ text: t, indent: true, cond: i === 0 }));
+              wrap(`→ ${b.then}`, CHARS - 6, 2).forEach((t) => pushLine({ text: t, indent: true }));
+            } else wrap(`senão → ${b.then}`, CHARS - 4, 2).forEach((t) => pushLine({ text: t, indent: true, cond: true }));
           }
-        } else wrap(explainStatement(s, names), CHARS, 3).forEach((t) => then.push({ text: t }));
-      } else wrap(explainStatement(s, names), CHARS, 2).forEach((t) => then.push({ text: t }));
+        } else {
+          // uma linha "dado := valor", nas mesmas colunas das condições
+          const block = tableLayout([{ left: { kind: "var", text: stripMarks(target) }, op: ":=", right: operandOf(print(s.value), names) }], BW);
+          then.push({ text: explainStatement(s, names) });
+          thenItems.push({ h: block.h + 2, block });
+        }
+      } else wrap(explainStatement(s, names, true), CHARS, 2).forEach((t) => pushLine({ text: t }));
     } catch {
       flushCopy();
-      then.push(...bad(`efeito inválido: ${src}`));
+      pushLine(...bad(`efeito inválido: ${src}`));
     }
   }
   flushCopy();
-  if (then.length) sections.push({ kind: "entao", label: "ENTÃO", lines: then });
+  if (then.length) sections.push({ kind: "entao", label: l.when ? "ENTÃO" : "", lines: then, items: thenItems });
 
-  // dados acoplados: etiquetas dos dados que o passo lê (contorno) e escreve (preenchido)
-  const writes = new Set<string>();
-  for (const src of l.then ?? []) {
-    try {
-      const s = parseStatement(src);
-      if (s.t === "assign") writes.add(s.name);
-    } catch {
-      /* já sinalizado acima */
-    }
-  }
-  const root = (k: string) => (k.includes(".") && !(k in names) ? k.split(".")[0] : k);
-  const keys = new Map<string, boolean>();
-  for (const r of reads) keys.set(root(r), false);
-  for (const wk of writes) keys.set(root(wk), true);
-  if (keys.size) {
-    const chips: Chip[] = [];
-    const maxW = RW - CARD_X - 14;
-    let row = 0;
-    let x = 0;
-    for (const [k, write] of keys) {
-      const text = names[k] ?? k.replace(/_/g, " ");
-      const cw = Math.min(maxW, Math.round(text.length * 6.3 + 20));
-      if (x + cw > maxW && x > 0) {
-        row++;
-        x = 0;
-      }
-      chips.push({ text: truncate(text, Math.floor((cw - 18) / 6.3)), write, x, w: cw, row });
-      x += cw + 6;
-    }
-    sections.push({ kind: "usa", label: "DADOS", lines: [], chips, rows: row + 1 });
-  }
-
-  const h = HEAD_H + sections.reduce((s, x) => s + (x.chips ? x.rows! * 24 + 10 : Math.max(1, x.lines.length) * LINE_H + 14), 0) + 4;
-  return { w: RW, h, sections };
+  const h = HEAD_H + sections.reduce((s, x) => s + Math.max(LINE_H, x.items.reduce((a, it) => a + it.h, 0)) + 14, 0) + 4;
+  return { w: RW, h, x: X, sections };
 }
 
 /** Texto da condição de uma decisão/escolha/laço, em português, quebrado em linhas para caber na figura. */
@@ -194,6 +292,7 @@ export function figureText(n: NodeEl, names: Record<string, string> = {}): { tit
     const parts = [l.foreach ? `para cada ${l.as ?? "item"} em ${ex(l.foreach)}` : "", l.until ? `até ${ex(l.until)}` : "", l.max ? `no máximo ${l.max} voltas` : ""].filter(Boolean);
     return { title: wrap(n.label, 32, 2), body: wrap(parts.join(" · "), 42, 3) };
   }
+  if (l.role === "call") return { title: wrap(n.label, 30, 2), body: wrap([l.text, l.falha ? `falha quando ${ex(l.falha)}` : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => t.split(":=")[0].trim()).join(", ")}` : ""].filter(Boolean).join(" · "), 36, 3) };
   return { title: wrap(n.label, 30, 2), body: wrap(l.text ?? "", 36, 2) };
 }
 
@@ -212,7 +311,9 @@ export function logicSize(n: NodeEl, names: Record<string, string> = {}): { w: n
       const c = ruleCard(n, names);
       return { w: c.w, h: c.h };
     }
-    case "fact":
+    case "input":
+    case "output":
+    case "variable":
       return { w: FACT_W, h: FACT_H };
     case "scenario":
       return { w: SCENARIO_W, h: 40 + scenarioTitle(n).length * 15 };

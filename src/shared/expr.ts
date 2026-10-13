@@ -18,6 +18,8 @@ export type Expr =
   | { t: "nul" }
   | { t: "id"; name: string }
   | { t: "list"; items: Expr[] }
+  | { t: "idx"; x: Expr; i: Expr }
+  | { t: "field"; x: Expr; name: string }
   | { t: "call"; fn: string; args: Expr[] }
   | { t: "un"; op: "-" | "nao"; x: Expr }
   | { t: "bin"; op: BinOp; l: Expr; r: Expr }
@@ -27,6 +29,47 @@ export type BinOp = "+" | "-" | "*" | "/" | "%" | "=" | "!=" | "<" | "<=" | ">" 
 
 export type Statement = { t: "assign"; name: string; value: Expr } | { t: "lock"; name: string } | { t: "unlock"; name: string };
 
+/** A expressão tem `se … entao … senao` dentro (em qualquer nível)? */
+export function hasConditional(e: Expr): boolean {
+  switch (e.t) {
+    case "if": return true;
+    case "list": return e.items.some(hasConditional);
+    case "idx": return hasConditional(e.x) || hasConditional(e.i);
+    case "field": return hasConditional(e.x);
+    case "call": return e.args.some(hasConditional);
+    case "un": return hasConditional(e.x);
+    case "bin": return hasConditional(e.l) || hasConditional(e.r);
+    default: return false;
+  }
+}
+
+/**
+ * Separa o primeiro `se` da expressão (de fora para dentro, da esquerda para a direita): a condição e a expressão inteira
+ * com esse `se` trocado pelo ramo «entao» (sim) ou pelo ramo «senao» (nao).
+ */
+export function firstConditional(e: Expr): { c: Expr; sim: Expr; nao: Expr } | undefined {
+  const within = (children: Expr[], rebuild: (next: Expr[]) => Expr) => {
+    for (let i = 0; i < children.length; i++) {
+      const r = firstConditional(children[i]);
+      if (r) {
+        const swap = (x: Expr) => rebuild(children.map((c, j) => (j === i ? x : c)));
+        return { c: r.c, sim: swap(r.sim), nao: swap(r.nao) };
+      }
+    }
+    return undefined;
+  };
+  switch (e.t) {
+    case "if": return { c: e.c, sim: e.a, nao: e.b };
+    case "list": return within(e.items, (items) => ({ ...e, items }));
+    case "idx": return within([e.x, e.i], ([x, i]) => ({ ...e, x, i }));
+    case "field": return within([e.x], ([x]) => ({ ...e, x }));
+    case "call": return within(e.args, (args) => ({ ...e, args }));
+    case "un": return within([e.x], ([x]) => ({ ...e, x }));
+    case "bin": return within([e.l, e.r], ([l, r]) => ({ ...e, l, r }));
+    default: return undefined;
+  }
+}
+
 export class ExprError extends Error {
   constructor(message: string, readonly pos = 0) {
     super(message);
@@ -35,27 +78,66 @@ export class ExprError extends Error {
 
 /* ───────────── funções permitidas (fonte única: parser, avaliador, explicação e guia da IA) ───────────── */
 
-export const FUNCTIONS: Record<string, { sig: string; doc: string; arity: [number, number] }> = {
-  min: { sig: "min(a, b, …)", doc: "o menor dos valores", arity: [1, 99] },
-  max: { sig: "max(a, b, …)", doc: "o maior dos valores", arity: [1, 99] },
-  abs: { sig: "abs(x)", doc: "valor sem sinal", arity: [1, 1] },
-  piso: { sig: "piso(x)", doc: "arredonda para baixo, ao inteiro", arity: [1, 1] },
-  teto: { sig: "teto(x)", doc: "arredonda para cima, ao inteiro", arity: [1, 1] },
-  arredondar: { sig: "arredondar(x, casas)", doc: "arredonda para o número de casas decimais (padrão 0)", arity: [1, 2] },
-  entre: { sig: "entre(x, minimo, maximo)", doc: "verdadeiro se x está na faixa, inclusive nas pontas", arity: [3, 3] },
-  vazio: { sig: "vazio(x)", doc: "verdadeiro se x não tem valor", arity: [1, 1] },
-  contem: { sig: "contem(lista, x)", doc: "verdadeiro se a lista tem x", arity: [2, 2] },
-  tamanho: { sig: "tamanho(lista)", doc: "quantidade de itens (ou de letras, em texto)", arity: [1, 1] },
+export type FnCategory = "Números" | "Texto" | "Listas" | "Datas" | "Lógica";
+
+/** `ex` é um exemplo completo, só com valores literais: o app o executa para mostrar o resultado ao lado (e um teste confere que roda). */
+export const FUNCTIONS: Record<string, { sig: string; doc: string; arity: [number, number]; cat: FnCategory; ex: string }> = {
+  min: { sig: "min(a, b, …)", doc: "o menor dos valores", arity: [1, 99], cat: "Números", ex: "min(4, 9, 2)" },
+  max: { sig: "max(a, b, …)", doc: "o maior dos valores", arity: [1, 99], cat: "Números", ex: "max(4, 9, 2)" },
+  abs: { sig: "abs(x)", doc: "valor sem sinal", arity: [1, 1], cat: "Números", ex: "abs(-7)" },
+  piso: { sig: "piso(x)", doc: "arredonda para baixo, ao inteiro", arity: [1, 1], cat: "Números", ex: "piso(3.8)" },
+  teto: { sig: "teto(x)", doc: "arredonda para cima, ao inteiro", arity: [1, 1], cat: "Números", ex: "teto(3.2)" },
+  arredondar: { sig: "arredondar(x, casas)", doc: "arredonda para o número de casas decimais (padrão 0)", arity: [1, 2], cat: "Números", ex: "arredondar(3.14159, 2)" },
+  entre: { sig: "entre(x, minimo, maximo)", doc: "verdadeiro se x está na faixa, inclusive nas pontas", arity: [3, 3], cat: "Lógica", ex: "entre(5, 1, 10)" },
+  vazio: { sig: "vazio(x)", doc: "verdadeiro se x não tem valor", arity: [1, 1], cat: "Lógica", ex: "vazio(nulo)" },
+  contem: { sig: "contem(lista, x)", doc: "verdadeiro se a lista tem x", arity: [2, 2], cat: "Listas", ex: "contem([\"a\", \"b\"], \"b\")" },
+  tamanho: { sig: "tamanho(lista)", doc: "quantidade de itens (ou de letras, em texto)", arity: [1, 1], cat: "Listas", ex: "tamanho([\"a\", \"b\", \"c\"])" },
+  texto: { sig: "texto(x)", doc: "converte número, lógico ou vazio em texto (12 vira \"12\")", arity: [1, 1], cat: "Texto", ex: "texto(12)" },
+  numero: { sig: "numero(texto)", doc: "converte texto em número (\"12.5\" vira 12.5); dá erro se não for número", arity: [1, 1], cat: "Texto", ex: "numero(\"12,5\")" },
+  aparar: { sig: "aparar(texto)", doc: "tira os espaços do começo e do fim", arity: [1, 1], cat: "Texto", ex: "aparar(\"  oi  \")" },
+  maiusculas: { sig: "maiusculas(texto)", doc: "tudo em letras maiúsculas", arity: [1, 1], cat: "Texto", ex: "maiusculas(\"ana\")" },
+  minusculas: { sig: "minusculas(texto)", doc: "tudo em letras minúsculas", arity: [1, 1], cat: "Texto", ex: "minusculas(\"ANA\")" },
+  trocar: { sig: "trocar(texto, de, para)", doc: "troca todas as ocorrências de um trecho por outro", arity: [3, 3], cat: "Texto", ex: "trocar(\"a b c\", \" \", \"-\")" },
+  juntar: { sig: "juntar(lista, separador)", doc: "junta os itens da lista num texto, com o separador entre eles", arity: [2, 2], cat: "Texto", ex: "juntar([\"a\", \"b\"], \", \")" },
+  filtrar: { sig: "filtrar(lista, condição)", doc: "os itens em que a condição vale; dentro dela os campos do item são nomes soltos (preco > 10) e `item` é o próprio item", arity: [2, 2], cat: "Listas", ex: "filtrar([1, 2, 3, 4], item > 2)" },
+  mapear: { sig: "mapear(lista, conta)", doc: "uma lista nova com a conta feita em cada item; dentro dela os campos do item são nomes soltos (preco * qtd) e `item` é o próprio item", arity: [2, 2], cat: "Listas", ex: "mapear([1, 2, 3], item * 2)" },
+  dias_entre: { sig: "dias_entre(de, ate)", doc: "quantos dias vão de uma data à outra (negativo se `ate` vem antes); datas em texto AAAA-MM-DD", arity: [2, 2], cat: "Datas", ex: "dias_entre(\"2026-09-12\", \"2026-10-12\")" },
+  somar_dias: { sig: "somar_dias(data, dias)", doc: "a data daqui a N dias (N negativo volta no tempo), em texto AAAA-MM-DD", arity: [2, 2], cat: "Datas", ex: "somar_dias(\"2026-01-15\", 30)" },
+  soma: { sig: "soma(lista)", doc: "soma dos números da lista (lista vazia dá 0)", arity: [1, 1], cat: "Listas", ex: "soma([10, 20, 5])" },
+  media: { sig: "media(lista)", doc: "média dos números da lista; dá erro se a lista é vazia", arity: [1, 1], cat: "Listas", ex: "media([2, 4, 9])" },
+  primeiro: { sig: "primeiro(lista)", doc: "o primeiro item (vazio se a lista é vazia)", arity: [1, 1], cat: "Listas", ex: "primeiro([7, 8, 9])" },
+  ultimo: { sig: "ultimo(lista)", doc: "o último item (vazio se a lista é vazia)", arity: [1, 1], cat: "Listas", ex: "ultimo([7, 8, 9])" },
+  ordenar: { sig: "ordenar(lista)", doc: "a lista em ordem crescente (números ou textos)", arity: [1, 1], cat: "Listas", ex: "ordenar([3, 1, 2])" },
+  unicos: { sig: "unicos(lista)", doc: "a lista sem itens repetidos, na ordem em que aparecem", arity: [1, 1], cat: "Listas", ex: "unicos([1, 2, 2, 3])" },
+  adicionar: { sig: "adicionar(lista, x)", doc: "nova lista com x no fim (a original não muda)", arity: [2, 2], cat: "Listas", ex: "adicionar([1, 2], 3)" },
+  partir: { sig: "partir(texto, separador)", doc: "parte o texto numa lista, em cada separador", arity: [2, 2], cat: "Texto", ex: "partir(\"a,b,c\", \",\")" },
 };
+
+/** Busca de funções por nome, assunto ou descrição, sem acento. Aceita o verbo («somar» acha `soma`). Vazio devolve todas. */
+export function findFunctions(query: string): string[] {
+  const norm = (x: string) => x.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const words = norm(query).split(/\s+/).filter(Boolean);
+  return Object.entries(FUNCTIONS)
+    .filter(([k, f]) => {
+      const hay = norm(`${k} ${f.sig} ${f.doc} ${f.cat}`);
+      return words.every((w) => hay.includes(w) || (w.length > 4 && hay.includes(w.replace(/(ar|er|ir|s)$/, ""))));
+    })
+    .map(([k]) => k);
+}
 
 /** Documentação da sintaxe para a IA e para o guia do app. */
 export const SYNTAX_GUIDE = [
   "Números: `10`, `0.09` (ponto decimal), `5%` (= 0.05). Texto: `\"imagem\"`. Lógicos: `verdadeiro`, `falso`. Sem valor: `nulo`.",
   "Dados: nomes com letras, números e `_`, podendo ter pontos: `preco_atual`, `categoria.margem`. Listas: `[\"a\", \"b\"]`.",
-  "Contas: `+ - * / %` e parênteses. Comparações: `= != < <= > >=`, `em [...]`, `nao em [...]`.",
-  "Lógica: `e`, `ou`, `nao` (também `and`, `or`, `not`). Escolha: `se condição entao A senao B`.",
-  "Funções: " + Object.values(FUNCTIONS).map((f) => `\`${f.sig}\``).join(", ") + ".",
-  "Efeitos (campo `then`): `preco := expressão` (passa a valer), `travar preco` (as regras seguintes não o reescrevem) e `destravar preco` (volta a poder ser reescrito; use em regras que \"vencem tudo\").",
+  "Contas: `+ - * / %` (`%` é o resto da divisão; `5%` com o símbolo colado ao FIM de um número literal é o número 0.05; `x%5` e `10 %5` são resto, e `10% 5` é erro) e parênteses. Comparações: `= != < <= > >=`, `em [...]`, `nao em [...]`.",
+  "Lógica: `e`, `ou`, `nao` (também `and`, `or`, `not`). Escolha de valor: `se condição entao A senao B` (vale em condições, como `when`, `until`, `on`, `foreach`, `falha`; NÃO dentro dos efeitos `then` de uma Ação nem `devolve` de uma Chamada: lá a escolha é uma Decisão).",
+  "Funções: " + Object.values(FUNCTIONS).map((f) => `\`${f.sig}\``).join(", ") + ". Em `filtrar` e `mapear`, dentro da condição/conta os campos do item são nomes soltos (`preco > 10`) e `item` é o próprio item (`filtrar([1, 2, 3], item > 1)`); se o item tiver um campo chamado `item`, o nome `item` continua sendo o item inteiro (leia o campo com `item.item`).",
+  "Bordas (o que o app faz de verdade): `arredondar(x, casas)` arredonda o meio para cima (`arredondar(2.5, 0)` = 3, `arredondar(-2.5, 0)` = -2) e aceita casas negativas (`arredondar(1234, -2)` = 1200); `piso` vai para o menor inteiro e `teto` para o maior (`piso(-1.5)` = -2); `entre(x, min, max)` inclui as duas pontas e dá falso se min > max; `min` e `max` só aceitam números (nem lista, nem vazio); dividir por zero é erro; `%` é o resto com o sinal do dividendo (`-7 % 3` = -1).",
+  "Comparações: `=` exige o mesmo tipo e diferencia maiúsculas (`\"A\" = \"a\"` e `1 = \"1\"` dão falso); listas e objetos comparam pelo conteúdo; `<` e `>` em texto seguem a ordem dos caracteres (maiúsculas antes das minúsculas). `vazio(x)` é verdadeiro para `nulo`, `\"\"` e `[]`, e falso para `\"  \"`, `0` e `falso`.",
+  "Listas e texto: `soma([])` = 0; `media([])` é erro; `primeiro([])` e `ultimo([])` dão `nulo`; `tamanho` também mede texto; `ordenar` é crescente e só aceita lista só de números ou só de textos; `unicos` mantém a ordem; `contem` só vale para lista (para texto, não); `trocar` troca todas as ocorrências (sem regex); `juntar([], \"-\")` = `\"\"`. Conversão: `numero(\"0,5\")` e `numero(\"0.5\")` valem 0.5, e texto que não é número (ou vazio) é erro; `texto(nulo)` = `\"\"` e `texto` de lista é erro (use `juntar`).",
+  "Datas: não há tipo data; vale texto `AAAA-MM-DD`. `dias_entre(de, ate)` é ate - de (negativo se `ate` vem antes), `somar_dias` aceita dias negativos, e qualquer outro formato é erro.",
+  "Mais bordas: `nao` vale antes de `e`, e `e` antes de `ou` (`falso e falso ou verdadeiro` é verdadeiro); `e`/`ou`/`nao` e `and`/`or`/`not` valem e podem se misturar. `+` soma números ou junta DOIS textos (`\"a\" + \"b\"` = `\"ab\"`); texto com número é erro (use `texto(x)`). `texto(1.50)` = `\"1.5\"` e `texto(verdadeiro)` = `\"true\"`; `tamanho(nulo)` e `numero(nulo)` são erro. `em` pede uma lista do outro lado (com texto é erro de sintaxe) e compara como `=`. `adicionar(lista, x)` devolve uma lista NOVA, sem alterar a original; `partir(\"a,,b\", \",\")` mantém o vazio do meio, `partir(\"\", \",\")` dá `[\"\"]` e um separador vazio parte em letras; `unicos` compara listas e objetos pelo conteúdo. `x = 3` NÃO é um efeito (é recusado: use `x := 3`).",
+  "Efeitos (campo `then`, uma LISTA com um efeito por item): `preco := expressão` (passa a valer), `travar preco` (daí em diante `preco := ...` não muda o valor nem dá erro; a tentativa fica anotada como bloqueada) e `destravar preco` (volta a poder ser reescrito; use em ações que \"vencem tudo\").",
 ].join("\n");
 
 /* ───────────── léxico ───────────── */
@@ -104,6 +186,7 @@ function lex(src: string): Tok[] {
       i = j;
       continue;
     }
+    if (c === "." && isIdStart(src[i + 1] ?? "") && /[\])]/.test(out[out.length - 1]?.v ?? "") && out[out.length - 1].k === "op") { out.push({ k: "op", v: ".", pos: i }); i++; continue; }
     const two = src.slice(i, i + 2);
     if (["==", "!=", "<>", "<=", ">=", "&&", "||", ":="].includes(two)) { out.push({ k: "op", v: two, pos: i }); i += 2; continue; }
     if ("+-*/%()[],<>=!".includes(c)) { out.push({ k: "op", v: c, pos: i }); i++; continue; }
@@ -195,7 +278,18 @@ class Parser {
     if (this.isOp("-")) { this.p++; return { t: "un", op: "-", x: this.unary() }; }
     return this.primary();
   }
+  /** Depois de um valor: `[posição]` (a primeira é 0) e `.campo`, quantas vezes vierem: `itens[0].preco`. */
+  private postfix(e: Expr): Expr {
+    for (;;) {
+      if (this.isOp("[")) { this.p++; const i = this.expr(); this.eatOp("]"); e = { t: "idx", x: e, i }; }
+      else if (this.isOp(".") && this.toks[this.p + 1]?.k === "id") { this.p++; e = { t: "field", x: e, name: this.cur.v }; this.p++; }
+      else return e;
+    }
+  }
   private primary(): Expr {
+    return this.postfix(this.atom());
+  }
+  private atom(): Expr {
     const t = this.cur;
     if (t.k === "num") { this.p++; const n = Number(t.v); return t.pct ? { t: "num", v: n / 100, pct: true } : { t: "num", v: n }; }
     if (t.k === "str") { this.p++; return { t: "str", v: t.v }; }
@@ -259,7 +353,9 @@ export function readsOf(e: Expr, acc = new Set<string>()): Set<string> {
   switch (e.t) {
     case "id": acc.add(e.name); break;
     case "list": e.items.forEach((x) => readsOf(x, acc)); break;
-    case "call": e.args.forEach((x) => readsOf(x, acc)); break;
+    case "idx": readsOf(e.x, acc); readsOf(e.i, acc); break;
+    case "field": readsOf(e.x, acc); break;
+    case "call": (e.fn === "filtrar" || e.fn === "mapear" ? e.args.slice(0, 1) : e.args).forEach((x) => readsOf(x, acc)); break; // dentro de filtrar/mapear os nomes são campos do item, não dados do diagrama
     case "un": readsOf(e.x, acc); break;
     case "bin": readsOf(e.l, acc); readsOf(e.r, acc); break;
     case "if": readsOf(e.c, acc); readsOf(e.a, acc); readsOf(e.b, acc); break;
@@ -288,6 +384,27 @@ const num = (v: Value, what: string): number => {
   return v;
 };
 
+const list = (v: Value, what: string): Value[] => {
+  if (!Array.isArray(v)) throw new EvalError(`${what}(lista) precisa de uma lista, mas recebeu ${v === null ? "vazio" : JSON.stringify(v)}`);
+  return v;
+};
+
+const DAY = 86400000;
+/** Texto AAAA-MM-DD -> dia (UTC, sem fuso nem horário de verão). Recusa datas que não existem (2026-02-30). */
+const dayOf = (v: Value, what: string): number => {
+  const m = typeof v === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(v) : null;
+  if (!m) throw new EvalError(`${what} precisa de uma data em texto AAAA-MM-DD (ex.: "2026-10-12"), mas recebeu ${v === null ? "vazio" : JSON.stringify(v)}`);
+  const t = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  const d = new Date(t);
+  if (d.getUTCFullYear() !== +m[1] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]) throw new EvalError(`${what}: a data ${JSON.stringify(v)} não existe no calendário`);
+  return Math.round(t / DAY);
+};
+
+const str = (v: Value, what: string): string => {
+  if (typeof v !== "string") throw new EvalError(`${what} precisa de texto, mas recebeu ${v === null ? "vazio" : JSON.stringify(v)}`);
+  return v;
+};
+
 const same = (a: Value, b: Value): boolean => (Array.isArray(a) || Array.isArray(b) ? JSON.stringify(a) === JSON.stringify(b) : a === b);
 
 export function evaluate(e: Expr, env: Env): Value {
@@ -298,6 +415,19 @@ export function evaluate(e: Expr, env: Env): Value {
     case "nul": return null;
     case "id": return lookup(env, e.name);
     case "list": return e.items.map((x) => evaluate(x, env));
+    case "idx": {
+      const base = evaluate(e.x, env);
+      const i = evaluate(e.i, env);
+      if (typeof i !== "number" || !Number.isInteger(i)) throw new EvalError(`a posição entre [ ] precisa ser um número inteiro (a primeira é 0), mas é ${JSON.stringify(i)}`);
+      if (!Array.isArray(base) && typeof base !== "string") throw new EvalError(`[${i}] só vale para lista ou texto, mas o valor é ${base === null ? "vazio" : JSON.stringify(base)}`);
+      if (i < 0 || i >= base.length) throw new EvalError(`a posição ${i} não existe: a lista tem ${base.length} ${base.length === 1 ? "item" : "itens"} (posições de 0 a ${Math.max(base.length - 1, 0)})`);
+      return base[i] as Value;
+    }
+    case "field": {
+      const base = evaluate(e.x, env) as unknown;
+      if (!base || typeof base !== "object" || Array.isArray(base)) throw new EvalError(`.${e.name} só vale para um objeto, mas o valor é ${base === null ? "vazio" : JSON.stringify(base)}`);
+      return lookup(base as Env, e.name);
+    }
     case "un": return e.op === "-" ? -num(evaluate(e.x, env), "o valor depois do sinal -") : !truthy(evaluate(e.x, env));
     case "if": return truthy(evaluate(e.c, env)) ? evaluate(e.a, env) : evaluate(e.b, env);
     case "bin": {
@@ -328,6 +458,16 @@ export function evaluate(e: Expr, env: Env): Value {
       return null;
     }
     case "call": {
+      if (e.fn === "filtrar" || e.fn === "mapear") {
+        const items = list(evaluate(e.args[0], env), e.fn);
+        const each = (item: Value): Env => ({ ...env, ...(item && typeof item === "object" && !Array.isArray(item) ? (item as Env) : {}), item });
+        if (e.fn === "mapear") return items.map((it) => evaluate(e.args[1], each(it)));
+        return items.filter((it) => {
+          const w = evaluate(e.args[1], each(it));
+          if (typeof w !== "boolean") throw new EvalError(`a condição de filtrar precisa dar verdadeiro ou falso para cada item, mas deu ${JSON.stringify(w)}`);
+          return w;
+        });
+      }
       const a = e.args.map((x) => evaluate(x, env));
       switch (e.fn) {
         case "min": return Math.min(...a.map((v) => num(v, "min")));
@@ -340,6 +480,23 @@ export function evaluate(e: Expr, env: Env): Value {
         case "vazio": return a[0] === null || a[0] === "" || (Array.isArray(a[0]) && a[0].length === 0);
         case "contem": { if (!Array.isArray(a[0])) throw new EvalError("contem(lista, x) precisa de uma lista"); return a[0].some((x) => same(x, a[1])); }
         case "tamanho": return Array.isArray(a[0]) || typeof a[0] === "string" ? a[0].length : (() => { throw new EvalError("tamanho precisa de lista ou texto"); })();
+        case "texto": return a[0] === null ? "" : typeof a[0] === "string" ? a[0] : typeof a[0] === "number" || typeof a[0] === "boolean" ? String(a[0]) : (() => { throw new EvalError("texto(x) converte número, lógico ou vazio; uma lista não vira texto (use juntar)"); })();
+        case "numero": { const t = str(a[0], "numero").trim().replace(",", "."); if (t === "" || !Number.isFinite(Number(t))) throw new EvalError(`numero("${a[0]}"): isso não é um número`); return Number(t); }
+        case "aparar": return str(a[0], "aparar").trim();
+        case "maiusculas": return str(a[0], "maiusculas").toUpperCase();
+        case "minusculas": return str(a[0], "minusculas").toLowerCase();
+        case "trocar": return str(a[0], "trocar").split(str(a[1], "trocar")).join(str(a[2], "trocar"));
+        case "juntar": { if (!Array.isArray(a[0])) throw new EvalError("juntar(lista, separador) precisa de uma lista"); return a[0].map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(str(a[1], "juntar")); }
+        case "partir": return str(a[0], "partir").split(str(a[1], "partir"));
+        case "dias_entre": return dayOf(a[1], "dias_entre") - dayOf(a[0], "dias_entre");
+        case "somar_dias": { const n = num(a[1], "somar_dias"); if (!Number.isInteger(n)) throw new EvalError("somar_dias: o número de dias precisa ser inteiro"); return new Date((dayOf(a[0], "somar_dias") + n) * DAY).toISOString().slice(0, 10); }
+        case "soma": return list(a[0], "soma").reduce<number>((t, x) => t + num(x, "cada item de soma"), 0);
+        case "media": { const l = list(a[0], "media"); if (!l.length) throw new EvalError("media(lista): a lista está vazia"); return l.reduce<number>((t, x) => t + num(x, "cada item de media"), 0) / l.length; }
+        case "primeiro": return list(a[0], "primeiro")[0] ?? null;
+        case "ultimo": { const l = list(a[0], "ultimo"); return l[l.length - 1] ?? null; }
+        case "ordenar": { const l = [...list(a[0], "ordenar")]; if (l.every((x) => typeof x === "number")) return l.sort((x, y) => (x as number) - (y as number)); if (l.every((x) => typeof x === "string")) return l.sort((x, y) => ((x as string) < (y as string) ? -1 : x === y ? 0 : 1)); throw new EvalError("ordenar(lista) precisa de uma lista só de números ou só de textos"); }
+        case "unicos": return list(a[0], "unicos").filter((x, i, l) => l.findIndex((y) => same(x, y)) === i);
+        case "adicionar": return [...list(a[0], "adicionar"), a[1]];
       }
       throw new EvalError(`função "${e.fn}" sem implementação`);
     }
@@ -362,11 +519,18 @@ const ARITH_SHORT: Record<string, string> = { "+": "+", "-": "−", "*": "×", "
 
 const fmtNum = (v: number) => String(Math.round(v * 1e9) / 1e9).replace(".", ",");
 
+/** Marcas (invisíveis) em volta de dados e operadores lógicos, para o desenho destacá-los; `stripMarks` tira. */
+export const MARK_VAR = ["", ""] as const;
+export const MARK_OP = ["", ""] as const;
+export const stripMarks = (t: string) => t.replace(/[-]/g, "");
+
 /** Traduz uma expressão para uma frase em português. `names` troca o nome técnico de um dado pelo nome de negócio. */
-export function explain(e: Expr, names: Record<string, string> = {}, short = false): string {
+export function explain(e: Expr, names: Record<string, string> = {}, short = false, mark = false): string {
   const CMP = short ? CMP_SHORT : CMP_TEXT;
   const ARITH = short ? ARITH_SHORT : ARITH_TEXT;
-  const nm = (n: string) => names[n] ?? (n.includes(".") ? n : n.replace(/_/g, " "));
+  const plain = (n: string) => names[n] ?? (n.includes(".") ? n : n.replace(/_/g, " "));
+  const nm = (n: string) => (mark ? `${MARK_VAR[0]}${plain(n)}${MARK_VAR[1]}` : plain(n));
+  const op = (w: string) => (mark ? `${MARK_OP[0]}${w}${MARK_OP[1]}` : w);
   const wrap = (x: Expr, parent: number) => (x.t === "bin" && (PREC[x.op] ?? 0) < parent ? `(${go(x)})` : go(x));
   const go = (x: Expr): string => {
     switch (x.t) {
@@ -376,11 +540,17 @@ export function explain(e: Expr, names: Record<string, string> = {}, short = fal
       case "nul": return "vazio";
       case "id": return nm(x.name);
       case "list": return `[${x.items.map(go).join(", ")}]`;
-      case "un": return x.op === "-" ? `-${wrap(x.x, 7)}` : `não (${go(x.x)})`;
+      case "idx": return short ? `${go(x.x)}[${go(x.i)}]` : `item ${go(x.i)} de ${go(x.x)}`;
+      case "field": return short ? `${go(x.x)}.${x.name}` : `${x.name.replace(/_/g, " ")} de ${go(x.x)}`;
+      case "un": return x.op === "-" ? `-${wrap(x.x, 7)}` : `${op("não")} (${go(x.x)})`;
       case "if": return `se ${go(x.c)}, então ${go(x.a)}; senão ${go(x.b)}`;
       case "bin": {
-        if (x.op === "e") return `${wrap(x.l, 2)} e ${wrap(x.r, 3)}`;
-        if (x.op === "ou") return `${wrap(x.l, 1)} ou ${wrap(x.r, 2)}`;
+        if (x.op === "e") return `${wrap(x.l, 2)} ${op("e")} ${wrap(x.r, 3)}`;
+        // «a ou b e c» lê-se de dois jeitos em português: um «e» dentro de um «ou» ganha parênteses (o texto salvo já é inequívoco pela precedência)
+        if (x.op === "ou") {
+          const side = (c: Expr, p: number) => (c.t === "bin" && c.op === "e" ? `(${go(c)})` : wrap(c, p));
+          return `${side(x.l, 1)} ${op("ou")} ${side(x.r, 2)}`;
+        }
         if (CMP[x.op]) return `${go(x.l)} ${CMP[x.op]} ${go(x.r)}`;
         const p = PREC[x.op]!;
         return `${wrap(x.l, p)} ${ARITH[x.op]} ${wrap(x.r, p + 1)}`;
@@ -398,6 +568,25 @@ export function explain(e: Expr, names: Record<string, string> = {}, short = fal
           case "vazio": return `${a[0]} está vazio`;
           case "contem": return `${a[0]} contém ${a[1]}`;
           case "tamanho": return `a quantidade de ${a[0]}`;
+          case "texto": return `${a[0]} como texto`;
+          case "numero": return `${a[0]} como número`;
+          case "aparar": return `${a[0]} sem espaços nas pontas`;
+          case "maiusculas": return `${a[0]} em maiúsculas`;
+          case "minusculas": return `${a[0]} em minúsculas`;
+          case "trocar": return `${a[0]} trocando ${a[1]} por ${a[2]}`;
+          case "juntar": return `os itens de ${a[0]} unidos por ${a[1]}`;
+          case "partir": return `${a[0]} partido em cada ${a[1]}`;
+          case "dias_entre": return `os dias de ${a[0]} até ${a[1]}`;
+          case "somar_dias": return `${a[0]} mais ${a[1]} dia(s)`;
+          case "filtrar": return `${a[0]} em que ${a[1]}`;
+          case "mapear": return `${a[1]} de cada item de ${a[0]}`;
+          case "soma": return `a soma de ${a[0]}`;
+          case "media": return `a média de ${a[0]}`;
+          case "primeiro": return `o primeiro de ${a[0]}`;
+          case "ultimo": return `o último de ${a[0]}`;
+          case "ordenar": return `${a[0]} em ordem crescente`;
+          case "unicos": return `${a[0]} sem repetidos`;
+          case "adicionar": return `${a[0]} com ${a[1]} no fim`;
         }
         return a.join(", ");
       }
@@ -407,24 +596,75 @@ export function explain(e: Expr, names: Record<string, string> = {}, short = fal
   return s;
 }
 
-export function explainStatement(s: Statement, names: Record<string, string> = {}): string {
-  const nm = (n: string) => names[n] ?? (n.includes(".") ? n : n.replace(/_/g, " "));
+export function explainStatement(s: Statement, names: Record<string, string> = {}, mark = false): string {
+  const plain = (n: string) => names[n] ?? (n.includes(".") ? n : n.replace(/_/g, " "));
+  const nm = (n: string) => (mark ? `${MARK_VAR[0]}${plain(n)}${MARK_VAR[1]}` : plain(n));
   if (s.t === "unlock") return `libera ${nm(s.name)}: volta a poder ser reescrito`;
-  return s.t === "lock" ? `trava ${nm(s.name)}: as regras seguintes não o reescrevem` : `${nm(s.name)} passa a ser ${explain(s.value, names)}`;
+  return s.t === "lock" ? `trava ${nm(s.name)}: as ações seguintes não o reescrevem` : `${nm(s.name)} passa a ser ${explain(s.value, names, false, mark)}`;
 }
 
 /**
  * Uma escolha "se … entao … senao se … senao …" vira uma lista de ramos (um por linha no quadro).
  * Devolve undefined quando a expressão não é uma escolha. O último ramo, sem condição, é o "senão".
  */
-export function branchesOf(e: Expr, names: Record<string, string> = {}): { cond?: string; then: string }[] | undefined {
+export function branchesOf(e: Expr, names: Record<string, string> = {}, mark = false): { cond?: string; then: string }[] | undefined {
   if (e.t !== "if") return undefined;
   const out: { cond?: string; then: string }[] = [];
   let cur: Expr = e;
   while (cur.t === "if") {
-    out.push({ cond: explain(cur.c, names), then: explain(cur.a, names) });
+    out.push({ cond: explain(cur.c, names, false, mark), then: explain(cur.a, names, false, mark) });
     cur = cur.b;
   }
-  out.push({ then: explain(cur, names) });
+  out.push({ then: explain(cur, names, false, mark) });
   return out;
+}
+
+/* ───────────── texto canônico de uma expressão ───────────── */
+
+const OP_TEXT: Record<BinOp, string> = { "+": "+", "-": "-", "*": "*", "/": "/", "%": "%", "=": "=", "!=": "!=", "<": "<", "<=": "<=", ">": ">", ">=": ">=", em: "em", "nao-em": "nao em", e: "e", ou: "ou" };
+
+/** Expressão -> texto na mesma sintaxe que o parser lê (parênteses só onde a precedência exige). */
+export function print(e: Expr): string {
+  const go = (x: Expr, parent: number): string => {
+    switch (x.t) {
+      case "num": return x.pct ? `${Math.round(x.v * 1e11) / 1e9}%` : String(x.v);
+      case "str": return JSON.stringify(x.v);
+      case "bool": return x.v ? "verdadeiro" : "falso";
+      case "nul": return "nulo";
+      case "id": return x.name;
+      case "list": return `[${x.items.map((i) => go(i, 0)).join(", ")}]`;
+      case "idx": return `${go(x.x, 9)}[${go(x.i, 0)}]`;
+      case "field": return `${go(x.x, 9)}.${x.name}`;
+      case "call": return `${x.fn}(${x.args.map((i) => go(i, 0)).join(", ")})`;
+      case "un": return x.op === "-" ? `-${go(x.x, 7)}` : (parent > 2 ? `(nao ${go(x.x, 3)})` : `nao ${go(x.x, 3)}`);
+      case "if": { const t = `se ${go(x.c, 0)} entao ${go(x.a, 0)} senao ${go(x.b, 0)}`; return parent > 0 ? `(${t})` : t; }
+      case "bin": {
+        const p = PREC[x.op] ?? 0;
+        const cmp = p === 3;
+        const t = `${go(x.l, cmp ? p + 1 : p)} ${OP_TEXT[x.op]} ${go(x.r, p + 1)}`;
+        return p < parent ? `(${t})` : t;
+      }
+    }
+  };
+  return go(e, 0);
+}
+
+/**
+ * A mensagem de erro de sintaxe com o ONDE: no fim do texto («depois de «preco <»») ou no meio, com ▸ marcando o ponto
+ * («em «a + ▸* b»»). Uma dica curta quando falta um valor.
+ */
+export function explainError(src: string, e: { message: string; pos: number }): string {
+  const end = src.trimEnd().length;
+  let where: string | undefined;
+  if (e.pos >= end) {
+    const tail = src.trimEnd().slice(-24);
+    // texto curto já está à vista no campo: basta dizer «no fim»; só o longo precisa citar o trecho
+    where = !tail ? "o texto está vazio" : src.trimEnd().length <= 24 ? undefined : `no fim, depois de «…${tail}»`;
+  } else {
+    const before = src.slice(Math.max(0, e.pos - 10), e.pos);
+    const after = src.slice(e.pos, e.pos + 10);
+    where = `em «${e.pos > 10 ? "…" : ""}${before}▸${after}${e.pos + 10 < src.length ? "…" : ""}»`;
+  }
+  const hint = e.message.startsWith("esperava um valor") ? " (falta um dado, número, texto ou conta; ex.: total > 100)" : "";
+  return `${e.message}${where ? `, ${where}` : ""}${hint}`;
 }

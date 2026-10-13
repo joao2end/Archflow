@@ -344,8 +344,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001,
-      "labelOffset": -50
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 384
+        },
+        {
+          "x": -14,
+          "y": 540
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "cancelar-consulta-to-agenda-do-profissio",
@@ -371,7 +380,7 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.5
+      "labelT": 0.54
     },
     {
       "id": "marcar-consulta-realizada-to-agenda-do-p",
@@ -384,6 +393,12 @@
       "ddd": {
         "rel": "triggers"
       },
+      "waypoints": [
+        {
+          "x": 494,
+          "y": 416
+        }
+      ],
       "labelT": 0.5
     },
     {
@@ -410,7 +425,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.18
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "horario-to-paciente",

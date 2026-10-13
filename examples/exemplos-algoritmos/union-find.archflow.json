@@ -1,0 +1,1415 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-uhk3by",
+  "title": "Union-Find (grupos disjuntos)",
+  "description": "Mantém grupos de elementos e responde se dois elementos estão no mesmo grupo. Cada elemento tem um «pai» (par [elemento, pai]); a raiz é o elemento que é pai de si mesmo. Para achar o grupo de um elemento, sobe-se de pai em pai até a raiz e, na volta, liga-se todo o caminho direto à raiz (compressão de caminho), o que encurta as buscas seguintes. Unir dois grupos liga a raiz de um à raiz do outro. Como o formato não tem sub-rotina, a busca da raiz está uma única vez, dentro de um laço sobre o par de elementos da operação.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 360,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1522,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1522,
+      "y": 166,
+      "w": 306,
+      "h": 418,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1522,
+      "y": 574,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 1522,
+      "y": 772,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n",
+      "label": "Quantidade de elementos",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "n",
+        "type": "inteiro",
+        "text": "Os elementos são numerados de 0 a n − 1. É pelo menos 1."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ops",
+      "label": "Operações",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "ops",
+        "type": "lista",
+        "text": "Lista de operações na ordem. Cada uma é [\"union\", a, b] ou [\"conectados\", a, b], com a e b entre 0 e n − 1."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "pais",
+      "label": "Pai de cada elemento",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "pais",
+        "type": "lista",
+        "text": "Pares [elemento, pai]. A raiz de um grupo é o elemento cujo pai é ele mesmo."
+      },
+      "x": 1550,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "i",
+      "label": "Contador de elementos",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "i",
+        "type": "inteiro",
+        "text": "Usado só para criar a lista inicial de pais."
+      },
+      "x": 1550,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "grupos",
+      "label": "Quantidade de grupos",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "grupos",
+        "type": "inteiro",
+        "text": "Resposta: quantos grupos separados existem agora. Começa em n e diminui de 1 a cada união que junta dois grupos diferentes."
+      },
+      "x": 1550,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "saidas",
+      "label": "Respostas das perguntas",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "saidas",
+        "type": "lista",
+        "text": "Resposta: verdadeiro ou falso para cada operação «conectados», na ordem."
+      },
+      "x": 1550,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "tipo",
+      "label": "Tipo da operação",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "tipo",
+        "type": "texto",
+        "text": "\"union\" ou \"conectados\"."
+      },
+      "x": -380,
+      "y": 160,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "pares",
+      "label": "Par de elementos",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "pares",
+        "type": "lista",
+        "text": "Os dois elementos da operação, [a, b]."
+      },
+      "x": 1550,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "raizes",
+      "label": "Raízes do par",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "raizes",
+        "type": "lista",
+        "text": "A raiz do grupo de cada um dos dois elementos, na mesma ordem."
+      },
+      "x": 1550,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "atual",
+      "label": "Elemento que sobe",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "atual",
+        "type": "inteiro",
+        "text": "Elemento em que a subida até a raiz está."
+      },
+      "x": 1550,
+      "y": 452,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "raiz",
+      "label": "Raiz achada",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "raiz",
+        "type": "inteiro",
+        "text": "A raiz do grupo do elemento que está sendo buscado."
+      },
+      "x": -380,
+      "y": 218,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "percorrido",
+      "label": "Elemento do caminho",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "percorrido",
+        "type": "inteiro",
+        "text": "Elemento que está sendo religado direto à raiz."
+      },
+      "x": -380,
+      "y": 276,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "prox",
+      "label": "Próximo do caminho",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "prox",
+        "type": "inteiro",
+        "text": "O pai antigo do elemento do caminho, guardado antes de religá-lo."
+      },
+      "x": 1550,
+      "y": 510,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Executar as operações",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram n e ops."
+      },
+      "x": 535,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "prepara",
+      "label": "Cada elemento sozinho",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Todo elemento começa como a própria raiz: n grupos, nenhuma resposta ainda.",
+        "then": [
+          "pais := []",
+          "i := 0",
+          "saidas := []",
+          "grupos := n"
+        ],
+        "examples": [
+          {
+            "name": "zera",
+            "given": {
+              "n": 3
+            },
+            "expect": {
+              "pais": [],
+              "i": 0,
+              "saidas": [],
+              "grupos": 3
+            }
+          }
+        ]
+      },
+      "x": 455,
+      "y": 124,
+      "w": 440,
+      "h": 156
+    },
+    {
+      "id": "l-init",
+      "label": "Já há um pai para cada elemento?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "i >= n",
+        "text": "Para quando i chegou a n."
+      },
+      "x": 505,
+      "y": 344,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "init-passo",
+      "label": "O elemento i é pai de si mesmo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Acrescenta o par [i, i] e avança i.",
+        "then": [
+          "pais := adicionar(pais, [i, i])",
+          "i := i + 1"
+        ],
+        "examples": [
+          {
+            "name": "passo",
+            "given": {
+              "pais": [],
+              "i": 0
+            },
+            "expect": {
+              "pais": [
+                [
+                  0,
+                  0
+                ]
+              ],
+              "i": 1
+            }
+          }
+        ]
+      },
+      "x": 250,
+      "y": 509,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "l-ops",
+      "label": "Para cada operação de ops",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "ops",
+        "as": "op",
+        "text": "Uma volta por operação, na ordem. op[0] é o tipo e op[1], op[2] são os dois elementos."
+      },
+      "x": 760,
+      "y": 522.5,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "pega-op",
+      "label": "Ler a operação",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Separa o tipo e o par de elementos; ainda não há raízes.",
+        "then": [
+          "tipo := op[0]",
+          "pares := [op[1], op[2]]",
+          "raizes := []"
+        ],
+        "examples": [
+          {
+            "name": "union",
+            "given": {
+              "op": [
+                "union",
+                0,
+                1
+              ]
+            },
+            "expect": {
+              "tipo": "union",
+              "pares": [
+                0,
+                1
+              ],
+              "raizes": []
+            }
+          }
+        ]
+      },
+      "x": 280,
+      "y": 687,
+      "w": 440,
+      "h": 135
+    },
+    {
+      "id": "tipo-ok",
+      "label": "A operação é válida?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "(tipo = \"union\" ou tipo = \"conectados\") e entre(op[1], 0, n - 1) e entre(op[2], 0, n - 1)",
+        "text": "Só existem union e conectados, e os dois elementos têm de estar entre 0 e n − 1.",
+        "examples": [
+          {
+            "name": "válida",
+            "given": {
+              "tipo": "union",
+              "op": [
+                "union",
+                0,
+                1
+              ],
+              "n": 2
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "tipo desconhecido",
+            "given": {
+              "tipo": "del",
+              "op": [
+                "del",
+                0,
+                1
+              ],
+              "n": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          },
+          {
+            "name": "elemento fora",
+            "given": {
+              "tipo": "union",
+              "op": [
+                "union",
+                0,
+                5
+              ],
+              "n": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 886,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "l-pares",
+      "label": "Para cada elemento do par",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "pares",
+        "as": "v",
+        "text": "Uma volta para cada um dos dois elementos: acha a raiz do grupo dele e religa o caminho direto à raiz."
+      },
+      "x": 330,
+      "y": 1051,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "inicia-busca",
+      "label": "Começar a subir de v",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A subida parte do próprio elemento.",
+        "then": [
+          "atual := v"
+        ],
+        "examples": [
+          {
+            "name": "sobe de 3",
+            "given": {
+              "v": 3
+            },
+            "expect": {
+              "atual": 3
+            }
+          }
+        ]
+      },
+      "x": 310,
+      "y": 1202,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "l-sobe",
+      "label": "O elemento é a própria raiz?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "primeiro(mapear(filtrar(pais, item[0] = atual), item[1])) = atual",
+        "text": "Para quando o pai do elemento é ele mesmo."
+      },
+      "x": 50,
+      "y": 1359,
+      "w": 340,
+      "h": 115
+    },
+    {
+      "id": "sobe",
+      "label": "Subir para o pai",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O elemento passa a ser o pai dele.",
+        "then": [
+          "atual := primeiro(mapear(filtrar(pais, item[0] = atual), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "sobe",
+            "given": {
+              "atual": 3,
+              "pais": [
+                [
+                  3,
+                  2
+                ],
+                [
+                  2,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "atual": 2
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 1555,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "achou-raiz",
+      "label": "Guardar a raiz e voltar ao começo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda a raiz achada e volta ao elemento de partida para religar o caminho.",
+        "then": [
+          "raiz := atual",
+          "percorrido := v"
+        ],
+        "examples": [
+          {
+            "name": "raiz",
+            "given": {
+              "atual": 2,
+              "v": 3
+            },
+            "expect": {
+              "raiz": 2,
+              "percorrido": 3
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 1551.5,
+      "w": 330,
+      "h": 114
+    },
+    {
+      "id": "l-comprime",
+      "label": "O caminho chegou à raiz?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "percorrido = raiz",
+        "text": "Para quando o elemento do caminho é a raiz."
+      },
+      "x": 505,
+      "y": 1743,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "comprime",
+      "label": "Ligar o elemento direto à raiz",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Guarda o pai antigo, troca o pai do elemento pela raiz e segue para o pai antigo.",
+        "then": [
+          "prox := primeiro(mapear(filtrar(pais, item[0] = percorrido), item[1]))",
+          "pais := adicionar(filtrar(pais, item[0] != percorrido), [percorrido, raiz])",
+          "percorrido := prox"
+        ],
+        "examples": [
+          {
+            "name": "liga",
+            "given": {
+              "pais": [
+                [
+                  3,
+                  2
+                ],
+                [
+                  2,
+                  1
+                ],
+                [
+                  1,
+                  1
+                ]
+              ],
+              "percorrido": 3,
+              "raiz": 1
+            },
+            "expect": {
+              "prox": 2,
+              "pais": [
+                [
+                  2,
+                  1
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  3,
+                  1
+                ]
+              ],
+              "percorrido": 2
+            }
+          }
+        ]
+      },
+      "x": 200,
+      "y": 1908,
+      "w": 440,
+      "h": 176
+    },
+    {
+      "id": "guarda-raiz",
+      "label": "Guardar a raiz do elemento",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Acrescenta a raiz achada às raízes do par.",
+        "then": [
+          "raizes := adicionar(raizes, raiz)"
+        ],
+        "examples": [
+          {
+            "name": "guarda",
+            "given": {
+              "raizes": [],
+              "raiz": 4
+            },
+            "expect": {
+              "raizes": [
+                4
+              ]
+            }
+          }
+        ]
+      },
+      "x": 710,
+      "y": 1949.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "eh-union",
+      "label": "É uma união?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tipo = \"union\"",
+        "text": "Senão é uma pergunta «conectados».",
+        "examples": [
+          {
+            "name": "união",
+            "given": {
+              "tipo": "union"
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "pergunta",
+            "given": {
+              "tipo": "conectados"
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 710,
+      "y": 1205,
+      "w": 330,
+      "h": 87
+    },
+    {
+      "id": "diferentes",
+      "label": "Os dois estão em grupos diferentes?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "raizes[0] != raizes[1]",
+        "text": "Só se juntam grupos diferentes.",
+        "examples": [
+          {
+            "name": "diferentes",
+            "given": {
+              "raizes": [
+                1,
+                2
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "iguais",
+            "given": {
+              "raizes": [
+                1,
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 460,
+      "y": 1365.5,
+      "w": 330,
+      "h": 102
+    },
+    {
+      "id": "junta",
+      "label": "Juntar os dois grupos",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Liga a raiz do primeiro grupo à raiz do segundo: sobra um grupo a menos.",
+        "then": [
+          "pais := adicionar(filtrar(pais, item[0] != raizes[0]), [raizes[0], raizes[1]])",
+          "grupos := grupos - 1"
+        ],
+        "examples": [
+          {
+            "name": "junta",
+            "given": {
+              "pais": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  1,
+                  1
+                ]
+              ],
+              "raizes": [
+                0,
+                1
+              ],
+              "grupos": 2
+            },
+            "expect": {
+              "pais": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  0,
+                  1
+                ]
+              ],
+              "grupos": 1
+            }
+          }
+        ]
+      },
+      "x": 910,
+      "y": 1538,
+      "w": 440,
+      "h": 141
+    },
+    {
+      "id": "pergunta",
+      "label": "Responder se estão no mesmo grupo",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Estão no mesmo grupo quando têm a mesma raiz.",
+        "then": [
+          "saidas := adicionar(saidas, raizes[0] = raizes[1])"
+        ],
+        "examples": [
+          {
+            "name": "sim",
+            "given": {
+              "saidas": [],
+              "raizes": [
+                3,
+                3
+              ]
+            },
+            "expect": {
+              "saidas": [
+                true
+              ]
+            }
+          },
+          {
+            "name": "não",
+            "given": {
+              "saidas": [],
+              "raizes": [
+                3,
+                4
+              ]
+            },
+            "expect": {
+              "saidas": [
+                false
+              ]
+            }
+          }
+        ]
+      },
+      "x": 860,
+      "y": 1363,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "pronto",
+      "label": "Respostas devolvidas",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve saidas (as respostas) e grupos (quantos grupos restam)."
+      },
+      "x": 790,
+      "y": 724.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "op-invalida",
+      "label": "Operação inválida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "O tipo não é union nem conectados, ou um elemento está fora de 0 a n − 1: para tudo, sem devolver respostas."
+      },
+      "x": 740,
+      "y": 1064.5,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-cadeia",
+      "label": "Cadeia de uniões",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "4 elementos: união 0-1, união 1-2; 0 e 2 estão juntos, 0 e 3 não. Sobram 2 grupos.",
+        "examples": [
+          {
+            "name": "cadeia",
+            "given": {
+              "n": 4,
+              "ops": [
+                [
+                  "union",
+                  0,
+                  1
+                ],
+                [
+                  "union",
+                  1,
+                  2
+                ],
+                [
+                  "conectados",
+                  0,
+                  2
+                ],
+                [
+                  "conectados",
+                  0,
+                  3
+                ]
+              ]
+            },
+            "expect": {
+              "saidas": [
+                true,
+                false
+              ],
+              "grupos": 2,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 628,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-repetida",
+      "label": "Unir o mesmo par duas vezes",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "A segunda união não junta nada: continuam 2 grupos.",
+        "examples": [
+          {
+            "name": "repetida",
+            "given": {
+              "n": 3,
+              "ops": [
+                [
+                  "union",
+                  0,
+                  1
+                ],
+                [
+                  "union",
+                  0,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "saidas": [],
+              "grupos": 2,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 695,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-invalida",
+      "label": "Operação desconhecida",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Uma operação «del» termina com erro.",
+        "examples": [
+          {
+            "name": "del",
+            "given": {
+              "n": 2,
+              "ops": [
+                [
+                  "del",
+                  0,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 1550,
+      "y": 826,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-prepara",
+      "from": "inicio",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prepara-to-l-init",
+      "from": "prepara",
+      "to": "l-init",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-init-to-init-passo",
+      "from": "l-init",
+      "to": "init-passo",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "init-passo-to-l-init",
+      "from": "init-passo",
+      "to": "l-init",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 204,
+          "y": 566
+        },
+        {
+          "x": 204,
+          "y": 394.5
+        }
+      ]
+    },
+    {
+      "id": "l-init-to-l-ops",
+      "from": "l-init",
+      "to": "l-ops",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "l-ops-to-pega-op",
+      "from": "l-ops",
+      "to": "pega-op",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pega-op-to-tipo-ok",
+      "from": "pega-op",
+      "to": "tipo-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "tipo-ok-to-l-pares",
+      "from": "tipo-ok",
+      "to": "l-pares",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tipo-ok-to-op-invalida",
+      "from": "tipo-ok",
+      "to": "op-invalida",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "l-pares-to-inicia-busca",
+      "from": "l-pares",
+      "to": "inicia-busca",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "inicia-busca-to-l-sobe",
+      "from": "inicia-busca",
+      "to": "l-sobe",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-sobe-to-sobe",
+      "from": "l-sobe",
+      "to": "sobe",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "sobe-to-l-sobe",
+      "from": "sobe",
+      "to": "l-sobe",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1608.5
+        },
+        {
+          "x": -64,
+          "y": 1416.5
+        }
+      ]
+    },
+    {
+      "id": "l-sobe-to-achou-raiz",
+      "from": "l-sobe",
+      "to": "achou-raiz",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "achou-raiz-to-l-comprime",
+      "from": "achou-raiz",
+      "to": "l-comprime",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-comprime-to-comprime",
+      "from": "l-comprime",
+      "to": "comprime",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "comprime-to-l-comprime",
+      "from": "comprime",
+      "to": "l-comprime",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 118,
+          "y": 1996
+        },
+        {
+          "x": 118,
+          "y": 1793.5
+        }
+      ]
+    },
+    {
+      "id": "l-comprime-to-guarda-raiz",
+      "from": "l-comprime",
+      "to": "guarda-raiz",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "guarda-raiz-to-l-pares",
+      "from": "guarda-raiz",
+      "to": "l-pares",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1996
+        },
+        {
+          "x": -46,
+          "y": 1094.5
+        }
+      ]
+    },
+    {
+      "id": "l-pares-to-eh-union",
+      "from": "l-pares",
+      "to": "eh-union",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "eh-union-to-diferentes",
+      "from": "eh-union",
+      "to": "diferentes",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "eh-union-to-pergunta",
+      "from": "eh-union",
+      "to": "pergunta",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "diferentes-to-junta",
+      "from": "diferentes",
+      "to": "junta",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "diferentes-to-l-ops",
+      "from": "diferentes",
+      "to": "l-ops",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 1416.5
+        },
+        {
+          "x": -14,
+          "y": 566
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "junta-to-l-ops",
+      "from": "junta",
+      "to": "l-ops",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 1608.5
+        },
+        {
+          "x": -82,
+          "y": 566
+        }
+      ]
+    },
+    {
+      "id": "pergunta-to-l-ops",
+      "from": "pergunta",
+      "to": "l-ops",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 4,
+          "y": 1416.5
+        },
+        {
+          "x": 4,
+          "y": 566
+        }
+      ]
+    },
+    {
+      "id": "l-ops-to-pronto",
+      "from": "l-ops",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

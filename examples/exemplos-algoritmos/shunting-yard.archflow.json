@@ -1,0 +1,1486 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-hl427o",
+  "title": "Expressão para notação pós-fixa (Shunting-yard)",
+  "description": "Reordena uma expressão com precedência e parênteses para a notação pós-fixa. Percorre os símbolos uma vez: número vai direto para a saída; \"(\" vai para a pilha de operadores; \")\" tira da pilha para a saída até achar o \"(\" correspondente; um operador primeiro tira da pilha, para a saída, todos os operadores no topo com precedência igual ou maior (agrupamento pela esquerda) e depois entra na pilha. No fim, o que sobrou na pilha vai para a saída. A pilha é uma lista de pares [posição, símbolo], pois o formato não tira o último item de uma lista e os símbolos se repetem.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 2842,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 2842,
+      "y": 108,
+      "w": 306,
+      "h": 302,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 2842,
+      "y": 400,
+      "w": 376,
+      "h": 338,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 2842,
+      "y": 732,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "simbolos",
+      "label": "Símbolos da expressão",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "simbolos",
+        "type": "lista",
+        "text": "Números e os textos \"+\", \"-\", \"*\", \"/\", \"(\" e \")\", na ordem em que aparecem. Pode estar vazia."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "saida",
+      "label": "Saída pós-fixa",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "saida",
+        "type": "lista",
+        "text": "Resposta: os números e operadores na ordem pós-fixa, sem parênteses."
+      },
+      "x": 2870,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ops",
+      "label": "Pilha de operadores",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "ops",
+        "type": "lista",
+        "text": "Pares [posição, símbolo]: operadores e \"(\" ainda esperando, do mais antigo ao mais novo. O de maior posição é o topo."
+      },
+      "x": 2870,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "topo",
+      "label": "Símbolo no topo da pilha",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "topo",
+        "type": "texto",
+        "text": "O símbolo do topo de ops; vazio se a pilha está vazia."
+      },
+      "x": 2870,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "prec",
+      "label": "Precedência do operador",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "prec",
+        "type": "inteiro",
+        "text": "1 para \"+\" e \"-\", 2 para \"*\" e \"/\"."
+      },
+      "x": 2870,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "prectopo",
+      "label": "Precedência do topo",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "precTopo",
+        "type": "inteiro",
+        "text": "A precedência do símbolo no topo da pilha: 2 para \"*\" e \"/\", 1 para \"+\" e \"-\", 0 para \"(\" ou pilha vazia."
+      },
+      "x": 2870,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Converter para pós-fixa",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entra a lista simbolos."
+      },
+      "x": 1195,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "prepara",
+      "label": "Começar com tudo vazio",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Saída e pilha vazias.",
+        "then": [
+          "saida := []",
+          "ops := []"
+        ],
+        "examples": [
+          {
+            "name": "zera",
+            "given": {},
+            "expect": {
+              "saida": [],
+              "ops": []
+            }
+          }
+        ]
+      },
+      "x": 1170,
+      "y": 124,
+      "w": 330,
+      "h": 114
+    },
+    {
+      "id": "l-simbolos",
+      "label": "Para cada símbolo",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "foreach": "simbolos",
+        "as": "tok",
+        "text": "Na ordem da lista. Cada volta trata um símbolo."
+      },
+      "x": 1165,
+      "y": 302,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "qual",
+      "label": "Que símbolo é este?",
+      "kind": "logic",
+      "logic": {
+        "role": "switch",
+        "on": "tok",
+        "text": "Abre parêntese, fecha parêntese, um dos quatro operadores ou, para qualquer outro valor, um número.",
+        "examples": [
+          {
+            "name": "soma",
+            "given": {
+              "tok": "+"
+            },
+            "expect": {
+              "caminho": "+"
+            }
+          },
+          {
+            "name": "número",
+            "given": {
+              "tok": 7
+            },
+            "expect": {
+              "caminho": "outros"
+            }
+          }
+        ]
+      },
+      "x": 890,
+      "y": 469.5,
+      "w": 380,
+      "h": 87
+    },
+    {
+      "id": "abre",
+      "label": "Empilhar o parêntese que abre",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O \"(\" vai para o topo da pilha.",
+        "then": [
+          "ops := adicionar(ops, [tamanho(ops), \"(\"])"
+        ],
+        "examples": [
+          {
+            "name": "empilha",
+            "given": {
+              "ops": []
+            },
+            "expect": {
+              "ops": [
+                [
+                  0,
+                  "("
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 643.5,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "topo-fecha",
+      "label": "Olhar o topo da pilha",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega o símbolo do topo.",
+        "then": [
+          "topo := primeiro(mapear(filtrar(ops, item[0] = tamanho(ops) - 1), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "topo",
+            "given": {
+              "ops": [
+                [
+                  0,
+                  "("
+                ],
+                [
+                  1,
+                  "+"
+                ]
+              ]
+            },
+            "expect": {
+              "topo": "+"
+            }
+          }
+        ]
+      },
+      "x": 510,
+      "y": 637,
+      "w": 440,
+      "h": 120
+    },
+    {
+      "id": "l-fecha",
+      "label": "O topo é o parêntese que abre?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "topo = \"(\"",
+        "text": "Para quando o topo é o \"(\" correspondente."
+      },
+      "x": 535,
+      "y": 861.5,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "fecha-vazia",
+      "label": "A pilha acabou sem achar o parêntese?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "tamanho(ops) = 0",
+        "text": "Sem \"(\" na pilha, o \")\" não tem par.",
+        "examples": [
+          {
+            "name": "acabou",
+            "given": {
+              "ops": []
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "tem",
+            "given": {
+              "ops": [
+                [
+                  0,
+                  "+"
+                ]
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 280,
+      "y": 1090,
+      "w": 330,
+      "h": 102
+    },
+    {
+      "id": "move-fecha",
+      "label": "Passar o operador do topo para a saída",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O operador sai da pilha e vai para a saída; olha-se o novo topo.",
+        "then": [
+          "saida := adicionar(saida, topo)",
+          "ops := filtrar(ops, item[0] != tamanho(ops) - 1)",
+          "topo := primeiro(mapear(filtrar(ops, item[0] = tamanho(ops) - 1), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "move",
+            "given": {
+              "saida": [],
+              "ops": [
+                [
+                  0,
+                  "("
+                ],
+                [
+                  1,
+                  "+"
+                ]
+              ],
+              "topo": "+"
+            },
+            "expect": {
+              "saida": [
+                "+"
+              ],
+              "ops": [
+                [
+                  0,
+                  "("
+                ]
+              ],
+              "topo": "("
+            }
+          }
+        ]
+      },
+      "x": 780,
+      "y": 1317,
+      "w": 440,
+      "h": 176
+    },
+    {
+      "id": "descarta",
+      "label": "Descartar o parêntese que abre",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O \"(\" sai da pilha e não vai para a saída.",
+        "then": [
+          "ops := filtrar(ops, item[0] != tamanho(ops) - 1)"
+        ],
+        "examples": [
+          {
+            "name": "descarta",
+            "given": {
+              "ops": [
+                [
+                  0,
+                  "("
+                ]
+              ]
+            },
+            "expect": {
+              "ops": []
+            }
+          }
+        ]
+      },
+      "x": 680,
+      "y": 1087.5,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "prec-soma",
+      "label": "Precedência 1",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "\"+\" e \"-\" têm a menor precedência.",
+        "then": [
+          "prec := 1"
+        ],
+        "examples": [
+          {
+            "name": "um",
+            "given": {},
+            "expect": {
+              "prec": 1
+            }
+          }
+        ]
+      },
+      "x": 1020,
+      "y": 643.5,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "prec-mult",
+      "label": "Precedência 2",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "\"*\" e \"/\" têm a maior precedência.",
+        "then": [
+          "prec := 2"
+        ],
+        "examples": [
+          {
+            "name": "dois",
+            "given": {},
+            "expect": {
+              "prec": 2
+            }
+          }
+        ]
+      },
+      "x": 1420,
+      "y": 643.5,
+      "w": 330,
+      "h": 107
+    },
+    {
+      "id": "topo-op",
+      "label": "Olhar o topo e sua precedência",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega o símbolo do topo e calcula a precedência dele (0 se for \"(\" ou se a pilha estiver vazia).",
+        "then": [
+          "topo := primeiro(mapear(filtrar(ops, item[0] = tamanho(ops) - 1), item[1]))",
+          "precTopo := 2 * tamanho(filtrar([\"*\", \"/\"], item = topo)) + tamanho(filtrar([\"+\", \"-\"], item = topo))"
+        ],
+        "examples": [
+          {
+            "name": "topo *",
+            "given": {
+              "ops": [
+                [
+                  0,
+                  "*"
+                ]
+              ]
+            },
+            "expect": {
+              "topo": "*",
+              "precTopo": 2
+            }
+          },
+          {
+            "name": "topo (",
+            "given": {
+              "ops": [
+                [
+                  0,
+                  "("
+                ]
+              ]
+            },
+            "expect": {
+              "topo": "(",
+              "precTopo": 0
+            }
+          }
+        ]
+      },
+      "x": 945,
+      "y": 821,
+      "w": 440,
+      "h": 168
+    },
+    {
+      "id": "l-op",
+      "label": "O topo tem precedência menor?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "precTopo < prec",
+        "text": "Para quando o topo tem precedência menor que a do operador de agora. Com precedência igual, o do topo sai primeiro."
+      },
+      "x": 1190,
+      "y": 1090.5,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "move-op",
+      "label": "Passar o operador do topo para a saída",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O operador sai da pilha e vai para a saída; olha-se o novo topo.",
+        "then": [
+          "saida := adicionar(saida, topo)",
+          "ops := filtrar(ops, item[0] != tamanho(ops) - 1)",
+          "topo := primeiro(mapear(filtrar(ops, item[0] = tamanho(ops) - 1), item[1]))",
+          "precTopo := 2 * tamanho(filtrar([\"*\", \"/\"], item = topo)) + tamanho(filtrar([\"+\", \"-\"], item = topo))"
+        ],
+        "examples": [
+          {
+            "name": "move",
+            "given": {
+              "saida": [],
+              "ops": [
+                [
+                  0,
+                  "+"
+                ]
+              ],
+              "topo": "+"
+            },
+            "expect": {
+              "saida": [
+                "+"
+              ],
+              "ops": []
+            }
+          }
+        ]
+      },
+      "x": 1290,
+      "y": 1293,
+      "w": 440,
+      "h": 224
+    },
+    {
+      "id": "empilha-op",
+      "label": "Empilhar o operador de agora",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O operador vai para o topo da pilha.",
+        "then": [
+          "ops := adicionar(ops, [tamanho(ops), tok])"
+        ],
+        "examples": [
+          {
+            "name": "empilha",
+            "given": {
+              "ops": [],
+              "tok": "*"
+            },
+            "expect": {
+              "ops": [
+                [
+                  0,
+                  "*"
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 1800,
+      "y": 1351.5,
+      "w": 440,
+      "h": 107
+    },
+    {
+      "id": "numero",
+      "label": "Mandar o número para a saída",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Número vai direto para a saída.",
+        "then": [
+          "saida := adicionar(saida, tok)"
+        ],
+        "examples": [
+          {
+            "name": "número",
+            "given": {
+              "saida": [],
+              "tok": 5
+            },
+            "expect": {
+              "saida": [
+                5
+              ]
+            }
+          }
+        ]
+      },
+      "x": 1820,
+      "y": 650.5,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "topo-resto",
+      "label": "Olhar o topo da pilha",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega o símbolo do topo.",
+        "then": [
+          "topo := primeiro(mapear(filtrar(ops, item[0] = tamanho(ops) - 1), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "topo",
+            "given": {
+              "ops": [
+                [
+                  0,
+                  "+"
+                ]
+              ]
+            },
+            "expect": {
+              "topo": "+"
+            }
+          }
+        ]
+      },
+      "x": 1340,
+      "y": 453,
+      "w": 440,
+      "h": 120
+    },
+    {
+      "id": "l-resto",
+      "label": "A pilha ficou vazia?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "tamanho(ops) = 0",
+        "text": "Para quando não resta símbolo na pilha."
+      },
+      "x": 2330,
+      "y": 646.5,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "sobrou-abre",
+      "label": "O topo é um parêntese que abre?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "topo = \"(\"",
+        "text": "Um \"(\" que sobrou não teve o \")\" correspondente.",
+        "examples": [
+          {
+            "name": "abre",
+            "given": {
+              "topo": "("
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "operador",
+            "given": {
+              "topo": "+"
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 1455,
+      "y": 847,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "move-resto",
+      "label": "Passar o operador do topo para a saída",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "O operador sai da pilha e vai para a saída; olha-se o novo topo.",
+        "then": [
+          "saida := adicionar(saida, topo)",
+          "ops := filtrar(ops, item[0] != tamanho(ops) - 1)",
+          "topo := primeiro(mapear(filtrar(ops, item[0] = tamanho(ops) - 1), item[1]))"
+        ],
+        "examples": [
+          {
+            "name": "move",
+            "given": {
+              "saida": [],
+              "ops": [
+                [
+                  0,
+                  "+"
+                ]
+              ],
+              "topo": "+"
+            },
+            "expect": {
+              "saida": [
+                "+"
+              ],
+              "ops": []
+            }
+          }
+        ]
+      },
+      "x": 1950,
+      "y": 1053,
+      "w": 440,
+      "h": 176
+    },
+    {
+      "id": "pronto",
+      "label": "Pós-fixa devolvida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve saida."
+      },
+      "x": 1855,
+      "y": 875,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "erro-fecha",
+      "label": "Parêntese que fecha sem abrir",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Um \")\" não tem o \"(\" correspondente: para tudo."
+      },
+      "x": 430,
+      "y": 1375,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "erro-abre",
+      "label": "Parêntese que abre sem fechar",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Um \"(\" ficou sem o \")\" correspondente: para tudo."
+      },
+      "x": 1600,
+      "y": 1111,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-precedencia",
+      "label": "Multiplicação antes da soma",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "3 + 4 * 2 vira 3 4 2 * +.",
+        "examples": [
+          {
+            "name": "precedência",
+            "given": {
+              "simbolos": [
+                3,
+                "+",
+                4,
+                "*",
+                2
+              ]
+            },
+            "expect": {
+              "saida": [
+                3,
+                4,
+                2,
+                "*",
+                "+"
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 2870,
+      "y": 454,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-parenteses",
+      "label": "Parênteses mudam a ordem",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "(3 + 4) * 2 vira 3 4 + 2 *.",
+        "examples": [
+          {
+            "name": "parênteses",
+            "given": {
+              "simbolos": [
+                "(",
+                3,
+                "+",
+                4,
+                ")",
+                "*",
+                2
+              ]
+            },
+            "expect": {
+              "saida": [
+                3,
+                4,
+                "+",
+                2,
+                "*"
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 2870,
+      "y": 521,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-subtracao",
+      "label": "Subtração agrupa pela esquerda",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "8 − 3 − 2 vira 8 3 − 2 −: o primeiro − sai antes de o segundo entrar.",
+        "examples": [
+          {
+            "name": "subtração",
+            "given": {
+              "simbolos": [
+                8,
+                "-",
+                3,
+                "-",
+                2
+              ]
+            },
+            "expect": {
+              "saida": [
+                8,
+                3,
+                "-",
+                2,
+                "-"
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 2870,
+      "y": 588,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-divisao",
+      "label": "Divisão agrupa pela esquerda",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "8 ÷ 4 ÷ 2 vira 8 4 ÷ 2 ÷.",
+        "examples": [
+          {
+            "name": "divisão",
+            "given": {
+              "simbolos": [
+                8,
+                "/",
+                4,
+                "/",
+                2
+              ]
+            },
+            "expect": {
+              "saida": [
+                8,
+                4,
+                "/",
+                2,
+                "/"
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 2870,
+      "y": 655,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-fecha",
+      "label": "Fecha sem abrir",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "Um \")\" sozinho termina com erro.",
+        "examples": [
+          {
+            "name": "fecha",
+            "given": {
+              "simbolos": [
+                ")"
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 2870,
+      "y": 786,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-abre",
+      "label": "Abre e não fecha",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "(1 termina com erro.",
+        "examples": [
+          {
+            "name": "abre",
+            "given": {
+              "simbolos": [
+                "(",
+                1
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 2870,
+      "y": 853,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-prepara",
+      "from": "inicio",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prepara-to-l-simbolos",
+      "from": "prepara",
+      "to": "l-simbolos",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-simbolos-to-qual",
+      "from": "l-simbolos",
+      "to": "qual",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "qual-to-abre",
+      "from": "qual",
+      "to": "abre",
+      "type": "data",
+      "label": "= \"(\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"(\""
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "qual-to-topo-fecha",
+      "from": "qual",
+      "to": "topo-fecha",
+      "type": "data",
+      "label": "= \")\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\")\""
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "qual-to-prec-soma",
+      "from": "qual",
+      "to": "prec-soma",
+      "type": "data",
+      "label": "= \"+\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"+\""
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "qual-to-prec-soma-2",
+      "from": "qual",
+      "to": "prec-soma",
+      "type": "data",
+      "label": "= \"-\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"-\""
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "qual-to-prec-mult",
+      "from": "qual",
+      "to": "prec-mult",
+      "type": "data",
+      "label": "= \"*\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"*\""
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "qual-to-prec-mult-2",
+      "from": "qual",
+      "to": "prec-mult",
+      "type": "data",
+      "label": "= \"/\"",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "case": "\"/\""
+      },
+      "labelT": 0.58
+    },
+    {
+      "id": "qual-to-numero",
+      "from": "qual",
+      "to": "numero",
+      "type": "data",
+      "label": "outros",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "outros"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "abre-to-l-simbolos",
+      "from": "abre",
+      "to": "l-simbolos",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 697
+        },
+        {
+          "x": -46,
+          "y": 345.5
+        }
+      ]
+    },
+    {
+      "id": "topo-fecha-to-l-fecha",
+      "from": "topo-fecha",
+      "to": "l-fecha",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-fecha-to-fecha-vazia",
+      "from": "l-fecha",
+      "to": "fecha-vazia",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fecha-vazia-to-erro-fecha",
+      "from": "fecha-vazia",
+      "to": "erro-fecha",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fecha-vazia-to-move-fecha",
+      "from": "fecha-vazia",
+      "to": "move-fecha",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "move-fecha-to-l-fecha",
+      "from": "move-fecha",
+      "to": "l-fecha",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 216,
+          "y": 1405
+        },
+        {
+          "x": 216,
+          "y": 905
+        }
+      ]
+    },
+    {
+      "id": "l-fecha-to-descarta",
+      "from": "l-fecha",
+      "to": "descarta",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "descarta-to-l-simbolos",
+      "from": "descarta",
+      "to": "l-simbolos",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 1141
+        },
+        {
+          "x": -82,
+          "y": 345.5
+        }
+      ]
+    },
+    {
+      "id": "prec-soma-to-topo-op",
+      "from": "prec-soma",
+      "to": "topo-op",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prec-mult-to-topo-op",
+      "from": "prec-mult",
+      "to": "topo-op",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "topo-op-to-l-op",
+      "from": "topo-op",
+      "to": "l-op",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-op-to-move-op",
+      "from": "l-op",
+      "to": "move-op",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "move-op-to-l-op",
+      "from": "move-op",
+      "to": "l-op",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 234,
+          "y": 1405
+        },
+        {
+          "x": 234,
+          "y": 1141
+        }
+      ]
+    },
+    {
+      "id": "l-op-to-empilha-op",
+      "from": "l-op",
+      "to": "empilha-op",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "empilha-op-to-l-simbolos",
+      "from": "empilha-op",
+      "to": "l-simbolos",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 1405
+        },
+        {
+          "x": -64,
+          "y": 345.5
+        }
+      ]
+    },
+    {
+      "id": "numero-to-l-simbolos",
+      "from": "numero",
+      "to": "l-simbolos",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -82,
+          "y": 697
+        },
+        {
+          "x": -82,
+          "y": 345.5
+        }
+      ]
+    },
+    {
+      "id": "l-simbolos-to-topo-resto",
+      "from": "l-simbolos",
+      "to": "topo-resto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "topo-resto-to-l-resto",
+      "from": "topo-resto",
+      "to": "l-resto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "l-resto-to-sobrou-abre",
+      "from": "l-resto",
+      "to": "sobrou-abre",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "sobrou-abre-to-erro-abre",
+      "from": "sobrou-abre",
+      "to": "erro-abre",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "sobrou-abre-to-move-resto",
+      "from": "sobrou-abre",
+      "to": "move-resto",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "move-resto-to-l-resto",
+      "from": "move-resto",
+      "to": "l-resto",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 1141
+        },
+        {
+          "x": -46,
+          "y": 697
+        }
+      ]
+    },
+    {
+      "id": "l-resto-to-pronto",
+      "from": "l-resto",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

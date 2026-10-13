@@ -1,0 +1,792 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-7ov62q",
+  "title": "Busca binária (primeira ocorrência)",
+  "description": "Acha a posição da primeira ocorrência de x numa lista v ordenada. Mantém o intervalo [inicio, fim) onde x ainda pode estar; a cada volta olha o meio e descarta metade. Ao parar, inicio é a primeira posição com v[inicio] >= x; só falta conferir se é mesmo x. Complexidade O(log n).",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 1702,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 1702,
+      "y": 108,
+      "w": 306,
+      "h": 244,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 1702,
+      "y": 342,
+      "w": 376,
+      "h": 271,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "v",
+      "label": "Lista ordenada",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "v",
+        "type": "lista",
+        "text": "Números em ordem crescente; pode estar vazia e ter repetidos."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "x",
+      "label": "Alvo",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "x",
+        "type": "número",
+        "text": "Valor procurado."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Início do intervalo",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "inicio",
+        "type": "número",
+        "text": "Primeira posição ainda possível (inclusive). Começa em 0.",
+        "value": 0
+      },
+      "x": 1730,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "fim",
+      "label": "Fim do intervalo",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "fim",
+        "type": "número",
+        "text": "Posição logo depois da última possível (exclusive). Começa em tamanho(v)."
+      },
+      "x": 1730,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "meio",
+      "label": "Meio",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "meio",
+        "type": "número",
+        "text": "Posição testada na volta: piso((inicio + fim) / 2)."
+      },
+      "x": 1730,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "indice",
+      "label": "Posição achada",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "indice",
+        "type": "número",
+        "text": "Resposta: posição da primeira ocorrência de x, ou -1."
+      },
+      "x": 1730,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ini",
+      "label": "Buscar x em v",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram a lista ordenada v e o alvo x."
+      },
+      "x": 625,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "prepara",
+      "label": "Intervalo é a lista toda",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Antes de buscar, o intervalo cobre todas as posições: de 0 até tamanho(v).",
+        "then": [
+          "inicio := 0",
+          "fim := tamanho(v)"
+        ],
+        "examples": [
+          {
+            "name": "lista de 5",
+            "given": {
+              "v": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            "expect": {
+              "inicio": 0,
+              "fim": 5
+            }
+          }
+        ]
+      },
+      "x": 600,
+      "y": 124,
+      "w": 330,
+      "h": 114
+    },
+    {
+      "id": "enquanto",
+      "label": "Ainda há posições no intervalo?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "inicio >= fim",
+        "text": "Repete enquanto inicio < fim (o intervalo não está vazio)."
+      },
+      "x": 595,
+      "y": 302,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "acha-meio",
+      "label": "Calcular o meio",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Posição do meio do intervalo, arredondada para baixo.",
+        "then": [
+          "meio := piso((inicio + fim) / 2)"
+        ],
+        "examples": [
+          {
+            "name": "0 a 5",
+            "given": {
+              "inicio": 0,
+              "fim": 5
+            },
+            "expect": {
+              "meio": 2
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 478.5,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "menor",
+      "label": "O valor do meio é menor que x?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "v[meio] < x",
+        "text": "Se v[meio] < x, x só pode estar à direita do meio.",
+        "examples": [
+          {
+            "name": "menor",
+            "given": {
+              "v": [
+                1,
+                3,
+                5
+              ],
+              "meio": 1,
+              "x": 4
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "igual",
+            "given": {
+              "v": [
+                1,
+                3,
+                5
+              ],
+              "meio": 1,
+              "x": 3
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 654.5,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "vai-direita",
+      "label": "Descartar o meio e a esquerda",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "x está depois do meio: o intervalo passa a começar logo após o meio.",
+        "then": [
+          "inicio := meio + 1"
+        ],
+        "examples": [
+          {
+            "name": "direita",
+            "given": {
+              "meio": 2
+            },
+            "expect": {
+              "inicio": 3
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 827,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "vai-esquerda",
+      "label": "Descartar a direita (mantém o meio)",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "v[meio] >= x: a primeira ocorrência está no meio ou antes dele. O meio fica dentro do intervalo, pois pode ser a resposta.",
+        "then": [
+          "fim := meio"
+        ],
+        "examples": [
+          {
+            "name": "esquerda",
+            "given": {
+              "meio": 2
+            },
+            "expect": {
+              "fim": 2
+            }
+          }
+        ]
+      },
+      "x": 400,
+      "y": 827,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "dentro",
+      "label": "inicio ainda está dentro da lista?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "inicio < tamanho(v)",
+        "text": "Se inicio chegou ao fim da lista, x é maior que todos e não existe.",
+        "examples": [
+          {
+            "name": "dentro",
+            "given": {
+              "inicio": 2,
+              "v": [
+                1,
+                2,
+                3
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "fora",
+            "given": {
+              "inicio": 3,
+              "v": [
+                1,
+                2,
+                3
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 800,
+      "y": 467,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "achou",
+      "label": "A posição inicio guarda exatamente x?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "v[inicio] = x",
+        "text": "inicio é a primeira posição com valor >= x; só é a resposta se for igual a x.",
+        "examples": [
+          {
+            "name": "igual",
+            "given": {
+              "v": [
+                1,
+                3,
+                5
+              ],
+              "inicio": 1,
+              "x": 3
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "maior",
+            "given": {
+              "v": [
+                1,
+                3,
+                5
+              ],
+              "inicio": 1,
+              "x": 2
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 800,
+      "y": 647,
+      "w": 330,
+      "h": 116
+    },
+    {
+      "id": "responde",
+      "label": "Resposta é inicio",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Devolve a posição da primeira ocorrência.",
+        "then": [
+          "indice := inicio"
+        ],
+        "examples": [
+          {
+            "name": "resp",
+            "given": {
+              "inicio": 3
+            },
+            "expect": {
+              "indice": 3
+            }
+          }
+        ]
+      },
+      "x": 800,
+      "y": 827,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "nao-existe",
+      "label": "Resposta é -1",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "x não está na lista.",
+        "then": [
+          "indice := -1"
+        ],
+        "examples": [
+          {
+            "name": "ausente",
+            "given": {},
+            "expect": {
+              "indice": -1
+            }
+          }
+        ]
+      },
+      "x": 1200,
+      "y": 827,
+      "w": 330,
+      "h": 93
+    },
+    {
+      "id": "fim-ok",
+      "label": "Posição devolvida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve indice (posição ou -1)."
+      },
+      "x": 625,
+      "y": 984,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-achou",
+      "label": "x aparece repetido",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "v = [1, 2, 2, 2, 3] e x = 2: devolve 1, a primeira.",
+        "examples": [
+          {
+            "name": "repetido",
+            "given": {
+              "v": [
+                1,
+                2,
+                2,
+                2,
+                3
+              ],
+              "x": 2
+            },
+            "expect": {
+              "indice": 1,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1730,
+      "y": 396,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-ausente",
+      "label": "x não está na lista",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "v = [1, 3, 5, 7, 9] e x = 4: devolve -1.",
+        "examples": [
+          {
+            "name": "ausente",
+            "given": {
+              "v": [
+                1,
+                3,
+                5,
+                7,
+                9
+              ],
+              "x": 4
+            },
+            "expect": {
+              "indice": -1,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1730,
+      "y": 463,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-vazia",
+      "label": "Lista vazia",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "v = [] e x = 5: o laço nem roda e devolve -1.",
+        "examples": [
+          {
+            "name": "vazia",
+            "given": {
+              "v": [],
+              "x": 5
+            },
+            "expect": {
+              "indice": -1,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 1730,
+      "y": 530,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "ini-to-prepara",
+      "from": "ini",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prepara-to-enquanto",
+      "from": "prepara",
+      "to": "enquanto",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "enquanto-to-acha-meio",
+      "from": "enquanto",
+      "to": "acha-meio",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "acha-meio-to-menor",
+      "from": "acha-meio",
+      "to": "menor",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "menor-to-vai-direita",
+      "from": "menor",
+      "to": "vai-direita",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "menor-to-vai-esquerda",
+      "from": "menor",
+      "to": "vai-esquerda",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "vai-direita-to-enquanto",
+      "from": "vai-direita",
+      "to": "enquanto",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 873.5
+        },
+        {
+          "x": -46,
+          "y": 352.5
+        }
+      ]
+    },
+    {
+      "id": "vai-esquerda-to-enquanto",
+      "from": "vai-esquerda",
+      "to": "enquanto",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 873.5
+        },
+        {
+          "x": -64,
+          "y": 352.5
+        }
+      ]
+    },
+    {
+      "id": "enquanto-to-dentro",
+      "from": "enquanto",
+      "to": "dentro",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "dentro-to-achou",
+      "from": "dentro",
+      "to": "achou",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "dentro-to-nao-existe",
+      "from": "dentro",
+      "to": "nao-existe",
+      "type": "data",
+      "label": "não",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "waypoints": [
+        {
+          "x": 1612,
+          "y": 525
+        },
+        {
+          "x": 1612,
+          "y": 795
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "achou-to-responde",
+      "from": "achou",
+      "to": "responde",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "achou-to-nao-existe",
+      "from": "achou",
+      "to": "nao-existe",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "responde-to-fim-ok",
+      "from": "responde",
+      "to": "fim-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "nao-existe-to-fim-ok",
+      "from": "nao-existe",
+      "to": "fim-ok",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    }
+  ],
+  "customAssets": []
+}

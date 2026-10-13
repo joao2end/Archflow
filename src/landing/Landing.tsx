@@ -662,7 +662,7 @@ const COMPARE_ROWS: { feat: string; ex: Mark; exNote: string; af: Mark; afNote: 
   { feat: "Referência entre diagramas, com visualização em modal", ex: "part", exNote: "links por URL, sem pré-visualização", af: "yes", afNote: "modal navegável, backlinks, links que se atualizam" },
   { feat: "Modelagem DDD (aggregates, eventos, Context Map) com validação", ex: "no", exNote: "só formas e texto", af: "yes", afNote: "13 papéis, 7 relações, regras D001–D032" },
   { feat: "Regras de negócio executáveis, com exemplos que o app roda", ex: "no", exNote: "caixas e texto, sem execução", af: "yes", afNote: "modo Logic: fluxo, expressões e L001–L024" },
-  { feat: "Reprodução passo a passo de um cenário (valor a cada regra)", ex: "no", exNote: "", af: "yes", afNote: "play/pausa e velocidade no quadro" },
+  { feat: "Reprodução passo a passo de um cenário (valor a cada ação)", ex: "no", exNote: "", af: "yes", afNote: "play/pausa e velocidade no quadro" },
   { feat: "Linha do tempo de Event Storming automática", ex: "no", exNote: "post-its posicionados à mão", af: "yes", afNote: "raias por papel, colunas por tempo" },
   { feat: "Narrativa passo a passo do modelo na apresentação", ex: "no", exNote: "", af: "yes", afNote: "o que é, por que está aqui, regras" },
   { feat: "Código TypeScript gerado a partir do modelo", ex: "no", exNote: "", af: "yes", afNote: "aggregates, eventos, handlers, sagas" },
@@ -786,7 +786,7 @@ const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: s
     id: "logic", icon: "mode-logic", title: "Modo Logic",
     steps: [
       "Clique no selo ao lado do título e escolha Logic (ou crie um diagrama Logic pelo explorador). Nada é apagado e Ctrl+Z desfaz.",
-      "Monte o fluxo: Start, regras (RULE), decisões sim/não (IF), escolhas (CASE?), laços (LOOP), paralelos (FORK/JOIN) e End. Os dados entram como DATA e são lidos pelo nome nas expressões.",
+      "Monte o fluxo: Start, ações (AÇÃO), decisões sim/não (IF), escolhas (SWITCH), laços (LOOP), paralelos (FORK/JOIN) e End. Os dados entram como DATA e são lidos pelo nome nas expressões.",
       "Escreva as condições e os efeitos em expressões curtas em português (preco := max(preco, piso), travar preco). O app mostra a explicação em português ao lado.",
       "Dê exemplos a cada regra e cenários ao fluxo inteiro: o app executa tudo e marca ✔ ou ✘. Mude um número esperado e o erro (L004) aparece na regra e na validação.",
       "Reproduza um cenário (▶) para ver o valor mudar passo a passo. Sem saber por onde começar? O ✨ do explorador instala o exemplo de precificação, com 11 regras.",

@@ -106,22 +106,22 @@ O objetivo de um **ator** com o sistema: "Fazer pedido". No Archflow ele liga o 
 ### Anticorruption layer
 Uma camada que **traduz** o modelo de fora para o seu. No Archflow aparece como um `domain-service` (ex.: *Tradutor do gateway*) ligado ao sistema externo. É a defesa para o vocabulário de terceiros não vazar para o seu domínio.
 
-### Decisões, condições, loops e iteração (modo Domain)
+### Condições, loops e iteração (modo Domain)
 O DDD não pensa em fluxograma: o fluxo **emerge dos eventos**. A lógica condicional mora no aggregate e na saga, e o diagrama mostra *quem reage a quê*. Mesmo assim, ramos e repetições importam para o negócio, e o Archflow os desenha **só no modo Domain**:
 
 | Necessidade | Como representar | Exemplo |
 |---|---|---|
 | **Condição** (um ramo só segue se...) | `condition` na conexão `triggers` ou `emits` | `livro-devolvido` → `multar-atraso`: *se dias de atraso > 0* (biblioteca) |
 | **Dois desfechos de um command** | duas conexões `emits`: uma com `condition`, outra com `otherwise` (*senão*) | `renovar-emprestimo` emite `emprestimo-renovado` *ou* `renovacao-negada` (biblioteca) |
-| **Decisão** (escolher um caminho depois de um fato) | papel `decision`, `gate` exclusiva: cada saída é um ramo com condição, e há um *senão* | `ha-tentativas` depois de `pagamento-recusado` (loja) |
-| **Em paralelo** | decisão `parallel`: todos os ramos seguem | notificar e faturar ao mesmo tempo |
-| **Esperar vários caminhos** | decisão `join`: só segue quando todas as entradas chegaram | confirmar só com pagamento **e** estoque |
+| **Escolher um caminho depois de um fato** | uma **policy** que reage ao evento e liga-se a mais de um command, cada ramo com condição e um *senão* | `ha-tentativas` depois de `pagamento-recusado` (loja) |
+| **Em paralelo** | os ramos da policy sem condição: todos seguem | notificar e faturar ao mesmo tempo |
+| **Esperar vários eventos** | uma **saga** (`process-manager`) com todos eles em `reactsTo` (o app documenta a espera, não a executa) | confirmar só com pagamento **e** estoque |
 | **Loop / retentativa** | a conexão que **volta** a um passo anterior leva `loop` com `until` (parada) e/ou `max` (tentativas) | `ha-tentativas` → `cobrar`: *repete até pagamento aprovado, máx. 3* (loja) |
 | **Iteração** | `foreach` na conexão | `reservar-estoque` → `item-de-estoque`: *para cada item do pedido* (loja) |
 
-Regras que o Archflow aplica: uma decisão tem **2 ou mais ramos** (D024); numa exclusiva cada ramo tem condição ou é o *senão*, e deve haver um *senão* (D025, D026); uma junção precisa de 2+ entradas (D027); um ciclo que passa por uma decisão exige um **loop declarado** (D028) e todo loop tem **condição de parada**, para não virar laço infinito (D029).
+Regras que o Archflow aplica: quando algum ramo tem condição, cada ramo tem condição ou é o *senão*, e deve haver um *senão* (D025, D026); um ciclo que passa por um nó com ramos condicionais exige um **loop declarado** (D028) e todo loop tem **condição de parada**, para não virar laço infinito (D029). O papel `decision` (sim/não) existe só no modo **Logic**, onde o fluxo é executado.
 
-*Quando usar o quê?* Se a regra é "quando X acontece, faça Y" sem estado, é uma **policy**. Se o fluxo tem vários passos, estado e compensação, é uma **saga**. Use **decisão** quando o caminho depende de uma condição que vale a pena enxergar no desenho, e **condição na conexão** para o caso simples de um único ramo. A condição é **documentação estruturada**: o Archflow a mostra, valida a forma do fluxo e a leva para o código gerado, mas não a executa.
+*Quando usar o quê?* Se a regra é "quando X acontece, faça Y" sem estado, é uma **policy**. Se o fluxo tem vários passos, estado e compensação, é uma **saga**. Use **condição nos ramos da policy** quando o caminho depende de uma condição que vale a pena enxergar no desenho, e **condição na conexão** para o caso simples de um único ramo. A condição é **documentação estruturada**: o Archflow a mostra, valida a forma do fluxo e a leva para o código gerado, mas não a executa.
 
 ## 4. Como modelar: dos casos de uso ao modelo
 
@@ -148,7 +148,7 @@ O modo Domain valida o seu modelo contra as regras de DDD (D001 a D032; a lista 
 | D005 | aggregates se referenciam **só por id** |
 | D008 | repository é de aggregate root |
 | D018 | uma saga reage a eventos e dispara commands |
-| D024 a D032 | decisões têm ramos e condições; loops têm parada; ciclos por decisão exigem loop declarado |
+| D025 a D032 | ramos condicionais têm condição ou senão; loops têm parada; ciclos por um nó condicional exigem loop declarado |
 
 ### Regras dos conectores
 No modo Domain cada conexão é uma **relação** com significado, e o Archflow só aceita as que fazem sentido:

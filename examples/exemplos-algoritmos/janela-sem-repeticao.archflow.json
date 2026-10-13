@@ -1,0 +1,570 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-0oh0hv",
+  "title": "Maior trecho sem repetição (janela deslizante)",
+  "description": "Tamanho do maior trecho contíguo de a sem números repetidos. Janela deslizante: ini é o começo da janela atual; vistos guarda, para cada número já lido, a ÚLTIMA posição em que apareceu (lista de pares [valor, posição], porque o formato não tem dicionário). Ao ler a[i]: se o valor já apareceu em uma posição p, a janela não pode mais incluir p, então ini passa a ser no mínimo p+1 (nunca recua: p pode estar antes de ini). Depois registra a nova posição e mede i − ini + 1. Uma volta por elemento.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 962,
+      "y": -10,
+      "w": 306,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 962,
+      "y": 108,
+      "w": 306,
+      "h": 302,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 962,
+      "y": 400,
+      "w": 376,
+      "h": 204,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "a",
+      "label": "Lista de números",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "a",
+        "type": "lista",
+        "text": "Os números, na ordem. Pode estar vazia e ter repetidos."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "vistos",
+      "label": "Última posição de cada número",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "vistos",
+        "type": "lista",
+        "text": "Lista de pares [número, posição]: o último lugar onde cada número apareceu. Começa vazia.",
+        "value": []
+      },
+      "x": 990,
+      "y": 162,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ini",
+      "label": "Começo da janela",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "ini",
+        "type": "número",
+        "text": "Primeira posição da janela atual, em que ainda não há repetidos.",
+        "value": 0
+      },
+      "x": 990,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "i",
+      "label": "Posição lida",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "i",
+        "type": "número",
+        "text": "Posição do número da vez em a (a primeira é 0).",
+        "value": 0
+      },
+      "x": 990,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "atual",
+      "label": "Número da vez",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "atual",
+        "type": "número",
+        "text": "a[i]."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ult",
+      "label": "Par da última vez",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "ult",
+        "type": "lista | vazio",
+        "text": "O par [atual, posição] se o número já apareceu; vazio se nunca apareceu."
+      },
+      "x": 990,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "melhor",
+      "label": "Maior trecho",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "melhor",
+        "type": "número",
+        "text": "Resposta: o maior tamanho de janela visto até agora.",
+        "value": 0
+      },
+      "x": 990,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Achar o maior trecho sem repetição",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entra a lista a."
+      },
+      "x": 255,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "cada",
+      "label": "Ainda há números a ler?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "i >= tamanho(a)",
+        "text": "Uma volta por posição de a, da 0 até a última."
+      },
+      "x": 225,
+      "y": 124,
+      "w": 340,
+      "h": 101
+    },
+    {
+      "id": "ler",
+      "label": "Ler o número e procurar a última vez",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Pega a[i] e procura em vistos o par desse número.",
+        "then": [
+          "atual := a[i]",
+          "ult := primeiro(filtrar(vistos, item[0] = atual))"
+        ],
+        "examples": [
+          {
+            "name": "já visto",
+            "given": {
+              "a": [
+                5,
+                6,
+                5
+              ],
+              "i": 2,
+              "vistos": [
+                [
+                  5,
+                  0
+                ],
+                [
+                  6,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "atual": 5,
+              "ult": [
+                5,
+                0
+              ]
+            }
+          },
+          {
+            "name": "novo",
+            "given": {
+              "a": [
+                5,
+                6
+              ],
+              "i": 1,
+              "vistos": [
+                [
+                  5,
+                  0
+                ]
+              ]
+            },
+            "expect": {
+              "atual": 6
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 289,
+      "w": 440,
+      "h": 128
+    },
+    {
+      "id": "novo",
+      "label": "Esse número nunca apareceu?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(ult)",
+        "text": "Se nunca apareceu, a janela não precisa encolher.",
+        "examples": [
+          {
+            "name": "nunca",
+            "given": {
+              "ult": null
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "já",
+            "given": {
+              "ult": [
+                5,
+                0
+              ]
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 230,
+      "y": 481,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "encolhe",
+      "label": "Empurrar o começo da janela",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "A janela começa depois da última vez do número. Nunca recua: a última vez pode estar antes do começo atual.",
+        "then": [
+          "ini := max(ini, ult[1] + 1)"
+        ],
+        "examples": [
+          {
+            "name": "avança",
+            "given": {
+              "ini": 0,
+              "ult": [
+                5,
+                2
+              ]
+            },
+            "expect": {
+              "ini": 3
+            }
+          },
+          {
+            "name": "não recua",
+            "given": {
+              "ini": 4,
+              "ult": [
+                5,
+                1
+              ]
+            },
+            "expect": {
+              "ini": 4
+            }
+          }
+        ]
+      },
+      "x": 175,
+      "y": 646,
+      "w": 440,
+      "h": 93
+    },
+    {
+      "id": "registra",
+      "label": "Registrar a posição e medir a janela",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Troca o par antigo do número pelo novo [atual, i], mede i − ini + 1, guarda se for a maior e passa à próxima posição.",
+        "then": [
+          "vistos := adicionar(filtrar(vistos, item[0] != atual), [atual, i])",
+          "melhor := max(melhor, i - ini + 1)",
+          "i := i + 1"
+        ],
+        "examples": [
+          {
+            "name": "mede",
+            "given": {
+              "vistos": [],
+              "atual": 4,
+              "i": 0,
+              "ini": 0,
+              "melhor": 0
+            },
+            "expect": {
+              "vistos": [
+                [
+                  4,
+                  0
+                ]
+              ],
+              "melhor": 1,
+              "i": 1
+            }
+          }
+        ]
+      },
+      "x": 175,
+      "y": 803,
+      "w": 440,
+      "h": 162
+    },
+    {
+      "id": "pronto",
+      "label": "Tamanho devolvido",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve melhor."
+      },
+      "x": 510,
+      "y": 323,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-ciclo",
+      "label": "Ciclo 1-2-3",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "[1,2,3,1,2,3]: o maior trecho tem 3.",
+        "examples": [
+          {
+            "name": "ciclo",
+            "given": {
+              "a": [
+                1,
+                2,
+                3,
+                1,
+                2,
+                3
+              ]
+            },
+            "expect": {
+              "melhor": 3,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 990,
+      "y": 454,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-vazio",
+      "label": "Lista vazia",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "[] devolve 0.",
+        "examples": [
+          {
+            "name": "vazio",
+            "given": {
+              "a": []
+            },
+            "expect": {
+              "melhor": 0,
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 990,
+      "y": 521,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-cada",
+      "from": "inicio",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "cada-to-ler",
+      "from": "cada",
+      "to": "ler",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "ler-to-novo",
+      "from": "ler",
+      "to": "novo",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "novo-to-registra",
+      "from": "novo",
+      "to": "registra",
+      "type": "data",
+      "label": "sim",
+      "routing": "elbow",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "waypoints": [
+        {
+          "x": 661,
+          "y": 531.5
+        },
+        {
+          "x": 661,
+          "y": 771
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "novo-to-encolhe",
+      "from": "novo",
+      "to": "encolhe",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "encolhe-to-registra",
+      "from": "encolhe",
+      "to": "registra",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "registra-to-cada",
+      "from": "registra",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -64,
+          "y": 884
+        },
+        {
+          "x": -64,
+          "y": 174.5
+        }
+      ]
+    },
+    {
+      "id": "cada-to-pronto",
+      "from": "cada",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

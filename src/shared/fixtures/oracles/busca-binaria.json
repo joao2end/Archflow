@@ -1,0 +1,132 @@
+{
+  "enunciado": "Dada uma lista de números em ordem crescente (pode ter repetidos) e um alvo, devolver a posição (a partir de 0) da PRIMEIRA ocorrência do alvo, ou -1 se não existir. Deve dividir o intervalo ao meio a cada passo (O(log n)).",
+  "cases": [
+    {
+      "name": "lista vazia",
+      "given": {
+        "v": [],
+        "x": 5
+      },
+      "expect": {
+        "indice": -1
+      }
+    },
+    {
+      "name": "um elemento, achou",
+      "given": {
+        "v": [
+          5
+        ],
+        "x": 5
+      },
+      "expect": {
+        "indice": 0
+      }
+    },
+    {
+      "name": "meio da lista",
+      "given": {
+        "v": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "x": 7
+      },
+      "expect": {
+        "indice": 3
+      }
+    },
+    {
+      "name": "ausente no meio",
+      "given": {
+        "v": [
+          1,
+          3,
+          5,
+          7,
+          9
+        ],
+        "x": 4
+      },
+      "expect": {
+        "indice": -1
+      }
+    },
+    {
+      "name": "todos iguais",
+      "given": {
+        "v": [
+          2,
+          2,
+          2,
+          2
+        ],
+        "x": 2
+      },
+      "expect": {
+        "indice": 0
+      }
+    },
+    {
+      "name": "repetidos no meio",
+      "given": {
+        "v": [
+          1,
+          2,
+          2,
+          2,
+          3
+        ],
+        "x": 2
+      },
+      "expect": {
+        "indice": 1
+      }
+    },
+    {
+      "name": "maior que todos",
+      "given": {
+        "v": [
+          1,
+          2,
+          3
+        ],
+        "x": 10
+      },
+      "expect": {
+        "indice": -1
+      }
+    },
+    {
+      "name": "menor que todos",
+      "given": {
+        "v": [
+          1,
+          2,
+          3
+        ],
+        "x": 0
+      },
+      "expect": {
+        "indice": -1
+      }
+    },
+    {
+      "name": "último elemento",
+      "given": {
+        "v": [
+          1,
+          2,
+          3
+        ],
+        "x": 3
+      },
+      "expect": {
+        "indice": 2
+      }
+    }
+  ]
+}

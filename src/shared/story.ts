@@ -60,7 +60,6 @@ const WHY: Record<string, string> = {
   policy: "Automatiza a regra \"quando isto acontece, faça aquilo\" sem ninguém precisar lembrar. Vive fora do aggregate para que ele não dependa de outros processos.",
   "process-manager": "Coordena um fluxo longo que passa por vários passos ou contextos e sabe compensar (desfazer) o que já foi feito se algo falhar.",
   "read-model": "Projeção pensada para consulta. Separa a leitura da escrita, para que telas e relatórios sejam rápidos sem pesar no modelo que garante as regras.",
-  decision: "Ponto em que o fluxo se bifurca segundo uma regra de negócio explícita, em vez de a condição ficar escondida dentro do código.",
 };
 
 const VERB: Record<string, string> = {
@@ -179,7 +178,6 @@ export function buildStories(doc: Doc): Story[] {
     add("Objetivo", d?.goal);
     add("Ator", d?.actor);
     add("Intenção", d?.intent);
-    add("Pergunta", d?.question);
     add("Carrega", d?.payload);
     if (d?.external) add("Origem", `evento publicado por outro contexto (${d.external})`);
     if (d?.reactsTo?.length) add("Reage a", d.reactsTo.map(label).join(", "));
@@ -252,11 +250,11 @@ export function buildStories(doc: Doc): Story[] {
   }
   if (!stories.length) {
     // sem casos de uso: começa pelos commands que nenhuma policy/saga dispara
-    const entries = doc.nodes.filter((n) => role(n) === "command" && !inConns(n.id, "triggers").some((c) => ["policy", "process-manager", "decision"].includes(role(nodes.get(c.from)) ?? ""))).sort((a, b) => stepOf(a) - stepOf(b));
+    const entries = doc.nodes.filter((n) => role(n) === "command" && !inConns(n.id, "triggers").some((c) => ["policy", "process-manager"].includes(role(nodes.get(c.from)) ?? ""))).sort((a, b) => stepOf(a) - stepOf(b));
     const s = entries.length ? makeStory("overview", "Fluxo do domínio", entries.map((e) => e.id)) : undefined;
     if (s) stories.push(s);
   }
-  const entries = doc.nodes.filter((n) => role(n) === "command" && !inConns(n.id, "triggers").some((c) => ["policy", "process-manager", "decision"].includes(role(nodes.get(c.from)) ?? "")));
+  const entries = doc.nodes.filter((n) => role(n) === "command" && !inConns(n.id, "triggers").some((c) => ["policy", "process-manager"].includes(role(nodes.get(c.from)) ?? "")));
   const primary = [...new Set([...useCases.map((u) => doc.nodes.find((a) => a.kind === "actor" && !a.ddd && doc.connections.some((c) => c.from === a.id && c.to === u.id))?.id ?? u.id), ...entries.sort((a, b) => stepOf(a) - stepOf(b)).map((e) => e.id)])];
   const all = completeStory(primary);
   // com mais de uma história, a visão completa vem primeiro; sozinha, é a única

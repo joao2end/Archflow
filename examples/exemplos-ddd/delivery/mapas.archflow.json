@@ -177,8 +177,17 @@
       "ddd": {
         "rel": "emits"
       },
-      "labelT": 0.8200000000000001,
-      "labelOffset": -50
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 384
+        },
+        {
+          "x": 254,
+          "y": 540
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "rota-to-distancia",
@@ -191,7 +200,17 @@
       "ddd": {
         "rel": "contains"
       },
-      "labelT": 0.18
+      "waypoints": [
+        {
+          "x": -14,
+          "y": 508
+        },
+        {
+          "x": -14,
+          "y": 664
+        }
+      ],
+      "labelT": 0.5
     },
     {
       "id": "calcular-rota-to-rota-repo",
@@ -204,7 +223,13 @@
       "ddd": {
         "rel": "uses"
       },
-      "labelT": 0.5
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 384
+        }
+      ],
+      "labelT": 0.54
     },
     {
       "id": "calcular-rota-to-provedor-de-mapas",
@@ -214,6 +239,12 @@
       "label": "consulta",
       "routing": "curve",
       "animated": true,
+      "waypoints": [
+        {
+          "x": 254,
+          "y": 384
+        }
+      ],
       "labelT": 0.5
     }
   ],

@@ -1,0 +1,640 @@
+{
+  "schema": "archflow/1",
+  "id": "diagram-9l7ogq",
+  "title": "Ordenação topológica (Kahn)",
+  "description": "Põe os nós em uma ordem que respeita as dependências, ou acusa ciclo. Repete: acha os nós pendentes que nenhuma dependência restante aponta para eles (livres); se não há nenhum, sobrou um ciclo; senão pega o de menor número, coloca na ordem e apaga as dependências que saem dele. O formato não tem grau de entrada por posição, então os livres saem de uma consulta às dependências restantes a cada volta.",
+  "mode": "logic",
+  "groups": [
+    {
+      "id": "entradas",
+      "label": "Entradas",
+      "kind": "layer",
+      "tag": "Input",
+      "x": -408,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "resultados",
+      "label": "Resultados",
+      "kind": "layer",
+      "tag": "Output",
+      "x": 962,
+      "y": -10,
+      "w": 306,
+      "h": 186,
+      "auto": true
+    },
+    {
+      "id": "variaveis",
+      "label": "Variáveis do fluxo",
+      "kind": "layer",
+      "tag": "Variable",
+      "x": 962,
+      "y": 166,
+      "w": 306,
+      "h": 302,
+      "auto": true
+    },
+    {
+      "id": "cenarios",
+      "label": "Cenários que dão certo",
+      "kind": "layer",
+      "tag": "Caminhos de sucesso",
+      "x": 962,
+      "y": 458,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    },
+    {
+      "id": "cenarios-falha",
+      "label": "Cenários que falham",
+      "kind": "layer",
+      "tag": "Caminhos de falha",
+      "x": 962,
+      "y": 589,
+      "w": 376,
+      "h": 140,
+      "auto": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "nos",
+      "label": "Nós",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "nos",
+        "type": "lista",
+        "text": "Números distintos, em qualquer ordem. Pode estar vazia."
+      },
+      "x": -380,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "arestas",
+      "label": "Dependências",
+      "kind": "logic",
+      "parent": "entradas",
+      "logic": {
+        "role": "input",
+        "key": "arestas",
+        "type": "lista",
+        "text": "Pares [de, para]: «de» vem antes de «para». Todo número citado está em nos. Pode estar vazia."
+      },
+      "x": -380,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "pendentes",
+      "label": "Nós ainda sem lugar",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "pendentes",
+        "type": "lista",
+        "text": "Os nós que ainda não entraram na ordem. Começa igual a nos."
+      },
+      "x": 990,
+      "y": 220,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "restam",
+      "label": "Dependências restantes",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "restam",
+        "type": "lista",
+        "text": "As dependências cujo «de» ainda não entrou na ordem. Começa igual a arestas."
+      },
+      "x": 990,
+      "y": 278,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "alvos",
+      "label": "Nós que ainda dependem de alguém",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "alvos",
+        "type": "lista",
+        "text": "O «para» de cada dependência restante."
+      },
+      "x": 990,
+      "y": 44,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "livres",
+      "label": "Nós livres",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "livres",
+        "type": "lista",
+        "text": "Os pendentes que nenhuma dependência restante aponta."
+      },
+      "x": 990,
+      "y": 336,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "escolhido",
+      "label": "Nó escolhido",
+      "kind": "logic",
+      "parent": "variaveis",
+      "logic": {
+        "role": "variable",
+        "key": "escolhido",
+        "type": "número",
+        "text": "O menor dos livres."
+      },
+      "x": 990,
+      "y": 394,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "ordem",
+      "label": "Ordem",
+      "kind": "logic",
+      "parent": "resultados",
+      "logic": {
+        "role": "output",
+        "key": "ordem",
+        "type": "lista",
+        "text": "Resposta: os nós na ordem topológica. Começa vazia.",
+        "value": []
+      },
+      "x": 990,
+      "y": 102,
+      "w": 250,
+      "h": 46
+    },
+    {
+      "id": "inicio",
+      "label": "Ordenar por dependência",
+      "kind": "logic",
+      "logic": {
+        "role": "start",
+        "text": "Entram nos e arestas."
+      },
+      "x": 255,
+      "y": 0,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "prepara",
+      "label": "Começar com tudo pendente",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Nenhum nó tem lugar ainda e todas as dependências valem.",
+        "then": [
+          "pendentes := nos",
+          "restam := arestas"
+        ],
+        "examples": [
+          {
+            "name": "copia",
+            "given": {
+              "nos": [
+                1,
+                2
+              ],
+              "arestas": [
+                [
+                  1,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "pendentes": [
+                1,
+                2
+              ],
+              "restam": [
+                [
+                  1,
+                  2
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "x": 175,
+      "y": 124,
+      "w": 440,
+      "h": 114
+    },
+    {
+      "id": "cada",
+      "label": "Todos os nós já têm lugar?",
+      "kind": "logic",
+      "logic": {
+        "role": "loop",
+        "until": "vazio(pendentes)",
+        "text": "Para quando não sobra nenhum pendente. Uma volta coloca um nó na ordem."
+      },
+      "x": 225,
+      "y": 302,
+      "w": 340,
+      "h": 87
+    },
+    {
+      "id": "acha-livres",
+      "label": "Achar os nós livres",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Livre é o pendente que não aparece como destino de nenhuma dependência restante.",
+        "then": [
+          "alvos := mapear(restam, item[1])",
+          "livres := filtrar(pendentes, contem(alvos, item) = falso)"
+        ],
+        "examples": [
+          {
+            "name": "1 e 3 livres",
+            "given": {
+              "pendentes": [
+                1,
+                2,
+                3
+              ],
+              "restam": [
+                [
+                  1,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "alvos": [
+                2
+              ],
+              "livres": [
+                1,
+                3
+              ]
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 453,
+      "w": 440,
+      "h": 142
+    },
+    {
+      "id": "tem-livre",
+      "label": "Existe algum nó livre?",
+      "kind": "logic",
+      "logic": {
+        "role": "decision",
+        "when": "vazio(livres) = falso",
+        "text": "Sem nó livre e ainda com pendentes, todos dependem de alguém: há ciclo.",
+        "examples": [
+          {
+            "name": "tem",
+            "given": {
+              "livres": [
+                1
+              ]
+            },
+            "expect": {
+              "caminho": "sim"
+            }
+          },
+          {
+            "name": "nenhum",
+            "given": {
+              "livres": []
+            },
+            "expect": {
+              "caminho": "nao"
+            }
+          }
+        ]
+      },
+      "x": 230,
+      "y": 659,
+      "w": 330,
+      "h": 101
+    },
+    {
+      "id": "coloca",
+      "label": "Pôr o menor livre na ordem",
+      "kind": "logic",
+      "logic": {
+        "role": "rule",
+        "text": "Escolhe o menor livre, acrescenta à ordem, tira dos pendentes e apaga as dependências que saem dele.",
+        "then": [
+          "escolhido := primeiro(ordenar(livres))",
+          "ordem := adicionar(ordem, escolhido)",
+          "pendentes := filtrar(pendentes, item != escolhido)",
+          "restam := filtrar(restam, item[0] != escolhido)"
+        ],
+        "examples": [
+          {
+            "name": "coloca o 1",
+            "given": {
+              "livres": [
+                3,
+                1
+              ],
+              "ordem": [],
+              "pendentes": [
+                1,
+                2,
+                3
+              ],
+              "restam": [
+                [
+                  1,
+                  2
+                ]
+              ]
+            },
+            "expect": {
+              "escolhido": 1,
+              "ordem": [
+                1
+              ],
+              "pendentes": [
+                2,
+                3
+              ],
+              "restam": []
+            }
+          }
+        ]
+      },
+      "x": 0,
+      "y": 824,
+      "w": 440,
+      "h": 184
+    },
+    {
+      "id": "pronto",
+      "label": "Ordem devolvida",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "ok",
+        "text": "Devolve ordem: todos os nós, cada um depois de quem ele depende."
+      },
+      "x": 510,
+      "y": 494,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "ciclo",
+      "label": "Ciclo encontrado",
+      "kind": "logic",
+      "logic": {
+        "role": "end",
+        "outcome": "erro",
+        "text": "Sobraram nós e todos dependem de alguém: não existe ordem."
+      },
+      "x": 510,
+      "y": 886,
+      "w": 280,
+      "h": 60
+    },
+    {
+      "id": "caso-classico",
+      "label": "Seis nós, sem ciclo",
+      "kind": "logic",
+      "parent": "cenarios",
+      "logic": {
+        "role": "scenario",
+        "text": "5→2, 5→0, 4→0, 4→1, 2→3, 3→1: a ordem com o menor livre primeiro é 4, 5, 0, 2, 3, 1.",
+        "examples": [
+          {
+            "name": "clássico",
+            "given": {
+              "nos": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "arestas": [
+                [
+                  5,
+                  2
+                ],
+                [
+                  5,
+                  0
+                ],
+                [
+                  4,
+                  0
+                ],
+                [
+                  4,
+                  1
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  3,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "ordem": [
+                4,
+                5,
+                0,
+                2,
+                3,
+                1
+              ],
+              "desfecho": "ok"
+            }
+          }
+        ]
+      },
+      "x": 990,
+      "y": 512,
+      "w": 320,
+      "h": 55
+    },
+    {
+      "id": "caso-ciclo",
+      "label": "Ciclo de três",
+      "kind": "logic",
+      "parent": "cenarios-falha",
+      "logic": {
+        "role": "scenario",
+        "text": "1→2, 2→3, 3→1: ninguém pode vir primeiro.",
+        "examples": [
+          {
+            "name": "ciclo",
+            "given": {
+              "nos": [
+                1,
+                2,
+                3
+              ],
+              "arestas": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  3,
+                  1
+                ]
+              ]
+            },
+            "expect": {
+              "desfecho": "erro"
+            }
+          }
+        ]
+      },
+      "x": 990,
+      "y": 643,
+      "w": 320,
+      "h": 55
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "inicio-to-prepara",
+      "from": "inicio",
+      "to": "prepara",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "prepara-to-cada",
+      "from": "prepara",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "cada-to-acha-livres",
+      "from": "cada",
+      "to": "acha-livres",
+      "type": "data",
+      "label": "repete",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "repete"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "acha-livres-to-tem-livre",
+      "from": "acha-livres",
+      "to": "tem-livre",
+      "type": "data",
+      "label": "",
+      "routing": "straight",
+      "animated": true
+    },
+    {
+      "id": "tem-livre-to-coloca",
+      "from": "tem-livre",
+      "to": "coloca",
+      "type": "data",
+      "label": "sim",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "sim"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "tem-livre-to-ciclo",
+      "from": "tem-livre",
+      "to": "ciclo",
+      "type": "data",
+      "label": "não",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "nao"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "coloca-to-cada",
+      "from": "coloca",
+      "to": "cada",
+      "type": "data",
+      "label": "",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": -46,
+          "y": 916
+        },
+        {
+          "x": -46,
+          "y": 345.5
+        }
+      ]
+    },
+    {
+      "id": "cada-to-pronto",
+      "from": "cada",
+      "to": "pronto",
+      "type": "data",
+      "label": "segue",
+      "routing": "straight",
+      "animated": true,
+      "logic": {
+        "branch": "segue"
+      },
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}
