@@ -1061,6 +1061,8 @@ svg.canvas.drag-over {
 .marquee {
   fill: rgba(112, 111, 211, 0.1);
   stroke: var(--primary);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
   stroke-dasharray: 5 4;
 }
 .edge {
