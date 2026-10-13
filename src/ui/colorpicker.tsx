@@ -202,7 +202,7 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
 
   return (
     <>
-      <button ref={btn} type="button" className={`swatch custom cpick-trigger ${open ? "active" : ""} ${className}`} style={swatchColor ? { background: swatchColor } : undefined} aria-label={label} aria-haspopup="dialog" aria-expanded={open} data-tip={label} data-tip-pos="top" onClick={() => setOpen((o) => !o)} />
+      <button ref={btn} type="button" className={`swatch custom cpick-trigger ${open ? "active" : ""} ${className}`} style={swatchColor ? { background: swatchColor } : undefined} aria-label={label} aria-haspopup="dialog" aria-expanded={open} data-tip={label} data-tip-pos="top" onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen((o) => !o)} />
       {open &&
         createPortal(
           <div ref={pop} className="glass cpick-pop" role="dialog" aria-label={label} style={{ left: pos?.left ?? 0, top: pos?.top ?? 0, width: POP_W, visibility: pos ? "visible" : "hidden", background: "var(--glass-strong)" }}>

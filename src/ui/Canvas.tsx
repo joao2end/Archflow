@@ -8,7 +8,9 @@ import { coverageGaps } from "../shared/logiceval";
 import { HEAD_H, LOGIC_ICON, figureText, isFailureScenario, ruleCard, scenarioTitle } from "../shared/logiccard";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { truncate, wrapLabel } from "../shared/text";
+import { FONT_CSS, parseInline, parseRich, plainText, type BlockKind, type Span } from "../shared/richtext";
 import { IconSvg } from "./icons";
+import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./richeditor";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
@@ -44,7 +46,7 @@ const snapV = (v: number, on: boolean) => (on ? Math.round(v / 8) * 8 : v);
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string; under?: string }
+  | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string; under?: string; /** clique sem arrastar numa nota já selecionada → editar in-place */ editNote?: string }
   | { kind: "marquee"; start: Pt; cur: Pt; additive: boolean; base: string[] }
   | { kind: "resize"; id: string; start: Pt; orig: { w: number; h: number } }
   | { kind: "waypoint"; id: string; idx: number }
@@ -513,58 +515,139 @@ const NOTE_STYLE = {
   list: { fs: 15, lh: 23, x: 16, top: 30, cw: 8, indent: 20 },
 };
 
-const PlainNote = memo(function PlainNote({ n, selected }: { n: NoteEl; selected: boolean }) {
-  const v = n.variant ?? "note";
-  // texto livre: a fonte acompanha a altura da caixa (arrastar uma caixa maior gera texto maior)
+/** Escala da fonte e da altura de linha por tipo de bloco do texto rico. */
+const BLOCK_SCALE: Record<BlockKind, number> = { p: 1, ul: 1, ol: 1, h1: 1.4, h2: 1.18, pre: 0.95 };
+type Seg = Omit<Span, "t"> & { t: string };
+interface RichLine {
+  segs: Seg[];
+  kind: BlockKind;
+  /** marcador do primeiro item de uma lista (• ou "1.") */
+  bullet?: string;
+  /** deslocamento do início do texto, em unidades do quadro */
+  indent: number;
+}
+
+/** Métricas do texto de uma nota: usadas para desenhar e para alinhar o editor aberto sobre ela. */
+export function noteMetrics(n: Pick<NoteEl, "text" | "h" | "variant" | "color" | "fontSize" | "font">) {
+  const v = n.variant === "text" ? "text" : "note";
+  const color = n.color ?? (v === "note" ? undefined : "var(--ink)");
+  const font = n.font;
+  if (n.fontSize) {
+    const fs = Math.min(120, Math.max(10, n.fontSize));
+    return {
+      fs,
+      lh: fs * (v === "text" ? 1.3 : 1.35),
+      x: v === "text" ? 10 : 14,
+      top: fs * 1.05 + 4,
+      cw: fs * 0.54,
+      indent: 0,
+      color,
+      font,
+    };
+  }
   const paras = Math.max(1, n.text.split("\n").length);
-  const tfs = Math.min(120, Math.max(12, (n.h - 10) / (paras * 1.3)));
-  const st = v === "text" ? { fs: tfs, lh: tfs * 1.3, x: 10, top: tfs * 1.05 + 4, cw: tfs * 0.54, indent: 0 } : NOTE_STYLE[v];
-  const lines = useMemo(() => {
-    const out: { t: string; bullet?: string }[] = [];
-    const per = Math.max(4, Math.floor((n.w - st.x * 2 - st.indent) / st.cw));
-    for (const raw of n.text.split("\n")) {
-      let para = raw;
-      let bullet: string | undefined;
-      if (v === "list") {
-        const box = /^\s*(?:[-*]\s*)?\[( |x|X)\]\s?/.exec(para);
-        if (box) bullet = box[1] === " " ? "☐" : "☑";
-        para = para.replace(/^\s*(?:[-*]\s+|(?:[-*]\s*)?\[( |x|X)\]\s?)/, "");
-        bullet ??= "•";
-      }
-      let cur = "";
-      let first = true;
-      const flush = () => {
-        out.push({ t: cur, bullet: first ? bullet : undefined });
-        first = false;
-      };
-      for (const w of para.split(" ")) {
-        if ((cur + " " + w).trim().length > per) {
-          flush();
-          cur = w;
-        } else cur = (cur + " " + w).trim();
-      }
-      flush();
+  const tfs = Math.min(120, Math.max(12, (n.h - 10) / (paras * 1.3))); // texto livre: a fonte acompanha a altura da caixa
+  const st = v === "text" ? { fs: tfs, lh: tfs * 1.3, x: 10, top: tfs * 1.05 + 4, cw: tfs * 0.54, indent: 0 } : NOTE_STYLE.note;
+  return { ...st, color, font };
+}
+
+/** Quebra o texto rico em linhas desenháveis, usando a largura média de um caractere para decidir onde quebrar. */
+export function layoutRich(text: string, w: number, st: ReturnType<typeof noteMetrics>, maxH: number): { lines: RichLine[]; ys: number[] } {
+  const lines: RichLine[] = [];
+  const ys: number[] = [];
+  let acc = 0;
+  for (const b of parseRich(text)) {
+    const k = BLOCK_SCALE[b.kind];
+    const listed = b.kind === "ul" || b.kind === "ol";
+    const indent = listed ? Math.round(st.fs * 1.5) : 0;
+    const per = Math.max(4, Math.floor((w - st.x * 2 - indent) / (st.cw * k)));
+    // palavras e espaços, cada um com o estilo do trecho de onde veio
+    const toks: Seg[] = [];
+    for (const s of b.spans) s.t.split(/( +)/).forEach((t) => t && toks.push({ ...s, t }));
+    const rows: Seg[][] = [[]];
+    let len = 0;
+    for (const t of toks) {
+      const wd = t.t.length * (t.b ? 1.07 : 1);
+      const space = t.t[0] === " ";
+      if (!space && len + wd > per && len > 0) rows.push([]), (len = 0);
+      if (space && len === 0) continue; // espaço no começo da linha quebrada
+      rows[rows.length - 1].push(t);
+      len += wd;
     }
-    return out.slice(0, Math.max(1, Math.floor((n.h - 12) / st.lh)));
-  }, [n.text, n.w, n.h, v, st.fs]);
-  const fill = n.color ?? (v === "note" ? undefined : "var(--ink)");
+    rows.forEach((segs, i) => {
+      const y = st.top + acc + (k - 1) * st.fs * 0.9;
+      acc += st.lh * k;
+      if (y > maxH) return;
+      lines.push({ segs, kind: b.kind, indent, bullet: i === 0 && listed ? (b.kind === "ul" ? "•" : `${b.n ?? 1}.`) : undefined });
+      ys.push(y);
+    });
+  }
+  return { lines, ys };
+}
+
+const PlainNote = memo(function PlainNote({
+  n,
+  selected,
+  editing,
+  onEditChange,
+  onEditClose,
+  onNoteCard,
+}: {
+  n: NoteEl;
+  selected: boolean;
+  editing?: boolean;
+  onEditChange?: (text: string) => void;
+  onEditClose?: () => void;
+  onNoteCard?: (patch: NoteCardStyle) => void;
+}) {
+  const v = n.variant ?? "note";
+  const st = noteMetrics(n);
+  const ink = st.color;
+  const editRef = useRef<HTMLTextAreaElement>(null);
+  const html = useMemo(() => richToHtml(n.text), [n.text]);
+  const pad = `${Math.max(2, st.top - st.fs * 0.95)}px ${st.x}px 8px`;
+  const typeStyle = {
+    fontSize: st.fs,
+    lineHeight: `${st.lh}px`,
+    padding: pad,
+    fontFamily: st.font && st.font !== "sans" ? FONT_CSS[st.font] : undefined,
+    fontWeight: v === "text" ? 600 : undefined,
+    color: ink ?? undefined,
+  } as const;
   return (
-    <g data-id={n.id} data-role="note" role="button" aria-pressed={selected} aria-label={`${n.variant === "text" ? "Texto" : n.variant === "list" ? "Lista" : "Nota"}: ${(n.title ?? n.text ?? "").slice(0, 80)}`} transform={`translate(${n.x},${n.y})`} className={`note ${v}${selected ? " sel" : ""}`}>
-      <rect className="note-body" width={n.w} height={n.h} rx={14} filter={v === "text" ? undefined : "url(#shadow)"} />
-      {v === "list" && <rect x={0} y={10} width={4} height={n.h - 20} rx={2} fill={n.color ?? "var(--primary-600)"} pointerEvents="none" />}
-      {lines.map((l, i) => (
-        <g key={i} pointerEvents="none">
-          {l.bullet && (
-            <text x={st.x} y={st.top + i * st.lh} className="note-text" style={{ fontSize: st.fs, fill }}>
-              {l.bullet}
-            </text>
-          )}
-          <text x={st.x + st.indent} y={st.top + i * st.lh} className="note-text" style={{ fontSize: st.fs, fontWeight: v === "text" ? 600 : undefined, fill }}>
-            {l.t}
-          </text>
-        </g>
-      ))}
-      {selected && <ResizeGrip w={n.w} h={n.h} />}
+    <g data-id={n.id} data-role="note" role="button" aria-pressed={selected} aria-label={`${n.variant === "text" ? "Texto" : n.variant === "list" ? "Lista" : "Nota"}: ${plainText(n.title ?? n.text ?? "").slice(0, 80)}`} transform={`translate(${n.x},${n.y})`} className={`note ${v}${selected ? " sel" : ""}${editing ? " editing" : ""}`}>
+      <rect className="note-body" width={n.w} height={n.h} rx={14} filter={v === "text" ? undefined : "url(#shadow)"} style={n.fill ? { fill: n.fill } : undefined} />
+      {!editing && (
+        <foreignObject x={0} y={0} width={n.w} height={n.h} className="note-rich-fo">
+          <div {...{ xmlns: "http://www.w3.org/1999/xhtml" }} className={`note-rich-view note-md${v === "text" ? " text" : ""}`} style={{ width: n.w, height: n.h, ...typeStyle }} dangerouslySetInnerHTML={{ __html: html }} />
+        </foreignObject>
+      )}
+      {editing && onEditChange && onEditClose && (
+        <>
+          {/* barra acima do card — largura própria, sem scroll dentro da nota */}
+          <foreignObject x={0} y={-76} width={Math.max(n.w, 300)} height={72} className="note-rich-bar-fo" style={{ overflow: "visible" }}>
+            <div {...{ xmlns: "http://www.w3.org/1999/xhtml" }} className="note-rich-bar-host" onPointerDown={(e) => e.stopPropagation()}>
+              <RichToolbar root={editRef} className="in-card" compact noteCard={{ fontSize: n.fontSize ?? Math.round(st.fs), fill: n.fill }} onNoteCard={onNoteCard} />
+            </div>
+          </foreignObject>
+          <foreignObject x={0} y={0} width={n.w} height={n.h} className="note-rich-fo">
+            <div {...{ xmlns: "http://www.w3.org/1999/xhtml" }} className={`note-rich-host${v === "text" ? " text" : ""}`} style={{ width: n.w, height: n.h, color: ink ?? undefined }} onPointerDown={(e) => e.stopPropagation()}>
+              <RichEditor
+                innerRef={editRef}
+                value={n.text}
+                onChange={onEditChange}
+                onClose={onEditClose}
+                autoFocus
+                label="Editar markdown"
+                placeholder="Escreva em markdown…"
+                className="in-card-editor"
+                style={typeStyle}
+              />
+            </div>
+          </foreignObject>
+        </>
+      )}
+      {selected && !editing && <ResizeGrip w={n.w} h={n.h} />}
     </g>
   );
 });
@@ -582,6 +665,7 @@ export const toggleListLine = (line: string) => {
 /** Lista estilizada: título, itens separados por linhas finas e, opcionalmente, checklist com caixas clicáveis. */
 const ListShape = memo(function ListShape({ n, selected }: { n: NoteEl; selected: boolean }) {
   const color = n.color ?? LIST_COLOR;
+  const fontFamily = n.font && n.font !== "sans" ? FONT_CSS[n.font] : undefined;
   const { title, rows, seps } = useMemo(() => {
     const all = n.text.split("\n");
     let title = n.title;
@@ -622,7 +706,7 @@ const ListShape = memo(function ListShape({ n, selected }: { n: NoteEl; selected
       {title && <CollapseToggle id={n.id} x={n.w - 26} y={23} collapsed={!!n.collapsed} />}
       <path d={`M18 0.8H${n.w - 18}`} stroke={color} strokeWidth={3} strokeLinecap="round" pointerEvents="none" opacity={0.9} />
       {title && (
-        <text x={18} y={31} className="list-title" pointerEvents="none">
+        <text x={18} y={31} className="list-title" pointerEvents="none" style={{ fontFamily }}>
           {truncate(title, Math.floor((n.w - 70) / 9))}
         </text>
       )}
@@ -639,8 +723,21 @@ const ListShape = memo(function ListShape({ n, selected }: { n: NoteEl; selected
               {r.mark === "done" && <path d="M18.4 12.8l3.1 3.1 5.2-6" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />}
             </g>
           )}
-          <text x={40} y={17} className={`list-item${r.mark === "done" ? " done" : ""}`} pointerEvents="none">
-            {r.t}
+          <text x={40} y={17} className={`list-item${r.mark === "done" ? " done" : ""}`} pointerEvents="none" style={{ fontFamily }}>
+            {parseInline(r.t).map((s, j) => (
+              <tspan
+                key={j}
+                style={{
+                  fontWeight: s.weight ?? (s.b ? 800 : undefined),
+                  fontStyle: s.i ? "italic" : undefined,
+                  textDecoration: s.s || r.mark === "done" ? "line-through" : undefined,
+                  fontFamily: s.c ? FONT_CSS.mono : s.font ? FONT_CSS[s.font] : fontFamily,
+                  fill: s.color,
+                }}
+              >
+                {s.t}
+              </tspan>
+            ))}
           </text>
         </g>
       ))}
@@ -770,9 +867,23 @@ const ChecklistShape = memo(function ChecklistShape({ n, selected }: { n: NoteEl
   );
 });
 
-export const NoteShape = memo(function NoteShape({ n, selected }: { n: NoteEl; selected: boolean }) {
+export const NoteShape = memo(function NoteShape({
+  n,
+  selected,
+  editing,
+  onEditChange,
+  onEditClose,
+  onNoteCard,
+}: {
+  n: NoteEl;
+  selected: boolean;
+  editing?: boolean;
+  onEditChange?: (text: string) => void;
+  onEditClose?: () => void;
+  onNoteCard?: (patch: NoteCardStyle) => void;
+}) {
   if (n.variant === "list" && n.checklist) return <ChecklistShape n={n} selected={selected} />;
-  return n.variant === "list" ? <ListShape n={n} selected={selected} /> : <PlainNote n={n} selected={selected} />;
+  return n.variant === "list" ? <ListShape n={n} selected={selected} /> : <PlainNote n={n} selected={selected} editing={editing} onEditChange={onEditChange} onEditClose={onEditClose} onNoteCard={onNoteCard} />;
 });
 
 function Marker({ type }: { type: ConnectionType }) {
@@ -1068,6 +1179,24 @@ export function Canvas() {
   const [menu, setMenu] = useState<{ x: number; y: number; conn: string; at: Pt; idx: number; onPoint: boolean } | null>(null);
   const [paneMenu, setPaneMenu] = useState<{ x: number; y: number; at: Pt } | null>(null);
   const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+
+  // Enter com nota/texto selecionado abre a edição in-place no quadro
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (editingNoteId || getState().present) return;
+      const id = getState().sel.length === 1 ? getState().sel[0] : null;
+      const n = id ? getState().doc.notes.find((x) => x.id === id) : null;
+      if (!n || n.variant === "list") return;
+      e.preventDefault();
+      setEditingNoteId(n.id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editingNoteId]);
 
   useEffect(() => {
     if (!menu && !nodeMenu && !paneMenu) return;
@@ -1272,7 +1401,7 @@ export function Canvas() {
       else if (!s.sel.includes(t.id)) nextSel = [t.id];
       select(nextSel);
       // conjunto em movimento: selecionados + descendentes de grupos
-      const startMove = (ids: string[], id: string, under?: string) => {
+      const startMove = (ids: string[], id: string, under?: string, editNote?: string) => {
         const moving = new Set<string>();
         const add = (x: string) => {
           if (moving.has(x)) return;
@@ -1284,9 +1413,13 @@ export function Canvas() {
         const origin = new Map<string, Pt>();
         [...s.doc.nodes, ...s.doc.groups, ...s.doc.notes].forEach((el) => moving.has(el.id) && origin.set(el.id, { x: el.x, y: el.y }));
         beginTx();
-        drag.current = { kind: "move", start: p, origin, moved: false, id, under };
+        drag.current = { kind: "move", start: p, origin, moved: false, id, under, editNote };
       };
-      if (t.role !== "conn" && nextSel.includes(t.id)) startMove(nextSel, t.id);
+      const reclickNote =
+        t.role === "note" && !e.shiftKey && s.sel.length === 1 && s.sel[0] === t.id && s.doc.notes.find((n) => n.id === t.id)?.variant !== "list"
+          ? t.id
+          : undefined;
+      if (t.role !== "conn" && nextSel.includes(t.id)) startMove(nextSel, t.id, undefined, reclickNote);
       else if (t.role === "conn") {
         // a conexão (traço largo e rótulo) fica por cima dos grupos: arrastar a partir dela move o que está embaixo
         for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
@@ -1424,6 +1557,8 @@ export function Canvas() {
           const ref = s.doc.nodes.find((n) => n.id === d.id)?.ref;
           if (ref) set({ modal: { type: "diagram-view", diagram: ref.diagram, node: ref.node } });
         }
+        // segundo clique (sem arrastar) na nota já selecionada → editar o texto no quadro
+        if (!d.moved && d.editNote) setEditingNoteId(d.editNote);
         if (d.moved) {
           // reparent: topo da seleção cai no menor grupo que contém seu centro
           const doc = structuredClone(s.doc);
@@ -1467,7 +1602,17 @@ export function Canvas() {
           // no modo domain o tipo vem da relação de domínio (inferida pelos dois elementos); a barra de tipos é da arquitetura
           // decisão (modo lógica): a 1ª seta nasce «sim» e a 2ª «não»; antes ficava sem saída e só a validação reclamava
           const logic = docMode(s.doc) === "logic" ? nextExit(s.doc, d.from) : undefined;
-          const [r] = run([{ op: "add_connection", from: d.from, to, ...(logic ? { logic } : {}), ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic" ? {} : { type: s.connType }) }]);
+          const [r] = run([
+            {
+              op: "add_connection",
+              from: d.from,
+              to,
+              ...(logic ? { logic } : {}),
+              ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic"
+                ? {}
+                : { type: s.defaults.connType, ...(s.defaults.connRouting !== "curve" ? { routing: s.defaults.connRouting } : {}) }),
+            },
+          ]);
           if (r.ok && r.id) {
             select([r.id]);
             if (logic?.case === undefined) set({ focusTick: getState().focusTick + 1 }); // já abre o campo "Rótulo" para nomear a conexão (a seta de um caso abre a própria condição)
@@ -1480,7 +1625,21 @@ export function Canvas() {
         const big = r.w > 60 && r.h > 40;
         if (d.tool === "group") {
           const box = big ? r : { x: d.start.x - 160, y: d.start.y - 100, w: 320, h: 200 };
-          const [res] = run([{ op: "add_group", label: "Novo grupo", kind: "boundary", x: snapV(box.x, s.snap), y: snapV(box.y, s.snap), w: snapV(box.w, s.snap), h: snapV(box.h, s.snap) }]);
+          const gd = s.defaults;
+          const [res] = run([
+            {
+              op: "add_group",
+              label: "Novo grupo",
+              kind: gd.groupKind,
+              ...(gd.groupColor ? { color: gd.groupColor } : {}),
+              ...(gd.fill ? { fill: gd.fill } : {}),
+              ...(gd.fillOpacity != null && gd.fillOpacity !== 1 ? { fillOpacity: gd.fillOpacity } : {}),
+              x: snapV(box.x, s.snap),
+              y: snapV(box.y, s.snap),
+              w: snapV(box.w, s.snap),
+              h: snapV(box.h, s.snap),
+            },
+          ]);
           if (res.ok && res.id) {
             const doc = structuredClone(getState().doc);
             const g = doc.groups.find((x) => x.id === res.id)!;
@@ -1495,11 +1654,24 @@ export function Canvas() {
           const base = variant === "text" ? { w: 220, h: 48, text: "Texto" } : variant === "list" ? { w: 270, h: 190, text: "Primeiro item\nSegundo item\nTerceiro item", title: "Minha lista" } : { w: 200, h: 110, text: "Nova nota" };
           const dflt = { ...base, w: Math.round(base.w * k), h: Math.round(base.h * k) };
           const box = variant ? (r.w > 60 && r.h > 30 ? r : { x: d.start.x, y: d.start.y, w: dflt.w, h: dflt.h }) : big ? r : { x: d.start.x - 100, y: d.start.y - 55, w: 200, h: 110 };
-          const [res] = run([{ op: "add_note", text: dflt.text, title: (dflt as { title?: string }).title, variant, x: snapV(box.x, s.snap), y: snapV(box.y, s.snap) }]);
+          const nd = s.defaults;
+          const [res] = run([
+            {
+              op: "add_note",
+              text: dflt.text,
+              title: (dflt as { title?: string }).title,
+              variant,
+              x: snapV(box.x, s.snap),
+              y: snapV(box.y, s.snap),
+              ...(nd.noteColor ? { color: nd.noteColor } : {}),
+              ...(nd.noteFont !== "sans" ? { font: nd.noteFont } : {}),
+            },
+          ]);
           if (res.ok && res.id) {
             commit({ ...getState().doc, notes: getState().doc.notes.map((n) => (n.id === res.id ? { ...n, w: box.w, h: box.h } : n)) });
             select([res.id]);
-            set({ focusTick: getState().focusTick + 1 });
+            if (variant === "list") set({ focusTick: getState().focusTick + 1 });
+            else setEditingNoteId(res.id);
           }
         }
         set({ tool: "select" });
@@ -1575,6 +1747,13 @@ export function Canvas() {
     }
     if (t?.role === "wp-add") return;
     if (t?.id && t.role === "node" && getState().doc.nodes.find((n) => n.id === t.id)?.ref) return; // o clique já abriu o visualizador
+    if (t?.id && t.role === "note") {
+      const nt = getState().doc.notes.find((n) => n.id === t.id);
+      select([t.id]);
+      if (nt && nt.variant !== "list") setEditingNoteId(t.id);
+      else set({ focusTick: getState().focusTick + 1 });
+      return;
+    }
     if (t?.id && t.role !== "handle" && t.role !== "open-ref") {
       select([t.id]);
       set({ focusTick: getState().focusTick + 1 });
@@ -1682,7 +1861,42 @@ export function Canvas() {
             .filter((n) => n.id === focus!.id)
             .map((n) => <rect key="flow-ring" x={n.x - 6} y={n.y - 6} width={n.w + 12} height={n.h + 12} rx={16} className="flow-ring" pointerEvents="none" />)}
         {(flow ? [] : doc.notes).map((n) => (
-          <NoteShape key={n.id} n={n} selected={selSet.has(n.id)} />
+          <NoteShape
+            key={n.id}
+            n={n}
+            selected={selSet.has(n.id)}
+            editing={editingNoteId === n.id}
+            onEditChange={
+              editingNoteId === n.id
+                ? (t) => {
+                    const d = structuredClone(getState().doc);
+                    const note = d.notes.find((x) => x.id === n.id);
+                    if (!note) return;
+                    note.text = t;
+                    live(d);
+                  }
+                : undefined
+            }
+            onNoteCard={
+              editingNoteId === n.id
+                ? (patch) => {
+                    const d = structuredClone(getState().doc);
+                    const note = d.notes.find((x) => x.id === n.id);
+                    if (!note) return;
+                    if ("fontSize" in patch) {
+                      if (patch.fontSize == null) delete note.fontSize;
+                      else note.fontSize = patch.fontSize;
+                    }
+                    if ("fill" in patch) {
+                      if (patch.fill == null) delete note.fill;
+                      else note.fill = patch.fill;
+                    }
+                    live(d);
+                  }
+                : undefined
+            }
+            onEditClose={editingNoteId === n.id ? () => setEditingNoteId(null) : undefined}
+          />
         ))}
         {edges.map(({ c, g }) => (
           <EdgeLabel key={c.id} c={c} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} />
