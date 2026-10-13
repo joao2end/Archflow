@@ -38,6 +38,7 @@ import {
   type InterfaceSpec,
   type NodeEl,
   type NodeKind,
+  type NoteFont,
   type Routing,
 } from "./schema";
 import { layeredLayout, shelfPack } from "./layout";
@@ -57,10 +58,10 @@ export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; fill?: string; fillOpacity?: number; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
-  | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; subdomain?: Subdomain; x?: number; y?: number; w?: number; h?: number }
-  | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean }
+  | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; x?: number; y?: number; w?: number; h?: number }
+  | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
   | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
@@ -262,6 +263,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ref: op.ref,
         ...(ddd ? { ddd } : {}),
         ...(logic ? { logic } : {}),
+        ...(op.fill ? { fill: op.fill } : {}),
+        ...(op.fillOpacity != null && op.fillOpacity !== 1 ? { fillOpacity: op.fillOpacity } : {}),
         x: pos.x,
         y: pos.y,
         w,
@@ -291,6 +294,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         description: op.description,
         parent: op.parent,
         color: op.color,
+        ...(op.fill ? { fill: op.fill } : {}),
+        ...(op.fillOpacity != null && op.fillOpacity !== 1 ? { fillOpacity: op.fillOpacity } : {}),
         ...(op.subdomain ? { subdomain: op.subdomain } : {}),
         x: pos.x,
         y: pos.y,
@@ -305,7 +310,21 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
     case "add_note": {
       const id = uniqueId(doc, op.id ?? "note");
       const pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : findFreeSpot(doc, 200, 110);
-      doc.notes.push({ id, ...(op.variant && op.variant !== "note" ? { variant: op.variant } : {}), ...(op.title ? { title: op.title } : {}), ...(op.checklist != null ? { checklist: op.checklist } : {}), text: op.text, x: pos.x, y: pos.y, w: 200, h: 110 });
+      doc.notes.push({
+        id,
+        ...(op.variant && op.variant !== "note" ? { variant: op.variant } : {}),
+        ...(op.title ? { title: op.title } : {}),
+        ...(op.checklist != null ? { checklist: op.checklist } : {}),
+        ...(op.color ? { color: op.color } : {}),
+        ...(op.font && op.font !== "sans" ? { font: op.font } : {}),
+        ...(op.fill ? { fill: op.fill } : {}),
+        ...(op.fontSize != null ? { fontSize: op.fontSize } : {}),
+        text: op.text,
+        x: pos.x,
+        y: pos.y,
+        w: 200,
+        h: 110,
+      });
       return { ok: true, id };
     }
     case "add_connection": {

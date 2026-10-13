@@ -3,7 +3,44 @@ import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { buildCatalog, type CatalogExample } from "../shared/examples.catalog";
 import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shared/logic";
-import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type LogicNodeSpec } from "../shared/schema";
+import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
+/** Estilos padrão dos próximos elementos (padrão Excalidraw), persistidos em prefs. */
+export interface ElementDefaults {
+  nodeKind: NodeKind;
+  fill?: string;
+  fillOpacity?: number;
+  groupKind: GroupKind;
+  groupColor?: string;
+  noteColor?: string;
+  noteFont: NoteFont;
+  connType: ConnectionType;
+  connRouting: Routing;
+}
+
+export const DEFAULT_ELEMENT_DEFAULTS: ElementDefaults = {
+  nodeKind: "service",
+  groupKind: "boundary",
+  noteFont: "sans",
+  connType: "sync",
+  connRouting: "curve",
+};
+
+const ARCH_KINDS = new Set<NodeKind>(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "system"]);
+const GROUP_KIND_SET = new Set<GroupKind>(["boundary", "layer", "cloud", "network", "context", "cluster", "team"]);
+const FONT_SET = new Set<NoteFont>(["sans", "serif", "mono"]);
+const ROUTING_SET = new Set<Routing>(["curve", "straight", "elbow"]);
+
+function mergeDefaults(p?: Partial<ElementDefaults>): ElementDefaults {
+  const base = { ...DEFAULT_ELEMENT_DEFAULTS, ...p };
+  return {
+    ...base,
+    nodeKind: p?.nodeKind && ARCH_KINDS.has(p.nodeKind) ? p.nodeKind : DEFAULT_ELEMENT_DEFAULTS.nodeKind,
+    groupKind: p?.groupKind && GROUP_KIND_SET.has(p.groupKind) ? p.groupKind : DEFAULT_ELEMENT_DEFAULTS.groupKind,
+    noteFont: p?.noteFont && FONT_SET.has(p.noteFont) ? p.noteFont : "sans",
+    connType: (p?.connType as ConnectionType) || "sync",
+    connRouting: p?.connRouting && ROUTING_SET.has(p.connRouting) ? p.connRouting : "curve",
+  };
+}
 
 export type Theme = "system" | "light" | "dark";
 
@@ -91,6 +128,7 @@ interface Prefs {
   snap?: boolean;
   theme?: Theme;
   bg?: Background;
+  defaults?: Partial<ElementDefaults>;
 }
 
 export interface State {
@@ -100,7 +138,9 @@ export interface State {
   tool: Tool;
   view: View;
   connType: ConnectionType;
-  panel: "assets" | "files" | "bg" | null;
+  /** estilos padrão dos próximos elementos (e sincronizados com a seleção) */
+  defaults: ElementDefaults;
+  panel: "assets" | "files" | "styles" | null;
   /** modo escolhido no switch para filtrar o explorador; null = o do diagrama aberto. Nunca converte o arquivo. */
   modeFilter: DocMode | null;
   /** pedido para o explorador abrir a criação de um diagrama novo deste modo */
@@ -206,13 +246,15 @@ export function sampleDoc(): Doc {
 function init(): State {
   const prefs = read<Prefs>(LS_PREFS) ?? {};
   const saved = read<Doc>(LS_DOC);
+  const defaults = mergeDefaults(prefs.defaults);
   return {
     doc: saved ? normalizeDoc(saved) : sampleDoc(),
     docSource: "local",
     sel: [],
     tool: "select",
     view: { x: 120, y: 120, z: 1 },
-    connType: "sync",
+    connType: defaults.connType,
+    defaults,
     panel: null,
     modeFilter: null,
     newDiagramFor: null,
@@ -281,6 +323,20 @@ export function live(doc: Doc) {
 export function endTx() {
   if (txBase && txBase !== state.doc) set({ past: [...state.past, txBase].slice(-HISTORY_MAX), future: [] });
   txBase = null;
+}
+
+/** Digitação em nota/texto: um único ponto de desfazer por sessão de foco. */
+let typing = false;
+export function beginTyping() {
+  if (!typing) {
+    beginTx();
+    typing = true;
+  }
+}
+export function endTyping() {
+  if (!typing) return;
+  typing = false;
+  endTx();
 }
 export function undo() {
   const p = state.past;
@@ -362,22 +418,80 @@ export function placeAsset(assetId: string, x: number, y: number, parent?: strin
   const isScenario = assetId === "logic-scenario";
   const logic = isScenario ? ({ role: "scenario", examples: [starterExample(state.doc)] } as LogicNodeSpec) : LOGIC_PLACEHOLDER[assetId];
   const label = isScenario ? `Caso ${state.doc.nodes.filter((n) => n.logic?.role === "scenario").length + 1}` : undefined;
-  const [r] = run([owner ? { op: "add_node", asset: assetId, owner } : { op: "add_node", asset: assetId, x, y, parent, ...(logic ? { logic } : {}), ...(label ? { label } : {}) }]);
+  const d = state.defaults;
+  const style = { ...(d.fill ? { fill: d.fill } : {}), ...(d.fillOpacity != null && d.fillOpacity !== 1 ? { fillOpacity: d.fillOpacity } : {}) };
+  const [r] = run([owner ? { op: "add_node", asset: assetId, owner, ...style } : { op: "add_node", asset: assetId, x, y, parent, ...(logic ? { logic } : {}), ...(label ? { label } : {}), ...style }]);
   if (!r.ok) toastError(`Não deu para adicionar: ${r.error ?? "erro desconhecido"}`);
   if (r.ok && r.id) {
     set({ sel: [r.id], ...(isScenario ? { focusTick: state.focusTick + 1 } : {}) }); // Cenário novo: o campo Nome já vem selecionado para digitar o caso
     if (parent) {
-      const d = structuredClone(state.doc);
-      fitGroup(d, parent);
-      commit(d);
+      const doc = structuredClone(state.doc);
+      fitGroup(doc, parent);
+      commit(doc);
     }
   }
 }
 
+function writePrefs() {
+  write(LS_PREFS, {
+    animate: state.animate,
+    snap: state.snap,
+    theme: state.theme,
+    bg: state.bg,
+    defaults: state.defaults,
+  });
+}
+
 export function setPrefs(p: Prefs) {
-  set(p);
-  write(LS_PREFS, { animate: state.animate, snap: state.snap, theme: state.theme, bg: state.bg });
+  const { defaults: dIn, ...rest } = p;
+  if (dIn) {
+    const defaults = mergeDefaults({ ...state.defaults, ...dIn });
+    set({ ...rest, defaults, connType: defaults.connType });
+  } else {
+    set(rest);
+  }
+  writePrefs();
   if (p.theme) applyTheme();
+}
+
+/** Atualiza os estilos padrão (próximos elementos) e persiste. */
+export function setStyleDefaults(p: Partial<ElementDefaults>) {
+  const defaults = { ...state.defaults, ...p };
+  set({ defaults, ...(p.connType !== undefined ? { connType: p.connType } : {}) });
+  writePrefs();
+}
+
+/** Aplica estilos à seleção (se houver) e atualiza os defaults — padrão Excalidraw. */
+export function applyStyleToSelection(p: Partial<ElementDefaults>) {
+  setStyleDefaults(p);
+  const { sel, doc } = state;
+  if (!sel.length) return;
+  const ops: Op[] = [];
+  for (const id of sel) {
+    const node = doc.nodes.find((n) => n.id === id);
+    const group = doc.groups.find((g) => g.id === id);
+    const note = doc.notes.find((n) => n.id === id);
+    const conn = doc.connections.find((c) => c.id === id);
+    const patch: Record<string, unknown> = {};
+    if (node) {
+      if ("fill" in p) patch.fill = p.fill;
+      if ("fillOpacity" in p) patch.fillOpacity = p.fillOpacity;
+      if (p.nodeKind && node.kind !== "endpoint" && node.kind !== "domain" && node.kind !== "logic") patch.kind = p.nodeKind;
+    } else if (group) {
+      if ("fill" in p) patch.fill = p.fill;
+      if ("fillOpacity" in p) patch.fillOpacity = p.fillOpacity;
+      if (p.groupKind) patch.kind = p.groupKind;
+      if ("groupColor" in p) patch.color = p.groupColor;
+    } else if (note) {
+      if ("noteColor" in p) patch.color = p.noteColor;
+      if (p.noteFont) patch.font = p.noteFont === "sans" ? undefined : p.noteFont;
+    } else if (conn) {
+      if (p.connType) patch.type = p.connType;
+      if (p.connRouting) patch.routing = p.connRouting === "curve" ? undefined : p.connRouting;
+    }
+    if (Object.keys(patch).length) ops.push({ op: "update", id, patch });
+  }
+  if (ops.length) run(ops);
 }
 
 /* ───────── tema ───────── */

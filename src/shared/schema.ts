@@ -673,11 +673,21 @@ export interface InkStroke {
   pts: { x: number; y: number }[];
 }
 
+/** Família tipográfica padrão da nota/texto (alinhada a `RichFont` em richtext). */
+export type NoteFont = "sans" | "serif" | "mono";
+
 export interface NoteEl {
   id: string;
   /** "note" = post-it · "text" = texto solto · "list" = lista (uma linha por item; "[ ]" / "[x]" viram caixas) */
   variant?: NoteVariant;
+  /** cor do texto (padrão do tema / lista) */
   color?: string;
+  /** cor de fundo do card (post-it); sem valor usa o amarelo do tema */
+  fill?: string;
+  /** tamanho da fonte em px do quadro; sem valor usa o padrão do variant */
+  fontSize?: number;
+  /** família tipográfica padrão do card; trechos ricos sem fonte própria herdam isto */
+  font?: NoteFont;
   /** lista: título exibido no topo */
   title?: string;
   /** lista: true = mostra só o cabeçalho (retraída) */
