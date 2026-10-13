@@ -192,7 +192,7 @@ function HeroDiagram() {
   );
 }
 
-const WIN_VERSION = "0.2.0";
+const WIN_VERSION = "0.2.1";
 const WIN_DOWNLOAD = `https://github.com/joao2end/Archflow/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
 const RELEASE_PAGE = `https://github.com/joao2end/Archflow/releases/tag/v${WIN_VERSION}`;
 
@@ -235,9 +235,6 @@ function Hero() {
           </a>
           <a className="btn lg" href={WIN_DOWNLOAD} download>
             <Glyph name="download" size={17} /> Baixar para Windows
-          </a>
-          <a className="btn lg" href="#demo">
-            Ver em ação
           </a>
         </div>
         <p className="lp-dl-note lp-fade" style={style({ animationDelay: "1200ms" })}>

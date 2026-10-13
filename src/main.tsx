@@ -10,6 +10,7 @@ import "./styles.css";
 import "./landing/landing.css";
 import App from "./App";
 import Landing from "./landing/Landing";
+import { IS_DESKTOP } from "./ui/platform";
 import { applyTheme } from "./ui/store";
 import { initTooltips } from "./ui/tooltip";
 
@@ -18,6 +19,6 @@ initTooltips();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {location.pathname.startsWith("/app") ? <App /> : <Landing />}
+    {IS_DESKTOP || location.pathname.startsWith("/app") ? <App /> : <Landing />}
   </StrictMode>,
 );

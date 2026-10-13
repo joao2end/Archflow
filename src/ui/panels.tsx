@@ -16,6 +16,7 @@ import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoomTo } from "./keys";
 import { RichField } from "./richeditor";
+import { IS_DESKTOP } from "./platform";
 import type { Asset } from "../shared/schema";
 import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
@@ -132,12 +133,21 @@ export function TopBar() {
   return (
     <div className="hud topbar">
       <div className="glass brand-pill">
-        <a className="brand" href="/" data-tip="Sobre o Archflow (página inicial)" data-tip-pos="bottom" style={{ textDecoration: "none", color: "inherit" }}>
-          <span className="brand-mark">
-            <Glyph name="connect" size={15} stroke={2.4} />
+        {IS_DESKTOP ? (
+          <span className="brand">
+            <span className="brand-mark">
+              <Glyph name="connect" size={15} stroke={2.4} />
+            </span>
+            Arch<i>flow</i>
           </span>
-          Arch<i>flow</i>
-        </a>
+        ) : (
+          <a className="brand" href="/" data-tip="Sobre o Archflow (página inicial)" data-tip-pos="bottom" style={{ textDecoration: "none", color: "inherit" }}>
+            <span className="brand-mark">
+              <Glyph name="connect" size={15} stroke={2.4} />
+            </span>
+            Arch<i>flow</i>
+          </a>
+        )}
         <div className="sep" />
         {back && (
           <button className="btn ghost sm back-btn" onClick={() => void goBack()} data-tip={`Voltar para ${back}`} data-tip-pos="bottom">
