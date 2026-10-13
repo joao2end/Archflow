@@ -194,6 +194,7 @@ function HeroDiagram() {
 
 const WIN_VERSION = "0.2.0";
 const WIN_DOWNLOAD = `https://github.com/joao2end/Archflow/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
+const RELEASE_PAGE = `https://github.com/joao2end/Archflow/releases/tag/v${WIN_VERSION}`;
 
 const HEADLINE: { t: string; em?: boolean }[] = [
   { t: "Desenhe" }, { t: "a" }, { t: "arquitetura" }, { t: "junto", em: true }, { t: "com" }, { t: "a" }, { t: "sua" }, { t: "IA." },
@@ -240,7 +241,7 @@ function Hero() {
           </a>
         </div>
         <p className="lp-dl-note lp-fade" style={style({ animationDelay: "1200ms" })}>
-          Instalador v{WIN_VERSION} · Windows 10/11 (x64) · já inclui o servidor MCP
+          Instalador v{WIN_VERSION} · Windows 10/11 (x64) · já inclui o servidor MCP · <a href={RELEASE_PAGE}>macOS e Linux</a>
         </p>
         <ul className="lp-stats lp-fade" style={style({ animationDelay: "1300ms" })} aria-label="Números">
           <li>

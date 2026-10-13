@@ -24,7 +24,8 @@ function runMcp() {
 // Precisam vir antes do import do bridge, que lê as variáveis no carregamento do módulo.
 process.env.ARCHFLOW_DIST ??= join(__dirname, "..", "dist");
 process.env.ARCHFLOW_DATA ??= join(app.getPath("documents"), "Archflow");
-if (app.isPackaged) process.env.ARCHFLOW_EXE = process.execPath; // o bridge informa aos clientes MCP como iniciar o servidor
+// o bridge informa aos clientes MCP como iniciar o servidor; no AppImage o execPath é um ponto de montagem temporário
+if (app.isPackaged) process.env.ARCHFLOW_EXE = process.env.APPIMAGE ?? process.execPath;
 
 async function createWindow() {
   const { DEFAULT_PORT, ensureBridge } = await import("../server/bridge");

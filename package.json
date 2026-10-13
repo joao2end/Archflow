@@ -31,6 +31,8 @@
     "app": "npm run build && npm run electron:bundle && electron .",
     "app:icon": "tsx scripts/build-app-icon.ts",
     "app:dist": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --win nsis",
+    "app:dist:mac": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --mac --publish never",
+    "app:dist:linux": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --linux --publish never",
     "skill": "tsx scripts/build-skill.ts",
     "mcp:bundle": "tsx scripts/build-mcp.ts",
     "app:pack": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --win dir",
@@ -89,6 +91,34 @@
         }
       ],
       "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": "-",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Development",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

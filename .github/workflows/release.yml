@@ -1,0 +1,46 @@
+name: Release (macOS e Linux)
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release existente que recebe os pacotes (ex.: v0.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            files: release/*.AppImage
+          - os: macos-latest
+            target: mac
+            files: release/*.dmg
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Versão do package.json confere com a tag
+        run: test "v$(node -p 'require("./package.json").version')" = "$TAG"
+      - run: npm ci --ignore-scripts
+      - run: npm run app:dist:${{ matrix.target }}
+      - name: Aguarda a release existir
+        run: |
+          for i in $(seq 1 30); do gh release view "$TAG" > /dev/null 2>&1 && exit 0; sleep 20; done
+          echo "Release $TAG não encontrada" && exit 1
+      - run: gh release upload "$TAG" ${{ matrix.files }} --clobber

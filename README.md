@@ -103,6 +103,7 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run typecheck` | Apenas checagem de tipos |
 | `npm run app` | Abre o app desktop (Electron) sem gerar instalador |
 | `npm run app:dist` | Gera o instalador do Windows em `release/` |
+| `npm run app:dist:mac` / `app:dist:linux` | Gera o `.dmg` (macOS) ou o AppImage (Linux) — precisa rodar no próprio sistema |
 | `npm run app:icon` | Regenera o ícone do app (`build/icon.*`) |
 
 ## Versão para Windows (instalador)
@@ -120,12 +121,21 @@ Detalhes:
 - Os cofres e a lista de cofres ficam em `~/.archflow` (compartilhados com a versão de desenvolvimento); sem configuração prévia, o cofre padrão é `Documentos\Archflow`.
 - Para conectar um agente (MCP) ao app instalado, veja [Conectar um agente](#conectar-um-agente-mcp) — o bridge fica em `http://127.0.0.1:7077` e o MCP é o próprio `Archflow.exe --mcp`.
 
+### macOS e Linux
+
+Na mesma página de Releases:
+
+- **macOS:** `Archflow-<versão>-mac-arm64.dmg` (Apple Silicon) ou `-mac-x64.dmg` (Intel). Abra o `.dmg` e arraste o Archflow para *Aplicativos*. O app não é notarizado pela Apple: se o macOS disser que ele "está danificado" ou não pode ser aberto, rode `xattr -cr /Applications/Archflow.app` uma vez.
+- **Linux (x64):** `Archflow-<versão>-linux-*.AppImage`. Dê permissão de execução (`chmod +x Archflow-*.AppImage`) e abra; distribuições recentes podem pedir o pacote `libfuse2`. O MCP é o próprio AppImage com `--mcp`.
+
 ### Gerar o instalador
 
 ```bash
 npm install
 npm run app:dist   # build + bundle do Electron + instalador NSIS em release/
 ```
+
+Os pacotes de macOS e Linux são gerados pelo workflow [`release.yml`](.github/workflows/release.yml) ao publicar uma tag `v*` (ou manualmente, em *Actions › Release › Run workflow*, informando a tag) e anexados à release.
 
 Se o `electron-builder` falhar com `EPERM` ao extrair o Electron (comum com antivírus ativo), rode `node node_modules/electron/install.js` e depois
 `npx electron-builder --win nsis -c.electronDist=node_modules/electron/dist`.
