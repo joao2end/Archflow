@@ -269,7 +269,21 @@ let txBase: Doc | null = null;
 /** Altera o documento criando um ponto de desfazer. */
 export function commit(doc: Doc, source: State["docSource"] = "local") {
   if (doc === state.doc) return;
+  // durante a digitação num campo, todas as teclas viram UM único ponto de desfazer
+  if (typing && typingPushed) return set({ doc, docSource: source, future: [] });
+  if (typing) typingPushed = true;
   set({ doc, docSource: source, past: [...state.past, state.doc].slice(-HISTORY_MAX), future: [] });
+}
+let typing = false;
+let typingPushed = false;
+/** Abre/fecha uma sessão de digitação: as alterações feitas entre as duas compartilham um só ponto de desfazer. */
+export function beginTyping() {
+  typing = true;
+  typingPushed = false;
+}
+export function endTyping() {
+  typing = false;
+  typingPushed = false;
 }
 /** Atualização "ao vivo" (arrastar) — sem histórico até endTx. */
 export function beginTx() {
