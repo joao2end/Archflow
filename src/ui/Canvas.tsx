@@ -1688,8 +1688,11 @@ export function Canvas() {
         {(doc.ink ?? []).map((k) => (
           <path key={k.id} d={inkPath(k.pts)} fill="none" {...strokeAttrs(k)} pointerEvents="none" />
         ))}
-        {d?.kind === "marquee" && <rect className="marquee" {...normRect(d.start, d.cur)} />}
-        {d?.kind === "create" && <rect className="marquee" {...normRect(d.start, d.cur)} />}
+        {(d?.kind === "marquee" || d?.kind === "create") &&
+          (() => {
+            const r = normRect(d.start, d.cur);
+            return <rect className="marquee" x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none" />;
+          })()}
         {d?.kind === "connect" &&
           (() => {
             const from = doc.nodes.find((n) => n.id === d.from) ?? doc.groups.find((g) => g.id === d.from);
