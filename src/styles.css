@@ -2812,14 +2812,30 @@ svg.canvas.drag-over {
 .issue-sev { font: 650 10.5px var(--sans); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); flex: none; }
 .issue-msg { flex: 1; min-width: 0; }
 
-/* exemplos de DDD */
-.example-list { display: flex; flex-direction: column; gap: 12px; max-height: 58vh; overflow: auto; padding-right: 4px; }
-.example-card { border: 1px solid var(--hairline); border-radius: 14px; background: var(--s-mid); padding: 12px 14px; }
-.example-card header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.example-card h3 { margin: 0; font: 650 15px var(--sans); color: var(--ink); }
-.example-card p { margin: 6px 0 8px; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
-.example-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
-.example-card footer small { color: var(--ink-3); font-size: 11.5px; }
+/* seção «Exemplos» do explorador */
+.ex-section { flex: none; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; min-height: 0; }
+.ex-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 16px; border: 0; background: transparent; color: var(--ink); font: 600 13px var(--sans); cursor: pointer; text-align: left; }
+.ex-head:hover { background: var(--primary-100); }
+.ex-head .ex-count { margin-left: 2px; padding: 0 7px; border-radius: 999px; background: var(--primary-100); color: var(--ink-2); font: 600 11px var(--sans); }
+.ex-head .ex-chev { margin-left: auto; transition: transform 0.15s ease; transform: rotate(-90deg); }
+.ex-section.open .ex-head .ex-chev { transform: rotate(90deg); }
+.ex-body { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; max-height: 36vh; overflow: auto; }
+.files-panel .lib-list { min-height: 110px; }
+.ex-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--s-mid); }
+.ex-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 4px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 600 12px var(--sans); cursor: pointer; }
+.ex-tabs button small { font: 600 10.5px var(--sans); color: var(--ink-3); }
+.ex-tabs button.on { background: var(--primary-100); color: var(--ink); box-shadow: inset 0 0 0 1px var(--hairline); }
+.ex-tabs button:focus-visible, .ex-head:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.ex-hint { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-2); }
+.ex-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ex-item { border: 1px solid var(--hairline); border-radius: 12px; background: var(--s-mid); padding: 10px 12px; }
+.ex-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ex-title h4 { margin: 0; font: 650 13px var(--sans); color: var(--ink); min-width: 0; }
+.ex-item p { margin: 6px 0 6px; font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+.ex-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.ex-tags i { font-style: normal; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: var(--primary-100); color: var(--ink-2); }
+.ex-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.ex-foot small { color: var(--ink-3); font-size: 11px; }
 .chip.level { cursor: default; font-size: 11px; padding: 2px 9px; }
 .chip.level.iniciante { background: color-mix(in srgb, #14a38b 22%, transparent); }
 .chip.level.intermediário { background: color-mix(in srgb, #e08a1e 24%, transparent); }

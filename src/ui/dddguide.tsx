@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { DDD_BADGES, DDD_ROLES, type DddRole } from "../shared/schema";
 import { Glyph } from "./icons";
-import { set } from "./store";
+import { openExamples, set } from "./store";
 
 /* ───────── guia rápido de DDD: cenas animadas + passo a passo ───────── */
 
@@ -543,7 +543,7 @@ const STEPS: Step[] = [
       <>Clique no <B>✓</B> do topo: a validação aponta o que falta e por quê.</>,
       <><B>Apresentar (P)</B> abre o passo a passo: conte o fluxo para quem não conhece o domínio.</>,
     ],
-    tool: <>Quer ver pronto? Abra os <B>Exemplos de DDD</B> (banco, loja, clínica, biblioteca).</>,
+    tool: <>Quer ver pronto? Abra a seção <B>Exemplos</B> do explorador, aba Domínio (banco, loja, clínica, biblioteca).</>,
     ask: "Qual é o primeiro caso de uso que o negócio não vive sem?",
     scene: SceneRecipe,
   },
@@ -583,7 +583,7 @@ export function DddGuide({ onClose }: { onClose: () => void }) {
     e.stopPropagation();
   };
 
-  const examples = () => set({ modal: { type: "examples" } });
+  const examples = () => openExamples("domain");
 
   return (
     <div className="gd" ref={wrap} onKeyDown={onKey}>

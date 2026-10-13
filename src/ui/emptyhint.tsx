@@ -4,7 +4,7 @@ import { docMode } from "../shared/schema";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
 import { fitView } from "./keys";
-import { replaceDoc, set, toast, useStore } from "./store";
+import { openExamples, replaceDoc, set, toast, useStore } from "./store";
 
 /** Dica para quadro vazio: some assim que existir qualquer item. */
 export function EmptyHint() {
@@ -34,11 +34,9 @@ export function EmptyHint() {
             <Glyph name="play" size={16} /> Guia de DDD
           </button>
         )}
-        {domain && (
-          <button className="btn ghost" onClick={() => set({ modal: { type: "examples" } })}>
-            <Glyph name="sparkle" size={17} /> Exemplos de DDD
-          </button>
-        )}
+        <button className="btn ghost" onClick={() => openExamples(mode)}>
+          <Glyph name="sparkle" size={17} /> Exemplos
+        </button>
         {!domain && (
           <button
             className="btn"

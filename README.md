@@ -270,7 +270,7 @@ Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (
 - **Decisões, condições, loops e iteração (só no modo Domain):** o papel *Decision* (exclusiva, paralela ou junção) com um ramo por conexão, **condição** e **senão** nas conexões `triggers`/`emits`, **loop** marcado na conexão que volta a um passo anterior (com condição de parada obrigatória) e **para cada**. As regras D024 a D032 conferem a forma do fluxo (decisão com 2+ ramos e um senão, junção com 2+ entradas, ciclo por decisão exige loop declarado) e o código gerado leva os ramos para tipos. Veja o guia em [docs/DDD.md](docs/DDD.md).
 - **Switch Arch | Domain** na barra superior (sem diálogo; Ctrl+Z desfaz) e, ao lado, o atalho da validação.
 - **Guia animado de DDD:** novo em DDD? O botão ▶ ao lado do selo de modo (ou **Guia de DDD** no quadro vazio e na modal do modo) abre *DDD em 8 passos*: cenas animadas de valor do negócio, bounded context, use case → command, aggregate, domain event, policy, context map e uma receita rápida do zero ao domínio.
-- **Exemplos prontos de DDD** (biblioteca, clínica, loja, banco): botão ✨ do explorador → *Instalar e abrir*, ou a pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
+- **Exemplos prontos** (arquitetura, domínio e lógica: do primeiro diagrama a 15 algoritmos): seção *Exemplos* do explorador → *Instalar e abrir*. Os de DDD (biblioteca, clínica, loja, banco, delivery) também estão na pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
 
 ### Modo Logic (regras de negócio)
 

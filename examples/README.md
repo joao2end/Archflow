@@ -1,4 +1,12 @@
-# Exemplos de DDD
+# Exemplos
+
+Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qualquer um deles no cofre aberto.
+
+- **Arquitetura**: loja online, API com fila, microsserviços e pipeline de dados (definidos em `src/shared/arch.examples.ts`; instalam em `exemplos-arquitetura/`).
+- **Domínio (DDD)**: os cinco modelos abaixo, na pasta `exemplos-ddd/`.
+- **Lógica**: o motor de precificação (`exemplos-logic/`) e 15 algoritmos, de busca binária a fluxo máximo, em [`exemplos-algoritmos/`](exemplos-algoritmos/) (gerados por `scripts/build-algorithms.ts`, com oráculos em `src/shared/fixtures/oracles/`; histórico e resultados em [`docs/algorithm-score.md`](../docs/algorithm-score.md)).
+
+## Exemplos de DDD
 
 Modelos prontos do modo **Domain** do Archflow, para aprender DDD e para usar como ponto de partida. Antes de começar, o guia [`docs/DDD.md`](../docs/DDD.md) explica os conceitos (subdomínios, bounded contexts, aggregates, eventos, sagas...) e como cada um aparece no Archflow.
 
@@ -14,7 +22,7 @@ Sugestão de ordem: **Biblioteca → Clínica → Loja → Banco → Delivery** 
 
 ## Como usar
 
-**No app:** explorador de arquivos → botão ✨ *Exemplos de DDD* → *Instalar e abrir*. O exemplo vira a pasta `exemplos-ddd/<exemplo>/` no cofre aberto (nada é sobrescrito) e abre o mapa de contextos; clique em um contexto para entrar nele.
+**No app:** explorador de arquivos → seção *Exemplos* (abas *Arquitetura*, *Domínio* e *Lógica*) → *Instalar e abrir*. O exemplo vira a pasta `exemplos-ddd/<exemplo>/` no cofre aberto (nada é sobrescrito) e abre o mapa de contextos; clique em um contexto para entrar nele.
 
 **Fora do app:** copie a pasta `examples/exemplos-ddd` para dentro de um cofre do Archflow (a pasta do cofre, a que contém seus `.archflow.json`). Os vínculos entre o mapa de contextos, os contextos e a arquitetura usam esses caminhos, então mantenha a estrutura `exemplos-ddd/<exemplo>/`.
 

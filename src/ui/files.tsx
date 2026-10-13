@@ -1,3 +1,4 @@
+import { ExamplesSection } from "./examples";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { docMode, type DocMode } from "../shared/schema";
 import { Glyph } from "./icons";
@@ -317,9 +318,6 @@ export function FilesPanel() {
           <button className="btn ghost icon sm" onClick={() => startNew("new-file", "", "logic")} aria-label="Novo diagrama de lógica" data-tip="Novo diagrama de lógica (ações e decisões)" data-tip-pos="bottom">
             <Glyph name="mode-logic" size={17} />
           </button>
-          <button className="btn ghost icon sm" onClick={() => set({ modal: { type: "examples" } })} aria-label="Exemplos de DDD" data-tip="Exemplos de DDD (modelos prontos)" data-tip-pos="bottom">
-            <Glyph name="sparkle" size={17} />
-          </button>
           <button className="btn ghost icon sm" onClick={() => startNew("new-folder", "")} aria-label="Nova pasta" data-tip="Nova pasta" data-tip-pos="bottom">
             <Glyph name="folder-plus" size={17} />
           </button>
@@ -405,6 +403,8 @@ export function FilesPanel() {
           </>
         )}
       </div>
+
+      <ExamplesSection />
 
       {ws.files.some((f) => f.refs?.includes(ws.current)) && (
         <div className="backlinks" aria-label="Diagramas que referenciam este">

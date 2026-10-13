@@ -89,7 +89,7 @@ Heurísticas (sempre como sugestão, marque em `description`): verbo no imperati
 
 **Condições, loops e iteração (só modo domain):** não existe `decision` no modo domain (ela é só do modo logic). Para escolher um caminho, a `policy` (ou saga) que reage ao evento liga-se por `triggers` a mais de um command, cada ramo com `ddd.condition` (ou `ddd.otherwise` para o *senão*); ramos sem condição seguem todos (paralelo). Para modelar uma espera por vários eventos, use um `process-manager` com todos em `reactsTo` (o app só documenta a espera; `reactsTo` é a lista de eventos a que policy e saga reagem). Command com dois desfechos: duas conexões `emits`, uma com `condition` e outra com `otherwise`. **Loop**: a conexão que VOLTA a um passo anterior leva `ddd.loop: { until, max }` (sem parada é erro D029). **Iteração**: `ddd.foreach`. Regras D025 a D032 (ramos condicionais com condição ou senão, ciclo por nó condicional exige loop). Nada disso existe no modo architecture.
 
-Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do cofre do usuário (botão ✨ do explorador) ou `examples/` do projeto (biblioteca, clínica, loja, banco); o guia conceitual é `docs/DDD.md`. Ao explicar DDD ao usuário, use um deles como referência concreta.
+Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do cofre do usuário (seção *Exemplos* do explorador, aba Domínio) ou `examples/` do projeto (biblioteca, clínica, loja, banco); o guia conceitual é `docs/DDD.md`. Ao explicar DDD ao usuário, use um deles como referência concreta.
 
 ## Modo logic: regras de negócio como fluxo executável
 

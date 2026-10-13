@@ -227,6 +227,7 @@ Nenhum `ABERTO` restante foi reproduzido como contradição: são **lacunas** (p
 | 24 | tipos do `fact` (item 5b) + bordas de expressão, laço, decisão e trava (item 4a, «Mais bordas»); auditor independente #5 (50 candidatos) | A8/A9 | levantado por execução e testado; ver seção da auditoria #5 |
 | 25 | decisões `payload` e D033 confirmadas pelo usuário; triagem de candidatos (#127, #128, #139–#141, #148, `description`, equivalência campo de id × conexão) | A4/A8 | todos eram lacunas (nenhuma contradição reproduzida); documentadas e testadas |
 | 26 | divisão `fact` → `input`/`output`/`variable` (outra sessão) deixou meu item 5a contraditório (`value` reescrito «sem aviso» × L029 no input); inventário fechado (famílias, linhas `?` → CLARO); auditor #6 só de bloqueantes: 2 achados (Loop escreve o item do `foreach`; «caso» do scenario × `case` do switch) | A11/A2 | texto do 5a e do guia corrigidos; scenario virou «Cenário completo» com selo TESTE; testes |
+| 27 | auditores #7 e #8 só de bloqueantes: #7 achou 3 fracos (join × `end` no ramo, nomes do logic no domain, `reactsTo`), 2 corrigidos em texto; #8 sobre os guias corrigidos: **nenhuma ambiguidade bloqueante encontrada** | A11/A2 | dica do `join` e guia do domain ajustados; `intent` do process-manager incluído; critério de parada atendido |
 
 ## Auditoria independente #1 (iteração 3)
 

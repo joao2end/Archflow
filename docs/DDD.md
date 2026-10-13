@@ -207,7 +207,7 @@ O tipo do conector **vem da relação**; tipos de infraestrutura (`sync`, `async
 | [Loja](../examples/exemplos-ddd/loja/README.md) | intermediário | saga com compensação, anticorruption layer, eventos entre contextos, do domínio à arquitetura |
 | [Banco](../examples/exemplos-ddd/banco/README.md) | avançado | um aggregate por transação, consistência eventual, saga de transferência, published language |
 
-No app: explorador de arquivos → ✨ *Exemplos de DDD* → *Instalar e abrir*. Fora do app: copie `examples/exemplos-ddd` para dentro de um cofre. Cada pasta tem também um `modelo.md` com o modelo em texto (o que um agente de IA lê).
+No app: explorador de arquivos → seção *Exemplos* (aba *Domínio*) → *Instalar e abrir*. Fora do app: copie `examples/exemplos-ddd` para dentro de um cofre. Cada pasta tem também um `modelo.md` com o modelo em texto (o que um agente de IA lê).
 
 ## 9. Para ir além
 

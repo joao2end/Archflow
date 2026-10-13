@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
-import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, examplePath, type DddExample } from "../shared/examples";
+import { buildCatalog, type CatalogExample } from "../shared/examples.catalog";
 import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shared/logic";
 import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type LogicNodeSpec } from "../shared/schema";
 
@@ -24,7 +24,6 @@ export type Modal =
   | { type: "llm" }
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
   | { type: "logic"; tab?: "issues" | "text" }
-  | { type: "examples" }
   | { type: "ddd-guide" }
   | { type: "mcp" }
   | { type: "help" }
@@ -106,6 +105,8 @@ export interface State {
   modeFilter: DocMode | null;
   /** pedido para o explorador abrir a criação de um diagrama novo deste modo */
   newDiagramFor: DocMode | null;
+  /** seção «Exemplos» do explorador: aberta ou não, e a aba (null = a do modo do explorador) */
+  examples: { open: boolean; tab: DocMode | null };
   /** modo Logic: reprodução de um cenário (o caminho percorrido no fluxo, passo a passo) */
   play: Play | null;
   /** velocidade da reprodução de cenários (1 = um passo a cada 0,85 s); lembrada entre sessões */
@@ -215,6 +216,7 @@ function init(): State {
     panel: null,
     modeFilter: null,
     newDiagramFor: null,
+    examples: { open: false, tab: null },
     play: null,
     playSpeed: PLAY_SPEEDS.includes(read<number>(LS_PLAY_SPEED) ?? 0) ? read<number>(LS_PLAY_SPEED)! : 1,
     expanded: read<Record<string, boolean>>(LS_TREE) ?? {},
@@ -525,38 +527,51 @@ export function addRefNode(diagram: string, title: string, x?: number, y?: numbe
 }
 export const newDiagram = (title: string, folder = "", mode: DocMode = "architecture") => guard(() => reload("/api/diagrams", { title, folder, mode }));
 /**
- * Instala um exemplo de DDD no cofre aberto (pasta `exemplos-ddd/<exemplo>/`) e abre o mapa de contextos.
- * Não sobrescreve nada: se a pasta do exemplo já existir, só abre o que já está lá.
+ * Todos os exemplos da seção «Exemplos» (Arquitetura, Domínio e Lógica). Os algoritmos de Lógica são arquivos de `examples/`
+ * carregados só quando a pessoa instala um (cada um vira um pacote separado, fora do principal).
  */
-export async function installExample(ex: DddExample): Promise<boolean> {
-  const docs = buildExample(ex);
-  const overviewPath = docs[0].path;
+const algorithmFiles = import.meta.glob<Doc>("../../examples/exemplos-algoritmos/*.archflow.json", { import: "default" });
+export const exampleCatalog: CatalogExample[] = buildCatalog(async (file) => {
+  const load = algorithmFiles[`../../examples/exemplos-algoritmos/${file}.archflow.json`];
+  if (!load) throw new Error(`exemplo «${file}» não encontrado`);
+  return normalizeDoc(await load());
+});
+
+/** Abre o explorador na seção «Exemplos», na aba do modo pedido (sem pedido, a do modo do explorador). */
+export const openExamples = (tab: DocMode | null = null) => set({ panel: "files", modal: null, examples: { open: true, tab } });
+
+/**
+ * Instala um exemplo no cofre aberto e abre o principal. Não sobrescreve nada: se algum arquivo do exemplo já existir,
+ * só abre o que já está lá.
+ */
+export async function installExample(ex: CatalogExample): Promise<boolean> {
   const have = new Set(state.workspace?.files.map((f) => f.path) ?? []);
-  if (docs.some((d) => have.has(d.path))) {
-    await openDiagram(have.has(overviewPath) ? overviewPath : docs.find((d) => have.has(d.path))!.path);
-    toast(`O exemplo já está no cofre (${EXAMPLES_DIR}/${ex.id}). Apague a pasta para reinstalar.`);
+  const folder = (path: string) => path.slice(0, path.lastIndexOf("/"));
+  if (ex.files.some((f) => have.has(f.path))) {
+    await openDiagram(have.has(ex.open) ? ex.open : ex.files.find((f) => have.has(f.path))!.path);
+    toast(`O exemplo já está no cofre (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
     return false;
   }
-  for (let i = 0; i < docs.length; i++) {
-    const f = ex.files[i];
-    const made = await newDiagram(f.title, `${EXAMPLES_DIR}/${ex.id}`, f.mode);
+  let toOpen = ex.open;
+  for (const f of ex.files) {
+    const made = await newDiagram(f.title, folder(f.path), f.mode);
     const name: string | undefined = made?.name;
     if (!name) return false;
-    if (name !== docs[i].path) {
+    // os diagramas de um exemplo de domínio se referenciam pelo caminho (mapa de contextos → contextos): o caminho tem de ser o previsto
+    if (ex.linked && name !== f.path) {
       toastError(`Caminho inesperado para ${f.title}: ${name}. Os vínculos entre diagramas do exemplo não funcionariam.`);
       return false;
     }
     // o diagrama novo chega do servidor de forma assíncrona; só então o conteúdo do exemplo entra nele
     for (let t = 0; t < 60 && state.file !== name; t++) await new Promise((r) => setTimeout(r, 50));
     if (state.file !== name) return false;
-    replaceDoc(docs[i].doc);
+    replaceDoc(await f.load());
+    if (f.path === ex.open) toOpen = name;
   }
-  await openDiagram(overviewPath);
-  toast(`Exemplo «${ex.title}» instalado em ${EXAMPLES_DIR}/${ex.id}`);
+  await openDiagram(toOpen);
+  toast(`Exemplo «${ex.title}» instalado em ${folder(ex.open)}`);
   return true;
 }
-export const dddExamples = DDD_EXAMPLES;
-export { examplePath };
 
 /** Todos os diagramas do cofre (caminho + conteúdo): base da visão geral de domínio. */
 export const fetchVaultDocs = () => call<{ files: { path: string; doc: Doc }[] }>("/api/vault/docs").then((r) => r.files);

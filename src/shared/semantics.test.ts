@@ -211,7 +211,7 @@ test("campos de id que repetem conexões valem JUNTO com elas (união); id inexi
 test("guia do domínio descreve intent, invariants (só documental) e step (só command, ordena a timeline)", async () => {
   const { schemaGuideDomain } = await import("./domain");
   const guide = schemaGuideDomain();
-  for (const t of ["`intent` (command, policy, domain-service, application-service)", "só DOCUMENTAL", "ordena os commands no `auto_layout` `timeline`", "não existe em evento"]) assert.ok(guide.includes(t), `guia sem: ${t}`);
+  for (const t of ["`intent` (command, policy, process-manager, domain-service, application-service)", "só DOCUMENTAL", "ordena os commands no `auto_layout` `timeline`", "não existe em evento"]) assert.ok(guide.includes(t), `guia sem: ${t}`);
 });
 
 test("a Ação não aceita «se … entao … senao» dentro de um efeito: recusado ao criar e erro L028 ao abrir arquivo antigo", async () => {
@@ -561,4 +561,12 @@ test("auditor #6: o guia do logic admite o item do foreach como escrita do Loop,
   assert.ok(!g.includes("Caso completo"), "o scenario não se chama «caso»");
   assert.match(LOGIC_ROLES.scenario.hint, /^Cenário completo/);
   assert.equal(LOGIC_ROLES.scenario.badge, "TESTE");
+});
+
+test("auditor #7: o join diz que um ramo em end termina o fluxo e que sem fork só passa; o guia do domain lista os nós do logic que não existem nele", async () => {
+  const { LOGIC_ROLES } = await import("./schema");
+  const { schemaGuideDomain } = await import("./domain");
+  assert.match(LOGIC_ROLES.join.hint, /um ramo chega antes a um `end`, o fluxo termina ali/);
+  assert.match(LOGIC_ROLES.join.hint, /sem `fork` antes, ele só deixa passar/);
+  assert.ok(schemaGuideDomain().includes("Nomes do modo logic que NÃO existem aqui como nós"));
 });

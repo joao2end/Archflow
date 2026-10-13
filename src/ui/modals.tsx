@@ -11,8 +11,7 @@ import { McpBody } from "./mcp";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
-import { EXAMPLES_DIR } from "../shared/examples";
-import { allKnownAssets, dddExamples, examplePath, fetchVaultDocs, getState, lookupAsset, installExample, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
+import { allKnownAssets, fetchVaultDocs, getState, lookupAsset, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -511,57 +510,6 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
   );
 }
 
-/* ───────── exemplos de DDD ───────── */
-
-function ExamplesModal() {
-  const [busy, setBusy] = useState<string | null>(null);
-  const files = useStore((s) => s.workspace?.files);
-  const have = useMemo(() => new Set(files?.map((f) => f.path) ?? []), [files]);
-  const online = useStore((s) => s.online);
-  const install = async (ex: (typeof dddExamples)[number]) => {
-    setBusy(ex.id);
-    const ok = await installExample(ex);
-    setBusy(null);
-    if (ok || have.has(examplePath(ex, "visao-geral"))) close();
-  };
-  return (
-    <Modal wide title="Exemplos de DDD" onClose={close}>
-      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>
-        Modelos prontos, do simples ao avançado. Cada um vira uma pasta no cofre aberto (<code>{EXAMPLES_DIR}/&lt;exemplo&gt;/</code>) com um <b>mapa de contextos</b> e um diagrama por bounded context; abra o mapa e clique nos contextos para entrar neles. Nada é sobrescrito.
-        A explicação passo a passo está em <code>docs/DDD.md</code> e em <code>examples/</code>.
-      </p>
-      {!online && <div className="callout warn">Sem armazenamento disponível: abra ou crie um cofre para instalar os exemplos.</div>}
-      <div className="example-list">
-        {dddExamples.map((ex) => {
-          const installed = have.has(examplePath(ex, "visao-geral"));
-          return (
-            <article key={ex.id} className="example-card">
-              <header>
-                <h3>{ex.title}</h3>
-                <span className={`chip level ${ex.level}`}>{ex.level}</span>
-              </header>
-              <p>{ex.summary}</p>
-              <div className="asset-card-tags">
-                {ex.teaches.map((t) => (
-                  <i key={t}>{t}</i>
-                ))}
-              </div>
-              <footer>
-                <small>
-                  {ex.files.length} diagramas: {ex.files.map((f) => f.title).join(" · ")}
-                </small>
-                <button className="btn primary" disabled={!online || busy !== null} onClick={() => void install(ex)}>
-                  <Glyph name={installed ? "folder" : "download"} size={16} /> {busy === ex.id ? "Instalando…" : installed ? "Abrir" : "Instalar e abrir"}
-                </button>
-              </footer>
-            </article>
-          );
-        })}
-      </div>
-    </Modal>
-  );
-}
-
 /* ───────── MCP ───────── */
 
 function McpModal() {
@@ -828,8 +776,6 @@ export function Modals() {
       return <DomainModal tab={m.tab} />;
     case "logic":
       return <LogicModal tab={m.tab} />;
-    case "examples":
-      return <ExamplesModal />;
     case "mcp":
       return <McpModal />;
     case "help":
