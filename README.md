@@ -126,7 +126,7 @@ Detalhes:
 Na mesma página de Releases:
 
 - **macOS:** `Archflow-<versão>-mac-arm64.dmg` (Apple Silicon) ou `-mac-x64.dmg` (Intel). Abra o `.dmg` e arraste o Archflow para *Aplicativos*. O app não é notarizado pela Apple: se o macOS disser que ele "está danificado" ou não pode ser aberto, rode `xattr -cr /Applications/Archflow.app` uma vez.
-- **Linux (x64):** `Archflow-<versão>-linux-*.AppImage`. Dê permissão de execução (`chmod +x Archflow-*.AppImage`) e abra; distribuições recentes podem pedir o pacote `libfuse2`. O MCP é o próprio AppImage com `--mcp`.
+- **Linux (x64):** `Archflow-<versão>-linux-x86_64.AppImage`. Dê permissão de execução (`chmod +x Archflow-*.AppImage`) e abra; distribuições recentes podem pedir o pacote `libfuse2`. O MCP é o próprio AppImage com `--mcp`.
 
 ### Gerar o instalador
 
