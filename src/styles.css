@@ -1995,6 +1995,40 @@ svg.canvas.drag-over {
   color: var(--danger);
   animation: blink 1.2s ease-in-out infinite;
 }
+.present-rec {
+  top: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 18px;
+  color: var(--ink-2);
+}
+.present-rec .rec-time {
+  min-width: 52px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.present-rec .rec-dot {
+  width: 10px;
+  height: 10px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: blink 1.2s ease-in-out infinite;
+}
+.present-rec .rec-btn svg {
+  color: var(--danger);
+}
+.present-rec .rec-btn.stop {
+  background: var(--danger);
+  color: #fff;
+}
+.present-rec .rec-btn.stop svg {
+  color: #fff;
+}
 @keyframes blink {
   50% {
     opacity: 0.45;
@@ -3454,3 +3488,9 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .inspector .input.mono, .inspector textarea.mono { font: 500 12.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; }
 @media (max-width: 1100px) { .inspector { width: var(--insp-w, 300px); } }
 @media (max-width: 760px) { .insp-grip { display: none; } .inspector { width: auto; max-width: none; } }
+.rec-inline { display: flex; align-items: center; gap: 4px; }
+.rec-inline .rec-time { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.rec-inline .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: blink 1.2s ease-in-out infinite; }
+.rec-inline .rec-btn svg { color: var(--danger); }
+.rec-inline .rec-btn.stop { background: var(--danger); color: #fff; }
+.rec-inline .rec-btn.stop svg { color: #fff; }

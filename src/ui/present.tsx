@@ -5,6 +5,7 @@ import { fitView } from "./keys";
 import { INK_COLORS, inkPath as pathOf, strokeAttrs } from "./ink";
 import { getState, set, useStore } from "./store";
 import type { Pt } from "./geometry";
+import { RecordControls, recordingGrace } from "./record";
 import { StoryPanel } from "./story";
 import { docMode } from "../shared/schema";
 
@@ -217,7 +218,7 @@ export function PresentMode() {
     let wasFull = !!document.fullscreenElement;
     const onFs = () => {
       if (document.fullscreenElement) wasFull = true;
-      else if (wasFull) exitPresent();
+      else if (wasFull && !recordingGrace()) exitPresent();
     };
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
@@ -386,6 +387,7 @@ export function PresentMode() {
       )}
 
       <Timer />
+      <RecordControls />
       {domain && <StoryPanel />}
 
       <div className="hud glass present-bar" role="toolbar" aria-label="Ferramentas de apresentação">

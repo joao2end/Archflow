@@ -12,6 +12,7 @@ import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
 import { TechPicker } from "./typepicker";
 import { enterPresent } from "./present";
+import { RecordControls } from "./record";
 import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoomTo } from "./keys";
@@ -102,8 +103,6 @@ export function TopBar() {
   const navBack = useStore((s) => s.navBack);
   const storage = useStore((s) => s.storage);
   const back = navBack.length ? navBack[navBack.length - 1].split("/").pop()?.replace(".archflow.json", "") : undefined;
-  const ws = useStore((s) => s.workspace);
-  const folderTip = online && ws ? `Arquivos (E)\nCofre: ${ws.vault.name}\n${ws.vault.path}` : "Arquivos do cofre (E)";
   const [menu, setMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -130,9 +129,6 @@ export function TopBar() {
         )}
         <TextField value={title} onCommit={setTitle} id="doc-title" label="Título do diagrama" />
         <ModeSwitch />
-        <button className="btn ghost icon" onClick={() => set({ panel: getState().panel === "files" ? null : "files" })} aria-label="Arquivos do cofre" data-tip={folderTip} data-tip-pos="bottom">
-          <Glyph name="folder" size={19} />
-        </button>
       </div>
       <div className="glass actions-pill">
         <span
@@ -154,6 +150,7 @@ export function TopBar() {
           {!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado"}
         </span>
         <div className="sep" />
+        <RecordControls bar />
         <button className="btn ghost" onClick={enterPresent} data-tip="Modo apresentação: caneta, marca-texto, laser e cronômetro (P)" data-tip-pos="bottom">
           <Glyph name="present" size={17} /> Apresentar
         </button>
