@@ -1,5 +1,4 @@
 import { ColorPicker } from "./colorpicker";
-import { BG_PRESETS, PresetPattern } from "./bgpresets";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { assetsForMode, searchAssets } from "../shared/catalog";
@@ -16,8 +15,11 @@ import { RecordControls } from "./record";
 import { INK_COLORS } from "./ink";
 import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoomTo } from "./keys";
+import { RichField } from "./richeditor";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, deleteAsset, getState, goBack, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, DEFAULT_BG, type BgPattern, type Tool } from "./store";
+import { allKnownAssets, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
+import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
+import { RICH_FONTS, type RichFont } from "../shared/richtext";
 
 /* ───────── helpers ───────── */
 
@@ -216,44 +218,16 @@ const TOOLS: { id: Tool; icon: string; label: string; key: string; tip: string }
   { id: "note", icon: "note", label: "Nota", key: "N", tip: "Registre decisões, riscos e premissas." },
 ];
 
-const BG_PATTERNS: { id: BgPattern; label: string }[] = [
-  { id: "dots", label: "Pontos" },
-  { id: "grid", label: "Grade" },
-  { id: "lines", label: "Linhas" },
-  { id: "none", label: "Liso" },
-];
-const BG_COLORS = ["#ffffff", "#f7f1e3", "#eef2f7", "#e8f3ec", "#fdf0f0", "#2d2a2e", "#14161c"];
-
-/** reduz a imagem (máx. 1920px, JPEG) para caber no localStorage */
-function fileToBackground(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const k = Math.min(1, 1920 / Math.max(img.width, img.height));
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.width * k);
-      c.height = Math.round(img.height * k);
-      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      resolve(c.toDataURL("image/jpeg", 0.82));
-    };
-    img.onerror = () => (URL.revokeObjectURL(url), reject(new Error("imagem inválida")));
-    img.src = url;
-  });
-}
-
-function BackgroundPopover() {
-  const bg = useStore((s) => s.bg);
-  const imgRef = useRef<HTMLInputElement>(null);
-  const open = useStore((s) => s.panel === "bg");
+/** Engrenagem: configurações globais de estilo + fundo do quadro. */
+function StylesPopover() {
+  const open = useStore((s) => s.panel === "styles");
   const setOpen = (v: boolean | ((o: boolean) => boolean)) => {
-    const next = typeof v === "function" ? v(getState().panel === "bg") : v;
-    set({ panel: next ? "bg" : getState().panel === "bg" ? null : getState().panel });
+    const next = typeof v === "function" ? v(getState().panel === "styles") : v;
+    set({ panel: next ? "styles" : getState().panel === "styles" ? null : getState().panel });
   };
   useEffect(() => {
     if (!open) return;
-    const close = (e: PointerEvent) => !(e.target as Element).closest(".bg-wrap, .cpick-pop") && setOpen(false);
+    const close = (e: PointerEvent) => !(e.target as Element).closest(".styles-wrap, .cpick-pop") && setOpen(false);
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("pointerdown", close);
     window.addEventListener("keydown", esc);
@@ -262,86 +236,14 @@ function BackgroundPopover() {
       window.removeEventListener("keydown", esc);
     };
   }, [open]);
-  const patch = (p: Partial<typeof bg>) => setPrefs({ bg: { ...bg, ...p } });
   return (
-    <div className="bg-wrap">
-      <button className={`tool ${open ? "active" : ""}`} onClick={() => setOpen((o) => !o)} data-tip="Fundo do quadro" data-tip-pos="right" aria-label="Fundo do quadro" aria-haspopup="dialog" aria-expanded={open}>
-        <Glyph name="grid" size={19} />
+    <div className="bg-wrap styles-wrap">
+      <button className={`tool ${open ? "active" : ""}`} onClick={() => setOpen((o) => !o)} data-tip="Configurações de estilo" data-tip-pos="right" aria-label="Configurações de estilo" aria-haspopup="dialog" aria-expanded={open}>
+        <Glyph name="settings" size={19} />
       </button>
       {open && (
-        <div className="glass bg-pop" role="dialog" aria-label="Fundo do quadro" style={{ background: "var(--glass-strong)" }}>
-          <div className="field">
-            <span>Padrão</span>
-            <div className="bg-patterns" role="radiogroup" aria-label="Padrão do fundo">
-              {BG_PATTERNS.map((p) => (
-                <button key={p.id} role="radio" aria-checked={bg.pattern === p.id} className={`bg-pat ${bg.pattern === p.id ? "active" : ""}`} onClick={() => patch({ pattern: p.id })}>
-                  <i className={`bg-prev ${p.id}`} />
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <span>Cor</span>
-            <div className="swatches insp-swatches">
-              <button className={`swatch auto ${!bg.color ? "active" : ""}`} aria-label="Cor padrão do tema" onClick={() => patch({ color: undefined })} data-tip="Padrão do tema" data-tip-pos="top" />
-              <ColorPicker value={bg.color ?? "#f7f1e3"} swatchColor={bg.color && !BG_COLORS.includes(bg.color) ? bg.color : undefined} onChange={(c) => patch({ color: c })} />
-              {BG_COLORS.map((c) => (
-                <button key={c} className={`swatch ${bg.color === c ? "active" : ""}`} style={{ background: c }} aria-label={`Fundo ${c}`} onClick={() => patch({ color: c })} />
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <span>Imagem</span>
-            <div className="bg-patterns five" role="radiogroup" aria-label="Modelos de imagem">
-              {BG_PRESETS.map((p) => (
-                <button key={p.id} role="radio" aria-checked={bg.image === `preset:${p.id}`} className={`bg-pat ${bg.image === `preset:${p.id}` ? "active" : ""}`} onClick={() => patch({ image: `preset:${p.id}`, pattern: "none" })}>
-                  <svg className="bg-prev" width="48" height="34" aria-hidden>
-                    <defs>
-                      <PresetPattern id={`pv-${p.id}`} preset={p} scale={0.2} />
-                    </defs>
-                    <rect width="100%" height="100%" fill={`url(#pv-${p.id})`} />
-                  </svg>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div className="bg-img-actions">
-              <button className="btn ghost" onClick={() => imgRef.current?.click()}>
-                <Glyph name="upload" size={16} /> Enviar imagem…
-              </button>
-              {bg.image && (
-                <button className="btn ghost" onClick={() => patch({ image: undefined })}>
-                  Remover
-                </button>
-              )}
-            </div>
-            {bg.image && (
-              <label className="field">
-                <span>Transparência da imagem · {Math.round((1 - (bg.imageOpacity ?? 1)) * 100)}%</span>
-                <input type="range" min={0} max={90} value={Math.round((1 - (bg.imageOpacity ?? 1)) * 100)} onChange={(e) => patch({ imageOpacity: +e.target.value === 0 ? undefined : 1 - +e.target.value / 100 })} aria-label="Transparência da imagem" />
-              </label>
-            )}
-            <input
-              ref={imgRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (!f) return;
-                try {
-                  patch({ image: await fileToBackground(f), pattern: "none" });
-                } catch {
-                  toastError("Não foi possível ler essa imagem");
-                }
-              }}
-            />
-          </div>
-          <button className="btn ghost" onClick={() => setPrefs({ bg: { ...DEFAULT_BG } })}>
-            Restaurar padrão
-          </button>
+        <div className="glass bg-pop styles-pop" role="dialog" aria-label="Configurações de estilo" style={{ background: "var(--glass-strong)" }}>
+          <DefaultsPanel />
         </div>
       )}
     </div>
@@ -381,7 +283,7 @@ Clique para ${animate ? "pausar" : "ativar"}`} data-tip-pos="right" aria-label="
         <Glyph name={animate ? "play" : "pause"} size={19} />
         <kbd className="tool-key" aria-hidden>A</kbd>
       </button>
-      <BackgroundPopover />
+      <StylesPopover />
     </div>
   );
 }
@@ -665,42 +567,30 @@ function InspectorGrip() {
   );
 }
 
-const PALETTE = ["#706fd3", "#2f80ed", "#14a38b", "#e08a1e", "#c2410c", "#d6453d", "#7a5af8", "#7a7a8c"];
-
-const FILL_COLORS = ["#ffffff", "#f7f1e3", "#eef2f7", "#e8f3ec", "#fdf0f0", "#2d2a2e", "#14161c"];
-
-/** Cor de fundo + transparência do corpo de um componente ou grupo. */
-function FillControls({ el, patch }: { el: { fill?: string; fillOpacity?: number }; patch: (p: Record<string, unknown>) => void }) {
-  const transp = Math.round((1 - (el.fillOpacity ?? 1)) * 100);
-  return (
-    <>
-      <span className="lbl-s">Cor de fundo</span>
-      <div className="swatches insp-swatches">
-        <button className={`swatch auto ${!el.fill ? "active" : ""}`} aria-label="Fundo padrão do tema" onClick={() => patch({ fill: undefined })} data-tip="Padrão do tema" data-tip-pos="top" />
-        <ColorPicker value={el.fill ?? "#ffffff"} swatchColor={el.fill && !FILL_COLORS.includes(el.fill) ? el.fill : undefined} onChange={(c) => patch({ fill: c })} label="Cor de fundo personalizada" />
-        {FILL_COLORS.map((c) => (
-          <button key={c} className={`swatch ${el.fill === c ? "active" : ""}`} style={{ background: c }} aria-label={`Fundo ${c}`} onClick={() => patch({ fill: c })} />
-        ))}
-      </div>
-      <label className="field">
-        <span>Transparência do fundo · {transp}%</span>
-        <input type="range" min={0} max={100} value={transp} onChange={(e) => patch({ fillOpacity: +e.target.value === 0 ? undefined : 1 - +e.target.value / 100 })} aria-label="Transparência do fundo" />
-      </label>
-    </>
-  );
-}
-
 export function Inspector() {
   const sel = useStore((s) => s.sel);
   const doc = useStore((s) => s.doc);
   const focusTick = useStore((s) => s.focusTick);
   useStore((s) => s.library);
   useEffect(() => {
-    if (focusTick) requestAnimationFrame(() => (document.getElementById("insp-first") as HTMLInputElement | null)?.select());
+    if (focusTick)
+      requestAnimationFrame(() => {
+        const el = document.getElementById("insp-first");
+        if (!el) return;
+        if (el.classList.contains("rich-field")) (el.querySelector(".rich-editor") as HTMLElement | null)?.focus();
+        else (el as HTMLInputElement).select?.();
+      });
   }, [focusTick]);
   if (!sel.length) return null;
 
   if (sel.length > 1) {
+    const multiStyle = (p: Record<string, unknown>) => {
+      run(sel.map((id) => ({ op: "update" as const, id, patch: p })));
+      syncStyleDefaults("node", p);
+      syncStyleDefaults("group", p);
+      syncStyleDefaults("note", p);
+    };
+    const sample = doc.nodes.find((n) => sel.includes(n.id)) ?? doc.groups.find((g) => sel.includes(g.id));
     return (
       <aside className="hud glass inspector">
         <InspectorGrip />
@@ -710,6 +600,12 @@ export function Inspector() {
             <div className="ttl" role="heading" aria-level={2}>{sel.length} elementos</div>
           </div>
         </div>
+        {sample && (
+          <FillControls
+            el={{ fill: "fill" in sample ? sample.fill : undefined, fillOpacity: "fillOpacity" in sample ? sample.fillOpacity : undefined }}
+            patch={multiStyle}
+          />
+        )}
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={duplicateSelection}>
             <Glyph name="copy" size={16} /> Duplicar
@@ -723,7 +619,10 @@ export function Inspector() {
   }
 
   const id = sel[0];
-  const patch = (p: Record<string, unknown>) => run([{ op: "update", id, patch: p }]);
+  const patch = (p: Record<string, unknown>, styleKind?: "node" | "group" | "note" | "conn") => {
+    run([{ op: "update", id, patch: p }]);
+    if (styleKind) syncStyleDefaults(styleKind, p);
+  };
   const node = doc.nodes.find((n) => n.id === id);
   const group = doc.groups.find((g) => g.id === id);
   const note = doc.notes.find((n) => n.id === id);
@@ -791,7 +690,7 @@ export function Inspector() {
               value={node.kind}
               disabled={node.kind === "endpoint" || isDomain}
               title={node.kind === "endpoint" ? "Um endpoint pertence a um serviço e não muda de categoria" : isDomain ? "O papel de domínio muda em «Papel (DDD)»" : NODE_KINDS[node.kind]}
-              onChange={(e) => patch({ kind: e.target.value as NodeKind })}
+              onChange={(e) => patch({ kind: e.target.value as NodeKind }, "node")}
             >
               {Object.entries(NODE_KINDS)
                 .filter(([k]) => (k !== "endpoint" || node.kind === "endpoint") && (k !== "domain" || node.kind === "domain") && (k !== "logic" || node.kind === "logic")) // endpoint exigiria protocolo e dono; domain exigiria um papel DDD: ambos nascem na biblioteca
@@ -814,7 +713,7 @@ export function Inspector() {
             </select>
           </label>
         </div>
-        <FillControls el={node} patch={patch} />
+        <FillControls el={node} patch={(p) => patch(p, "node")} />
         {(node.kind === "system" || node.ref) && <RefPicker node={node} patch={patch} />}
         {node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && node.kind !== "logic" && !node.ref && <EndpointsSection node={node} />}
         <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />
@@ -844,7 +743,7 @@ export function Inspector() {
         {domainConn && conn.ddd && <div className="callout">O tipo <b>{t.label}</b> é definido pela relação <b>{conn.ddd.rel}</b>. Para escolher outro tipo UML, remova a relação.</div>}
         <div className="type-grid" role="radiogroup" aria-label="Tipo" style={(domainConn && conn.ddd) || docMode(doc) === "logic" ? { display: "none" } : undefined}>
           {CONNECTION_TYPE_KEYS.filter((k) => !domainConn || !INFRA_CONNECTION_TYPES.includes(k)).map((k) => (
-            <button key={k} role="radio" aria-checked={conn.type === k} className={`type-btn ${conn.type === k ? "active" : ""}`} style={{ ["--tc" as string]: CONNECTION_TYPES[k].color }} onClick={() => (patch({ type: k }), set({ connType: k }))} data-tip={CONNECTION_TYPES[k].semantics} data-tip-pos="left">
+            <button key={k} role="radio" aria-checked={conn.type === k} className={`type-btn ${conn.type === k ? "active" : ""}`} style={{ ["--tc" as string]: CONNECTION_TYPES[k].color }} onClick={() => patch({ type: k }, "conn")} data-tip={CONNECTION_TYPES[k].semantics} data-tip-pos="left">
               <ConnSample type={k} />
               {CONNECTION_TYPES[k].label}
             </button>
@@ -867,7 +766,7 @@ export function Inspector() {
           <span className="lbl-s">Traçado</span>
           <div className="seg" role="radiogroup">
             {(["curve", "elbow", "straight"] as Routing[]).map((r) => (
-              <button key={r} role="radio" aria-checked={(conn.routing ?? "curve") === r} className={(conn.routing ?? "curve") === r ? "active" : ""} onClick={() => patch({ routing: r })}>
+              <button key={r} role="radio" aria-checked={(conn.routing ?? "curve") === r} className={(conn.routing ?? "curve") === r ? "active" : ""} onClick={() => patch({ routing: r }, "conn")}>
                 {{ curve: "Curva", elbow: "Ortogonal", straight: "Reta" }[r]}
               </button>
             ))}
@@ -926,7 +825,7 @@ export function Inspector() {
         </label>
         <label className="field">
           <span>Tipo de fronteira</span>
-          <select className="input" value={group.kind} onChange={(e) => patch({ kind: e.target.value as GroupKind })}>
+          <select className="input" value={group.kind} onChange={(e) => patch({ kind: e.target.value as GroupKind }, "group")}>
             {Object.entries(GROUP_KINDS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -938,10 +837,10 @@ export function Inspector() {
         <span className="lbl-s">Cor</span>
         <div className="swatches">
           {PALETTE.map((c) => (
-            <button key={c} className={`swatch ${group.color === c ? "active" : ""}`} style={{ background: c }} aria-label={`Cor ${c}`} onClick={() => patch({ color: c })} />
+            <button key={c} className={`swatch ${group.color === c ? "active" : ""}`} style={{ background: c }} aria-label={`Cor ${c}`} onClick={() => patch({ color: c }, "group")} />
           ))}
         </div>
-        <FillControls el={group} patch={patch} />
+        <FillControls el={group} patch={(p) => patch(p, "group")} />
         <label className="field">
           <span>Descrição</span>
           <TextField multiline value={group.description ?? ""} placeholder="Propósito desta fronteira" onCommit={(v) => patch({ description: v || undefined })} />
@@ -955,50 +854,66 @@ export function Inspector() {
     );
   }
 
+  // nota/texto: sem inspetor — a edição rica é in-place no card do quadro
+  if (note && note.variant !== "list") return null;
+
   if (note) {
     return (
       <aside className="hud glass inspector">
         <InspectorGrip />
         <div className="insp-head">
           <div>
-            <div className="kicker">{note.variant === "text" ? "Texto" : note.variant === "list" ? "Lista" : "Nota"}</div>
-            <div className="ttl" role="heading" aria-level={2}>{note.variant === "text" ? "Texto livre" : note.variant === "list" ? "Itens, um por linha" : "Decisão ou premissa"}</div>
+            <div className="kicker">Lista</div>
+            <div className="ttl" role="heading" aria-level={2}>Itens, um por linha</div>
           </div>
         </div>
-        {note.variant === "list" && (
-          <>
-            <label className="field">
-              <span>Título</span>
-              <TextField value={note.title ?? ""} placeholder="Sem título" onCommit={(v) => patch({ title: v.trim() || undefined })} />
-            </label>
-            {note.checklist && (
-              <label className="field">
-                <span>Descrição</span>
-                <TextField multiline value={note.subtitle ?? ""} placeholder="Texto de apoio sob o título" onCommit={(v) => patch({ subtitle: v.trim() || undefined, h: checklistLayout({ ...note, subtitle: v.trim() }).total })} />
-              </label>
-            )}
-            <label className="field check-field">
-              <input type="checkbox" checked={!!note.checklist} onChange={(e) => patch({ checklist: e.target.checked, ...(e.target.checked ? { h: checklistLayout({ ...note, w: Math.max(note.w, 300) }).total, w: Math.max(note.w, 300) } : {}) })} />
-              <span>Transformar em checklist (caixas de seleção clicáveis no quadro)</span>
-            </label>
-          </>
-        )}
         <label className="field">
-          <span>{note.variant === "list" ? "Itens (um por linha)" : "Texto"}</span>
-          <TextField id="insp-first" multiline value={note.text} onCommit={(v) => patch({ text: v, ...(note.checklist ? { h: checklistLayout({ ...note, text: v }).total } : {}) })} />
+          <span>Título</span>
+          <TextField value={note.title ?? ""} placeholder="Sem título" onCommit={(v) => patch({ title: v.trim() || undefined })} />
         </label>
-        {note.variant && note.variant !== "note" && (
-          <div className="field">
-            <span>Cor</span>
-            <div className="swatches insp-swatches">
-              <button className={`swatch auto ${!note.color ? "active" : ""}`} aria-label="Cor padrão" onClick={() => patch({ color: undefined })} data-tip="Padrão do tema" data-tip-pos="top" />
-              <ColorPicker value={note.color ?? "#706fd3"} swatchColor={note.color && !INK_COLORS.some((c) => c.id === note.color) ? note.color : undefined} onChange={(c) => patch({ color: c })} />
-              {INK_COLORS.map((c) => (
-                <button key={c.id} className={`swatch ${note.color === c.id ? "active" : ""}`} style={{ background: c.id }} aria-label={c.name} onClick={() => patch({ color: c.id })} data-tip={c.name} data-tip-pos="top" />
-              ))}
-            </div>
-          </div>
+        {note.checklist && (
+          <label className="field">
+            <span>Descrição</span>
+            <TextField multiline value={note.subtitle ?? ""} placeholder="Texto de apoio sob o título" onCommit={(v) => patch({ subtitle: v.trim() || undefined, h: checklistLayout({ ...note, subtitle: v.trim() }).total })} />
+          </label>
         )}
+        <label className="field check-field">
+          <input type="checkbox" checked={!!note.checklist} onChange={(e) => patch({ checklist: e.target.checked, ...(e.target.checked ? { h: checklistLayout({ ...note, w: Math.max(note.w, 300) }).total, w: Math.max(note.w, 300) } : {}) })} />
+          <span>Transformar em checklist (caixas de seleção clicáveis no quadro)</span>
+        </label>
+        <div className="field">
+          <span>Itens (um por linha)</span>
+          <RichField
+            label="Itens"
+            value={note.text}
+            onChange={(v) => {
+              const doc = structuredClone(getState().doc);
+              const n = doc.notes.find((x) => x.id === id);
+              if (!n) return;
+              n.text = v;
+              if (n.checklist) n.h = checklistLayout({ ...n, text: v }).total;
+              live(doc);
+            }}
+          />
+        </div>
+        <span className="lbl-s">Estilo de fonte</span>
+        <div className="seg" role="radiogroup" aria-label="Fonte">
+          {RICH_FONTS.map((f) => (
+            <button key={f.id} role="radio" aria-checked={(note.font ?? "sans") === f.id} className={(note.font ?? "sans") === f.id ? "active" : ""} onClick={() => patch({ font: f.id === "sans" ? undefined : (f.id as RichFont) }, "note")}>
+              {f.name}
+            </button>
+          ))}
+        </div>
+        <div className="field">
+          <span>Cor</span>
+          <div className="swatches insp-swatches">
+            <button className={`swatch auto ${!note.color ? "active" : ""}`} aria-label="Cor padrão" onClick={() => patch({ color: undefined }, "note")} data-tip="Padrão do tema" data-tip-pos="top" />
+            <ColorPicker value={note.color ?? "#706fd3"} swatchColor={note.color && !INK_COLORS.some((c) => c.id === note.color) ? note.color : undefined} onChange={(c) => patch({ color: c }, "note")} />
+            {INK_COLORS.map((c) => (
+              <button key={c.id} className={`swatch ${note.color === c.id ? "active" : ""}`} style={{ background: c.id }} aria-label={c.name} onClick={() => patch({ color: c.id }, "note")} data-tip={c.name} data-tip-pos="top" />
+            ))}
+          </div>
+        </div>
         {actions}
       </aside>
     );
