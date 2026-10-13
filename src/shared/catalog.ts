@@ -315,7 +315,8 @@ const LOGIC_TAGS: Record<LogicRole, string> = {
   loop: "laço repetição loop para cada enquanto até iteração",
   fork: "paralelo simultâneo bifurcação fork ao mesmo tempo",
   join: "junção espera todos paralelo join",
-  call: "chamar subprocesso outra lógica referência",
+  call: "chamar subprocesso outra lógica referência http api requisição fetch integração",
+  code: "código code typescript script função javascript personalizado",
 };
 const logicAssets: Asset[] = LOGIC_ROLE_KEYS.map((role) => ({
   id: `logic-${role}`,

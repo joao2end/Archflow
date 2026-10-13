@@ -10,6 +10,7 @@
  * tipos, assinaturas e comentários; a lógica fica como TODO. Sem I/O: devolve os arquivos, quem chama decide onde gravá-los.
  */
 import { flowText, traceUseCase } from "./domain";
+import { generateLogicTypeScript } from "./logicgen";
 import { docMode, type Doc, type DddRole, type GroupEl, type NodeEl, type PropertySpec } from "./schema";
 
 export interface GeneratedFile {
@@ -382,7 +383,7 @@ function useCasesDoc(doc: Doc, dir: string, ctx: GroupEl | undefined, nodes: Nod
 }
 
 export function generateCode(doc: Doc, language: CodegenLanguage = "typescript"): GeneratedFile[] {
-  if (language === "typescript") return generateTypeScript(doc);
+  if (language === "typescript") return docMode(doc) === "logic" ? generateLogicTypeScript(doc) : generateTypeScript(doc);
   throw new Error(`linguagem "${language}" não suportada. Disponíveis: ${CODEGEN_LANGUAGES.join(", ")}`);
 }
 

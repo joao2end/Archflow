@@ -291,7 +291,7 @@ export const DDD_BADGES: Record<DddRole, string> = {
 
 /* ───────── modo lógica (regras de negócio) ───────── */
 
-export type LogicRole = "rule" | "input" | "output" | "variable" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call";
+export type LogicRole = "rule" | "input" | "output" | "variable" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call" | "code";
 
 /** Papéis de dado: Input (entra e só é lido), Output (resultado que o fluxo devolve) e Variable (dado intermediário do fluxo). Substituem o antigo `fact`. */
 export const DATA_ROLES = ["input", "output", "variable"] as const;
@@ -311,6 +311,38 @@ export interface LogicExample {
   path?: string[];
 }
 
+/** Chamada HTTP real de um Call (estilo n8n «HTTP Request»). Todos os textos são expressões do modo Logic: use aspas para texto fixo. */
+export interface LogicRequest {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** endereço, como expressão: `"https://api.exemplo.com/clientes/" + cliente_id` */
+  url: string;
+  /** cabeçalhos: nome → expressão (`Authorization` → `"Bearer " + token`) */
+  headers?: Record<string, string>;
+  /** corpo JSON: campo → expressão. Sem campos, a chamada vai sem corpo */
+  body?: Record<string, string>;
+}
+/** Gatilho de um Start (estilo n8n): o que dispara o fluxo. O código gerado exporta `trigger` e, conforme o tipo, `handler` (webhook) ou `onSchedule` (agenda). */
+export interface LogicTrigger {
+  kind: "manual" | "webhook" | "agenda";
+  /** webhook: o caminho que recebe a chamada, ex.: "/pedidos" */
+  path?: string;
+  /** webhook: método HTTP (padrão POST). Em GET os dados vêm da query string; nos outros, do corpo JSON */
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** agenda: expressão cron de 5 campos, ex.: "0 8 * * 1-5" (dias úteis às 8h) */
+  cron?: string;
+}
+export const LOGIC_TRIGGER_KINDS = {
+  manual: "Manual: você chama run(input) no seu código.",
+  webhook: "Webhook: uma chamada HTTP a um caminho dispara o fluxo; o corpo JSON (ou a query string, em GET) é o input.",
+  agenda: "Agenda: dispara em horários (cron); o fluxo roda sem input, só com os valores fixos dos dados.",
+} as const;
+export const isCallLike = (role: string | undefined): boolean => role === "call" || role === "code";
+export const LOGIC_HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+/** Dados que a resposta de uma chamada HTTP cria: o corpo (JSON ou texto) e o código de status. */
+export const HTTP_RESPONSE_NAMES = ["resposta", "status_http"] as const;
+/** Dado que um nó Code cria: o valor que o código devolveu. */
+export const CODE_RESULT_NAME = "resultado";
+
 export interface LogicNodeSpec {
   role: LogicRole;
   /** rule: posição na fila quando o diagrama não tem setas: crescente (1, 2, 3…); sem `order` vai para o fim; empate: ordem de criação. Com setas, o fluxo manda e `order` é ignorado */
@@ -327,6 +359,14 @@ export interface LogicNodeSpec {
   until?: string;
   /** call: condição (verdadeiro/falso) calculada com os dados que o fluxo tem naquele ponto; se vale, o exemplo simula a chamada FALHANDO e o fluxo segue pela seta \"erro\" (sem a seta, é erro de execução). Sem `falha`, a chamada nunca falha na simulação */
   falha?: string;
+  /** call: chamada HTTP de verdade. O código gerado a faz com fetch; a resposta fica em `resposta` (corpo) e `status_http`, e `falha`/`devolve` podem usá-las. Resposta fora de 2xx ou erro de rede segue pela seta "erro" */
+  request?: LogicRequest;
+  /** start: o gatilho que dispara o fluxo (padrão: manual) */
+  trigger?: LogicTrigger;
+  /** code: o corpo de uma função TypeScript `async (data) => { ... }`. `data` são os dados do fluxo; o que ela devolve (`return`) fica em `resultado`. Se lançar erro, o fluxo segue pela seta "erro". O app não executa TS: os exemplos usam `mock` como `resultado` */
+  code?: string;
+  /** call com request: a resposta SIMULADA (o corpo) usada pelos exemplos do app, com status 200; o código gerado chama de verdade · code: o `resultado` simulado */
+  mock?: LogicValue;
   /** call: efeitos que rodam quando a chamada DÁ CERTO (os dados que ela devolve), ex.: [\"cidade := cidade_do_servico\"] */
   devolve?: string[];
   /** loop: no máximo N voltas (1 a 1000; sem padrão). Vale junto com `until` e `foreach`: para na primeira que acontecer */
@@ -349,7 +389,7 @@ export interface LogicNodeSpec {
 export type LogicField = Exclude<keyof LogicNodeSpec, "role">;
 
 export const LOGIC_ROLES: Record<LogicRole, { label: string; hint: string; color: string; badge: string; fields: LogicField[] }> = {
-  start: { label: "Start", hint: "Início do fluxo: o que entra e quando a lógica começa (um por diagrama).", color: "#3aa76d", badge: "START", fields: ["text"] },
+  start: { label: "Start", hint: "Início do fluxo: o que entra e quando a lógica começa (um por diagrama). O `trigger` diz o que o dispara: manual, webhook (caminho e método) ou agenda (cron); o código gerado traz o `handler` ou o `onSchedule` pronto.", color: "#3aa76d", badge: "START", fields: ["text", "trigger"] },
   end: { label: "End", hint: "Fim do fluxo: o que a lógica devolve. O desfecho (`outcome`) é ok ou erro e, se você não informar, é ok; pode haver vários fins.", color: "#8a6fd0", badge: "END", fields: ["text", "outcome"] },
   rule: { label: "Ação", hint: "Ação: muda dados (ex.: frete := 0), com exemplos que provam. Roda sempre que o fluxo chega nela. Não tem condição, nem «se … entao … senao» dentro dos efeitos: quem escolhe o caminho ou o valor é a Decisão, colocada antes dela (sim → uma ação com um valor, não → outra com o outro).", color: "#706fd3", badge: "AÇÃO", fields: ["order", "text", "then", "examples"] },
   decision: { label: "Decisão", hint: "Decisão sim/não: só pergunta e escolhe por qual das duas setas o fluxo sai, \"sim\" ou \"não\" (quem muda dados é a Ação).", color: "#0e9aa7", badge: "IF", fields: ["text", "when", "examples"] },
@@ -357,7 +397,8 @@ export const LOGIC_ROLES: Record<LogicRole, { label: string; hint: string; color
   loop: { label: "Loop", hint: "Repetição: confere a parada antes de cada volta (pode dar zero voltas) e sai pela seta \"segue\" assim que vale a primeira: a condição `until` ficou verdadeira, já foram `max` voltas ou acabaram os itens do `foreach`; senão volta pela seta \"repete\". Precisa de pelo menos um dos três.", color: "#c2548b", badge: "LOOP", fields: ["text", "until", "max", "foreach", "as"] },
   fork: { label: "Fork", hint: "Paralelo: o fluxo se divide e segue por todas as setas de saída; os ramos são independentes entre si (um não escreve um dado que outro escreve ou lê). O app os simula na ordem das setas, sobre os mesmos dados.", color: "#e0a526", badge: "FORK", fields: ["text"] },
   join: { label: "Join", hint: "Junção: depois dos ramos de um `fork`, segue quando todos chegaram a ela (o app os simula em sequência). Se um ramo chega antes a um `end`, o fluxo termina ali e o join não é alcançado; sem `fork` antes, ele só deixa passar.", color: "#e0a526", badge: "JOIN", fields: ["text"] },
-  call: { label: "Call", hint: "Chamada a algo de fora (gateway, API, outro diagrama) que pode falhar. Com `falha` (uma condição verdadeiro/falso, calculada com os dados que o fluxo tem ali), o exemplo simula a falha e o fluxo segue pela seta \"erro\" (sem essa seta é erro de execução); sem `falha`, a chamada nunca falha na simulação e segue pela seta normal. Com `devolve` (efeitos como os da Ação), a chamada que dá certo escreve os dados que devolveu. A simulação não entra no que está fora.", color: "#6c7a89", badge: "CALL", fields: ["text", "falha", "devolve"] },
+  code: { label: "Code", hint: "Código TypeScript livre (estilo nó Code do n8n) para o que as expressões não alcançam: o corpo de `async (data) => { ... }`, onde `data` são os dados do fluxo e o `return` vira o dado `resultado`, lido por `devolve` (ex.: \"total := resultado.total\"). Se o código lançar erro, o fluxo segue pela seta \"erro\". O app não executa TypeScript: nos exemplos vale `mock` (o resultado simulado); no código gerado roda de verdade.", color: "#4f8fc0", badge: "CODE", fields: ["text", "code", "mock", "falha", "devolve"] },
+  call: { label: "Call", hint: "Chamada a algo de fora (gateway, API, outro diagrama) que pode falhar. Com `falha` (uma condição verdadeiro/falso, calculada com os dados que o fluxo tem ali), o exemplo simula a falha e o fluxo segue pela seta \"erro\" (sem essa seta é erro de execução); sem `falha`, a chamada nunca falha na simulação e segue pela seta normal. Com `devolve` (efeitos como os da Ação), a chamada que dá certo escreve os dados que devolveu. Com `request`, é uma chamada HTTP de verdade no código gerado (método, endereço, cabeçalhos e corpo como expressões); a resposta fica em `resposta` e `status_http`, e o exemplo usa `mock` como resposta simulada. A simulação não entra no que está fora.", color: "#6c7a89", badge: "CALL", fields: ["text", "request", "mock", "falha", "devolve"] },
   input: { label: "Input", hint: "Dado que ENTRA no fluxo e só é lido (preço atual, margem, tipo da categoria). Nenhuma ação o escreve; o valor vem do `given` do exemplo ou do `value` (constante). O `key` é o nome usado nas expressões; o `type` é um tipo do TypeScript (number, int, string[], { preco: number }…) que o app confere nos exemplos.", color: "#7fb3d5", badge: "IN", fields: ["key", "type", "text", "value"] },
   output: { label: "Output", hint: "Resultado que o fluxo DEVOLVE (recomendação, preço final, alerta). Alguma ação precisa escrevê-lo; é o que os cenários conferem em `expect`. O `key` é o nome nas expressões e o `type` é um tipo do TypeScript.", color: "#4caf7d", badge: "OUT", fields: ["key", "type", "text"] },
   variable: { label: "Variable", hint: "Dado INTERMEDIÁRIO: criado e reescrito dentro do fluxo para calcular outra coisa (soma parcial, contador, índice). Não entra de fora nem é o resultado final. O `value` é o valor inicial.", color: "#a58fd6", badge: "VAR", fields: ["key", "type", "text", "value"] },
@@ -373,7 +414,7 @@ export const LOGIC_BRANCHES: Record<LogicBranch, { label: string; hint: string; 
   repete: { label: "repete", hint: "Seta do laço que volta ao início do corpo da repetição.", from: ["loop"] },
   segue: { label: "segue", hint: "Seta do laço quando termina e o fluxo continua.", from: ["loop"] },
   outros: { label: "outros", hint: "Seta da escolha para qualquer valor que nenhum caso cobre.", from: ["switch"] },
-  erro: { label: "erro", hint: "Seta da chamada (Call) quando ela falha. A seta sem saída nomeada é o caminho em que deu certo.", from: ["call"] },
+  erro: { label: "erro", hint: "Seta da chamada (Call) quando ela falha. A seta sem saída nomeada é o caminho em que deu certo.", from: ["call", "code"] },
 };
 export const LOGIC_BRANCH_KEYS = Object.keys(LOGIC_BRANCHES) as LogicBranch[];
 

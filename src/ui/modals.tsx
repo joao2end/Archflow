@@ -463,11 +463,12 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
 
 /* ───────── lógica: validação (com os exemplos rodando) e descrição ───────── */
 
-function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
+function LogicModal({ tab: initial }: { tab?: "issues" | "text" | "code" }) {
   const doc = useStore((s) => s.doc);
-  const [tab, setTab] = useState<"issues" | "text">(initial ?? "issues");
+  const [tab, setTab] = useState<"issues" | "text" | "code">(initial ?? "issues");
+  const code = useMemo(() => (tab === "code" ? generateCode(doc) : []), [tab, doc]);
   const issues = useMemo(() => (docMode(doc) === "logic" ? validateDetailed(doc).sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]) : []), [doc]);
-  const text = tab === "text" ? describe(doc) : issues.map(issueText).join("\n");
+  const text = tab === "text" ? describe(doc) : tab === "code" ? filesToMarkdown(code) : issues.map(issueText).join("\n");
   const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
   return (
     <Modal
@@ -488,6 +489,9 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
         <button role="tab" aria-selected={tab === "text"} className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>
           Texto (para IA)
         </button>
+        <button role="tab" aria-selected={tab === "code"} className={tab === "code" ? "active" : ""} onClick={() => setTab("code")}>
+          Código (TypeScript)
+        </button>
       </div>
       {tab === "issues" &&
         (issues.length ? (
@@ -506,6 +510,17 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" }) {
           <div className="callout">Nenhum problema: todas as ações têm exemplos e todos os exemplos batem.</div>
         ))}
       {tab === "text" && <pre className="code">{text}</pre>}
+      {tab === "code" &&
+        (code.length ? (
+          <>
+            <div className="callout">
+              TypeScript executável do fluxo ({code.length} arquivos): <b>run(input, deps)</b> anda pelos nós, as chamadas HTTP usam <code>fetch</code> de verdade e cada exemplo de cenário vira um teste (<code>npx tsx --test</code>). Copie para o seu projeto, ou peça ao agente (MCP) a tool <b>generate_code</b>.
+            </div>
+            <pre className="code">{text}</pre>
+          </>
+        ) : (
+          <div className="callout">Nada a gerar ainda: monte o fluxo com um Start, passos e um End.</div>
+        ))}
     </Modal>
   );
 }

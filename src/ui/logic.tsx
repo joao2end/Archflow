@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Glyph } from "./icons";
-import { LOGIC_BRANCHES, LOGIC_ROLES, LOGIC_ROLE_KEYS, isDataRole, type ConnectionEl, type LogicBranch, type LogicExample, type LogicRole, type LogicValue, type NodeEl } from "../shared/schema";
+import { LOGIC_BRANCHES, LOGIC_HTTP_METHODS, LOGIC_TRIGGER_KINDS, LOGIC_ROLES, LOGIC_ROLE_KEYS, isDataRole, type ConnectionEl, type LogicBranch, type LogicExample, type LogicNodeSpec, type LogicRequest, type LogicRole, type LogicTrigger, type LogicValue, type NodeEl } from "../shared/schema";
 import { printType, recognize } from "../shared/types";
 import { checkAssignment } from "../shared/typecheck";
 import { FUNCTIONS, explainError, findFunctions, readsOf, checkExpr, evaluate, explain, explainStatement, parseExpr, parseStatement, SYNTAX_GUIDE } from "../shared/expr";
@@ -394,14 +394,30 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
           <div className="callout">Duas setas saem daqui: "repete" (volta ao corpo, que depois liga de volta a este laço) e "segue" (quando termina).</div>
         </>
       )}
-      {(l.role === "start" || l.role === "end" || l.role === "fork" || l.role === "join" || l.role === "call") && (
+      {(l.role === "start" || l.role === "end" || l.role === "fork" || l.role === "join" || l.role === "call" || l.role === "code") && (
         <>
           <label className="field">
             <span>Em uma frase</span>
             <TextField multiline value={l.text ?? ""} placeholder={l.role === "start" ? "O que entra e quando começa" : l.role === "end" ? "O que a lógica devolve" : "O que acontece aqui"} onCommit={(v) => upd({ text: v.trim() || undefined })} />
           </label>
+          {l.role === "start" && <TriggerFields l={l} upd={upd} />}
+          {l.role === "code" && (
+            <>
+              <label className="field">
+                <span>Código TypeScript (corpo de async (data) =&gt; {"{ … }"})</span>
+                <TextField multiline mono value={l.code ?? ""} placeholder={"const total = data.itens.length;\nreturn { total };"} onCommit={(v) => v.trim() && upd({ code: v })} />
+              </label>
+              <MockField l={l} upd={upd} label="Resultado simulado nos exemplos (JSON)" placeholder={'{ "total": 3 }'} />
+              <ExprField label="Falha simulada quando (opcional)" value={l.falha ?? ""} names={names} placeholder="resultado.total < 0" onCommit={(v) => upd({ falha: v })} />
+              <StatementsField value={l.devolve ?? []} example={effectSample} onCommit={(lines) => upd({ devolve: lines })} label="O que fica nos dados (um por linha; resultado é o que o código devolveu)" />
+              <div className="callout">
+                <b>data</b> são os dados do fluxo e o <b>return</b> vira o dado <b>resultado</b>. Se o código lançar erro, o fluxo segue pela seta "erro". O app não executa TypeScript: nos exemplos vale o resultado simulado; no código gerado (aba Código TypeScript) roda de verdade.
+              </div>
+            </>
+          )}
           {l.role === "call" && (
             <>
+              <RequestFields l={l} names={names} upd={upd} />
               <ExprField label="Falha simulada quando (opcional)" value={l.falha ?? ""} names={names} placeholder={`${sample}_falhou`} onCommit={(v) => upd({ falha: v })} />
               <StatementsField value={l.devolve ?? []} example={effectSample} onCommit={(lines) => upd({ devolve: lines })} label="O que devolve quando dá certo (um dado por linha)" />
               <div className="callout">Para testar o caminho de erro: quando esta condição vale no exemplo, o fluxo segue pela seta "erro" (selecione a seta e escolha a saída "erro"). Sem ela, a chamada sempre dá certo.</div>
@@ -760,6 +776,169 @@ function TypeField({ value, onCommit }: { value: string; onCommit: (v: string | 
   );
 }
 
+/** O valor simulado de um Call HTTP ou de um nó Code (JSON): é o que os exemplos usam no lugar da rede e do TypeScript. */
+function MockField({ l, upd, label, placeholder }: { l: LogicNodeSpec; upd: (p: Record<string, unknown>) => void; label: string; placeholder: string }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <TextField
+        multiline
+        mono
+        value={l.mock === undefined ? "" : JSON.stringify(l.mock, null, 2)}
+        placeholder={placeholder}
+        onCommit={(t) => {
+          if (!t.trim()) return upd({ mock: undefined });
+          try {
+            upd({ mock: JSON.parse(t) });
+          } catch {
+            toastError("Não salvei: o valor simulado precisa ser um JSON válido.");
+          }
+        }}
+      />
+    </label>
+  );
+}
+
+/** Gatilho do Start (estilo n8n): manual, webhook (método e caminho) ou agenda (cron). */
+function TriggerFields({ l, upd }: { l: LogicNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+  const t: LogicTrigger = l.trigger ?? { kind: "manual" };
+  const set = (next: LogicTrigger) => upd({ trigger: next.kind === "manual" ? undefined : next });
+  const kinds = Object.keys(LOGIC_TRIGGER_KINDS) as LogicTrigger["kind"][];
+  const cronBad = t.kind === "agenda" && !/^\s*(\S+\s+){4}\S+\s*$/.test(t.cron ?? "");
+  return (
+    <>
+      <label className="field">
+        <span>Gatilho (o que dispara o fluxo)</span>
+        <select
+          className="input"
+          value={t.kind}
+          onChange={(e) => {
+            const kind = e.target.value as LogicTrigger["kind"];
+            set(kind === "webhook" ? { kind, method: "POST", path: "/fluxo" } : kind === "agenda" ? { kind, cron: "0 8 * * 1-5" } : { kind });
+          }}
+        >
+          {kinds.map((k) => (
+            <option key={k} value={k}>
+              {k === "manual" ? "Manual" : k === "webhook" ? "Webhook (chamada HTTP)" : "Agenda (cron)"}
+            </option>
+          ))}
+        </select>
+      </label>
+      {t.kind === "webhook" && (
+        <div className="row" style={{ gap: 8 }}>
+          <label className="field" style={{ width: 110 }}>
+            <span>Método</span>
+            <select className="input" value={t.method ?? "POST"} onChange={(e) => set({ ...t, method: e.target.value as LogicTrigger["method"] })}>
+              {LOGIC_HTTP_METHODS.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field" style={{ flex: 1 }}>
+            <span>Caminho</span>
+            <TextField
+              value={t.path ?? ""}
+              placeholder="/pedidos"
+              onCommit={(v) => {
+                if (!/^\/[A-Za-z0-9_\-/:.]*$/.test(v.trim())) return toastError('Não salvei: o caminho começa com "/" (ex.: /pedidos).');
+                set({ ...t, path: v.trim() });
+              }}
+            />
+          </label>
+        </div>
+      )}
+      {t.kind === "agenda" && (
+        <>
+          <label className="field">
+            <span>Cron (minuto hora dia mês dia-da-semana)</span>
+            <TextField
+              mono
+              value={t.cron ?? ""}
+              placeholder="0 8 * * 1-5"
+              onCommit={(v) => {
+                if (!/^\s*(\S+\s+){4}\S+\s*$/.test(v)) return toastError('Não salvei: o cron tem 5 campos separados por espaço (ex.: "0 8 * * 1-5" = dias úteis às 8h).');
+                set({ ...t, cron: v.trim() });
+              }}
+            />
+          </label>
+          {cronBad && <div className="callout warn">O cron precisa de 5 campos.</div>}
+        </>
+      )}
+      <div className="callout">{LOGIC_TRIGGER_KINDS[t.kind]} O código gerado traz {t.kind === "webhook" ? "o handler(req)" : t.kind === "agenda" ? "o onSchedule()" : "o run(input)"} pronto.</div>
+    </>
+  );
+}
+
+/** Chamada HTTP de verdade (estilo «HTTP Request» do n8n): método, endereço, cabeçalhos, corpo e a resposta simulada dos exemplos. */
+function RequestFields({ l, names, upd }: { l: LogicNodeSpec; names: Record<string, string>; upd: (p: Record<string, unknown>) => void }) {
+  const r = l.request;
+  const setReq = (p: Partial<LogicRequest>) => upd({ request: { ...r!, ...p } });
+  if (!r)
+    return (
+      <div className="callout">
+        Esta chamada é só um ponto do fluxo (simulada pelo app).{" "}
+        <button className="btn" onClick={() => upd({ request: { method: "GET", url: '"https://api.exemplo.com/"' } })} data-tip="O código gerado (aba Código TypeScript) faz um fetch de verdade; a resposta fica em «resposta» e «status_http».">
+          Transformar em chamada HTTP
+        </button>
+      </div>
+    );
+  const pairsText = (m?: Record<string, string>) => Object.entries(m ?? {}).map(([k, v]) => `${k}: ${v}`).join("\n");
+  const parsePairs = (t: string): Record<string, string> | string => {
+    const out: Record<string, string> = {};
+    for (const [i, line] of t.split("\n").map((x) => x.trim()).entries()) {
+      if (!line) continue;
+      const at = line.indexOf(":");
+      if (at < 1) return `linha ${i + 1} «${line}»: use nome: expressão`;
+      const name = line.slice(0, at).trim();
+      const expr = line.slice(at + 1).trim();
+      const bad = checkExpr(expr);
+      if (bad) return `linha ${i + 1} «${line}»: ${explainError(expr, bad)}`;
+      out[name] = expr;
+    }
+    return out;
+  };
+  const pairs = (label: string, key: "headers" | "body", placeholder: string) => (
+    <label className="field">
+      <span>{label}</span>
+      <TextField
+        multiline
+        mono
+        value={pairsText(r[key])}
+        placeholder={placeholder}
+        onCommit={(t) => {
+          const p = parsePairs(t);
+          if (typeof p === "string") return toastError(`Não salvei: ${p}`);
+          setReq({ [key]: Object.keys(p).length ? p : undefined });
+        }}
+      />
+    </label>
+  );
+  return (
+    <>
+      <div className="row" style={{ gap: 8 }}>
+        <label className="field" style={{ width: 110 }}>
+          <span>Método</span>
+          <select className="input" value={r.method} onChange={(e) => setReq({ method: e.target.value as LogicRequest["method"], ...(e.target.value === "GET" || e.target.value === "DELETE" ? { body: undefined } : {}) })}>
+            {LOGIC_HTTP_METHODS.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </label>
+        <button className="btn ghost" style={{ alignSelf: "end" }} onClick={() => upd({ request: undefined, mock: undefined })} data-tip="Volta a ser uma chamada simulada, sem HTTP">
+          Remover HTTP
+        </button>
+      </div>
+      <ExprField label="Endereço (expressão; texto fixo leva aspas)" value={r.url} names={names} placeholder={'"https://api.exemplo.com/clientes/" + cliente_id'} onCommit={(v) => v && setReq({ url: v })} />
+      {pairs("Cabeçalhos (nome: expressão, um por linha)", "headers", 'Authorization: "Bearer " + token')}
+      {r.method !== "GET" && r.method !== "DELETE" && pairs("Corpo JSON (campo: expressão, um por linha)", "body", "valor: total")}
+      <MockField l={l} upd={upd} label="Resposta simulada nos exemplos (JSON)" placeholder={'{ "cidade": "São Paulo" }'} />
+      <div className="callout">
+        A resposta fica nos dados <b>resposta</b> (o corpo) e <b>status_http</b>. Fora de 2xx ou sem rede, o fluxo segue pela seta "erro". No app a chamada usa a resposta simulada; no código gerado ela é um <code>fetch</code> de verdade.
+      </div>
+    </>
+  );
+}
+
 function ExprField({ label, value, names, placeholder, onCommit }: { label: string; value: string; names: Record<string, string>; placeholder?: string; onCommit: (v: string | undefined) => void }) {
   const err = value ? checkExpr(value) : undefined;
   // o que está sendo digitado (ainda não salvo): a expressão inválida é recusada ao confirmar, então o erro tem de aparecer antes
@@ -1005,12 +1184,13 @@ export function PlayPanel() {
   const last = playLength(play) - 1;
   const roleName = (r?: string) => (r === "end" ? "Fim" : r === "start" ? "Início" : r && r in LOGIC_ROLES ? LOGIC_ROLES[r as LogicRole].label : "");
   const role = roleName(node?.logic?.role);
-  const roleMark: Record<string, string> = { decision: "◆", switch: "◆", loop: "↻", end: "■", start: "●", call: "↗" };
+  const roleMark: Record<string, string> = { decision: "◆", switch: "◆", loop: "↻", end: "■", start: "●", call: "↗", code: "{ }" };
   const text = (() => {
     if (cur.error) return `Erro: ${cur.error}`;
     if (cur.role === "decision") return `Respondeu ${cur.branch === "sim" ? "sim" : "não"}: o fluxo segue pela seta "${cur.branch === "sim" ? "sim" : "não"}".`;
     if (cur.role === "switch") return `O valor caiu no caso ${cur.branch === "outros" ? "“outros”" : cur.branch}.`;
     if (cur.role === "loop") return cur.branch === "repete" ? `Volta ${cur.turn}: repete o corpo do laço.` : "Terminou as repetições e segue.";
+    if (cur.role === "code") return cur.branch === "erro" ? 'O código falhou: o fluxo segue pela seta "erro".' : "O código rodou: o fluxo segue.";
     if (cur.role === "call") return cur.branch === "erro" ? 'A chamada falhou: o fluxo segue pela seta "erro".' : "A chamada deu certo: o fluxo segue.";
     if (cur.role === "end") return play.run.outcome === "erro" ? "Fim com erro." : "";
     if (cur.role === "start") return "O fluxo começa com os dados do cenário.";

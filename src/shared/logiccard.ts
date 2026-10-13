@@ -41,6 +41,7 @@ export const LOGIC_ICON: Record<string, string[]> = {
   fork: ["M12 3.5v6", "M12 9.5L6 16", "M12 9.5l6 6.5"],
   join: ["M6 8l6 6.5", "M18 8l-6 6.5", "M12 14.5v6"],
   call: ["M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"],
+  code: ["M8.5 7L3.5 12l5 5", "M15.5 7l5 5-5 5", "M13.5 5l-3 14"],
 };
 
 export interface CardLine {
@@ -292,7 +293,9 @@ export function figureText(n: NodeEl, names: Record<string, string> = {}): { tit
     const parts = [l.foreach ? `para cada ${l.as ?? "item"} em ${ex(l.foreach)}` : "", l.until ? `até ${ex(l.until)}` : "", l.max ? `no máximo ${l.max} voltas` : ""].filter(Boolean);
     return { title: wrap(n.label, 32, 2), body: wrap(parts.join(" · "), 42, 3) };
   }
-  if (l.role === "call") return { title: wrap(n.label, 30, 2), body: wrap([l.text, l.falha ? `falha quando ${ex(l.falha)}` : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => t.split(":=")[0].trim()).join(", ")}` : ""].filter(Boolean).join(" · "), 36, 3) };
+  if (l.role === "code") return { title: wrap(n.label, 30, 2), body: wrap([l.text, l.code ? l.code.trim().split("\n")[0] : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => t.split(":=")[0].trim()).join(", ")}` : ""].filter(Boolean).join(" · "), 36, 3) };
+  if (l.role === "start" && l.trigger && l.trigger.kind !== "manual") return { title: wrap(n.label, 30, 2), body: wrap([l.text, l.trigger.kind === "webhook" ? `webhook ${l.trigger.method ?? "POST"} ${l.trigger.path ?? "/"}` : `agenda ${l.trigger.cron ?? ""}`].filter(Boolean).join(" · "), 36, 3) };
+  if (l.role === "call") return { title: wrap(n.label, 30, 2), body: wrap([l.text, l.request ? `${l.request.method} ${l.request.url.replace(/^"|"$/g, "")}` : "", l.falha ? `falha quando ${ex(l.falha)}` : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => t.split(":=")[0].trim()).join(", ")}` : ""].filter(Boolean).join(" · "), 36, 3) };
   return { title: wrap(n.label, 30, 2), body: wrap(l.text ?? "", 36, 2) };
 }
 
@@ -320,6 +323,7 @@ export function logicSize(n: NodeEl, names: Record<string, string> = {}): { w: n
     case "decision":
     case "switch":
     case "loop":
+    case "code":
     case "call": {
       const f = figureText(n, names);
       return { w: l.role === "switch" ? 380 : l.role === "decision" ? 330 : 340, h: 58 + f.title.length * 15 + f.body.length * 14 };

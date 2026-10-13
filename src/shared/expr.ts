@@ -110,6 +110,7 @@ export const FUNCTIONS: Record<string, { sig: string; doc: string; arity: [numbe
   ordenar: { sig: "ordenar(lista)", doc: "a lista em ordem crescente (números ou textos)", arity: [1, 1], cat: "Listas", ex: "ordenar([3, 1, 2])" },
   unicos: { sig: "unicos(lista)", doc: "a lista sem itens repetidos, na ordem em que aparecem", arity: [1, 1], cat: "Listas", ex: "unicos([1, 2, 2, 3])" },
   adicionar: { sig: "adicionar(lista, x)", doc: "nova lista com x no fim (a original não muda)", arity: [2, 2], cat: "Listas", ex: "adicionar([1, 2], 3)" },
+  segredo: { sig: "segredo(nome)", doc: "o valor de uma credencial guardada fora do diagrama (token, chave de API); no código gerado vem de deps.secrets ou da variável de ambiente de mesmo nome. O app nunca vê o valor: aqui vale um texto de mentira", arity: [1, 1], cat: "Texto", ex: "segredo(\"API_TOKEN\")" },
   partir: { sig: "partir(texto, separador)", doc: "parte o texto numa lista, em cada separador", arity: [2, 2], cat: "Texto", ex: "partir(\"a,b,c\", \",\")" },
 };
 
@@ -497,6 +498,7 @@ export function evaluate(e: Expr, env: Env): Value {
         case "ordenar": { const l = [...list(a[0], "ordenar")]; if (l.every((x) => typeof x === "number")) return l.sort((x, y) => (x as number) - (y as number)); if (l.every((x) => typeof x === "string")) return l.sort((x, y) => ((x as string) < (y as string) ? -1 : x === y ? 0 : 1)); throw new EvalError("ordenar(lista) precisa de uma lista só de números ou só de textos"); }
         case "unicos": return list(a[0], "unicos").filter((x, i, l) => l.findIndex((y) => same(x, y)) === i);
         case "adicionar": return [...list(a[0], "adicionar"), a[1]];
+        case "segredo": return "‹segredo " + str(a[0], "segredo") + "›";
       }
       throw new EvalError(`função "${e.fn}" sem implementação`);
     }
@@ -587,6 +589,7 @@ export function explain(e: Expr, names: Record<string, string> = {}, short = fal
           case "ordenar": return `${a[0]} em ordem crescente`;
           case "unicos": return `${a[0]} sem repetidos`;
           case "adicionar": return `${a[0]} com ${a[1]} no fim`;
+          case "segredo": return `a credencial ${a[0]}`;
         }
         return a.join(", ");
       }

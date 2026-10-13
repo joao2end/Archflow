@@ -99,12 +99,32 @@ const modeEnum = z.enum(["architecture", "domain", "logic"]);
 const logicValue: z.ZodType = z.lazy(() => z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(logicValue), z.record(z.string(), logicValue)]));
 const logicNodeSchema = z
   .object({
-    role: z.enum(["start", "end", "action", "rule", "decision", "switch", "loop", "fork", "join", "call", "input", "output", "variable", "scenario"]),
+    role: z.enum(["start", "end", "action", "rule", "decision", "switch", "loop", "fork", "join", "call", "code", "input", "output", "variable", "scenario"]),
     on: z.string().optional().describe("switch: expressão que escolhe o caminho"),
     until: z.string().optional().describe("loop: condição de parada"),
     max: z.number().int().min(1).max(1000).optional().describe("loop: no máximo N voltas"),
     foreach: z.string().optional().describe("loop: expressão que devolve a lista"),
     devolve: z.array(z.string()).optional().describe("call: efeitos que rodam quando a chamada dá certo (os dados que ela devolve), ex.: [\"cidade := cidade_do_servico\"]"),
+    request: z
+      .object({
+        method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+        url: z.string().describe('expressão com o endereço; texto fixo leva aspas: "https://api.exemplo.com/clientes/" + cliente_id'),
+        headers: z.record(z.string(), z.string()).optional().describe("nome → expressão"),
+        body: z.record(z.string(), z.string()).optional().describe("corpo JSON: campo → expressão (só POST, PUT, PATCH)"),
+      })
+      .optional()
+      .describe("call: chamada HTTP de verdade (o código gerado faz o fetch). A resposta fica nos dados resposta (corpo) e status_http; fora de 2xx ou sem rede o fluxo segue pela seta erro"),
+    mock: logicValue.optional().describe("call com request: a resposta simulada (corpo) que os exemplos do app usam, com status 200 · code: o resultado simulado (o app não executa TypeScript)"),
+    code: z.string().optional().describe("code: corpo de uma função TypeScript async (data) => { ... }; data são os dados do fluxo e o return vira o dado resultado (lido em devolve, ex.: \"total := resultado.total\"); se lançar erro, o fluxo segue pela seta erro"),
+    trigger: z
+      .object({
+        kind: z.enum(["manual", "webhook", "agenda"]),
+        path: z.string().optional().describe('webhook: caminho começando com "/", ex.: "/pedidos"'),
+        method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).optional().describe("webhook: método (padrão POST)"),
+        cron: z.string().optional().describe('agenda: cron de 5 campos, ex.: "0 8 * * 1-5"'),
+      })
+      .optional()
+      .describe("start: o que dispara o fluxo; o código gerado traz handler(req) (webhook) ou onSchedule() (agenda)"),
     falha: z.string().optional().describe("call: condição que simula a chamada falhando no exemplo; o fluxo segue pela seta branch \"erro\""),
     as: z.string().optional().describe("loop com foreach: nome do item"),
     outcome: z.enum(["ok", "erro"]).optional().describe("end: desfecho"),
@@ -477,16 +497,16 @@ server.registerTool(
   "generate_code",
   {
     description:
-      "Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
+      "Modo logic: gera TypeScript EXECUTÁVEL do fluxo (runtime.ts, <fluxo>.ts com `run(input, deps)` e <fluxo>.test.ts com um teste por exemplo de cenário); Call com `request` vira fetch de verdade. Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
     inputSchema: { language: z.enum(CODEGEN_LANGUAGES).optional().describe("padrão e único hoje: typescript") },
   },
   async ({ language }) => {
     const doc = await getDoc();
-    if (docMode(doc) !== "domain") return text(`o diagrama aberto está em modo "${docMode(doc)}"; gere código a partir de um diagrama de domínio`, true);
+    if (docMode(doc) === "architecture") return text(`o diagrama aberto está em modo "${docMode(doc)}"; gere código a partir de um diagrama de domínio ou de lógica`, true);
     const files = generateCode(doc, (language as CodegenLanguage | undefined) ?? "typescript");
     return text(files.length ? `${files.length} arquivo(s)
 
-${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem elementos de domínio");
+${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem elementos de domínio (ou, no modo logic, passos do fluxo)");
   },
 );
 

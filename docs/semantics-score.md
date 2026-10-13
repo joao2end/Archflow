@@ -36,6 +36,7 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `fork` | CLARO | ramos independentes, simulados na ordem das setas; L027 avisa conflito (iteração 6) |
 | `join` | CLARO | dica + só deixa passar sem fork; ramo em `end` termina o fluxo (25) |
 | `call` | CLARO | simulação: `falha` → seta erro; senão `devolve` e seta normal; a chamada real não roda (iteração 8) |
+| `code` | CLARO | TypeScript livre (corpo de `async (data) => {}`); o `return` vira `resultado`, lido por `devolve`; erro lançado segue pela seta erro; o app usa `mock` no lugar de executar; o código gerado roda de verdade (logicgen.test.ts) |
 
 ## Campos DDD
 
@@ -69,6 +70,10 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `logic.until` | CLARO | conferida antes de cada volta; vale junto com `max` e `foreach` (iteração 4) |
 | `logic.falha` | CLARO | ver ponto 6b (iteração 8) |
 | `logic.devolve` | CLARO | efeitos só quando a chamada dá certo; escreve dados; coberto por teste (iteração 8) |
+| `logic.request` | CLARO | chamada HTTP real do Call (método, endereço, cabeçalhos e corpo como expressões); o código gerado faz o fetch; coberto por logicgen.test.ts |
+| `logic.mock` | CLARO | resposta simulada (corpo, status 200) que os exemplos do app usam no lugar da rede; só vale com request (L032 avisa se falta) |
+| `logic.code` | CLARO | só no papel code; obrigatório; é o corpo da função TypeScript |
+| `logic.trigger` | CLARO | só no start: manual, webhook (método e caminho) ou agenda (cron de 5 campos); o código gerado exporta trigger e handler/onSchedule |
 | `logic.max` | CLARO | conta voltas (1–1000), sem padrão; vale junto com `until` e `foreach` (iteração 4) |
 | `logic.foreach` | CLARO | uma volta por item; `until` e `max` também podem cortar antes (iteração 4) |
 | `logic.as` | CLARO | nome do item do `foreach`, padrão `item`, fica com o último valor (24) |

@@ -124,7 +124,7 @@ function uncoveredBy(doc: Doc): { uncovered: string[]; byNode: Map<string, strin
     else if (role === "end" && !seenStep.has(n.id)) gap(`Em que caso o fluxo termina em "${n.label}"? Nenhum cenário chega lá.`);
     else if (role === "decision") {
       for (const b of ["sim", "nao"] as const) if (!seenBranch.has(`${n.id}|${b}`)) gap(`O que acontece quando a resposta de "${n.label}" é "${b === "sim" ? "sim" : "não"}"? Nenhum cenário mostra.`);
-    } else if (role === "call") {
+    } else if (role === "call" || role === "code") {
       if (flowEdges(doc).some((x) => x.from === n.id && x.logic?.branch === "erro") && !seenBranch.has(`${n.id}|erro`)) gap(`O que acontece quando "${n.label}" falha? Nenhum cenário mostra a seta "erro".`);
     } else if (role === "switch") {
       for (const e of flowEdges(doc).filter((x) => x.from === n.id)) {

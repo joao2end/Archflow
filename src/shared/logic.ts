@@ -9,8 +9,13 @@
  * Determinístico: a mesma entrada produz sempre a mesma saída.
  */
 import {
+  CODE_RESULT_NAME,
+  HTTP_RESPONSE_NAMES,
+  isCallLike,
   LOGIC_BRANCHES,
   LOGIC_BRANCH_KEYS,
+  LOGIC_HTTP_METHODS,
+  LOGIC_TRIGGER_KINDS,
   LOGIC_ROLES,
   LOGIC_ROLE_KEYS,
   SCHEMA_VERSION,
@@ -342,6 +347,51 @@ export function liftRuleConditionals(input: Doc): { doc: Doc; lifted: string[]; 
   return { doc, lifted, failed };
 }
 
+/** Valida `logic.request` de um Call: método e cada texto precisa ser uma expressão válida. */
+function checkRequest(r: unknown): string | undefined {
+  if (!r || typeof r !== "object" || Array.isArray(r)) return "logic.request deve ser um objeto { method, url, headers?, body? }";
+  const d = r as Record<string, unknown>;
+  for (const k of Object.keys(d)) if (!["method", "url", "headers", "body"].includes(k)) return `logic.request não tem o campo "${k}". Campos: method, url, headers, body`;
+  if (!LOGIC_HTTP_METHODS.includes(d.method as never)) return `logic.request.method inválido "${String(d.method)}". Válidos: ${LOGIC_HTTP_METHODS.join(", ")}`;
+  if (typeof d.url !== "string" || !d.url.trim()) return 'logic.request.url deve ser uma expressão com o endereço, ex.: "https://api.exemplo.com/clientes/" + cliente_id (texto fixo leva aspas)';
+  const e = checkExpr(d.url);
+  if (e) return `logic.request.url: ${e.message} (posição ${e.pos})`;
+  for (const f of ["headers", "body"] as const) {
+    if (d[f] === undefined) continue;
+    if (!d[f] || typeof d[f] !== "object" || Array.isArray(d[f])) return `logic.request.${f} deve ser um objeto nome → expressão, ex.: { "valor": "total" }`;
+    for (const [k, v] of Object.entries(d[f] as object)) {
+      if (typeof v !== "string") return `logic.request.${f}.${k} deve ser uma expressão em texto`;
+      const bad = checkExpr(v);
+      if (bad) return `logic.request.${f}.${k}: ${bad.message} (posição ${bad.pos})`;
+    }
+  }
+  if (d.body !== undefined && (d.method === "GET" || d.method === "DELETE") && Object.keys(d.body as object).length) return `uma chamada ${String(d.method)} não leva corpo: use POST, PUT ou PATCH, ou ponha os parâmetros no endereço`;
+  return undefined;
+}
+
+/** Valida `logic.trigger` de um Start. */
+export const CRON_RE = /^\s*(\S+\s+){4}\S+\s*$/;
+function checkTrigger(t: unknown): string | undefined {
+  if (!t || typeof t !== "object" || Array.isArray(t)) return "logic.trigger deve ser um objeto { kind, path?, method?, cron? }";
+  const d = t as Record<string, unknown>;
+  for (const k of Object.keys(d)) if (!["kind", "path", "method", "cron"].includes(k)) return `logic.trigger não tem o campo "${k}". Campos: kind, path, method, cron`;
+  if (!Object.keys(LOGIC_TRIGGER_KINDS).includes(d.kind as string)) return `logic.trigger.kind inválido "${String(d.kind)}". Válidos: ${Object.keys(LOGIC_TRIGGER_KINDS).join(", ")}`;
+  if (d.kind !== "webhook" && (d.path !== undefined || d.method !== undefined)) return `path e method são do gatilho webhook, não de ${String(d.kind)}`;
+  if (d.kind !== "agenda" && d.cron !== undefined) return "cron é do gatilho agenda";
+  if (d.kind === "webhook") {
+    if (typeof d.path !== "string" || !/^\/[A-Za-z0-9_\-/:.]*$/.test(d.path)) return 'o webhook precisa de logic.trigger.path começando com "/", ex.: "/pedidos"';
+    if (d.method !== undefined && !LOGIC_HTTP_METHODS.includes(d.method as never)) return `logic.trigger.method inválido "${String(d.method)}". Válidos: ${LOGIC_HTTP_METHODS.join(", ")}`;
+  }
+  if (d.kind === "agenda" && (typeof d.cron !== "string" || !CRON_RE.test(d.cron))) return 'a agenda precisa de logic.trigger.cron com 5 campos (minuto hora dia mês dia-da-semana), ex.: "0 8 * * 1-5"';
+  return undefined;
+}
+
+/** Todas as expressões (texto) de um Call com request, para achar os dados que ele lê. */
+export const requestExprs = (l: LogicNodeSpec): string[] => (l.request ? [l.request.url, ...Object.values(l.request.headers ?? {}), ...Object.values(l.request.body ?? {})] : []);
+
+/** Dados que o próprio app cria: a resposta de cada chamada HTTP (`resposta`, `status_http`). */
+export const builtinWrites = (doc: Doc): string[] => [...(doc.nodes.some((n) => n.logic?.role === "call" && n.logic.request) ? HTTP_RESPONSE_NAMES : []), ...(doc.nodes.some((n) => n.logic?.role === "code") ? [CODE_RESULT_NAME] : [])];
+
 /** Valida o objeto `logic` de um nó. Devolve a mensagem de erro (acionável) ou undefined. */
 export function checkLogicNode(logic: unknown): string | undefined {
   if (!logic || typeof logic !== "object") return "logic deve ser um objeto { role, ... }";
@@ -368,14 +418,31 @@ export function checkLogicNode(logic: unknown): string | undefined {
     const e = checkExpr(d[f] as string);
     if (e) return `logic.${f}: ${e.message} (posição ${e.pos})`;
   }
+  if (d.request !== undefined) {
+    if (role !== "call") return "logic.request só existe no papel call";
+    const bad = checkRequest(d.request);
+    if (bad) return bad;
+  }
+  if (d.trigger !== undefined) {
+    if (role !== "start") return "logic.trigger só existe no papel start";
+    const bad = checkTrigger(d.trigger);
+    if (bad) return bad;
+  }
+  if (d.code !== undefined) {
+    if (role !== "code") return "logic.code só existe no papel code";
+    if (typeof d.code !== "string" || !d.code.trim()) return "logic.code deve ser o corpo de uma função TypeScript em texto, ex.: \"return { total: data.itens.length };\"";
+  }
+  if (role === "code" && d.code === undefined) return "um nó code precisa de logic.code (o corpo da função TypeScript; data são os dados do fluxo e o return vira o dado resultado)";
+  if (d.mock !== undefined && !isValue(d.mock)) return "logic.mock deve ser texto, número, lógico, vazio, lista ou objeto";
+  if (d.mock !== undefined && d.request === undefined && role !== "code") return "logic.mock é a resposta simulada de uma chamada HTTP: informe também logic.request (ou use o papel code)";
   if (role === "loop" && d.until === undefined && d.max === undefined && d.foreach === undefined) return "um loop precisa de parada: informe logic.until, logic.max e/ou logic.foreach";
   if (role === "decision" && d.when === undefined) return 'uma decisão precisa de condição (logic.when), ex.: "preco < piso"';
-  for (const field of role === "rule" ? (["then"] as const) : role === "call" ? (["devolve"] as const) : [])
+  for (const field of role === "rule" ? (["then"] as const) : isCallLike(role) ? (["devolve"] as const) : [])
     for (const [i, s] of (Array.isArray(d[field]) ? (d[field] as unknown[]) : []).entries()) {
       if (typeof s !== "string") continue;
       try {
         const st = parseStatement(s);
-        if (st.t === "assign" && hasConditional(st.value)) return `logic.${field}[${i}] "${s}": ${role === "rule" ? "a ação" : "a chamada"} não tem condição, e «se … entao … senao» dentro do efeito esconde o desvio. Coloque uma Decisão antes: "sim" leva a ${role === "rule" ? "uma ação" : "uma chamada"} com um valor e "não" a outra com o outro`;
+        if (st.t === "assign" && hasConditional(st.value)) return `logic.${field}[${i}] "${s}": ${role === "rule" ? "a ação" : role === "code" ? "o código" : "a chamada"} não tem condição, e «se … entao … senao» dentro do efeito esconde o desvio. Coloque uma Decisão antes: "sim" leva a ${role === "rule" ? "uma ação" : "um passo"} com um valor e "não" a outra com o outro`;
       } catch {
         /* a sintaxe é conferida logo abaixo */
       }
@@ -442,6 +509,7 @@ export function nextExit(doc: Doc, from: string): LogicConnSpec | undefined {
       return { case: node.logic.on ? `"valor${n > 1 ? n : ""}"` : `condicao${n > 1 ? n : ""}` };
     }
     case "call":
+    case "code":
       return outs.some((c) => c.logic?.branch !== "erro") && !used.has("erro") ? { branch: "erro" } : undefined;
   }
   return undefined;
@@ -457,6 +525,7 @@ export function reshapeLogic(old: LogicNodeSpec | undefined, role: LogicNodeSpec
     const v = (old as unknown as Record<string, unknown> | undefined)?.[f];
     if (v !== undefined) next[f] = v;
   }
+  if (role === "code" && next.code === undefined) next.code = "return {};";
   return next as unknown as LogicNodeSpec;
 }
 
@@ -470,10 +539,10 @@ export const dataNodes = (doc: Doc) => doc.nodes.filter((n) => isDataRole(n.logi
 export const dataKey = (n: NodeEl) => n.logic?.key ?? n.id.replace(/-/g, "_");
 
 /** Efeitos de um passo: os `then` da Rule ou os `devolve` do Call. */
-export const effectsOf = (l: LogicNodeSpec): string[] => (l.role === "call" ? l.devolve : l.then) ?? [];
+export const effectsOf = (l: LogicNodeSpec): string[] => (isCallLike(l.role) ? l.devolve : l.then) ?? [];
 
 /** Papéis que fazem parte do fluxo (os demais são dados e cenários). */
-export const FLOW_ROLES: LogicRole[] = ["start", "end", "rule", "decision", "switch", "loop", "fork", "join", "call"];
+export const FLOW_ROLES: LogicRole[] = ["start", "end", "rule", "decision", "switch", "loop", "fork", "join", "call", "code"];
 export const isFlowNode = (n: NodeEl) => !!n.logic && FLOW_ROLES.includes(n.logic.role);
 
 /** Setas entre passos do fluxo. */
@@ -664,18 +733,26 @@ export function runFlow(doc: Doc, given: Record<string, LogicValue>): Run {
           record(blank(n));
           cur = only();
           break;
-        case "call": {
+        case "call":
+        case "code": {
           const st = record(blank(n));
+          const created: readonly string[] = l.request ? HTTP_RESPONSE_NAMES : l.role === "code" ? [CODE_RESULT_NAME] : [];
           try {
+            if (l.request) {
+              env.resposta = (l.mock ?? null) as Value;
+              env.status_http = 200;
+            } else if (l.role === "code") env[CODE_RESULT_NAME] = (l.mock ?? null) as Value;
             const f = l.falha === undefined ? false : evaluate(parseExpr(l.falha), env);
             if (typeof f !== "boolean") throw new EvalError(`a condição de falha precisa dar verdadeiro ou falso, mas deu ${JSON.stringify(f)}`);
             if (f) {
               st.branch = "erro";
+              for (const k of created) delete env[k];
               const e = pick(n.id, (x) => x.branch === "erro");
               if (!e) throw new EvalError(`a chamada "${n.label}" falhou (${l.falha}), mas falta a seta "erro" saindo dela`);
               cur = e.to.id;
             } else {
               runEffects(l, env, locked, st);
+              for (const k of created) delete env[k];
               cur = pick(n.id, (x) => x.branch !== "erro")?.to.id;
             }
           } catch (e) {
@@ -899,7 +976,7 @@ export function usageOf(doc: Doc): Map<string, { reads: Set<string>; writes: Set
     const u = { reads: new Set<string>(), writes: new Set<string>() };
     const l = n.logic!;
     try {
-      for (const f of [l.when, l.on, l.until, l.foreach, l.falha]) if (f) readsOf(parseExpr(f), u.reads);
+      for (const f of [l.when, l.on, l.until, l.foreach, l.falha, ...requestExprs(l)]) if (f) readsOf(parseExpr(f), u.reads);
       if (l.role === "switch" && !l.on) for (const e of exitsOf(doc, n.id)) if (e.case) readsOf(parseExpr(e.case), u.reads);
       for (const t of effectsOf(l)) {
         const s = parseStatement(t);
@@ -1030,7 +1107,7 @@ export function logicStatus(doc: Doc): Map<string, "ok" | "fail" | "none"> {
 function readsOfNode(n: NodeEl): Set<string> {
   const l = n.logic!;
   const out = new Set<string>();
-  for (const f of [l.when, l.on, l.until, l.foreach, l.falha]) if (f) readsOf(parseExpr(f), out);
+  for (const f of [l.when, l.on, l.until, l.foreach, l.falha, ...requestExprs(l)]) if (f) readsOf(parseExpr(f), out);
   for (const t of effectsOf(l)) {
     const s = parseStatement(t);
     if (s.t === "assign") readsOf(s.value, out);
@@ -1051,9 +1128,10 @@ export function logicIssues(doc: Doc): Issue[] {
 
   const declared = (name: string) => keys.has(name) || [...keys.keys()].some((k) => name.startsWith(k + ".") || k.startsWith(name + "."));
   const written = new Set<string>();
+  const builtins = new Set(builtinWrites(doc));
   const readSet = new Set<string>();
   const loopVars = new Set(logicNodes(doc, "loop").filter((n) => n.logic!.foreach).map((n) => n.logic!.as ?? "item"));
-  for (const r of [...rules, ...logicNodes(doc, "call")])
+  for (const r of [...rules, ...logicNodes(doc, "call"), ...logicNodes(doc, "code")])
     for (const src of effectsOf(r.logic!)) {
       try {
         const st = parseStatement(src);
@@ -1083,7 +1161,7 @@ export function logicIssues(doc: Doc): Issue[] {
     if (reads)
       for (const r of reads) {
         readSet.add(r);
-        if (!declared(r) && !written.has(r) && !loopVars.has(r.split(".")[0])) add("L002", "aviso", n.id, `${where} lê "${r}", que não é um dado declarado nem escrito por outra ação`);
+        if (!declared(r) && !written.has(r) && !loopVars.has(r.split(".")[0]) && !builtins.has(r.split(".")[0])) add("L002", "aviso", n.id, `${where} lê "${r}", que não é um dado declarado nem escrito por outra ação`);
       }
     if (l.role === "rule")
       for (const src of l.then ?? []) {
@@ -1098,7 +1176,7 @@ export function logicIssues(doc: Doc): Issue[] {
     if ((l.role === "rule" || l.role === "decision" || l.role === "switch") && !(l.examples ?? []).length) add("L003", l.role === "rule" ? "aviso" : "dica", n.id, `${where} sem exemplo: sem um caso concreto ninguém confere se está certo`);
     if (l.role === "rule" && !l.text?.trim()) add("L008", "dica", n.id, `${where} sem frase de negócio (campo "text"); a explicação automática cobre, mas a frase do negócio é melhor`);
     if (l.role === "rule") for (const i of conditionalEffects(l)) add("L028", "erro", n.id, `${where}: o efeito ${i + 1} (${l.then![i]}) tem «se … entao … senao» dentro, e a ação não tem condição. Coloque uma Decisão antes: "sim" leva a uma ação com um valor e "não" a outra com o outro`);
-    if (l.role === "call") for (const i of conditionalEffects(l, "devolve")) add("L028", "erro", n.id, `${where}: o efeito ${i + 1} de devolve (${l.devolve![i]}) tem «se … entao … senao» dentro, e a chamada não tem condição. Coloque uma Decisão depois dela`);
+    if (isCallLike(l.role)) for (const i of conditionalEffects(l, "devolve")) add("L028", "erro", n.id, `${where}: o efeito ${i + 1} de devolve (${l.devolve![i]}) tem «se … entao … senao» dentro, e a chamada não tem condição. Coloque uma Decisão depois dela`);
     if (!flow && l.role === "rule" && l.order === undefined) add("L005", "aviso", n.id, `${where} sem ordem na fila (logic.order)`);
   }
   if (!flow) {
@@ -1163,10 +1241,12 @@ export function logicIssues(doc: Doc): Issue[] {
       if (l.role === "loop") for (const b of ["repete", "segue"] as const) if (count(b) !== 1) add("L017", "erro", n.id, `o loop ${where} precisa de exatamente uma seta "${b}" (tem ${count(b)})`);
       if (l.role === "fork" && o.length < 2) add("L018", "erro", n.id, `o paralelo ${where} precisa de 2 ou mais saídas`);
       if (l.role === "join" && i.length < 2) add("L018", "aviso", n.id, `a junção ${where} espera 2 ou mais caminhos, mas recebe ${i.length}`);
-      if (l.role === "call" && count("erro") > 1) add("L025", "erro", n.id, `a chamada ${where} tem ${count("erro")} setas "erro": só pode haver uma`);
-      if (l.role === "call" && l.falha !== undefined && !count("erro")) add("L025", "aviso", n.id, `a chamada ${where} pode falhar (${l.falha}), mas não tem a seta "erro": ligue o que acontece quando falha`);
-      if (l.role === "call" && l.falha === undefined && count("erro")) add("L025", "dica", n.id, `a chamada ${where} tem seta "erro", mas nenhum exemplo a faz falhar: preencha "Falha simulada quando" para poder testar esse caminho`);
-      if (["rule", "start", "call", "join"].includes(l.role) && o.filter((e) => e.logic?.branch !== "erro").length > 1) add("L024", "aviso", n.id, `${where} tem ${o.length} saídas sem decisão: o fluxo não sabe qual seguir (use uma decisão, escolha ou paralelo)`);
+      if (l.role === "code" && l.mock === undefined) add("L033", "dica", n.id, `o código ${where} não tem resultado simulado (mock): o app não executa TypeScript, então nos exemplos "resultado" fica vazio e os efeitos que o leem dão erro. Informe o objeto que o código devolveria`);
+      if (isCallLike(l.role) && count("erro") > 1) add("L025", "erro", n.id, `a chamada ${where} tem ${count("erro")} setas "erro": só pode haver uma`);
+      if (isCallLike(l.role) && l.falha !== undefined && !count("erro")) add("L025", "aviso", n.id, `a chamada ${where} pode falhar (${l.falha}), mas não tem a seta "erro": ligue o que acontece quando falha`);
+      if (l.role === "call" && l.request && l.mock === undefined) add("L032", "dica", n.id, `a chamada HTTP ${where} não tem resposta simulada (mock): nos exemplos, "resposta" fica vazia e os efeitos que a leem dão erro. Informe um corpo de exemplo, como o que a API devolve`);
+      if (isCallLike(l.role) && l.falha === undefined && l.role !== "code" && count("erro")) add("L025", "dica", n.id, `a chamada ${where} tem seta "erro", mas nenhum exemplo a faz falhar: preencha "Falha simulada quando" para poder testar esse caminho`);
+      if (["rule", "start", "call", "code", "join"].includes(l.role) && o.filter((e) => e.logic?.branch !== "erro").length > 1) add("L024", "aviso", n.id, `${where} tem ${o.length} saídas sem decisão: o fluxo não sabe qual seguir (use uma decisão, escolha ou paralelo)`);
     }
     // paralelo: o app simula os ramos um depois do outro, na ordem das setas, sobre os mesmos dados; ramos que se tocam dão resultado que depende da ordem
     const use = usageOf(doc);
@@ -1250,6 +1330,7 @@ const editDistance = (a: string, b: string): number => {
 export function nameProblems(doc: Doc, reads: Iterable<string>): { name: string; suggestion?: string }[] {
   const keys = new Set(dataNodes(doc).map(dataKey));
   const written = new Set<string>();
+  const builtins = new Set(builtinWrites(doc));
   for (const n of doc.nodes.filter(isFlowNode)) for (const t of effectsOf(n.logic!)) {
     try {
       const st = parseStatement(t);
@@ -1259,7 +1340,7 @@ export function nameProblems(doc: Doc, reads: Iterable<string>): { name: string;
     }
   }
   const loopVars = new Set(logicNodes(doc, "loop").filter((n) => n.logic!.foreach).map((n) => n.logic!.as ?? "item"));
-  const known = (name: string) => keys.has(name) || [...keys].some((k) => name.startsWith(k + ".") || k.startsWith(name + ".")) || written.has(name) || loopVars.has(name.split(".")[0]);
+  const known = (name: string) => keys.has(name) || [...keys].some((k) => name.startsWith(k + ".") || k.startsWith(name + ".")) || written.has(name) || loopVars.has(name.split(".")[0]) || builtins.has(name.split(".")[0]);
   const candidates = [...new Set([...keys, ...written, ...loopVars])];
   const out: { name: string; suggestion?: string }[] = [];
   for (const name of new Set(reads)) {
@@ -1343,8 +1424,12 @@ function stepText(n: NodeEl, names: Record<string, string>): string {
       return [l.text, l.foreach ? `para cada ${l.as ?? "item"} em ${ex(l.foreach)}` : "", l.until ? `até ${ex(l.until)}` : "", l.max ? `no máximo ${l.max} vezes` : ""].filter(Boolean).join(" · ");
     case "end":
       return `${l.outcome === "erro" ? "[erro] " : ""}${l.text ?? ""}`.trim();
+    case "start":
+      return [l.text, l.trigger && l.trigger.kind !== "manual" ? (l.trigger.kind === "webhook" ? `gatilho: webhook ${l.trigger.method ?? "POST"} ${l.trigger.path}` : `gatilho: agenda (cron ${l.trigger.cron})`) : ""].filter(Boolean).join(" · ");
+    case "code":
+      return [l.text, `código TypeScript (${(l.code ?? "").split("\n").filter((x) => x.trim()).length} linhas; o resultado fica em resultado)`, l.falha ? `falha quando ${ex(l.falha)}` : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => { try { return explainStatement(parseStatement(t), names); } catch { return `${t} ✘`; } }).join("; ")}` : ""].filter(Boolean).join(" · ");
     case "call":
-      return [l.text, l.falha ? `falha quando ${ex(l.falha)}` : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => { try { return explainStatement(parseStatement(t), names); } catch { return `${t} ✘`; } }).join("; ")}` : ""].filter(Boolean).join(" · ");
+      return [l.text, l.request ? `HTTP ${l.request.method} ${ex(l.request.url)}${l.request.body ? ` com corpo { ${Object.entries(l.request.body).map(([k, v]) => `${k}: ${ex(v)}`).join(", ")} }` : ""}; a resposta fica em resposta e status_http` : "", l.falha ? `falha quando ${ex(l.falha)}` : "", l.devolve?.length ? `devolve ${l.devolve.map((t) => { try { return explainStatement(parseStatement(t), names); } catch { return `${t} ✘`; } }).join("; ")}` : ""].filter(Boolean).join(" · ");
     default:
       return l.text ?? "";
   }
@@ -1486,6 +1571,8 @@ export function schemaGuideLogic(): string {
     '5. Para cada ação, decisão e escolha, ao menos um exemplo: `{ name, given: { dado: valor }, expect: { dado: valor } }`. Em decisão e escolha, `expect: { caminho: "sim" }` confere por onde sai (decisão: `"sim"` ou `"nao"`, sem acento; escolha: o valor do caso ou `"outros"`). Exemplos de `scenario` rodam o fluxo inteiro (`expect.desfecho` confere "ok" ou "erro"). `given` são os dados que ENTRAM no passo (na ação, na decisão e na escolha roda só aquele passo; no cenário, o fluxo todo) e valem mais que o `value` do dado; dado sem `given` e sem `value` dá o erro «não tem valor neste exemplo». `expect` confere SÓ as chaves listadas, nos dados depois do passo (para ação: depois dos efeitos).',
     "6. `layout` (padrão no modo logic) organiza o fluxo de cima para baixo; `validate_diagram` roda os exemplos de verdade (L004) e checa o fluxo (L012–L024).",
     "7. **Pergunte os números** (limites, faixas, percentuais) ao usuário; não invente.",
+    "8. **Integrações reais (estilo n8n) e código**: um `call` com `request: { method, url, headers?, body? }` é uma chamada HTTP de verdade (`url`, cada cabeçalho e cada campo do `body` são EXPRESSÕES: texto fixo leva aspas, ex.: `url: '\"https://api.exemplo.com/clientes/\" + cliente_id'`; o corpo vai como JSON). A resposta cai nos dados `resposta` (o corpo, JSON ou texto) e `status_http`, que `falha` e `devolve` podem ler (`devolve: [\"cidade := resposta.localidade\"]`). Resposta fora de 2xx ou sem rede segue pela seta `erro`. O app não chama a rede: os exemplos usam `mock` (o corpo simulado, status 200). `generate_code` gera TypeScript EXECUTÁVEL do fluxo (`run(input, deps)`, com `fetch` de verdade nas chamadas, e um teste por exemplo de cenário); declare os `type` dos dados na sintaxe do TypeScript, pois viram as interfaces Input e Output.",
+    "9. **Gatilhos, código livre e credenciais (estilo n8n)**: o `start` aceita `trigger`: `{ kind: \"manual\" }` (padrão), `{ kind: \"webhook\", method?, path: \"/pedidos\" }` (o corpo JSON, ou a query em GET, é o input) ou `{ kind: \"agenda\", cron: \"0 8 * * 1-5\" }`; o código gerado exporta `trigger` e `handler(req)` (Fetch API) ou `onSchedule()`. Para o que as expressões não alcançam use um nó `code` com `code`: o CORPO de `async (data) => { ... }` em TypeScript (`data` são os dados do fluxo); o `return` vira o dado `resultado`, lido em `devolve` (`total := resultado.total`); se lançar erro, segue pela seta `erro`. O app NÃO executa TypeScript: nos exemplos vale `mock` (o resultado simulado); no código gerado roda de verdade. Credenciais: `segredo(\"API_TOKEN\")` numa expressão (ex.: cabeçalho `Authorization`) lê `deps.secrets` ou a variável de ambiente no código gerado; no app é um texto de mentira, e o valor nunca fica no diagrama.",
     "",
     "## Semântica do fluxo",
     "- O fluxo anda de seta em seta a partir do `start`, sobre os mesmos dados; `x := ...` atualiza `x` para os passos seguintes.",

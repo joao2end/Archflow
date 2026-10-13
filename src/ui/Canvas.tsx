@@ -156,7 +156,7 @@ const flowKey = (c: ConnectionEl) => (c.logic?.branch === "sim" ? "ok" : c.logic
 export type Viz = "cur" | "vis" | "dim" | "rel";
 
 /** Legenda de cada elemento do fluxo (a primeira linha pequena do cartão). */
-const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Ação", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", input: "Entrada", output: "Resultado", variable: "Variável", scenario: "Cenário" };
+const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Ação", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", code: "Código", input: "Entrada", output: "Resultado", variable: "Variável", scenario: "Cenário" };
 
 /** Ícone no azulejo colorido do cartão (viewBox 24). */
 function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: number; y: number; size: number; color: string; round?: boolean }) {
@@ -188,7 +188,7 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
   const caption = l.role === "end" && l.outcome === "erro" ? "Fim com erro" : isFailureScenario(n) ? "Cenário de falha" : LOGIC_CAPTION[l.role];
   const w = n.w;
   const h = n.h;
-  const dashed = l.role === "loop" || l.role === "call";
+  const dashed = l.role === "loop" || l.role === "call" || l.role === "code";
   const R = l.role === "start" || l.role === "end" ? h / 2 : isDataRole(l.role) ? 14 : 16;
   const seal = (x: number, y: number) =>
     status !== "fail" && gap?.length ? (
