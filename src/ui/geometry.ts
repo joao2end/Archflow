@@ -182,6 +182,11 @@ export function intersects(a: Box, b: Box): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+/** `a` está inteiramente dentro de `b`. */
+export function within(a: Box, b: Box): boolean {
+  return a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
+}
+
 export function normRect(a: Pt, b: Pt): Box {
   return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
 }
