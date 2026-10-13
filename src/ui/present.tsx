@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EraseModes, InkOptions } from "./drawbar";
 import { Glyph } from "./icons";
 import { fitView } from "./keys";
 import { INK_COLORS, inkPath as pathOf, strokeAttrs } from "./ink";
+import { RichEditor, RichToolbar, richToHtml } from "./richeditor";
 import { getState, set, useStore } from "./store";
 import type { Pt } from "./geometry";
 import { RecordControls, recordingGrace } from "./record";
 import { StoryPanel } from "./story";
+import { parseRich, plainText, type BlockKind } from "../shared/richtext";
 import { docMode } from "../shared/schema";
 
 /* ───────── modo apresentação: tela limpa + caneta, marca-texto, laser e cronômetro ───────── */
@@ -37,14 +39,122 @@ interface PNote {
 }
 
 const LINE_H = 1.35;
-/** linhas exibidas: listas ganham marcador; "[ ]" e "[x]" viram caixas */
-const noteLines = (n: PNote) =>
-  n.text.split("\n").map((l) => {
-    if (n.kind !== "list") return l;
-    if (/^\[x\]/i.test(l)) return "☑ " + l.replace(/^\[x\]\s?/i, "");
-    if (/^\[ \]/.test(l)) return "☐ " + l.replace(/^\[ \]\s?/, "");
-    return "• " + l;
-  });
+const BLOCK_SCALE: Record<BlockKind, number> = { p: 1, ul: 1, ol: 1, h1: 1.4, h2: 1.18, pre: 0.95 };
+
+function noteBounds(n: PNote) {
+  const blocks = parseRich(n.text);
+  let h = 0;
+  let maxW = 1;
+  for (const b of blocks) {
+    const fs = n.fs * BLOCK_SCALE[b.kind];
+    let body = b.spans.map((s) => s.t).join("");
+    if (b.kind === "pre") {
+      const rows = body.split("\n");
+      for (const row of rows) maxW = Math.max(maxW, row.length * fs * 0.62);
+      h += Math.max(1, rows.length) * fs * LINE_H + fs * 0.4;
+      continue;
+    }
+    let prefix = "";
+    if (b.kind === "ul") prefix = "• ";
+    else if (b.kind === "ol") prefix = `${b.n ?? 1}. `;
+    else if (n.kind === "list") {
+      if (/^\[x\]/i.test(body)) (prefix = "☑ "), (body = body.replace(/^\[x\]\s?/i, ""));
+      else if (/^\[ \]/.test(body)) (prefix = "☐ "), (body = body.replace(/^\[ \]\s?/, ""));
+      else prefix = "• ";
+    }
+    maxW = Math.max(maxW, (prefix.length + body.length) * fs * 0.6);
+    h += fs * LINE_H;
+  }
+  return { w: maxW, h: Math.max(h, n.fs * LINE_H) };
+}
+
+/** Editor rico flutuante — mesma barra/controles do quadro. */
+function PresentNoteEditor({
+  n,
+  left,
+  top,
+  fs,
+  toolbarTop,
+  onChange,
+  onCard,
+  onClose,
+}: {
+  n: PNote;
+  left: number;
+  top: number;
+  fs: number;
+  toolbarTop: number;
+  onChange: (text: string) => void;
+  onCard: (patch: { fontSize?: number; fill?: string }) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  return (
+    <>
+      <RichToolbar
+        root={ref}
+        className="floating present-rich-bar"
+        style={{ left: Math.min(Math.max(8, left), window.innerWidth - 320), top: toolbarTop }}
+        compact
+        noteCard={{ fontSize: Math.round(n.fs) }}
+        onNoteCard={onCard}
+        showFill={false}
+      />
+      <RichEditor
+        innerRef={ref}
+        value={n.text}
+        onChange={onChange}
+        onClose={onClose}
+        autoFocus
+        label={n.kind === "list" ? "Lista" : "Texto"}
+        placeholder={n.kind === "list" ? "um item por linha" : "Escreva…"}
+        className="present-note-edit present-rich-edit"
+        style={{
+          left,
+          top,
+          fontSize: fs,
+          lineHeight: LINE_H,
+          color: n.color,
+          minWidth: 160,
+          maxWidth: "70vw",
+        }}
+      />
+    </>
+  );
+}
+
+/** Renderiza o markdown da anotação como HTML (mesmo pipeline do editor). */
+function PresentNoteShape({ n, onEdit }: { n: PNote; onEdit?: () => void }) {
+  const html = useMemo(() => richToHtml(n.text || " "), [n.text]);
+  const { w, h } = useMemo(() => noteBounds(n), [n.text, n.fs, n.kind]);
+  return (
+    <g transform={`translate(${n.x},${n.y})`}>
+      <foreignObject width={Math.max(w, 48)} height={Math.max(h, n.fs * LINE_H)} style={{ overflow: "visible" }}>
+        <div
+          {...{ xmlns: "http://www.w3.org/1999/xhtml" }}
+          className={`present-rich-view note-md${n.kind === "list" ? " list" : ""}`}
+          style={{
+            fontSize: n.fs,
+            lineHeight: LINE_H,
+            color: n.color,
+            fontWeight: 600,
+            fontFamily: "var(--sans)",
+            pointerEvents: onEdit ? "auto" : "none",
+            cursor: onEdit ? "text" : undefined,
+            width: "max-content",
+            maxWidth: "70vw",
+          }}
+          dangerouslySetInnerHTML={{ __html: html }}
+          onPointerDown={(e) => {
+            if (!onEdit) return;
+            e.stopPropagation();
+            onEdit();
+          }}
+        />
+      </foreignObject>
+    </g>
+  );
+}
 
 const COLORS = INK_COLORS;
 
@@ -63,7 +173,7 @@ export function enterPresent() {
 
 export function exitPresent() {
   if (!getState().present) return;
-  set({ present: false, panel: saved?.panel === "bg" ? null : saved?.panel ?? "assets", tool: saved?.tool === "hand" ? "select" : saved?.tool ?? "select", ...(saved ? { view: saved.view } : {}) });
+  set({ present: false, panel: saved?.panel === "styles" ? null : saved?.panel ?? "assets", tool: saved?.tool === "hand" ? "select" : saved?.tool ?? "select", ...(saved ? { view: saved.view } : {}) });
   saved = null;
   if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
 }
@@ -187,7 +297,7 @@ export function PresentMode() {
   /* atalhos */
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest?.("input,textarea")) return;
+      if ((e.target as HTMLElement)?.closest?.("input,textarea,[contenteditable],.rich-editor,.rich-toolbar")) return;
       const k = e.key.toLowerCase();
       if (e.ctrlKey || e.metaKey) {
         if (k === "z") {
@@ -237,7 +347,7 @@ export function PresentMode() {
     if (tool === "text" || tool === "list") {
       const p = toWorld(e);
       const id = ++idc.current;
-      setNotes((all) => [...all, { id, kind: tool, color, x: p.x, y: p.y, fs: 22 / z, text: "" }]);
+      setNotes((all) => [...all, { id, kind: tool, color, x: p.x, y: p.y, fs: 22, text: tool === "list" ? "- " : "" }]);
       setEditing(id);
       return;
     }
@@ -259,9 +369,7 @@ export function PresentMode() {
     if (getState().eraseMode === "ink") return;
     setNotes((all) =>
       all.filter((n) => {
-        const lines = noteLines(n);
-        const w = Math.max(...lines.map((l) => l.length), 1) * n.fs * 0.6;
-        const h = lines.length * n.fs * LINE_H;
+        const { w, h } = noteBounds(n);
         return !(p.x >= n.x - r && p.x <= n.x + w + r && p.y >= n.y - r && p.y <= n.y + h + r);
       }),
     );
@@ -318,28 +426,11 @@ export function PresentMode() {
           {notes.map(
             (n) =>
               n.id !== editing && (
-                <text
+                <PresentNoteShape
                   key={n.id}
-                  x={n.x}
-                  y={n.y}
-                  fill={n.color}
-                  fontSize={n.fs}
-                  fontWeight={600}
-                  fontFamily="var(--sans)"
-                  dominantBaseline="hanging"
-                  style={{ cursor: tool === "text" || tool === "list" ? "text" : undefined, pointerEvents: tool === "text" || tool === "list" ? "auto" : "none" }}
-                  onPointerDown={(e) => {
-                    if (tool !== "text" && tool !== "list") return;
-                    e.stopPropagation();
-                    setEditing(n.id);
-                  }}
-                >
-                  {noteLines(n).map((l, i) => (
-                    <tspan key={i} x={n.x} dy={i ? n.fs * LINE_H : 0}>
-                      {l || "\u00a0"}
-                    </tspan>
-                  ))}
-                </text>
+                  n={n}
+                  onEdit={tool === "text" || tool === "list" ? () => setEditing(n.id) : undefined}
+                />
               ),
           )}
         </g>
@@ -359,32 +450,37 @@ export function PresentMode() {
         )}
       </svg>
 
-      {notes.map(
-        (n) =>
-          n.id === editing && (
-            <textarea
-              key={n.id}
-              className="present-note-edit"
-              autoFocus
-              rows={Math.max(1, n.text.split("\n").length)}
-              value={n.text}
-              placeholder={n.kind === "list" ? "um item por linha" : "Escreva…"}
-              aria-label={n.kind === "list" ? "Lista" : "Texto"}
-              style={{ left: view.x + n.x * view.z, top: view.y + n.y * view.z, fontSize: n.fs * view.z, lineHeight: LINE_H, color: n.color }}
-              onChange={(e) => setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, text: e.target.value } : x)))}
-              onBlur={() => {
-                setEditing(null);
-                setNotes((all) => all.filter((x) => x.id !== n.id || x.text.trim()));
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-              }}
-            />
-          ),
-      )}
+      {notes.map((n) => {
+        if (n.id !== editing) return null;
+        const left = view.x + n.x * view.z;
+        const top = view.y + n.y * view.z;
+        const fs = n.fs * view.z;
+        const above = top > 56;
+        return (
+          <PresentNoteEditor
+            key={n.id}
+            n={n}
+            left={left}
+            top={top}
+            fs={fs}
+            toolbarTop={above ? top - 44 : top + noteBounds(n).h * view.z + 6}
+            onChange={(text) => setNotes((all) => all.map((x) => (x.id === n.id ? { ...x, text } : x)))}
+            onCard={(patch) =>
+              setNotes((all) =>
+                all.map((x) => {
+                  if (x.id !== n.id) return x;
+                  if ("fontSize" in patch && patch.fontSize != null) return { ...x, fs: patch.fontSize };
+                  return x;
+                }),
+              )
+            }
+            onClose={() => {
+              setEditing(null);
+              setNotes((all) => all.filter((x) => x.id !== n.id || plainText(x.text).trim()));
+            }}
+          />
+        );
+      })}
 
       <Timer />
       <RecordControls />
