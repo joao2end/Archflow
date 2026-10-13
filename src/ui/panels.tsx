@@ -7,7 +7,7 @@ import { ASSET_CATEGORIES } from "../shared/catalog";
 import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KINDS, LOGIC_ROLES, INFRA_CONNECTION_TYPES, NODE_KINDS, docMode, type ConnectionType, type GroupKind, type NodeKind, type Routing } from "../shared/schema";
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
 import { LogicConnFields, LogicFields } from "./logic";
-import { exportJson, exportPng, exportSvg, importJson } from "./export";
+import { exportHtml, exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
 import { TechPicker } from "./typepicker";
@@ -171,6 +171,9 @@ export function TopBar() {
               </button>
               <button onClick={() => fileRef.current?.click()}>
                 <Glyph name="upload" size={17} /> Importar diagrama…
+              </button>
+              <button onClick={() => (void exportHtml(), setMenu(false))} data-tip="Um único .html com o diagrama como está agora (zoom e arrastar); abre em qualquer navegador" data-tip-pos="left">
+                <Glyph name="monitor" size={17} /> Exportar HTML
               </button>
               <button onClick={() => (exportSvg(), setMenu(false))}>
                 <Glyph name="code" size={17} /> Exportar SVG
