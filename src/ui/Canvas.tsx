@@ -9,7 +9,7 @@ import { HEAD_H, LOGIC_ICON, figureText, isFailureScenario, ruleCard, scenarioTi
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { truncate, wrapLabel } from "../shared/text";
 import { IconSvg } from "./icons";
-import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, type Pt, type Side } from "./geometry";
+import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
 import { requestChangeType } from "./typepicker";
@@ -1353,7 +1353,10 @@ export function Canvas() {
       case "marquee": {
         d.cur = p;
         const r = normRect(d.start, p);
-        const hit = [...s.doc.nodes, ...s.doc.notes, ...s.doc.groups.filter((g) => contains(r, { x: g.x + 1, y: g.y + 1 }) && contains(r, { x: g.x + g.w - 1, y: g.y + g.h - 1 }))].filter((el) => intersects(el, r)).map((el) => el.id);
+        // estilo CAD: esquerda→direita seleciona só o que está inteiro dentro da área; direita→esquerda também o que apenas a toca
+        const crossing = p.x < d.start.x;
+        const groups = s.doc.groups.filter((g) => contains(r, { x: g.x + 1, y: g.y + 1 }) && contains(r, { x: g.x + g.w - 1, y: g.y + g.h - 1 }));
+        const hit = [...s.doc.nodes, ...s.doc.notes, ...groups].filter((el) => (crossing ? intersects(el, r) : within(el, r))).map((el) => el.id);
         select(Array.from(new Set([...d.base, ...hit])));
         force((n) => n + 1);
         break;
@@ -1691,7 +1694,8 @@ export function Canvas() {
         {(d?.kind === "marquee" || d?.kind === "create") &&
           (() => {
             const r = normRect(d.start, d.cur);
-            return <rect className="marquee" x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none" />;
+            const mode = d.kind === "marquee" ? (d.cur.x < d.start.x ? " crossing" : " window") : "";
+            return <rect className={`marquee${mode}`} x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none" />;
           })()}
         {d?.kind === "connect" &&
           (() => {
