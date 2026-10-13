@@ -585,6 +585,8 @@ export function layoutRich(text: string, w: number, st: ReturnType<typeof noteMe
   return { lines, ys };
 }
 
+const NOTE_BAR_H = 220;
+
 const PlainNote = memo(function PlainNote({
   n,
   selected,
@@ -625,7 +627,8 @@ const PlainNote = memo(function PlainNote({
       {editing && onEditChange && onEditClose && (
         <>
           {/* barra acima do card — largura própria, sem scroll dentro da nota */}
-          <foreignObject x={0} y={-76} width={Math.max(n.w, 300)} height={72} className="note-rich-bar-fo" style={{ overflow: "visible" }}>
+          {/* a barra quebra em mais linhas em cards estreitos: ancorada pela base, cresce para cima */}
+          <foreignObject x={0} y={-(NOTE_BAR_H + 6)} width={Math.max(n.w, 340)} height={NOTE_BAR_H} className="note-rich-bar-fo" style={{ overflow: "visible" }}>
             <div {...{ xmlns: "http://www.w3.org/1999/xhtml" }} className="note-rich-bar-host" onPointerDown={(e) => e.stopPropagation()}>
               <RichToolbar root={editRef} className="in-card" compact noteCard={{ fontSize: n.fontSize ?? Math.round(st.fs), fill: n.fill }} onNoteCard={onNoteCard} />
             </div>

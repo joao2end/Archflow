@@ -3606,7 +3606,12 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 }
 .note-rich-bar-fo { overflow: visible; pointer-events: none; }
 .note.editing .note-rich-bar-fo { pointer-events: auto; }
-.note-rich-bar-host { width: max-content; max-width: 100%; pointer-events: auto; }
+.note-rich-bar-host {
+  display: flex; flex-direction: column; justify-content: flex-end;
+  height: 100%; max-width: 100%;
+  pointer-events: none;
+}
+.note-rich-bar-host .rich-toolbar { width: max-content; max-width: 100%; box-sizing: border-box; pointer-events: auto; }
 
 /* editor: markdown cru num textarea */
 .rich-editor {
