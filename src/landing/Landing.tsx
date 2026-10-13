@@ -4,7 +4,7 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, type ConnectionType } from "../
 import { Glyph, IconSvg } from "../ui/icons";
 import { cycleTheme, useStore } from "../ui/store";
 import CursorTrail from "./CursorTrail";
-import { McpMotion, MotionGallery } from "./Motion";
+import { MotionGallery } from "./Motion";
 
 const asset = (id: string) => BUILTIN_ASSETS.find((a) => a.id === id)!;
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -192,7 +192,7 @@ function HeroDiagram() {
   );
 }
 
-const WIN_VERSION = "0.1.0";
+const WIN_VERSION = "0.2.0";
 const WIN_DOWNLOAD = `https://github.com/joao2end/Archflow/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
 
 const HEADLINE: { t: string; em?: boolean }[] = [
@@ -226,7 +226,7 @@ function Hero() {
           ))}
         </h1>
         <p className="lp-lead lp-fade" style={style({ animationDelay: "900ms" })}>
-          O Archflow transforma diagramas em um modelo que humanos e LLMs entendem: componentes, grupos e conexões tipadas, do servidor ao modelo de negócio com DDD e às regras executáveis com exemplos — e um servidor MCP para que agentes desenhem ao seu lado, em tempo real.
+          Diagramas que humanos e LLMs entendem — e um servidor MCP para o seu agente desenhar ao seu lado, em tempo real.
         </p>
         <div className="lp-cta lp-fade" style={style({ animationDelay: "1100ms" })}>
           <a className="btn primary lg shine" href="/app">
@@ -362,9 +362,7 @@ function Compare() {
         </h2>
       </Reveal>
       <Reveal delay={100}>
-        <p className="lp-sub">
-          Ferramentas de quadro branco guardam retângulos e coordenadas — para um LLM, o sentido está escondido na geometria. O Archflow nasceu de uma engenharia reversa do Excalidraw e guarda o que cada caixa é, quem fala com quem, por qual protocolo e com qual contrato.
-        </p>
+        <p className="lp-sub">Outros quadros guardam retângulos e coordenadas. O Archflow guarda o que cada caixa é, quem fala com quem e por qual protocolo.</p>
       </Reveal>
       <div className="lp-compare" ref={ref}>
         <div className="glass lp-pane dim">
@@ -448,7 +446,7 @@ function Demo() {
         </h2>
       </Reveal>
       <Reveal delay={100}>
-        <p className="lp-sub">Cada chamada MCP aparece no quadro na hora — e tudo pode ser ajustado à mão ou desfeito com Ctrl+Z.</p>
+        <p className="lp-sub">Cada chamada MCP aparece no quadro na hora — e Ctrl+Z desfaz.</p>
       </Reveal>
       <div className={`lp-demo ${fade ? "fade" : ""}`} ref={ref}>
         <div className="lp-term glass">
@@ -507,83 +505,14 @@ function Tools() {
   return (
     <section id="ferramentas" className="lp-section">
       <Reveal>
-        <span className="lp-eyebrow">Ferramentas em movimento</span>
+        <span className="lp-eyebrow">Ferramentas</span>
         <h2>
-          Cada ferramenta, <i>em poucos segundos</i>.
+          Da infraestrutura às <i>regras de negócio</i>.
         </h2>
-      </Reveal>
-      <Reveal delay={100}>
-        <p className="lp-sub">Dos modos Domain e Logic ao código gerado: veja o que cada recurso novo faz no quadro — o mesmo que você e o seu agente têm na mão.</p>
       </Reveal>
       <Reveal delay={120}>
         <MotionGallery />
       </Reveal>
-      <Reveal delay={80}>
-        <McpMotion />
-      </Reveal>
-    </section>
-  );
-}
-
-/* ───────── conexões animadas ───────── */
-
-function ConnLine({ type }: { type: ConnectionType }) {
-  const t = CONNECTION_TYPES[type];
-  const id = `cl-${type}`;
-  const x1 = type === "composition" || type === "aggregation" ? 56 : 44;
-  const x2 = t.head === "none" ? 216 : 206;
-  return (
-    <svg viewBox="0 0 260 48" className="lp-conn-svg" aria-hidden>
-      <rect x={4} y={10} width={34} height={28} rx={9} className="cn" />
-      <rect x={222} y={10} width={34} height={28} rx={9} className="cn" />
-      {t.tail === "diamond" && <path d="M38 24l9-6 9 6-9 6z" fill={t.color} />}
-      {t.tail === "diamond-open" && <path d="M38 24l9-6 9 6-9 6z" style={{ fill: "var(--s-solid)" }} stroke={t.color} strokeWidth="1.6" />}
-      <path id={id} d={`M${x1},24 L${x2},24`} stroke={t.color} strokeWidth={2.2} strokeLinecap="round" strokeDasharray={t.dash ? "5 5" : undefined} fill="none" opacity={t.motion === "none" ? 1 : 0.5} />
-      {t.head === "arrow" && <path d="M204 17l11 7-11 7z" fill={t.color} />}
-      {t.head === "open" && <path d="M205 16l11 8-11 8" fill="none" stroke={t.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
-      {t.head === "triangle" && <path d="M204 15l14 9-14 9z" style={{ fill: "var(--s-solid)" }} stroke={t.color} strokeWidth="1.8" strokeLinejoin="round" />}
-      {t.motion === "flow" && <path d={`M${x1},24 L${x2},24`} stroke={t.color} strokeWidth={3.2} strokeLinecap="round" strokeDasharray="0.1 14" fill="none" className="flow" />}
-      {t.motion === "pulse" &&
-        [0, 1].map((i) => (
-          <circle key={i} r={4.5} fill={t.color} className="particle">
-            <animateMotion dur="2.2s" begin={`${i * 1.1}s`} repeatCount="indefinite">
-              <mpath href={`#${id}`} />
-            </animateMotion>
-          </circle>
-        ))}
-      {t.motion === "stream" &&
-        [0, 1, 2, 3, 4].map((i) => (
-          <circle key={i} r={2.8} fill={t.color} className="particle">
-            <animateMotion dur="1.8s" begin={`${i * 0.36}s`} repeatCount="indefinite">
-              <mpath href={`#${id}`} />
-            </animateMotion>
-          </circle>
-        ))}
-    </svg>
-  );
-}
-
-function Connections() {
-  return (
-    <section className="lp-section">
-      <Reveal>
-        <span className="lp-eyebrow">Conexões</span>
-        <h2>
-          Setas que <i>significam</i> alguma coisa.
-        </h2>
-      </Reveal>
-      <Reveal delay={100}>
-        <p className="lp-sub">Dez tipos — do request síncrono ao evento assíncrono e às relações UML. As mais dinâmicas se movem, para o fluxo ficar visível.</p>
-      </Reveal>
-      <div className="lp-conns">
-        {CONNECTION_TYPE_KEYS.map((k, i) => (
-          <Reveal key={k} delay={(i % 5) * 70} className="glass lp-conn">
-            <ConnLine type={k} />
-            <h3>{CONNECTION_TYPES[k].label}</h3>
-            <p>{CONNECTION_TYPES[k].semantics.split(".")[0]}.</p>
-          </Reveal>
-        ))}
-      </div>
     </section>
   );
 }
@@ -591,16 +520,12 @@ function Connections() {
 /* ───────── recursos com spotlight ───────── */
 
 const FEATURES: { icon: string; title: string; text: string }[] = [
-  { icon: "library", title: "Catálogo com contexto", text: "AWS, Google, Azure, Laravel, PostgreSQL, Kafka e os principais modelos de IA — cada um explica o problema que resolve. Cadastre os seus." },
-  { icon: "code", title: "Interfaces e contratos", text: "Defina operações, métodos e payloads em cada conexão e referencie OpenAPI, AsyncAPI ou .proto." },
-  { icon: "plug", title: "Feito para agentes (MCP)", text: "Claude e outros clientes MCP leem e editam o diagrama em tempo real. Você vê, ajusta e desfaz com Ctrl+Z." },
-  { icon: "group", title: "Grupos e auto-layout legível", text: "Nuvem, rede, camadas e bounded contexts aninhados. A organização automática reduz cruzamentos, alinha vizinhos e mantém o fluxo em uma direção." },
-  { icon: "sparkle", title: "Visão LLM", text: "Veja o diagrama como um modelo o enxerga: Markdown, Mermaid e JSON — pronto para colar no chat." },
-  { icon: "moon", title: "Claro, escuro e vidro", text: "Interface glassmorphism limpa, com tema claro, escuro ou automático e atalhos para tudo." },
-  { icon: "layers", title: "Modo Domain (DDD)", text: "Aggregates, commands, eventos, policies, sagas e Context Map. Alterne entre Arch e Domain com um clique, sem perder nada." },
-  { icon: "mode-logic", title: "Modo Logic (regras)", text: "Regras de negócio como fluxo executável: decisões, laços, dados e exemplos que o app roda e confere. Negócio lê a frase em português; dev e IA usam a expressão exata." },
-  { icon: "check", title: "Validação e código", text: "Regras D001–D032 apontam o que falta no modelo; depois gere o esqueleto TypeScript, que compila em modo estrito." },
-  { icon: "present", title: "Passo a passo e propriedades", text: "Apresente cada caso de uso como uma história e descreva os campos de cada elemento — colando JSON, se quiser." },
+  { icon: "library", title: "Catálogo com contexto", text: "Nuvens, bancos, filas e modelos de IA — cada item explica o problema que resolve." },
+  { icon: "connect", title: "Conexões tipadas", text: "Síncrona, assíncrona, streaming e UML, com contrato em cada seta." },
+  { icon: "plug", title: "Feito para agentes", text: "Clientes MCP leem e editam o diagrama ao vivo. Você ajusta ou desfaz." },
+  { icon: "layers", title: "Modos Domain e Logic", text: "Modele DDD com validação e regras de negócio que o app executa." },
+  { icon: "sparkle", title: "Visão LLM e código", text: "Markdown, Mermaid ou JSON para o chat, e esqueleto TypeScript do domínio." },
+  { icon: "vault", title: "Cofre local", text: "Seus diagramas numa pasta sua, versionável no Git. Sem nuvem obrigatória." },
 ];
 
 function Spot({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -651,200 +576,23 @@ const MARKS: Record<Mark, string> = { yes: "Sim", part: "Parcial", no: "Não" };
 
 const COMPARE_ROWS: { feat: string; ex: Mark; exNote: string; af: Mark; afNote: string }[] = [
   { feat: "Elementos com significado (tipo, tecnologia, papel)", ex: "no", exNote: "formas geométricas", af: "yes", afNote: "componente · kind · tecnologia" },
-  { feat: "Catálogo de tecnologias com “o problema que resolve”", ex: "part", exNote: "bibliotecas da comunidade (ícones)", af: "yes", afNote: "~155 itens + cadastro próprio" },
   { feat: "Conexões tipadas (síncrona, assíncrona, streaming, UML)", ex: "no", exNote: "setas com estilo visual", af: "yes", afNote: "10 tipos com semântica definida" },
-  { feat: "Fluxo animado nas conexões", ex: "no", exNote: "", af: "yes", afNote: "fluxo, pulsos e streaming" },
-  { feat: "Interfaces e contratos (OpenAPI, eventos, gRPC)", ex: "no", exNote: "texto solto", af: "yes", afNote: "operações, payloads e contrato" },
-  { feat: "Grupos hierárquicos + auto-layout por fluxo", ex: "part", exNote: "frames e posicionamento manual", af: "yes", afNote: "pai/filho real, layout em camadas" },
   { feat: "Agente de IA edita ao vivo em nível semântico (MCP)", ex: "part", exNote: "servidores de terceiros, em nível de formas", af: "yes", afNote: "MCP nativo, sem coordenadas" },
-  { feat: "Visão para LLM (Markdown, Mermaid, validação)", ex: "no", exNote: "", af: "yes", afNote: "texto determinístico + avisos" },
-  { feat: "Endpoints como componentes (GET/POST, WebSocket, GraphQL, gRPC)", ex: "no", exNote: "texto dentro de caixas", af: "yes", afNote: "selos por método, presos ao serviço" },
-  { feat: "Referência entre diagramas, com visualização em modal", ex: "part", exNote: "links por URL, sem pré-visualização", af: "yes", afNote: "modal navegável, backlinks, links que se atualizam" },
-  { feat: "Modelagem DDD (aggregates, eventos, Context Map) com validação", ex: "no", exNote: "só formas e texto", af: "yes", afNote: "13 papéis, 7 relações, regras D001–D032" },
-  { feat: "Regras de negócio executáveis, com exemplos que o app roda", ex: "no", exNote: "caixas e texto, sem execução", af: "yes", afNote: "modo Logic: fluxo, expressões e L001–L024" },
-  { feat: "Reprodução passo a passo de um cenário (valor a cada ação)", ex: "no", exNote: "", af: "yes", afNote: "play/pausa e velocidade no quadro" },
-  { feat: "Linha do tempo de Event Storming automática", ex: "no", exNote: "post-its posicionados à mão", af: "yes", afNote: "raias por papel, colunas por tempo" },
-  { feat: "Narrativa passo a passo do modelo na apresentação", ex: "no", exNote: "", af: "yes", afNote: "o que é, por que está aqui, regras" },
-  { feat: "Código TypeScript gerado a partir do modelo", ex: "no", exNote: "", af: "yes", afNote: "aggregates, eventos, handlers, sagas" },
-  { feat: "Cofre de arquivos com pastas, busca e lixeira", ex: "part", exNote: "um arquivo por cena", af: "yes", afNote: "vários cofres, Git, Ctrl+O" },
+  { feat: "Modelagem DDD com validação", ex: "no", exNote: "só formas e texto", af: "yes", afNote: "13 papéis, regras D001–D032" },
+  { feat: "Regras de negócio executáveis, com exemplos", ex: "no", exNote: "caixas e texto, sem execução", af: "yes", afNote: "modo Logic, regras L001–L024" },
+  { feat: "Código TypeScript gerado a partir do modelo", ex: "no", exNote: "", af: "yes", afNote: "aggregates, eventos, handlers" },
   { feat: "Desenho livre e estilo “à mão”", ex: "yes", exNote: "referência no assunto", af: "no", afNote: "foco em precisão" },
   { feat: "Colaboração multiusuário em tempo real", ex: "yes", exNote: "com criptografia ponta a ponta", af: "part", afNote: "humano + agentes (multiusuário no roadmap)" },
 ];
-
-const GUIDE: { id: string; icon: string; title: string; steps: string[]; keys: string[]; ex: string; af: string }[] = [
-  {
-    id: "assets", icon: "library", title: "Catálogo",
-    steps: [
-      "Abra a biblioteca (B) e busque “fila”, “laravel” ou “cache” — a busca olha nome, categoria, tags e o problema que a tecnologia resolve.",
-      "Passe o mouse num item para ler *o que ele resolve* e quando usar.",
-      "Arraste para o quadro (ou clique) — o componente já nasce com ícone, papel e tecnologia.",
-      "Falta algo interno? “Novo asset”: nome, ícone, cor e a pergunta-chave: *que problema resolve?*",
-    ],
-    keys: ["B", "/"],
-    ex: "Formas genéricas e bibliotecas de ícones: o desenho diz “caixa”, não “fila SQS que desacopla o checkout”.",
-    af: "Cada ícone carrega contexto (papel, tags, problema resolvido). Humanos e agentes escolhem pela necessidade, não pela aparência.",
-  },
-  {
-    id: "conn", icon: "connect", title: "Conexões",
-    steps: [
-      "Escolha o tipo na barra inferior: síncrona, assíncrona, streaming, dados ou uma relação UML.",
-      "Passe o mouse num componente e arraste do ponto “+” até outro (ou use a ferramenta C).",
-      "Clique na conexão para ajustar tipo, rótulo, protocolo e traçado (curva, ortogonal ou reta).",
-      "Ligue as animações (A) e veja o fluxo: requisições contínuas, eventos pulsando, dados em streaming.",
-    ],
-    keys: ["C", "A"],
-    ex: "Setas só mudam de estilo (tracejada, ponta). O significado fica na cabeça de quem desenhou.",
-    af: "Dez tipos com semântica explícita. Ler o diagrama diz se a chamada bloqueia, se é evento ou se é herança — e a animação mostra o fluxo.",
-  },
-  {
-    id: "iface", icon: "code", title: "Interfaces",
-    steps: [
-      "Selecione uma conexão (ou dê duplo clique nela).",
-      "Clique em “Definir interface” e escolha o estilo: REST, GraphQL, gRPC, evento, SQL…",
-      "Informe o contrato formal (OpenAPI, AsyncAPI, .proto) e as operações: método, caminho, entrada e saída.",
-      "A conexão ganha um indicador e o contrato segue para a Visão LLM — pronto para virar código.",
-    ],
-    keys: ["2× clique"],
-    ex: "Contratos viram texto solto numa caixa ao lado da seta — fácil de ficar desatualizado e impossível de validar.",
-    af: "O contrato é dado estruturado ligado à seta. Um agente consegue implementar os dois lados da integração a partir do diagrama.",
-  },
-  {
-    id: "group", icon: "group", title: "Grupos e layout",
-    steps: [
-      "Tecla G e arraste uma área: nuvem, VPC, camada ou bounded context.",
-      "Arraste componentes para dentro — o grupo vira o “pai” deles e se ajusta ao conteúdo.",
-      "Aninhe grupos (AWS › VPC › serviço) para refletir a hierarquia real.",
-      "Tecla L organiza tudo por fluxo; Shift+L organiza na vertical. No modo Domain, escolha Linha do tempo para o layout de Event Storming.",
-    ],
-    keys: ["G", "L"],
-    ex: "Frames agrupam visualmente e o alinhamento é manual — cada mudança de escopo é redesenho.",
-    af: "Pertencimento é dado (parent), não coincidência de coordenadas. O auto-layout em camadas reorganiza o diagrama inteiro em um toque.",
-  },
-  {
-    id: "mcp", icon: "plug", title: "Agente (MCP)",
-    steps: [
-      "Abra o diálogo MCP do app e clique em Instalar (Claude Desktop, Claude Code, Cursor ou Windsurf) — ou rode npm run mcp:install. O botão Testar confirma a conexão.",
-      "Com o app aberto, peça: “Desenhe um fluxo de pedidos com Laravel, Postgres e SQS”.",
-      "Acompanhe o quadro sendo montado ao vivo. Não gostou? Ctrl+Z desfaz a edição do agente.",
-      "Peça uma revisão: validate_diagram aponta componentes isolados e referências quebradas.",
-    ],
-    keys: ["Ctrl", "Z"],
-    ex: "Um LLM precisa gerar elementos com coordenadas e vínculos de seta — ou texto Mermaid convertido, perdendo a edição visual.",
-    af: "Operações semânticas: o agente fala em componentes e conexões; o app cuida de posição e layout. Menos erros, menos tokens.",
-  },
-  {
-    id: "vault", icon: "vault", title: "Cofre",
-    steps: [
-      "Tecla E abre o explorador do cofre. Na primeira vez, crie um cofre (nome + local) ou abra uma pasta existente.",
-      "Crie pastas e diagramas, arraste para mover, F2 renomeia, botão direito abre o menu.",
-      "Ctrl+O busca qualquer diagrama do cofre — e cria um novo se não existir.",
-      "Versione a pasta no Git: cada diagrama é um .archflow.json legível.",
-    ],
-    keys: ["E", "Ctrl+O"],
-    ex: "Um arquivo por cena; organizar um projeto com dezenas de diagramas fica por sua conta.",
-    af: "Cofres estilo Obsidian: várias pastas, subpastas, lixeira recuperável e edição externa recarregada ao vivo.",
-  },
-  {
-    id: "endpoints", icon: "plug", title: "Endpoints",
-    steps: [
-      "Selecione um serviço (ex.: Orders API). No inspetor, em *Endpoints e comunicação*, clique em + GET, + POST, + PUT, + PATCH, + DELETE, + WS, + GraphQL, + gRPC, + Webhook, + SSE ou + Evento.",
-      "Ou abra a biblioteca (B), categoria *Comunicação*, e solte o endpoint sobre o serviço — ele passa a pertencer a ele, empilhado logo abaixo.",
-      "Edite caminho, entrada, saída e autenticação no inspetor. O selo muda de cor conforme o método (GET verde, POST azul, DELETE vermelho…).",
-      "Conecte um cliente direto ao endpoint específico (POST /orders), não só ao serviço inteiro.",
-    ],
-    keys: ["B"],
-    ex: "Um endpoint é um retângulo com texto; mover o serviço não leva os endpoints, e nada diferencia GET de POST para uma máquina.",
-    af: "Endpoints são componentes tipados (protocolo, método, caminho, contrato) que acompanham o serviço e entram na Visão LLM — como os nós de gatilho e ação do n8n, mas para arquitetura.",
-  },
-  {
-    id: "refs", icon: "layers", title: "Referências",
-    steps: [
-      "Desenvolva o diagrama de um sistema (ex.: Pagamentos). Em outro diagrama, arraste-o do explorador (E) para o quadro — ou use a biblioteca › *Outro diagrama*.",
-      "Escolha, se quiser, um componente específico dele (ex.: Payments API) e conecte seus serviços ao nó de referência.",
-      "Clique na referência: o diagrama abre num *modal de visualização*, com zoom e detalhes dos componentes.",
-      "Dentro do modal, clique em outra referência para entrar nela. As setas ← → (ou Alt+←/→) voltam e avançam pelo caminho percorrido.",
-      "“Editar” abre o diagrama para edição e o botão Voltar traz você de volta. Veja quem referencia o diagrama atual em *Referenciado por*.",
-    ],
-    keys: ["E", "Alt+←/→"],
-    ex: "Cada cena é isolada; relacionar sistemas significa copiar e colar desenhos ou colar links que ficam quebrados quando algo muda.",
-    af: "Referências vivas entre diagramas: pré-visualização em modal, navegação em camadas, backlinks e atualização automática dos links quando você renomeia ou move arquivos.",
-  },
-  {
-    id: "domain", icon: "layers", title: "Modo Domain",
-    steps: [
-      "Clique no selo ao lado do título e alterne de Arch para Domain — nada é apagado e Ctrl+Z desfaz. Ou crie um diagrama de domínio pelo ícone de camadas do explorador.",
-      "Na biblioteca (B), a categoria Domain traz um item por papel: Aggregate Root, Command, Domain Event, Policy, Repository, Use Case, Read Model, Process Manager e Decision.",
-      "Ligue os elementos: a relação (emits, triggers, contains…) é inferida pelo par. Entre contextos, escolha o padrão do Context Map: ACL, Customer/Supplier, Shared Kernel…",
-      "Abra a validação no selo: cada aviso D001–D032 é clicável e seleciona o elemento. Em Layout automático, escolha Linha do tempo.",
-      "Sem saber DDD? A seção Exemplos do explorador instala modelos prontos (biblioteca, clínica, loja, banco e delivery), do iniciante ao avançado.",
-    ],
-    keys: ["B", "L"],
-    ex: "Aggregates e eventos viram retângulos; nada impede um command de apontar para um evento nem avisa que falta um produtor.",
-    af: "Cada elemento tem papel, campos e relações válidas. O modelo é validado, rastreado (caso de uso → command → evento) e vira código.",
-  },
-  {
-    id: "logic", icon: "mode-logic", title: "Modo Logic",
-    steps: [
-      "Clique no selo ao lado do título e escolha Logic (ou crie um diagrama Logic pelo explorador). Nada é apagado e Ctrl+Z desfaz.",
-      "Monte o fluxo: Start, ações (AÇÃO), decisões sim/não (IF), escolhas (SWITCH), laços (LOOP), paralelos (FORK/JOIN) e End. Os dados entram como DATA e são lidos pelo nome nas expressões.",
-      "Escreva as condições e os efeitos em expressões curtas em português (preco := max(preco, piso), travar preco). O app mostra a explicação em português ao lado.",
-      "Dê exemplos a cada regra e cenários ao fluxo inteiro: o app executa tudo e marca ✔ ou ✘. Mude um número esperado e o erro (L004) aparece na regra e na validação.",
-      "Reproduza um cenário (▶) para ver o valor mudar passo a passo. Sem saber por onde começar? A seção Exemplos do explorador instala o de precificação (11 regras) e 15 algoritmos, de busca binária a fluxo máximo.",
-    ],
-    keys: ["L"],
-    ex: "Regra de negócio vira texto numa caixa ou código espalhado; ninguém consegue conferir se ela está certa com números reais.",
-    af: "A regra é dado estruturado e executável: exemplos viram teste, o fluxo é validado e a explicação em português nasce da própria expressão.",
-  },
-  {
-    id: "story", icon: "present", title: "Passo a passo",
-    steps: [
-      "Abra um diagrama de domínio e inicie a apresentação. O painel Passo a passo aparece (tecla S mostra ou oculta).",
-      "Escolha uma história: uma por caso de uso, mais o Diagrama completo, que passa por todos os elementos.",
-      "Avance com → ou ↓, volte com ← ou ↑, ou toque em ▶ para reproduzir sozinho. O quadro esmaece o resto e move a câmera.",
-      "Em cada passo, leia O que é, Por que está aqui, Regras que sempre valem e os Caminhos a seguir (condição, senão, loop).",
-    ],
-    keys: ["S", "←", "→"],
-    ex: "Para explicar o fluxo a alguém, você narra de memória, apontando com o laser — e a explicação não fica no arquivo.",
-    af: "A narrativa nasce do próprio modelo: descrição, intenção, payload e invariantes viram texto. Quem chega depois entende o fluxo sozinho.",
-  },
-  {
-    id: "props", icon: "list", title: "Propriedades",
-    steps: [
-      "Selecione um aggregate, entity, value object, command, evento ou read model. No inspetor, abra a seção Propriedades.",
-      "Preencha a tabela: nome, tipo (com sugestões), # para identificador, ? para opcional e descrição.",
-      "Ou clique em Colar JSON / texto e cole uma lista, um JSON Schema, um objeto de exemplo ou linhas como #id: uuid.",
-      "Escolha Substituir ou Acrescentar. Os campos aparecem no passo a passo, na descrição para a IA e nos tipos do código gerado.",
-    ],
-    keys: [],
-    ex: "Os campos de uma entidade ficam em texto solto dentro da caixa; trocar um nome é caçar a menção em todo lugar.",
-    af: "Campos são dados estruturados: viram tabela, narrativa e classes TypeScript tipadas, sem retrabalho.",
-  },
-  {
-    id: "llm", icon: "sparkle", title: "Visão LLM",
-    steps: [
-      "Clique em “Visão LLM” na barra superior.",
-      "Escolha Markdown, Mermaid, JSON ou o guia do schema.",
-      "Copie para o chat, o PR ou o README — sem coordenadas, só papéis, protocolos e contratos.",
-    ],
-    keys: [],
-    ex: "Exportar vira imagem ou JSON de geometria: bom para ver, ruim para raciocinar ou revisar em code review.",
-    af: "Texto determinístico e versionável, com avisos de inconsistência. O diagrama vira documentação que a máquina também lê.",
-  },
-];
-
-const em = (s: string) => s.split(/(\*[^*]+\*)/g).map((p, i) => (p.startsWith("*") ? <em key={i}>{p.slice(1, -1)}</em> : p));
 
 function Guide() {
   return (
     <section id="guia" className="lp-section">
       <Reveal>
-        <span className="lp-eyebrow">Guia · Archflow × Excalidraw</span>
+        <span className="lp-eyebrow">Archflow × Excalidraw</span>
         <h2>
-          O que o Archflow faz que o Excalidraw <i>não faz</i>.
+          O Excalidraw esboça. O Archflow <i>projeta</i>.
         </h2>
-      </Reveal>
-      <Reveal delay={100}>
-        <p className="lp-sub">O Excalidraw é excelente para esboçar. O Archflow é feito para projetar: cada elemento tem significado, e isso muda o que dá para fazer — por você e pela sua IA.</p>
       </Reveal>
 
       <Reveal delay={120}>
@@ -868,160 +616,7 @@ function Guide() {
             </div>
           ))}
         </div>
-        <p className="lp-foot">Comparação com os recursos nativos do Excalidraw de código aberto; extensões e serviços de terceiros podem cobrir parte das lacunas. Onde o Excalidraw é melhor, dizemos — o Archflow não tenta substituí-lo em desenho livre nem em colaboração multiusuário.</p>
-      </Reveal>
-
-    </section>
-  );
-}
-
-/** true em telas largas (desktop) e sem preferência por menos movimento */
-function useDesktopMotion() {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const q = matchMedia("(min-width: 961px) and (prefers-reduced-motion: no-preference)");
-    const f = () => setOn(q.matches);
-    f();
-    q.addEventListener("change", f);
-    return () => q.removeEventListener("change", f);
-  }, []);
-  return on;
-}
-
-function HowTo() {
-  const [tab, setTab] = useState(0);
-  const [step, setStep] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const desktop = useDesktopMotion();
-  const g = GUIDE[tab];
-  const n = g.steps.length;
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowRight") setTab((t) => (t + 1) % GUIDE.length);
-    if (e.key === "ArrowLeft") setTab((t) => (t - 1 + GUIDE.length) % GUIDE.length);
-  };
-  useEffect(() => setStep(0), [tab]);
-  // o cursor avança passo a passo na horizontal e recomeça ao chegar no fim
-  useEffect(() => {
-    if (!desktop || paused) return;
-    const t = setTimeout(() => setStep((i) => (i + 1) % n), 2400);
-    return () => clearTimeout(t);
-  }, [desktop, paused, step, n]);
-  return (
-    <section id="como-usar" className="lp-section">
-      <Reveal>
-        <span className="lp-eyebrow">Como usar</span>
-        <h2>
-          Funcionalidade por <i>funcionalidade</i>.
-        </h2>
-      </Reveal>
-      <Reveal delay={100}>
-        <p className="lp-sub">Escolha um recurso e siga o passo a passo — com o que o Excalidraw faz no mesmo caso e como o Archflow resolve.</p>
-      </Reveal>
-      <Reveal delay={80}>
-        <div className="lp-tabs" role="tablist" aria-label="Funcionalidades" onKeyDown={onKey}>
-          {GUIDE.map((t, i) => (
-            <button key={t.id} role="tab" id={`tab-${t.id}`} aria-selected={i === tab} aria-controls="guide-panel" tabIndex={i === tab ? 0 : -1} className={i === tab ? "on" : ""} onClick={() => setTab(i)}>
-              <Glyph name={t.icon} size={16} /> {t.title}
-            </button>
-          ))}
-        </div>
-        <div className="glass lp-guide how" id="guide-panel" role="tabpanel" aria-labelledby={`tab-${g.id}`} key={g.id}>
-          <div className={`lp-guide-steps${desktop ? " h" : ""}`} onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} style={style({ "--n": n, "--step": step })}>
-            <h4>Passo a passo</h4>
-            <div className="lp-lane">
-            {desktop && (
-              <div className="lp-steptrack" aria-hidden>
-                <i className="fill" />
-                <svg className="cur" width="24" height="24" viewBox="0 0 24 24">
-                  <path d="M5 3l14 7-6 2-2 6z" fill="var(--primary-600)" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" />
-                </svg>
-              </div>
-            )}
-            <ol>
-              {g.steps.map((st, i) => (
-                <li key={i} className={desktop && i === step ? "cur" : desktop && i < step ? "done" : ""} style={style({ "--i": i })} onClick={() => desktop && setStep(i)}>
-                  {em(st)}
-                </li>
-              ))}
-            </ol>
-            </div>
-            {g.keys.length > 0 && (
-              <p className="lp-keys">
-                Atalhos: {g.keys.map((k) => (
-                  <kbd key={k}>{k}</kbd>
-                ))}
-              </p>
-            )}
-          </div>
-          <div className="lp-vs">
-            <div className="lp-vs-card ex">
-              <span>No Excalidraw</span>
-              <p>{g.ex}</p>
-            </div>
-            <div className="lp-vs-card af">
-              <span>No Archflow</span>
-              <p>{g.af}</p>
-            </div>
-          </div>
-        </div>
-      </Reveal>
-    </section>
-  );
-}
-
-/* ───────── cofre ───────── */
-
-function Vault() {
-  return (
-    <section className="lp-section lp-vault-sec">
-      <div>
-        <Reveal>
-          <span className="lp-eyebrow">Cofre de diagramas</span>
-          <h2>
-            Seus diagramas, na <i>sua</i> pasta.
-          </h2>
-        </Reveal>
-        <Reveal delay={100}>
-          <p className="lp-sub left">Inspirado no cofre do Obsidian: uma pasta qualquer vira um cofre, com subpastas livres. Sem nuvem obrigatória, versionável no Git e compartilhado com o seu agente via MCP.</p>
-        </Reveal>
-        <Reveal delay={200}>
-          <ul className="lp-checks">
-            <li>
-              <Glyph name="check" size={16} /> Explorador com árvore, busca rápida (<kbd>Ctrl</kbd>+<kbd>O</kbd>) e arrastar para mover
-            </li>
-            <li>
-              <Glyph name="check" size={16} /> Vários cofres e lixeira recuperável
-            </li>
-            <li>
-              <Glyph name="check" size={16} /> Edições externas recarregam ao vivo
-            </li>
-          </ul>
-        </Reveal>
-      </div>
-      <Reveal delay={150}>
-        <div className="glass lp-tree" aria-label="Exemplo do explorador de arquivos">
-          <div className="lp-tree-head">
-            <Glyph name="vault" size={18} /> <span>Arquitetura 2end</span>
-          </div>
-          <div className="lp-tr" style={style({ "--i": 0 })}>
-            <Glyph name="chevron" size={13} /> <Glyph name="folder" size={16} /> backend <em>3</em>
-          </div>
-          <div className="lp-tr f" style={style({ "--i": 1 })}>
-            <Glyph name="file" size={15} /> Orders API
-          </div>
-          <div className="lp-tr f" style={style({ "--i": 2 })}>
-            <Glyph name="file" size={15} /> Pagamentos
-          </div>
-          <div className="lp-tr drop" style={style({ "--i": 3 })}>
-            <Glyph name="chevron" size={13} style={{ transform: "rotate(-90deg)" }} /> <Glyph name="folder" size={16} /> infra <em>2</em>
-          </div>
-          <div className="lp-tr" style={style({ "--i": 4 })}>
-            <Glyph name="file" size={15} /> Visão geral
-          </div>
-          <div className="lp-dragchip">
-            <Glyph name="file" size={15} /> Checkout
-          </div>
-        </div>
+        <p className="lp-foot">Comparação com os recursos nativos do Excalidraw de código aberto; extensões de terceiros podem cobrir parte das lacunas.</p>
       </Reveal>
     </section>
   );
@@ -1050,8 +645,7 @@ function Nav({ theme }: { theme: string }) {
         <a href="#demo">Em ação</a>
         <a href="#ferramentas">Ferramentas</a>
         <a href="#recursos">Recursos</a>
-        <a href="#guia">Guia</a>
-        <a href="#como-usar">Como usar</a>
+        <a href="#guia">Comparação</a>
       </nav>
       <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip="Alternar tema" data-tip-pos="bottom">
         <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme as "system"]} size={18} />
@@ -1194,11 +788,8 @@ export default function Landing() {
         <Compare />
         <Demo />
         <Tools />
-        <Connections />
         <Features />
         <Guide />
-        <HowTo />
-        <Vault />
 
         <Reveal className="lp-final-wrap">
           <section className="lp-final">

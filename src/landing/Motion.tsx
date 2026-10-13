@@ -170,7 +170,7 @@ function ModeMotion() {
       icon="layers"
       tag="Modo Domain"
       title="Do desenho de infraestrutura ao modelo de negócio"
-      text="Um selo ao lado do título troca o diagrama entre Arch e Domain. Nada é apagado — Ctrl+Z desfaz — e os elementos viram post-its de Event Storming com papel, relação e validação DDD."
+      text="Um clique troca entre Arch e Domain, sem apagar nada."
       cap={p > 0.5 ? "Domain · aggregate, command, evento" : "Arch · serviços, bancos, filas"}
       ok={p > 0.5}
     >
@@ -240,62 +240,7 @@ function ModeMotion() {
   );
 }
 
-/* ───────── 2 · Linha do tempo (Event Storming) ───────── */
-
-const LANES = ["Caso de uso", "Command", "Aggregate", "Evento", "Policy", "Read model"];
-const STORM: { role: DddRole; label: string; lane: number; col: number; from: [number, number, number] }[] = [
-  { role: "use-case", label: "Fazer pedido", lane: 0, col: 0, from: [40, 160, -8] },
-  { role: "command", label: "criar-pedido", lane: 1, col: 0, from: [236, 22, 6] },
-  { role: "aggregate-root", label: "Pedido", lane: 2, col: 0, from: [130, 104, -5] },
-  { role: "domain-event", label: "pedido-criado", lane: 3, col: 0, from: [28, 62, 9] },
-  { role: "policy", label: "reservar-estoque", lane: 4, col: 1, from: [244, 150, -10] },
-  { role: "command", label: "reservar-itens", lane: 1, col: 1, from: [100, 14, 4] },
-  { role: "read-model", label: "pedidos-abertos", lane: 5, col: 0, from: [226, 92, 8] },
-];
-
-function TimelineMotion() {
-  const [ref, t] = useClock(9000, 0.75);
-  const settle = 1 - ease(seg(t, 0.9, 0.98));
-  const lanesOn = ease(seg(t, 0.3, 0.55)) * settle;
-  const laneY = (l: number) => 14 + l * 31;
-  const colX = (c: number) => 84 + c * 156;
-  return (
-    <Frame
-      stageRef={ref}
-      icon="layout"
-      tag="Linha do tempo"
-      title="Event Storming com um toque"
-      text="No auto-layout, escolha Linha do tempo: o Archflow organiza em raias — caso de uso, command, aggregate, evento, policy, read model — e ordena as colunas pelo tempo."
-      cap={lanesOn > 0.5 ? "Raias por papel · colunas = tempo" : "Elementos soltos no quadro"}
-      ok={lanesOn > 0.5}
-    >
-      <svg viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label="Post-its soltos se organizam em raias de Event Storming">
-        {LANES.map((l, i) => (
-          <g key={l} opacity={lanesOn}>
-            <rect x={78} y={laneY(i) - 2} width={VW - 82} height={30} rx={8} className="mo-lane" />
-            <text x={4} y={laneY(i) + 17} className="mo-t2" style={{ fontSize: 9.2, fontWeight: 600 }}>
-              {l}
-            </text>
-          </g>
-        ))}
-        <g opacity={lanesOn}>
-          <line x1={84} y1={208} x2={VW - 12} y2={208} stroke="var(--ink-3)" strokeWidth={1.4} />
-          <path d={`M${VW - 12},208 l-7,-4 v8 z`} fill="var(--ink-3)" />
-          <text x={84} y={223} className="mo-t2" style={{ fontSize: 9.5 }}>
-            tempo
-          </text>
-        </g>
-        {STORM.map((s, i) => {
-          const g = ease(seg(t, 0.2 + i * 0.035, 0.5 + i * 0.035)) * settle;
-          const o = out(seg(t, 0.01 + i * 0.02, 0.1 + i * 0.02)) * (1 - seg(t, 0.97, 1));
-          return <Sticker key={i} inline w={140} h={26} role={s.role} label={s.label} x={lerp(s.from[0], colX(s.col), g)} y={lerp(s.from[1], laneY(s.lane), g)} rot={lerp(s.from[2], 0, g)} o={o} />;
-        })}
-      </svg>
-    </Frame>
-  );
-}
-
-/* ───────── 3 · Auto-layout legível ───────── */
+/* ───────── 2 · Auto-layout legível ───────── */
 
 const LNODES: { id: string; label: string; tidy: [number, number]; mess: [number, number] }[] = [
   { id: "nextjs", label: "Web", tidy: [6, 92], mess: [232, 168] },
@@ -336,7 +281,7 @@ function LayoutMotion() {
       icon="connect"
       tag="Auto-layout legível"
       title="Menos cruzamentos, fluxo em uma direção"
-      text="Camadas por fluxo, minimização de cruzamentos, componentes alinhados à altura dos vizinhos e rótulos que não se sobrepõem. Um toque na tecla L."
+      text="A tecla L organiza o diagrama inteiro em camadas."
       cap={`cruzamentos de linhas: ${x}`}
       ok={x === 0}
     >
@@ -368,164 +313,7 @@ function LayoutMotion() {
   );
 }
 
-/* ───────── 4 · Passo a passo ───────── */
-
-const STORY: { role: DddRole; label: string; pos: [number, number]; what: string; why: string; rule?: string }[] = [
-  { role: "use-case", label: "Fazer pedido", pos: [12, 38], what: "Objetivo de um ator com o sistema.", why: "É o ponto de partida: o resto existe para realizá-lo." },
-  { role: "command", label: "criar-pedido", pos: [114, 38], what: "Intenção de mudar o estado, no imperativo.", why: "Realiza o caso de uso e aciona o aggregate." },
-  { role: "aggregate-root", label: "Pedido", pos: [216, 38], what: "Guarda as invariantes do conjunto.", why: "Decide se o command é válido.", rule: "total maior que zero" },
-  { role: "domain-event", label: "pedido-criado", pos: [216, 122], what: "Fato de negócio que já aconteceu.", why: "Avisa o resto do domínio sem acoplar." },
-  { role: "policy", label: "reservar", pos: [114, 122], what: "Regra sem estado: evento vira command.", why: "Reage ao evento e dispara o próximo passo." },
-  { role: "command", label: "reservar-itens", pos: [12, 122], what: "Nova intenção, agora no estoque.", why: "O fluxo segue, passo a passo, até o fim." },
-];
-const SW = 82;
-const SH = 40;
-
-function StoryMotion() {
-  const [ref, t] = useClock(15000, 0.4);
-  const n = STORY.length;
-  const f = t * n;
-  const i = Math.min(n - 1, Math.floor(f));
-  const move = ease(seg(f - i, 0, 0.25));
-  const prev = Math.max(0, i - 1);
-  const cx = lerp(STORY[prev].pos[0], STORY[i].pos[0], move) + SW / 2;
-  const cy = lerp(STORY[prev].pos[1], STORY[i].pos[1], move) + SH / 2;
-  const cur = STORY[i];
-  const center = (k: number): [number, number] => [STORY[k].pos[0] + SW / 2, STORY[k].pos[1] + SH / 2];
-  const edgePts = (k: number): [number, number][] => {
-    const a = center(k);
-    const b = center(k + 1);
-    const dx = Math.sign(b[0] - a[0]);
-    const dy = Math.sign(b[1] - a[1]);
-    return [
-      [a[0] + (dx * SW) / 2, a[1] + (dy * SH) / 2],
-      [b[0] - (dx * SW) / 2, b[1] - (dy * SH) / 2],
-    ];
-  };
-  const c = DDD_ROLES[cur.role];
-  return (
-    <Frame
-      stageRef={ref}
-      icon="present"
-      tag="Passo a passo"
-      title="O modelo conta a própria história"
-      text="Na apresentação, cada caso de uso vira uma narrativa: o quadro esmaece o resto, destaca o elemento, anima o caminho até ele e explica o que é e por que está ali."
-      cap={`Passo ${i + 1} de ${n} · ${DDD_ROLES[cur.role].label}`}
-      ok
-      wide
-    >
-      <div className="mo-split">
-        <svg viewBox="0 0 320 190" role="img" aria-label="Câmera percorrendo os elementos de um caso de uso, um a um">
-          <g transform={`translate(${(160 - cx) * 0.08} ${(95 - cy) * 0.08}) translate(160 95) scale(1.03) translate(-160 -95)`}>
-            {STORY.slice(0, -1).map((_, k) => (
-              <Poly key={k} pts={edgePts(k)} color={k < i ? "var(--c-sync)" : "var(--ink-3)"} w={k < i ? 2.4 : 1.4} dash={k < i ? undefined : "3 4"} />
-            ))}
-            {STORY.map((s, k) => (
-              <Sticker key={k} x={s.pos[0]} y={s.pos[1]} w={SW} h={SH} role={s.role} label={s.label} o={k === i ? 1 : k < i ? 0.7 : 0.28} s={k === i ? 1.1 : 1} hot={k === i ? 0.7 + 0.3 * Math.sin(t * 60) : 0} fs={9.8} />
-            ))}
-          </g>
-        </svg>
-        <div className="mo-panel" key={i}>
-          <span className="mo-role" style={style({ "--rc": c.color })}>
-            {DDD_BADGES[cur.role]} · {c.label}
-          </span>
-          <b>O que é</b>
-          <p>{cur.what}</p>
-          <b>Por que está aqui</b>
-          <p>{cur.why}</p>
-          {cur.rule && (
-            <>
-              <b>Regras que sempre valem</b>
-              <p>
-                <code>{cur.rule}</code>
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="mo-dots" aria-hidden>
-        {STORY.map((_, k) => (
-          <i key={k} className={k === i ? "on" : k < i ? "done" : ""} />
-        ))}
-        <kbd>←</kbd>
-        <kbd>→</kbd>
-        <kbd>▶</kbd>
-      </div>
-    </Frame>
-  );
-}
-
-/* ───────── 5 · Propriedades ───────── */
-
-const PROPS_JSON = ['{', '  "id": "uuid",', '  "total": "Dinheiro",', '  "itens": "Item[]",', '  "nota?": "texto"', '}'];
-const PROPS_ROWS: { name: string; type: string; key?: boolean; opt?: boolean; line: number }[] = [
-  { name: "id", type: "uuid", key: true, line: 1 },
-  { name: "total", type: "Dinheiro", line: 2 },
-  { name: "itens", type: "Item[]", line: 3 },
-  { name: "nota", type: "texto", opt: true, line: 4 },
-];
-
-function PropsMotion() {
-  const [ref, t] = useClock(10000, 0.9);
-  const full = PROPS_JSON.join("\n");
-  const total = full.length;
-  const typed = Math.floor(total * seg(t, 0.1, 0.5));
-  const text = full.slice(0, typed);
-  const lineEnd = (ln: number) => PROPS_JSON.slice(0, ln + 1).join("\n").length;
-  const press = seg(t, 0.52, 0.56) * (1 - seg(t, 0.58, 0.64));
-  const tsOn = out(seg(t, 0.78, 0.86)) * (1 - seg(t, 0.96, 1));
-  const fade = 1 - seg(t, 0.96, 1);
-  return (
-    <Frame
-      stageRef={ref}
-      icon="list"
-      tag="Propriedades"
-      title="Campos de cada elemento, sem digitar um a um"
-      text="Aggregate, entity, command, evento e read model ganham uma tabela de campos. Cole JSON, JSON Schema ou texto livre e o Archflow monta tudo — e leva para o passo a passo e para o código."
-      cap="Cole JSON · tabela · tipos TypeScript"
-      ok={tsOn > 0.5}
-    >
-      <div className="mo-props" style={style({ opacity: fade })}>
-        <div className="mo-code">
-          <span className="mo-btn" style={style({ transform: `scale(${1 - press * 0.08})`, ...(press > 0.3 ? { background: "var(--primary-600)", color: "#fff" } : {}) })}>
-            Colar JSON / texto
-          </span>
-          <pre>
-            {text}
-            {typed < total && <span className="caret" />}
-          </pre>
-        </div>
-        <div className="mo-arrow" aria-hidden>
-          <Glyph name="arrow-up" size={20} style={{ transform: "rotate(90deg)" }} />
-        </div>
-        <div className="mo-table">
-          <div className="mo-th">
-            <span>nome</span>
-            <span>tipo</span>
-            <span title="identificador">#</span>
-            <span title="opcional">?</span>
-          </div>
-          {PROPS_ROWS.map((r, i) => {
-            const on = out(seg(typed, lineEnd(r.line), lineEnd(r.line) + 6)) * (typed >= lineEnd(r.line) ? 1 : 0);
-            return (
-              <div key={r.name} className="mo-tr" style={style({ opacity: on, transform: `translateY(${(1 - on) * 8}px)` })}>
-                <span>{r.name}</span>
-                <em>{r.type}</em>
-                <span>{r.key ? "●" : ""}</span>
-                <span>{r.opt ? "●" : ""}</span>
-              </div>
-            );
-          })}
-          <p className="mo-ts" style={style({ opacity: tsOn, transform: `translateY(${(1 - tsOn) * 6}px)` })}>
-            <code>id: string · total: Dinheiro · itens: Item[] · nota?: string</code>
-          </p>
-        </div>
-      </div>
-    </Frame>
-  );
-}
-
-/* ───────── 6 · Validação ───────── */
+/* ───────── 3 · Validação ───────── */
 
 const VAL_RULES = [
   { id: "D001", text: "caso de uso sem command que o realize", at: 0.62 },
@@ -559,7 +347,7 @@ function ValidateMotion() {
       icon="check"
       tag="Validação D001–D032"
       title="O modelo aponta o que falta antes de virar código"
-      text="Cada regra tem id, severidade e clique para selecionar o elemento. Ligue o que falta e os avisos somem — a meta é rastrear cada caso de uso até um evento."
+      text="Ligue o que falta e os avisos somem."
       cap={open === 0 && t > 0.8 ? "0 erros · todos os casos de uso rastreados" : `${open} ${open === 1 ? "erro" : "erros"} para corrigir`}
       ok={open === 0 && t > 0.8}
     >
@@ -593,153 +381,7 @@ function ValidateMotion() {
   );
 }
 
-/* ───────── 7 · Fluxo: decisão, condição e loop ───────── */
-
-type Pt = [number, number];
-const polyAt = (pts: Pt[], u: number): Pt => {
-  const lens = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]));
-  let d = clamp(u) * lens.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < lens.length; i++) {
-    if (d <= lens[i]) return [lerp(pts[i][0], pts[i + 1][0], d / lens[i]), lerp(pts[i][1], pts[i + 1][1], d / lens[i])];
-    d -= lens[i];
-  }
-  return pts[pts.length - 1];
-};
-
-const F_EVT: Pt = [8, 48];
-const F_DEC: Pt = [208, 70];
-const F_RETRY: Pt = [292, 48];
-const F_CANCEL: Pt = [160, 160];
-const P_IN: Pt[] = [[120, 70], [178, 70]];
-const P_RETRY: Pt[] = [[238, 70], [292, 70]];
-const P_LOOP: Pt[] = [[340, 48], [340, 18], [64, 18], [64, 48]];
-const P_ELSE: Pt[] = [[208, 100], [208, 160]];
-
-function FlowMotion() {
-  const [ref, t] = useClock(11000, 0.9);
-  // sequência: evento → decisão → retry → volta (2×) → decisão → senão → cancela
-  const steps: { pts: Pt[]; a: number; b: number }[] = [
-    { pts: P_IN, a: 0.06, b: 0.14 },
-    { pts: P_RETRY, a: 0.16, b: 0.24 },
-    { pts: P_LOOP, a: 0.26, b: 0.4 },
-    { pts: P_IN, a: 0.42, b: 0.48 },
-    { pts: P_RETRY, a: 0.5, b: 0.56 },
-    { pts: P_LOOP, a: 0.58, b: 0.68 },
-    { pts: P_IN, a: 0.7, b: 0.75 },
-    { pts: P_ELSE, a: 0.78, b: 0.88 },
-  ];
-  const active = steps.find((s) => t >= s.a && t <= s.b);
-  const dot = active ? polyAt(active.pts, ease(seg(t, active.a, active.b))) : null;
-  const tries = t < 0.42 ? 1 : t < 0.7 ? 2 : 3;
-  const branchLit = (pts: Pt[]) => (active?.pts === pts ? 1 : 0);
-  const endOn = out(seg(t, 0.88, 0.94));
-  const fade = 1 - seg(t, 0.96, 1);
-  return (
-    <Frame
-      stageRef={ref}
-      icon="sparkle"
-      tag="Decisões e loops"
-      title="Condições, “senão”, loops e “para cada”"
-      text="O fluxo do negócio mostra seus ramos: decisão exclusiva, paralela ou junção; condição em cada saída; loop com condição de parada obrigatória. É documentação validada, que vira tipos no código gerado."
-      cap={t < 0.88 ? `tentativa ${tries} de 3` : "3 tentativas esgotadas · senão cancela"}
-      ok={t >= 0.88}
-    >
-      <svg viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label="Um evento passa por uma decisão; se houver tentativas, repete em loop; senão, cancela o pedido" style={{ opacity: fade }}>
-        <Poly pts={P_IN} color="var(--c-dep)" w={branchLit(P_IN) ? 3 : 2} />
-        <Poly pts={P_RETRY} color="var(--c-dep)" w={branchLit(P_RETRY) ? 3 : 2} />
-        <Poly pts={P_LOOP} color="var(--c-async)" dash="6 4" w={branchLit(P_LOOP) ? 3 : 2} />
-        <Poly pts={P_ELSE} color="var(--c-dep)" w={branchLit(P_ELSE) ? 3 : 2} />
-        <Tag x={265} y={58} text="se < 3" color="var(--c-dep)" />
-        <Tag x={208} y={134} text="senão" color="var(--c-dep)" />
-        <Tag x={198} y={18} text={`repete até pago · máx. 3`} color="var(--c-async)" />
-        <Sticker x={F_EVT[0]} y={F_EVT[1]} w={112} h={44} role="domain-event" label="pagamento-recusado" fs={9.6} />
-        <g transform={`translate(${F_DEC[0]} ${F_DEC[1]})`}>
-          <path d="M0,-30 L30,0 L0,30 L-30,0 z" style={{ fill: `color-mix(in srgb, ${DDD_ROLES.policy.color} 24%, var(--s-solid))`, stroke: DDD_ROLES.policy.color }} strokeWidth={1.6} />
-          <text textAnchor="middle" y={-2} className="mo-badge" style={{ fill: "var(--ink)", fontSize: 8 }}>
-            POL
-          </text>
-          <text textAnchor="middle" y={9} className="mo-t2" style={{ fontSize: 7.6 }}>
-            tentar?
-          </text>
-        </g>
-        <Sticker x={F_RETRY[0]} y={F_RETRY[1]} w={96} h={44} role="command" label="tentar-cobrar" fs={10} />
-        <Sticker x={F_CANCEL[0]} y={F_CANCEL[1]} w={96} h={44} role="command" label="cancelar-pedido" fs={10} o={0.45 + endOn * 0.55} hot={endOn} />
-        {dot && (
-          <g transform={`translate(${dot[0]} ${dot[1]})`}>
-            <circle r={9} fill="var(--primary)" opacity={0.25} />
-            <circle r={5} fill="var(--primary-600)" stroke="#fff" strokeWidth={1.5} />
-          </g>
-        )}
-        <g transform="translate(28 140)">
-          {[0, 1, 2].map((k) => (
-            <g key={k} transform={`translate(${k * 22} 0)`}>
-              <circle r={7} style={{ fill: k < tries ? "var(--c-async)" : "var(--s-solid)", stroke: "var(--c-async)" }} strokeWidth={1.4} />
-            </g>
-          ))}
-          <text x={-4} y={24} className="mo-t2" style={{ fontSize: 9.5 }}>
-            tentativas
-          </text>
-        </g>
-      </svg>
-    </Frame>
-  );
-}
-
-/* ───────── 8 · Código gerado ───────── */
-
-const FILES = ["pedidos/domain/events.ts", "pedidos/domain/pedido.ts", "pedidos/domain/pedido-repository.ts", "pedidos/application/commands.ts", "pedidos/application/criar-pedido-handler.ts", "pedidos/use-cases.md"];
-const CODE = [
-  "export class Pedido {",
-  "  criar(cmd: CriarPedido): DomainEvent[] {",
-  "    // invariante: total maior que zero",
-  "    // TODO: regra de negócio",
-  "    return [new PedidoCriado(this.id)];",
-  "  }",
-  "}",
-];
-
-function CodeMotion() {
-  const [ref, t] = useClock(10000, 0.9);
-  const files = Math.floor(seg(t, 0.06, 0.4) * (FILES.length + 0.999));
-  const full = CODE.join("\n");
-  const typed = Math.floor(full.length * seg(t, 0.4, 0.8));
-  const shown = full.slice(0, typed).split("\n");
-  const okOn = out(seg(t, 0.84, 0.9));
-  const fade = 1 - seg(t, 0.96, 1);
-  return (
-    <Frame
-      stageRef={ref}
-      icon="code"
-      tag="Código"
-      wide
-      title="Do modelo ao esqueleto TypeScript"
-      text="Um clique (ou generate_code) gera aggregates, eventos, repositories, commands, handlers, policies e sagas na regra application → domain — e compila em modo estrito."
-      cap={okOn > 0.5 ? "tsc --strict ✓ · lógica como TODO" : "Gerando por contexto…"}
-      ok={okOn > 0.5}
-    >
-      <div className="mo-codegen" style={style({ opacity: fade })}>
-        <ul className="mo-files">
-          {FILES.map((f, i) => (
-            <li key={f} className={i === 1 && typed > 0 ? "cur" : ""} style={style({ opacity: files > i ? 1 : 0, transform: `translateX(${files > i ? 0 : -8}px)` })}>
-              <Glyph name="file" size={13} /> {f.split("/").slice(-1)[0]}
-              <small>{f.split("/").slice(0, -1).join("/")}</small>
-            </li>
-          ))}
-        </ul>
-        <pre className="mo-ts-code" tabIndex={0} aria-label="Exemplo de código gerado (role com as setas)">
-          {shown.map((l, i) => (
-            <span key={i} className={l.trim().startsWith("//") ? "cm" : ""}>
-              {l}
-              {i < shown.length - 1 ? "\n" : typed < full.length && <span className="caret" />}
-            </span>
-          ))}
-        </pre>
-      </div>
-    </Frame>
-  );
-}
-
-/* ───────── 9 · Modo Logic: regra executável com exemplo ───────── */
+/* ───────── 4 · Modo Logic: regra executável com exemplo ───────── */
 
 const LSTEPS: { role: LogicRole; label: string; sub: string; preco: string }[] = [
   { role: "start", label: "Calcular preço", sub: "preço atual 9,50", preco: "9,50" },
@@ -763,7 +405,7 @@ function LogicMotion() {
       icon="mode-logic"
       tag="Modo Logic"
       title="Regras de negócio que o app executa e confere"
-      text="Decisões, laços e ações em ordem, com expressões curtas em português. Cada exemplo roda de verdade: o valor muda passo a passo e o ✔ só aparece se o resultado esperado bate."
+      text="Cada exemplo roda de verdade e só ganha ✔ se o resultado bate."
       cap={done ? "✔ exemplo: 9,50 → 10,67 confere" : `passo ${k + 1} de ${LSTEPS.length} · preço ${LSTEPS[k].preco}`}
       ok={done}
     >
@@ -812,86 +454,15 @@ function LogicMotion() {
   );
 }
 
-/* ───────── MCP: 24 ferramentas ───────── */
-
-const TOOLS: { n: string; g: 0 | 1 | 2 | 3; d: string }[] = [
-  { n: "get_schema_guide", g: 0, d: "guia do schema, no modo do diagrama aberto" },
-  { n: "list_assets", g: 0, d: "catálogo de tecnologias e papéis DDD" },
-  { n: "search_assets", g: 0, d: "busca pelo problema que a tecnologia resolve" },
-  { n: "get_diagram", g: 0, d: "lê o diagrama como texto, Mermaid e avisos" },
-  { n: "get_diagram_outline", g: 0, d: "resumo para diagramas grandes" },
-  { n: "list_diagrams", g: 0, d: "lista os diagramas do cofre" },
-  { n: "new_diagram", g: 2, d: "cria um diagrama de arquitetura, domínio ou lógica" },
-  { n: "open_diagram", g: 2, d: "abre um diagrama do cofre no quadro" },
-  { n: "set_diagram_info", g: 2, d: "título, descrição e modo (Arch, Domain ou Logic)" },
-  { n: "add_groups", g: 1, d: "nuvem, rede, camadas e bounded contexts" },
-  { n: "add_components", g: 1, d: "serviços, bancos, papéis DDD e passos de lógica" },
-  { n: "add_endpoints", g: 1, d: "GET, POST, WebSocket e gRPC presos ao serviço" },
-  { n: "add_use_cases", g: 1, d: "casos de uso e atores, sem duplicar" },
-  { n: "add_note", g: 1, d: "anotações no quadro" },
-  { n: "add_asset", g: 1, d: "tecnologia própria no catálogo" },
-  { n: "connect", g: 1, d: "conexões tipadas, relações DDD e saídas sim/não/repete" },
-  { n: "update_element", g: 1, d: "ajusta qualquer elemento" },
-  { n: "remove_elements", g: 1, d: "remove elementos e conexões" },
-  { n: "auto_layout", g: 2, d: "fluxo em camadas, linha do tempo ou pipeline de ações" },
-  { n: "clear_diagram", g: 2, d: "limpa o quadro — só sob pedido" },
-  { n: "validate_diagram", g: 3, d: "regras de arquitetura, D001–D032 e L001–L024 (roda os exemplos)" },
-  { n: "trace", g: 3, d: "caso de uso → command → aggregate → evento" },
-  { n: "domain_overview", g: 3, d: "visão consolidada dos contextos do cofre" },
-  { n: "generate_code", g: 3, d: "esqueleto TypeScript do domínio" },
-];
-const TOOL_GROUPS = ["Ler", "Construir", "Organizar", "Validar e gerar"];
-
-export function McpMotion() {
-  const [ref, t] = useClock(24000, 0.99);
-  const k = Math.min(TOOLS.length - 1, Math.floor(t * TOOLS.length));
-  const cur = TOOLS[k];
-  return (
-    <div className="glass mo-mcp" ref={ref}>
-      <header>
-        <span className="lp-ico">
-          <Glyph name="plug" size={20} />
-        </span>
-        <div>
-          <span className="mo-tag">Servidor MCP</span>
-          <h3>{TOOLS.length} ferramentas para o seu agente</h3>
-        </div>
-        <ul className="mo-legend" aria-hidden>
-          {TOOL_GROUPS.map((g, i) => (
-            <li key={g} className={`g${i}`}>
-              <i /> {g}
-            </li>
-          ))}
-        </ul>
-      </header>
-      <ul className="mo-chips" aria-label="Ferramentas do servidor MCP">
-        {TOOLS.map((tl, i) => (
-          <li key={tl.n} className={`g${tl.g}${i === k ? " on" : ""}`}>
-            {tl.n}
-          </li>
-        ))}
-      </ul>
-      <p className="mo-now" aria-live="off">
-        <b>{cur.n}</b> <span>→ {cur.d}</span>
-      </p>
-    </div>
-  );
-}
-
 /* ───────── seção ───────── */
 
 export function MotionGallery() {
   return (
     <div className="mo-grid">
       <ModeMotion />
-      <TimelineMotion />
+      <LogicMotion />
       <LayoutMotion />
       <ValidateMotion />
-      <FlowMotion />
-      <PropsMotion />
-      <StoryMotion />
-      <CodeMotion />
-      <LogicMotion />
     </div>
   );
 }
