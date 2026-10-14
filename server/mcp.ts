@@ -75,6 +75,7 @@ const server = new McpServer(
       "Archflow é um quadro branco de arquitetura de software que o usuário vê em tempo real. Trabalhe com componentes, grupos e conexões (nunca pixels). " +
       "Fluxo: get_diagram → list_assets/search_assets (prefira assets do catálogo) → add_groups → add_components → add_endpoints → connect → auto_layout → validate_diagram. " +
       "Diagramas têm modo: `architecture` (padrão) ou `domain` (DDD: contextos, aggregates, commands, eventos, casos de uso) ou `logic` (regras de negócio em ordem, dados e exemplos verificáveis; chame get_schema_guide antes). No modo domain chame get_schema_guide antes: o vocabulário é outro (kind domain + ddd.role) e use add_use_cases, trace e domain_overview. " +
+      "No modo architecture, `set_presentation` define a ordem dos slides (responsabilidades, conexões, interfaces e notas). " +
       "Leia o resource archflow://skill (ou get_schema_guide) para o guia completo. Nunca use clear_diagram sem pedido explícito.",
   },
 );
@@ -422,6 +423,32 @@ server.registerTool(
 );
 
 server.registerTool(
+  "set_presentation",
+  {
+    description:
+      "Modo architecture: grava o roteiro de apresentação (a ordem dos slides). Substitui o roteiro inteiro; `steps` vazio apaga e volta ao roteiro automático. " +
+      "Cada passo tem `title`, `text` opcional (o que o apresentador fala) e `focus` (ids de componentes, grupos, conexões ou notas; vazio ou omitido = visão geral). " +
+      "Um passo por ideia: comece pela visão geral, siga o caminho da requisição e inclua no focus a nota de decisão ou risco no passo em que ela importa. " +
+      "Preencha antes a `description` dos componentes — no slide ela aparece como responsabilidade, junto com endpoints, conexões, interfaces e notas em foco. A tecla P abre a apresentação.",
+    inputSchema: {
+      steps: z.array(
+        z.object({
+          id: z.string().optional().describe("slug estável do passo"),
+          title: z.string().describe("título do slide"),
+          text: z.string().optional().describe("narrativa: o que dizer neste passo"),
+          focus: z.array(z.string()).optional().describe("ids em foco; omitido ou vazio = visão geral do diagrama"),
+        }),
+      ),
+    },
+  },
+  async ({ steps }) => {
+    const doc = await getDoc();
+    if (docMode(doc) !== "architecture") return text(`o diagrama aberto está em modo "${docMode(doc)}"; o roteiro de apresentação é do modo architecture`, true);
+    return report((await ops([{ op: "set_tour", steps: steps.map((s) => ({ ...s, focus: s.focus ?? [] })) }])).results);
+  },
+);
+
+server.registerTool(
   "clear_diagram",
   { description: "Apaga todo o conteúdo do diagrama (destrutivo; o usuário pode desfazer com Ctrl+Z no app).", inputSchema: {} },
   async () => report((await ops([{ op: "clear" }])).results),
@@ -558,6 +585,41 @@ server.registerTool(
       return text("aberto.\n" + fmtWorkspace(await post("/api/diagrams/open", { name })));
     } catch (e) {
       return text(String(e), true);
+    }
+  },
+);
+
+const PREVIEW_MAX = 1_500_000;
+
+server.registerTool(
+  "export_image",
+  {
+    description:
+      "Exporta o diagrama como SVG e/ou PNG idêntico ao que o app mostra (fontes embutidas no SVG, cores do tema, setas, ícones, notas em markdown e o fundo do quadro; sem seleção nem zoom). " +
+      "A imagem é renderizada pela janela do Archflow, que precisa estar aberta. Sem `out`, grava ao lado do diagrama (ex.: backend/orders.svg). `name` exporta outro diagrama do cofre (o app troca para ele).",
+    inputSchema: {
+      format: z.enum(["svg", "png", "both"]).optional().describe("svg (padrão), png ou both"),
+      name: z.string().optional().describe("caminho de list_diagrams; omitido = diagrama aberto"),
+      out: z.string().optional().describe("arquivo ou pasta de destino; caminho relativo fica dentro do cofre. Sem extensão, recebe .svg/.png"),
+      background: z.enum(["board", "solid", "transparent"]).optional().describe("board (padrão: cor + trama do quadro) · solid (só a cor) · transparent"),
+      scale: z.number().min(0.5).max(4).optional().describe("PNG: pixels por unidade (padrão 2)"),
+      padding: z.number().int().min(0).max(400).optional().describe("margem em volta do conteúdo (padrão 48)"),
+    },
+  },
+  async ({ format, out, name, ...opts }) => {
+    const formats = format === "both" ? (["svg", "png"] as const) : ([format ?? "svg"] as const);
+    const lines: string[] = [];
+    const images: { type: "image"; data: string; mimeType: string }[] = [];
+    try {
+      for (const f of formats) {
+        const dest = out && formats.length > 1 && /\.(svg|png)$/i.test(out) ? out.replace(/\.(svg|png)$/i, `.${f}`) : out;
+        const r: any = await post("/api/export", { format: f, out: dest, name: f === formats[0] ? name : undefined, ...opts });
+        lines.push(`${f.toUpperCase()} ${r.width}×${r.height}px · ${(r.bytes / 1024).toFixed(1)} KB → ${r.file}`);
+        if (r.base64 && r.base64.length <= PREVIEW_MAX) images.push({ type: "image", data: r.base64, mimeType: "image/png" });
+      }
+      return { content: [{ type: "text" as const, text: `exportado (${formats.length}).\n${lines.join("\n")}` }, ...images] };
+    } catch (e) {
+      return text([...lines, String(e)].join("\n"), true);
     }
   },
 );

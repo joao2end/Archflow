@@ -558,6 +558,7 @@ function HelpModal() {
     ["Aparência", [["L / Shift+L", "Auto-layout: abre a configuração (horizontal / vertical)"], ["T", "Alternar tema (auto/claro/escuro)"], ["A", "Animações on/off"]]],
     ["Apresentar", [["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"]]],
   ];
+  if (mode === "architecture") groups.unshift(["Apresentação da arquitetura", [["P", "Abrir a apresentação e o roteiro"], ["→ ←", "Próximo / anterior slide"], ["Home / End", "Primeiro / último slide"], ["S", "Mostrar ou ocultar o roteiro"], ["▶", "Reproduz sozinho, 7 s por slide"]]]);
   if (mode === "logic") groups.unshift(["Modo Lógica", [["▶ no cenário", "Reproduz o caminho que o fluxo percorre"], ["← →", "Passo anterior / próximo durante a reprodução"], ["✓ no topo", "Validação: roda todos os exemplos e mostra o que não bate"]]]);
   const [q, setQ] = useState("");
   const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");

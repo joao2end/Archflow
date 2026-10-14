@@ -10,29 +10,58 @@ import { fitView } from "./keys";
 const PANEL_W = 400;
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const attr = (id: string) => id.replace(/["\\]/g, "\\$&");
-const sel = (role: string, ids: string[]) => ids.map((i) => `svg.canvas [data-role="${role}"][data-id="${attr(i)}"]`).join(",\n");
+const sel = (role: string, ids: string[]) => (ids.length ? ids.map((i) => `svg.canvas [data-role="${role}"][data-id="${attr(i)}"]`).join(",\n") : "");
 
-/** O que fica visível a cada passo: o já percorrido esmaece, o passo atual brilha e as conexões que levaram a ele se animam. */
-function storyCss(story: Story, at: number): string {
-  const seen = story.steps.slice(0, at);
-  const cur = story.steps[at];
-  const curNodes = [cur.id, ...cur.extraIds];
-  const seenConns = story.steps.slice(0, at + 1).flatMap((s) => s.connIds);
+export interface Spotlight {
+  /** o que esmaece; o passo atual é recolocado por cima */
+  dim: ("node" | "group" | "note" | "conn")[];
+  seenNodes?: string[];
+  seenConns?: string[];
+  nodes: string[];
+  extras?: string[];
+  groups?: string[];
+  notes?: string[];
+  conns?: string[];
+}
+
+/** O que fica visível: o resto esmaece, o passo atual brilha e as conexões do passo se animam. */
+export function spotlightCss(s: Spotlight): string {
+  const rule = (selector: string, body: string) => (selector ? `${selector} { ${body} }` : "");
+  const dim = s.dim.map((role) => `svg.canvas [data-role="${role}"]`).join(", ");
+  const conns = s.conns ?? [];
   const rules = [
-    `svg.canvas [data-role="node"], svg.canvas [data-role="conn"], svg.canvas [data-role="note"] { opacity: .09; transition: opacity .35s ease, filter .35s ease; }`,
-    seen.length ? `${sel("node", seen.map((s) => s.id))} { opacity: .55; }` : "",
-    seenConns.length ? `${sel("conn", seenConns)} { opacity: .5; }` : "",
-    `${sel("node", curNodes)} { opacity: 1; filter: drop-shadow(0 0 14px var(--story-glow)); }`,
-    cur.extraIds.length ? `${sel("node", cur.extraIds)} { filter: none; opacity: .85; }` : "",
-    cur.connIds.length ? `${sel("conn", cur.connIds)} { opacity: 1; }` : "",
-    cur.connIds.length && !reduced() ? `${cur.connIds.map((i) => `svg.canvas [data-role="conn"][data-id="${attr(i)}"] path[id]`).join(",\n")} { stroke-dasharray: 9 7 !important; stroke-width: 3.4px !important; opacity: 1 !important; animation: story-dash .7s linear infinite; }` : "",
+    dim ? `${dim} { opacity: .09; transition: opacity .35s ease, filter .35s ease; }` : "",
+    rule(sel("node", s.seenNodes ?? []), "opacity: .55;"),
+    rule(sel("conn", s.seenConns ?? []), "opacity: .5;"),
+    rule(sel("node", s.nodes), "opacity: 1; filter: drop-shadow(0 0 14px var(--story-glow));"),
+    rule(sel("group", s.groups ?? []), "opacity: 1; filter: drop-shadow(0 0 14px var(--story-glow));"),
+    rule(sel("note", s.notes ?? []), "opacity: 1; filter: drop-shadow(0 0 14px var(--story-glow));"),
+    rule(sel("node", s.extras ?? []), "filter: none; opacity: .85;"),
+    rule(sel("conn", conns), "opacity: 1;"),
+    conns.length && !reduced() ? `${conns.map((i) => `svg.canvas [data-role="conn"][data-id="${attr(i)}"] path[id]`).join(",\n")} { stroke-dasharray: 9 7 !important; stroke-width: 3.4px !important; opacity: 1 !important; animation: story-dash .7s linear infinite; }` : "",
   ];
   return rules.filter(Boolean).join("\n");
 }
 
+/** O que fica visível a cada passo do domínio: o já percorrido esmaece, o passo atual brilha e as conexões que levaram a ele se animam. */
+function storyCss(story: Story, at: number): string {
+  const seen = story.steps.slice(0, at);
+  const cur = story.steps[at];
+  return spotlightCss({
+    dim: ["node", "conn", "note"],
+    seenNodes: seen.map((s) => s.id),
+    seenConns: story.steps.slice(0, at + 1).flatMap((s) => s.connIds),
+    nodes: [cur.id, ...cur.extraIds],
+    extras: cur.extraIds,
+    conns: cur.connIds,
+  });
+}
+
 let raf = 0;
+/** Interrompe a animação da câmera (ao sair do painel). */
+export const cancelCamera = () => cancelAnimationFrame(raf);
 /** Leva a câmera até as caixas, deixando livre a faixa do painel. */
-function moveCameraTo(boxes: { x: number; y: number; w: number; h: number }[]) {
+export function moveCameraTo(boxes: { x: number; y: number; w: number; h: number }[]) {
   const el = document.querySelector("svg.canvas") as SVGSVGElement | null;
   if (!el || !boxes.length) return;
   const r = el.getBoundingClientRect();

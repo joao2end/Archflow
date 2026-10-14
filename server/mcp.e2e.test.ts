@@ -242,3 +242,46 @@ test("fluxo pelo MCP: policy com ramos, condição, senão, loop e para cada; de
   assert.match(arch.text, /modo "domain"/);
   assert.doesNotMatch((await call("get_schema_guide")).text, /Condições, loops/);
 });
+
+test("roteiro de apresentação no modo architecture", async () => {
+  assert.equal((await call("new_diagram", { title: "Pedidos" })).isError, false);
+  assert.equal(
+    (await call("add_components", {
+      components: [
+        { id: "web", label: "App Web", kind: "client" },
+        { id: "orders-api", label: "Orders API", kind: "service", description: "Cria e consulta pedidos", technology: "Laravel 11" },
+      ],
+    })).isError,
+    false,
+  );
+  assert.match((await call("add_endpoints", { endpoints: [{ owner: "orders-api", protocol: "rest", method: "POST", path: "/orders" }] })).text, /ok: 1\/1/);
+  const note = await call("add_note", { text: "Fila para não bloquear o checkout" });
+  assert.match(note.text, /#0 ✓ note\b/);
+  assert.match(
+    (await call("connect", {
+      connections: [{ from: "web", to: "orders-api", type: "sync", label: "POST /orders", protocol: "HTTPS/REST", interface: { name: "PedidosAPI", kind: "rest", operations: [{ name: "createOrder", method: "POST", path: "/orders" }] } }],
+    })).text,
+    /ok: 1\/1/,
+  );
+
+  const set = await call("set_presentation", {
+    steps: [
+      { title: "Visão geral", text: "O checkout passa pela API.", focus: [] },
+      { title: "Checkout", text: "O app cria o pedido.", focus: ["orders-api", "web-to-orders-api", "note"] },
+    ],
+  });
+  assert.equal(set.isError, false, set.text);
+  const md = (await call("get_diagram")).text;
+  assert.match(md, /## Roteiro de apresentação/);
+  assert.match(md, /2\. \*\*Checkout\*\* — `orders-api`, `web-to-orders-api`, `note`/);
+  assert.match(md, /O app cria o pedido\./);
+
+  const broken = await call("set_presentation", { steps: [{ title: "Quebrado", focus: ["fantasma"] }] });
+  assert.equal(broken.isError, false, broken.text);
+  assert.match((await call("validate_diagram")).text, /tour: passo 1 cita "fantasma", que não existe/);
+
+  await call("new_diagram", { title: "Dom", mode: "domain" });
+  const denied = await call("set_presentation", { steps: [{ title: "Não", focus: [] }] });
+  assert.equal(denied.isError, true);
+  assert.match(denied.text, /modo architecture/);
+});

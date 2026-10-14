@@ -181,6 +181,8 @@ SSE ganha `event: workspace` (mesmo payload de `GET /api/workspace`). `PUT /api/
 Segurança: o bridge recusa (403) requisições cujo `Host`/`Origin` não sejam localhost; valida cada segmento de caminho (sem `..`, sem nomes iniciados por `.`, sem caracteres inválidos); exclusões movem para `.archflow/trash/`.
 MCP: `list_diagrams`, `open_diagram { name }`, `new_diagram { title, folder? }` — sem ferramenta para trocar de cofre (decisão do usuário).
 
+Exportar imagem: `POST /api/export { format: "svg" | "png", name?, out?, background?, scale?, padding? }`. O bridge envia o evento SSE `export` à janela do app, que renderiza (estilos computados, fontes e imagens embutidos) e responde em `POST /api/export/result { id, data, encoding, w, h }`. Sem `out`, o arquivo vai ao lado do diagrama. Sem janela aberta, responde 409. MCP: `export_image`.
+
 ### 5.5 Backend em memória do navegador (sem bridge)
 Se `GET /api/workspace` falha (ou devolve algo que não seja um workspace — ex.: `index.html` de hospedagem estática), a UI troca `fetch` por `localFetch` (`src/ui/localVault.ts`), que implementa as MESMAS rotas `/api/doc`, `/api/workspace`, `/api/vaults/*`, `/api/diagrams/*` e `/api/folders/*` sobre o IndexedDB (`archflow-local`: chave `meta` + `vault:<id>`), emitindo localmente os eventos `doc` e `workspace`. Rotas de disco (`/api/fs/*`, `/api/vaults/open`) retornam 400. Extra: `POST /api/vaults/import { bundle }` (pacote `archflow-vault/1`). Sem EventSource, MCP ou edição externa. Uma vez em modo local na sessão, não há troca automática para servidor (evita divergência de dados).
 

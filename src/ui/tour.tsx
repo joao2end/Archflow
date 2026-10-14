@@ -1,0 +1,234 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { buildTour, type TourCard, type TourSlide } from "../shared/tour";
+import { Glyph } from "./icons";
+import { fitView } from "./keys";
+import { moveCameraTo, spotlightCss, cancelCamera } from "./story";
+import { useStore } from "./store";
+
+/* ───────── roteiro de apresentação de um diagrama de arquitetura ───────── */
+
+const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function slideCss(slide: TourSlide): string {
+  return spotlightCss({
+    dim: ["node", "group", "note", "conn"],
+    nodes: slide.spotlight.nodes,
+    groups: slide.spotlight.groups,
+    notes: slide.spotlight.notes,
+    conns: slide.spotlight.conns,
+  });
+}
+
+export function TourPanel() {
+  const doc = useStore((s) => s.doc);
+  const tour = useMemo(() => buildTour(doc), [doc]);
+  const [open, setOpen] = useState(true);
+  const [at, setAt] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const sig = tour.slides.map((s) => s.id).join("|");
+  const slide = tour.slides[Math.min(at, tour.slides.length - 1)];
+  const idx = slide ? tour.slides.indexOf(slide) : 0;
+
+  const go = (n: number) => setAt(Math.max(0, Math.min(tour.slides.length - 1, n)));
+
+  useEffect(() => {
+    setAt(0);
+    setPlaying(false);
+  }, [sig]);
+
+  useEffect(() => {
+    if (!open || !slide || slide.overview) return;
+    const style = document.createElement("style");
+    style.dataset.story = "";
+    style.textContent = slideCss(slide);
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, [open, slide, idx]);
+
+  useEffect(() => {
+    if (!open || !slide?.boxes.length) return;
+    moveCameraTo(slide.boxes);
+  }, [open, sig, idx]);
+
+  useEffect(() => () => cancelCamera(), []);
+  useEffect(() => {
+    if (!open) fitView();
+  }, [open]);
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [idx, sig]);
+
+  useEffect(() => {
+    if (!playing || !slide) return;
+    if (idx >= tour.slides.length - 1) return setPlaying(false);
+    const id = setTimeout(() => go(idx + 1), 7000);
+    return () => clearTimeout(id);
+  }, [playing, idx, sig]);
+
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest?.("input,textarea,select,[contenteditable]") || e.ctrlKey || e.metaKey) return;
+      const k = e.key;
+      if (k === "s" || k === "S") return setOpen((o) => !o);
+      if (!open) return;
+      if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown") (e.preventDefault(), setPlaying(false), go(idx + 1));
+      else if (k === "ArrowLeft" || k === "ArrowUp" || k === "PageUp") (e.preventDefault(), setPlaying(false), go(idx - 1));
+      else if (k === "Home") (e.preventDefault(), setPlaying(false), go(0));
+      else if (k === "End") (e.preventDefault(), setPlaying(false), go(tour.slides.length - 1));
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  });
+
+  if (!slide) return null;
+  const last = idx >= tour.slides.length - 1;
+
+  if (!open)
+    return (
+      <button className="btn glass story-pill" onClick={() => setOpen(true)} data-tip="Mostrar o roteiro (S)" data-tip-pos="left">
+        <Glyph name="play" size={16} /> Roteiro
+      </button>
+    );
+
+  return (
+    <aside className="glass story-panel" style={{ ["--story-color" as string]: "#706fd3" }} role="region" aria-label="Roteiro de apresentação">
+      <header className="story-head">
+        <div className="story-pick">
+          <span className="story-kicker">{tour.auto ? "Roteiro automático" : "Apresentação"}</span>
+          <b>{tour.title}</b>
+        </div>
+        <button className="btn ghost icon" onClick={() => setOpen(false)} aria-label="Ocultar o roteiro" data-tip="Ocultar (S)" data-tip-pos="left">
+          <Glyph name="close" size={16} />
+        </button>
+      </header>
+
+      <div className="story-progress" role="group" aria-label={`Passo ${idx + 1} de ${tour.slides.length}`}>
+        {tour.slides.map((s, i) => (
+          <button key={s.id} className={i === idx ? "on" : i < idx ? "done" : ""} onClick={() => (setPlaying(false), go(i))} aria-label={`Ir ao passo ${i + 1}: ${s.title}`} aria-current={i === idx ? "step" : undefined} title={`${i + 1}. ${s.title}`} />
+        ))}
+      </div>
+
+      <div className="story-body" ref={bodyRef} aria-live="polite">
+        <div className="story-title">
+          <span className="story-n">
+            {idx + 1}/{tour.slides.length}
+          </span>
+        </div>
+        <h2>{slide.title}</h2>
+        {slide.text && <p>{slide.text}</p>}
+        {slide.cards.map((card) => (
+          <TourCardView key={card.id} card={card} narrative={slide.text} slideTitle={slide.title} />
+        ))}
+      </div>
+
+      <footer className="story-nav">
+        <button className="btn sm" onClick={() => (setPlaying(false), go(idx - 1))} disabled={idx === 0} aria-label="Passo anterior" data-tip="Anterior (←)" data-tip-pos="top">
+          ← Anterior
+        </button>
+        <button className="btn ghost icon" onClick={() => setPlaying((p) => !p)} disabled={last} aria-label={playing ? "Pausar a reprodução" : "Reproduzir automaticamente"} aria-pressed={playing} data-tip={playing ? "Pausar" : reduced() ? "Reproduzir" : "Reproduzir sozinho (7 s por passo)"} data-tip-pos="top">
+          <Glyph name={playing ? "pause" : "play"} size={17} />
+        </button>
+        <button className="btn sm primary" onClick={() => (setPlaying(false), last ? go(0) : go(idx + 1))} aria-label={last ? "Recomeçar" : "Próximo passo"} data-tip={last ? "Recomeçar" : "Próximo (→)"} data-tip-pos="top">
+          {last ? "↺ Recomeçar" : "Próximo →"}
+        </button>
+      </footer>
+    </aside>
+  );
+}
+
+function TourCardView({ card, narrative, slideTitle }: { card: TourCard; narrative?: string; slideTitle: string }) {
+  const responsibility = card.role !== "connection" && card.responsibility && card.responsibility !== narrative ? card.responsibility : undefined;
+  const noteBody = card.noteText && card.noteText !== card.title ? card.noteText : undefined;
+  return (
+    <article className="tour-card">
+      <div className="story-title">
+        <span className="story-badge">{card.roleLabel}</span>
+        {card.context && <span className="story-ctx">{card.context}</span>}
+      </div>
+      {card.title !== slideTitle && <h2>{card.title}</h2>}
+      {card.technology && (
+        <p className="tour-meta">
+          <b>Tecnologia.</b> {card.technology}
+        </p>
+      )}
+      {responsibility && (
+        <section>
+          <h3>Responsabilidade</h3>
+          <p>{responsibility}</p>
+        </section>
+      )}
+      {card.endpoints.length > 0 && (
+        <section>
+          <h3>Interfaces expostas</h3>
+          <ul>
+            {card.endpoints.map((e) => (
+              <li key={e.id}>
+                <b>{e.label}</b> · {e.protocol}
+                {e.auth ? ` · auth: ${e.auth}` : ""}
+                {e.request ? ` · entrada: ${e.request}` : ""}
+                {e.response ? ` · saída: ${e.response}` : ""}
+                {e.description ? ` — ${e.description}` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {card.role === "connection" && (
+        <section>
+          <h3>Conexão</h3>
+          <p className="tour-route">{card.route}</p>
+          {card.protocol && (
+            <p>
+              <b>Protocolo.</b> {card.protocol}
+            </p>
+          )}
+          {card.responsibility && card.responsibility !== narrative && <p>{card.responsibility}</p>}
+          {card.iface && (
+            <div>
+              <h3>Contrato</h3>
+              <p>
+                <b>{card.iface.name}</b> ({card.iface.kind})
+                {card.iface.contract ? ` · ${card.iface.contract}` : ""}
+              </p>
+              {card.iface.operations.length > 0 && (
+                <ul>
+                  {card.iface.operations.map((o) => (
+                    <li key={o.name}>
+                      <b>{o.name}</b>
+                      {o.signature ? ` — ${o.signature}` : ""}
+                      {o.request ? ` · req: ${o.request}` : ""}
+                      {o.response ? ` · res: ${o.response}` : ""}
+                      {o.description ? ` · ${o.description}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+      {card.role === "note" && noteBody && (
+        <section>
+          <h3>Nota</h3>
+          <p className="tour-note">{noteBody}</p>
+        </section>
+      )}
+      {card.props.length > 0 && (
+        <section>
+          <h3>Propriedades</h3>
+          <table className="story-props">
+            <tbody>
+              {card.props.map((p) => (
+                <tr key={p.key}>
+                  <th scope="row">{p.key}</th>
+                  <td>{p.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+    </article>
+  );
+}

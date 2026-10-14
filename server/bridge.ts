@@ -15,7 +15,8 @@
  *   POST /api/diagrams/open|rename|duplicate|delete|move
  *   POST /api/folders | /api/folders/rename | /api/folders/delete
  *   GET  /api/fs/list?path=  · POST /api/fs/mkdir   (navegador de pastas)
- *   GET  /api/events                            SSE: hello | doc | workspace
+ *   POST /api/export { format, name?, out?, background?, scale?, padding? }  SVG/PNG renderizado pela janela do app
+ *   GET  /api/events                            SSE: hello | doc | workspace | export
  * Caminhos de diagrama são relativos ao cofre, com "/" (ex.: "backend/orders.archflow.json").
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -667,6 +668,65 @@ export async function checkMcp(id: string): Promise<McpCheck> {
   });
 }
 
+/* ───────── exportação de imagem ─────────
+ * Quem desenha é a janela do app: o bridge pede pelo SSE, a janela renderiza e devolve em /api/export/result. */
+
+type ImageFormat = "svg" | "png";
+interface ExportReply {
+  data?: string;
+  encoding?: "utf8" | "base64";
+  w?: number;
+  h?: number;
+  error?: string;
+}
+const pendingExports = new Map<string, (r: ExportReply) => void>();
+const EXPORT_TIMEOUT = 45000;
+
+function requestRender(format: ImageFormat, opts: { background?: string; scale?: number; padding?: number }): Promise<ExportReply> {
+  const id = `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return new Promise((ok, fail) => {
+    const timer = setTimeout(() => {
+      pendingExports.delete(id);
+      fail(new HttpError(504, "a janela do Archflow não respondeu a tempo. Deixe o app aberto (de preferência visível) e tente de novo."));
+    }, EXPORT_TIMEOUT);
+    pendingExports.set(id, (r) => {
+      clearTimeout(timer);
+      pendingExports.delete(id);
+      ok(r);
+    });
+    broadcast("export", { id, format, file: current, ...opts });
+  });
+}
+
+/** Sem `out`: ao lado do diagrama. Relativo = dentro do cofre. */
+function exportTarget(format: ImageFormat, out?: string): string {
+  const ext = `.${format}`;
+  if (!out) return diagramPath(current).slice(0, -EXT.length) + ext;
+  const abs = isAbsolute(out) ? resolve(out) : resolve(dir, out);
+  if (!isAbsolute(out) && !abs.startsWith(resolve(dir) + sep)) throw new HttpError(400, "caminho relativo deve ficar dentro do cofre");
+  const isDir = /[\\/]$/.test(out) || (existsSync(abs) && statSync(abs).isDirectory());
+  if (isDir) return join(abs, basename(current).slice(0, -EXT.length) + ext);
+  return extname(abs).toLowerCase() === ext ? abs : abs + ext;
+}
+
+async function exportImage(b: { format?: string; name?: string; out?: string; background?: string; scale?: number; padding?: number }) {
+  const format = b.format as ImageFormat;
+  if (format !== "svg" && format !== "png") throw new HttpError(400, `format inválido "${b.format}". Válidos: svg, png`);
+  if (b.background != null && !["board", "solid", "transparent"].includes(b.background)) throw new HttpError(400, `background inválido "${b.background}". Válidos: board, solid, transparent`);
+  if (!clients.size) throw new HttpError(409, "nenhuma janela do Archflow está aberta: a imagem é renderizada pelo app. Abra o Archflow e tente de novo.");
+  if (b.name && b.name !== current) {
+    if (!existsSync(diagramPath(b.name))) throw new HttpError(404, "diagrama não encontrado");
+    openFile(b.name, "mcp");
+  }
+  const target = exportTarget(format, b.out);
+  const r = await requestRender(format, { background: b.background, scale: b.scale, padding: b.padding });
+  if (r.error || !r.data) throw new HttpError(500, `a janela não conseguiu exportar: ${r.error ?? "resposta vazia"}`);
+  const bytes = Buffer.from(r.data, r.encoding === "base64" ? "base64" : "utf8");
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, bytes);
+  return { file: target, diagram: current, format, bytes: bytes.length, width: r.w, height: r.h, ...(format === "png" ? { base64: r.data } : {}) };
+}
+
 function installSkill() {
   const file = join(SKILL_DIR(), "SKILL.md");
   atomicWrite(file, SKILL_MD);
@@ -691,12 +751,12 @@ function json(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 }
-function readBody(req: IncomingMessage): Promise<any> {
+function readBody(req: IncomingMessage, max = 20e6): Promise<any> {
   return new Promise((ok, fail) => {
     let s = "";
     req.on("data", (d) => {
       s += d;
-      if (s.length > 20e6) fail(new HttpError(413, "payload grande demais"));
+      if (s.length > max) fail(new HttpError(413, "payload grande demais"));
     });
     req.on("end", () => {
       try {
@@ -942,6 +1002,12 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       return void res.end(SKILL_MD);
     }
     if (path === "/api/skill/install" && m === "POST") return json(res, 200, installSkill());
+    if (path === "/api/export" && m === "POST") return json(res, 200, await exportImage(await body(req)));
+    if (path === "/api/export/result" && m === "POST") {
+      const b = await readBody(req, 120e6);
+      pendingExports.get(String(b.id))?.(b);
+      return json(res, 200, { ok: true });
+    }
     if (path === "/api/schema") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       const wanted = url.searchParams.get("mode");

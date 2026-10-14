@@ -40,6 +40,7 @@ import {
   type NodeKind,
   type NoteFont,
   type Routing,
+  type TourStep,
 } from "./schema";
 import { layeredLayout, shelfPack } from "./layout";
 import { stormLayout } from "./storm";
@@ -48,6 +49,7 @@ import { logicLayout } from "./logiclayout";
 import { migrateFacts, migrateRuleGuards, normalizeLogicRole, pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, dataNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
 import { logicSize } from "./logiccard";
 import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, migrateDddDecisions, schemaGuideDomain, suggestRels, type Issue } from "./domain";
+import { describeTour, normalizeTour, tourIssues } from "./tour";
 
 /** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain e Logic só carregam o que é compatível com o modo. */
 export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
@@ -68,6 +70,7 @@ export type Op =
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
   | { op: "layout"; style?: "flow" | "timeline" | "pipeline" | "grouped"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
   | { op: "set_meta"; title?: string; description?: string; mode?: DocMode }
+  | { op: "set_tour"; steps: TourStep[] }
   | { op: "clear" };
 
 export interface OpResult {
@@ -529,12 +532,36 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         else delete doc.mode;
       }
       return { ok: true };
+    case "set_tour": {
+      if (!Array.isArray(op.steps)) return { ok: false, error: "steps precisa ser uma lista" };
+      if (!op.steps.length) {
+        delete doc.tour;
+        return { ok: true };
+      }
+      const steps: TourStep[] = [];
+      for (let i = 0; i < op.steps.length; i++) {
+        const s = op.steps[i];
+        const n = i + 1;
+        if (!s || typeof s.title !== "string" || !s.title.trim()) return { ok: false, error: `passo ${n}: title é obrigatório` };
+        if (s.text != null && typeof s.text !== "string") return { ok: false, error: `passo ${n}: text precisa ser texto` };
+        if (s.focus != null && (!Array.isArray(s.focus) || s.focus.some((id) => typeof id !== "string" || !id))) return { ok: false, error: `passo ${n}: focus precisa ser uma lista de ids` };
+        steps.push({
+          ...(s.id ? { id: s.id } : {}),
+          title: s.title.trim(),
+          ...(s.text?.trim() ? { text: s.text } : {}),
+          focus: s.focus ?? [],
+        });
+      }
+      doc.tour = steps;
+      return { ok: true };
+    }
     case "clear": {
       const fresh = emptyDoc(doc.title);
       doc.groups = fresh.groups;
       doc.nodes = fresh.nodes;
       doc.notes = fresh.notes;
       doc.connections = fresh.connections;
+      delete doc.tour;
       return { ok: true };
     }
   }
@@ -908,6 +935,7 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
   }
   if (domain) issues.push(...domainIssues(doc, opts));
   if (logicMode) issues.push(...logicIssues(doc));
+  for (const message of tourIssues(doc)) base(message);
   return issues;
 }
 
@@ -1030,6 +1058,7 @@ export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } 
       }
     }
   }
+  L.push(...describeTour(doc));
   const issues = validate(doc);
   if (issues.length) L.push("", "## Avisos", ...issues.map((i) => `- ${i}`));
   L.push("", "## Mermaid", "```mermaid", toMermaid(doc), "```");
@@ -1088,6 +1117,9 @@ export function normalizeDoc(raw: any): Doc {
     ink: Array.isArray(raw?.ink) ? raw.ink : [],
     customAssets: Array.isArray(raw?.customAssets) ? raw.customAssets : [],
   };
+  const tour = normalizeTour(raw?.tour);
+  if (tour) out.tour = tour;
+  else delete out.tour;
   // modo Domain: o papel `decision` agora só existe no modo logic (vira policy / process-manager ao abrir)
   if (out.mode === "domain") Object.assign(out, migrateDddDecisions(out.nodes, out.connections));
   // modo Logic: a guarda «só roda se» da Ação virou uma Decisão antes dela

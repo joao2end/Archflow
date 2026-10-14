@@ -797,6 +797,10 @@ export function startSync() {
       es.addEventListener("doc", (ev) => onDoc(JSON.parse((ev as MessageEvent).data)));
       es.addEventListener("workspace", (ev) => onWorkspace(JSON.parse((ev as MessageEvent).data) as Workspace));
       es.addEventListener("hello", () => set({ online: true }));
+      es.addEventListener("export", (ev) => {
+        const req = JSON.parse((ev as MessageEvent).data);
+        void import("./export").then((m) => m.answerExport(req));
+      });
       es.onerror = () => {
         set({ online: false });
         es.close();

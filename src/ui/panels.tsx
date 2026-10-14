@@ -178,7 +178,7 @@ export function TopBar() {
         </span>
         <div className="sep" />
         <RecordControls bar />
-        <button className="btn ghost" onClick={enterPresent} data-tip="Modo apresentação: caneta, marca-texto, laser e cronômetro (P)" data-tip-pos="bottom">
+        <button className="btn ghost" onClick={enterPresent} data-tip="Modo apresentação (P). Na arquitetura, percorre o roteiro." data-tip-pos="bottom">
           <Glyph name="present" size={17} /> Apresentar
         </button>
         <button className="btn ghost" onClick={() => set({ modal: { type: "llm" } })} data-tip="Veja o diagrama como um LLM o enxerga (Markdown, Mermaid, JSON)." data-tip-pos="bottom">

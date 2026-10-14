@@ -3099,6 +3099,24 @@ svg.canvas.drag-over {
   justify-content: space-between;
   gap: 8px;
 }
+.tour-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.tour-card h2 {
+  font-size: 16px;
+}
+.tour-meta,
+.tour-route {
+  margin: 0;
+}
+.tour-note {
+  white-space: pre-wrap;
+}
 @media (max-width: 760px) {
   .story-panel {
     top: auto;

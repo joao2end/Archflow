@@ -22,7 +22,8 @@ O Archflow é um quadro branco de arquitetura. O usuário vê o diagrama numa ja
 5. **Expor interfaces.** `add_endpoints` para os pontos de comunicação de cada serviço (REST, GraphQL, WebSocket, gRPC, webhook, SSE, evento).
 6. **Conectar.** `connect` com `type`, `label` e `protocol`; use `interface` quando o contrato importar.
 7. **Organizar e revisar.** `auto_layout`, depois `validate_diagram` e `get_diagram` para ler os avisos e corrigir.
-8. **Resumir** para o usuário o que foi criado e as suposições feitas.
+8. **Apresentar, se for contar a arquitetura.** `set_presentation` grava a ordem dos slides. Um passo por ideia: visão geral, depois o caminho da requisição. Em `focus`, cite componentes, conexões e a nota de decisão daquele momento. A `description` do componente vira a responsabilidade no slide; endpoints, protocolo e `interface` aparecem sozinhos. `steps` vazio apaga o roteiro.
+9. **Resumir** para o usuário o que foi criado e as suposições feitas.
 
 Agrupe chamadas: cada tool aceita **listas** (`components`, `connections`…) — crie vários itens de uma vez em vez de uma chamada por item.
 
@@ -43,9 +44,11 @@ Agrupe chamadas: cada tool aceita **listas** (`components`, `connections`…) �
 | `add_asset` | Cadastra tecnologia própria/interna no diagrama (exige `problem`). |
 | `auto_layout` | Reorganiza. `direction` LR (padrão) ou TB; `spacing` compact / comfortable / spacious. `style`: `flow` (padrão), `timeline` (só domain: raias de Event Storming) ou `pipeline` (só logic, padrão nele: fluxo de cima para baixo). |
 | `set_diagram_info` | Título, descrição e modo (`architecture` · `domain` · `logic`) do diagrama. |
+| `set_presentation` | Roteiro de slides do modo architecture: `steps` com `title`, `text` (o que falar) e `focus` (ids de componentes, grupos, conexões ou notas). Lista vazia apaga. |
 | `validate_diagram` | Aponta referências quebradas e componentes isolados. |
 | `clear_diagram` | **Destrutivo.** Só com pedido explícito do usuário. |
 | `list_diagrams` · `open_diagram` · `new_diagram` · `get_diagram_outline` | Navegar o cofre: listar, abrir, criar (opcionalmente em subpasta, com `mode`: architecture, domain ou logic) e resumir outro diagrama sem abri-lo. |
+| `export_image` | Grava o diagrama como `svg`, `png` ou `both`, idêntico à tela (fontes embutidas). Sem `out`, fica ao lado do `.archflow.json`; `name` exporta outro diagrama. Precisa do app aberto. |
 | `add_use_cases` · `trace` · `domain_overview` · `generate_code` | **Modo domain**: criar casos de uso, rastreá-los até o evento, ver o domínio inteiro do cofre e gerar o esqueleto de código. Ver a seção abaixo. |
 | `add_components` com `logic` · `connect` com `logic` | **Modo logic**: passos do fluxo (`logic.role`) e saídas das setas (`logic.branch` / `logic.case`). Ver a seção "Modo logic". |
 
@@ -150,7 +153,13 @@ connect         [{ from: "web", to: "orders-api", type: "sync", label: "POST /or
                  { from: "orders-queue", to: "mail-worker", type: "async", label: "consome" }]
 auto_layout     { direction: "LR", spacing: "comfortable" }
 validate_diagram → "sem problemas"
+set_presentation { steps: [
+  { title: "Visão geral", text: "O pedido entra pelo app e sai por e-mail.", focus: [] },
+  { title: "Checkout", text: "A API grava o pedido e publica o evento.", focus: ["web", "orders-api", "web-to-orders-api"] }
+] }
 ```
+
+No modo apresentação (tecla P) cada passo acende o `focus` e o painel mostra a responsabilidade (`description`), os endpoints, a conexão com protocolo e interface, e as notas incluídas no passo.
 
 ## Erros comuns
 

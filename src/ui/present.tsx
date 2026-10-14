@@ -8,6 +8,7 @@ import { getState, set, useStore } from "./store";
 import type { Pt } from "./geometry";
 import { RecordControls, recordingGrace } from "./record";
 import { StoryPanel } from "./story";
+import { TourPanel } from "./tour";
 import { parseRich, plainText, type BlockKind } from "../shared/richtext";
 import { docMode } from "../shared/schema";
 
@@ -252,7 +253,7 @@ function Timer() {
 
 export function PresentMode() {
   const view = useStore((s) => s.view);
-  const domain = useStore((s) => docMode(s.doc) === "domain");
+  const mode = useStore((s) => docMode(s.doc));
   const [tool, setTool] = useState<PresentTool>("navigate");
   const color = useStore((s) => s.inkColor);
   const cfg = useStore((s) => s.inkCfg);
@@ -484,7 +485,7 @@ export function PresentMode() {
 
       <Timer />
       <RecordControls />
-      {domain && <StoryPanel />}
+      {mode === "domain" ? <StoryPanel /> : mode === "architecture" ? <TourPanel /> : null}
 
       <div className="hud glass present-bar" role="toolbar" aria-label="Ferramentas de apresentação">
         {tools.map((t) => (

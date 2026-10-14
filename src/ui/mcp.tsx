@@ -257,7 +257,7 @@ export function McpBody() {
           <details className="mcp-more">
             <summary>Ferramentas e recursos</summary>
             <p className="mcp-hint">
-            <b>Ferramentas:</b> get_schema_guide · list_assets · search_assets · get_diagram · add_components · add_endpoints · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram · list_diagrams · get_diagram_outline · open_diagram · new_diagram · add_use_cases · trace · domain_overview · generate_code (modo domain). No modo logic use <code>add_components</code> com <code>logic</code>, <code>connect</code> com <code>logic.branch</code> e <code>auto_layout</code> em <code>pipeline</code>. <br />
+            <b>Ferramentas:</b> get_schema_guide · list_assets · search_assets · get_diagram · add_components · add_endpoints · add_groups · connect · update_element · remove_elements · add_note · add_asset · auto_layout · set_diagram_info · validate_diagram · clear_diagram · list_diagrams · get_diagram_outline · open_diagram · new_diagram · export_image · add_use_cases · trace · domain_overview · generate_code (modo domain). No modo logic use <code>add_components</code> com <code>logic</code>, <code>connect</code> com <code>logic.branch</code> e <code>auto_layout</code> em <code>pipeline</code>. <br />
             <b>Recursos:</b> archflow://diagram · archflow://schema · archflow://skill. O protocolo completo está em <code>docs/PROTOCOL.md</code>.
           </p>
           </details>

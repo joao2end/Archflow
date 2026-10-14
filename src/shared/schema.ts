@@ -729,6 +729,16 @@ export interface ConnectionEl {
   logic?: LogicConnSpec;
 }
 
+/** Um slide do roteiro de apresentação (modo architecture). */
+export interface TourStep {
+  id?: string;
+  title: string;
+  /** o que o apresentador fala neste passo */
+  text?: string;
+  /** ids de componentes, grupos, conexões ou notas em foco; vazio = visão geral */
+  focus: string[];
+}
+
 export interface Doc {
   schema: typeof SCHEMA_VERSION;
   id: string;
@@ -744,6 +754,8 @@ export interface Doc {
   ink?: InkStroke[];
   /** assets personalizados usados neste diagrama */
   customAssets: Asset[];
+  /** roteiro de apresentação (modo architecture); ausente = o app monta um roteiro automático */
+  tour?: TourStep[];
 }
 
 export const ENDPOINT_W = 200;

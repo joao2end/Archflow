@@ -8,7 +8,7 @@ modelo semântico (componentes, grupos, conexões tipadas e interfaces), interfa
 ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-706fd3)
 ![Node 22+](https://img.shields.io/badge/node-22%2B-706fd3)
 ![Windows · Web](https://img.shields.io/badge/plataforma-Windows%20%C2%B7%20Web-706fd3)
-![MCP](https://img.shields.io/badge/MCP-24%20tools-706fd3)
+![MCP](https://img.shields.io/badge/MCP-26%20tools-706fd3)
 
 > Desenvolvido pela **2.end**.
 >
@@ -253,6 +253,7 @@ Um **cofre** é uma pasta qualquer do disco; seus diagramas são arquivos `.arch
 - **Busca rápida** (`Ctrl+O`): encontra qualquer diagrama do cofre por título ou caminho; se não existir, cria.
 - Cada pasta lembra o último diagrama aberto; a árvore lembra quais pastas estão expandidas. Edições externas (editor, git) são recarregadas ao vivo.
 - **MCP:** `list_diagrams`, `open_diagram`, `new_diagram { title, folder? }`. O agente nunca troca de cofre — isso é decisão sua.
+- **Exportar imagem (MCP):** `export_image { format: svg | png | both, name?, out?, background?, scale? }` grava o diagrama igual à tela, com as fontes embutidas no SVG. A janela do Archflow precisa estar aberta.
 - Sem o bridge, o app segue funcionando com salvamento no navegador + importar/exportar JSON.
 - Config: `~/.archflow/config.json` (cofres, ativo, último aberto). Variáveis: `ARCHFLOW_DATA` (cofre padrão), `ARCHFLOW_CONFIG`, `ARCHFLOW_PORT`.
 
@@ -261,6 +262,14 @@ Um **cofre** é uma pasta qualquer do disco; seus diagramas são arquivos `.arch
 - **Componentes de comunicação:** um serviço *expõe* endpoints — REST (GET/POST/PUT/PATCH/DELETE), GraphQL (query/mutation/subscription), WebSocket, gRPC, Webhook, SSE e Evento. Adicione pelos botões "+ GET", "+ POST"… no inspetor do serviço, ou solte um item da categoria **Comunicação** da biblioteca sobre ele. Eles ficam presos ao serviço e aceitam conexões.
 - **Referência a outro diagrama:** arraste um diagrama do explorador para o quadro (ou use *Outro diagrama* na biblioteca). Clique nele para **visualizar em modal**; dentro do modal, clique em outras referências para entrar nelas e use **← →** (ou Alt+←/→) para navegar. *Editar* abre o diagrama e o botão **Voltar** retorna. O explorador mostra **Referenciado por** (backlinks) e os links são atualizados ao renomear/mover arquivos.
 - MCP: `add_endpoints`, `get_diagram_outline` e `add_components` com `ref`.
+
+## Apresentar a arquitetura
+
+No modo **Architecture**, a tecla `P` abre a apresentação e um painel de slides. Cada slide acende no quadro só o que importa e, ao lado, conta a história: a **responsabilidade** (`description` do componente ou do grupo), a tecnologia, os **endpoints**, as **conexões** (rótulo, protocolo e descrição), o **contrato** (`interface`, com as operações) e as **notas** incluídas naquele passo.
+
+Sem um roteiro gravado, o app monta um automático: visão geral, um slide por componente na ordem do fluxo e, no fim, as notas. Para definir a ordem, o agente usa `set_presentation` (uma lista de passos com `title`, `text` e `focus`). `steps` vazio apaga o roteiro. Ids que não existem mais aparecem como aviso na validação e somem do slide.
+
+Teclas no painel: `→`/`←` (ou PageDown/PageUp) trocam o slide, `Home`/`End` vão às pontas, `▶` reproduz sozinho (7 s por slide) e `S` mostra ou oculta o painel.
 
 ## Modo Domain (DDD)
 
