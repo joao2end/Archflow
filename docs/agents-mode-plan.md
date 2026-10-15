@@ -83,7 +83,7 @@ type AgentRel = "uses-skill" | "delegates";
       catálogo ainda não resolvida, sem hash), A008 (par de papéis inválido pra relação), A009
       (conexão do modo sem relação). Testes novos em `agents.test.ts` (18 casos, cobrindo schema,
       ops, as 7 regras e describe/schemaGuide). `npx tsc --noEmit` limpo, 346/346 testes passando
-      (328 + 18 novos). Commit `<preencher no commit>`.
+      (328 + 18 novos). Commit `3c15065`.
 - [ ] Fase 4 — UI: `src/ui/agents.tsx`, aba Skills no painel, drag-to-plug
 - [ ] Fase 5 — `src/shared/agentgen.ts`: gera harness pros dois alvos
 - [ ] Fase 6 — zip sem dependência, rota de escrita no bridge, `generate_code` modo agents no MCP
