@@ -25,7 +25,8 @@ export type NodeKind =
   | "endpoint"
   | "system"
   | "domain"
-  | "logic";
+  | "logic"
+  | "agent";
 
 export const NODE_KINDS: Record<NodeKind, string> = {
   service: "Serviço / API / aplicação backend",
@@ -43,6 +44,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   system: "Sistema descrito em OUTRO diagrama do cofre (referência, campo `ref`)",
   domain: "Elemento do modelo de domínio (DDD): o papel (aggregate-root, command, domain-event...) está em `ddd.role`. Só existe em diagramas de modo `domain`",
   logic: "Elemento da lógica de negócio: o papel (action, decision, input, output, variable, scenario…) está em `logic.role`. Só existe em diagramas de modo `logic`",
+  agent: "Agente de IA ou skill: o papel (agent, skill) está em `agent.role`. Só existe em diagramas de modo `agents`",
 };
 
 export type GroupKind =
@@ -52,7 +54,8 @@ export type GroupKind =
   | "network"
   | "context"
   | "cluster"
-  | "team";
+  | "team"
+  | "global";
 
 export const GROUP_KINDS: Record<GroupKind, string> = {
   boundary: "Fronteira de sistema / container",
@@ -62,6 +65,7 @@ export const GROUP_KINDS: Record<GroupKind, string> = {
   context: "Bounded context (DDD)",
   cluster: "Cluster / namespace / node pool",
   team: "Time ou dono do conjunto",
+  global: "Modo agents: skills soltas aqui valem para TODOS os agentes do diagrama, sem precisar de seta uses-skill",
 };
 
 export type ConnectionType =
@@ -179,18 +183,88 @@ export const CONNECTION_TYPES: Record<ConnectionType, ConnectionTypeInfo> = {
 export const CONNECTION_TYPE_KEYS = Object.keys(CONNECTION_TYPES) as ConnectionType[];
 
 
+/* ───────── modo agents (times de agentes de IA) ───────── */
+
+export type AgentRole = "agent" | "skill";
+
+/** Origem de uma skill vinda do catálogo (hub `npx skills` / skills.sh): repositório GitHub + caminho do SKILL.md. Ausente = skill própria, escrita no Archflow. */
+export interface AgentSkillSource {
+  /** "owner/repo" */
+  repo: string;
+  /** caminho do SKILL.md dentro do repositório */
+  skillPath: string;
+  /** hash do conteúdo baixado por último; compara com a origem para detectar atualização */
+  hash?: string;
+}
+
+export interface AgentNodeSpec {
+  role: AgentRole;
+  /** agent: quando o orquestrador deve delegar para ele (vira `description` no frontmatter do subagente) */
+  description?: string;
+  /** agent: modelo ("inherit", um alias ou um id completo) */
+  model?: string;
+  /** agent: tools permitidas; ausente = herda todas */
+  tools?: string[];
+  /** agent: corpo do system prompt (markdown) */
+  prompt?: string;
+  /** skill: corpo do SKILL.md (markdown), depois do frontmatter */
+  body?: string;
+  /** skill: origem no catálogo; ausente = skill própria (editável, sem atualização) */
+  source?: AgentSkillSource;
+}
+export type AgentField = Exclude<keyof AgentNodeSpec, "role">;
+
+export const AGENT_ROLES: Record<AgentRole, { label: string; hint: string; color: string; badge: string; fields: AgentField[] }> = {
+  agent: {
+    label: "Agent",
+    hint: "Subagente de IA: um papel focado, com descrição de quando é acionado, modelo, tools e o prompt. Exporta como subagente do Claude Code ou do Cursor.",
+    color: "#5b8def",
+    badge: "AGENT",
+    fields: ["description", "model", "tools", "prompt"],
+  },
+  skill: {
+    label: "Skill",
+    hint: "Conhecimento ou procedimento reutilizável (SKILL.md). Do catálogo (tem `source`, recebe atualização) ou própria (editável). Plugada num agente por uma seta uses-skill, ou solta no grupo Global para valer para todos.",
+    color: "#2f9e8f",
+    badge: "SKILL",
+    fields: ["description", "body", "source"],
+  },
+};
+export const AGENT_ROLE_KEYS = Object.keys(AGENT_ROLES) as AgentRole[];
+
+export type AgentRel = "uses-skill" | "delegates";
+export const AGENT_RELS: Record<AgentRel, { label: string; semantics: string; type: ConnectionType }> = {
+  "uses-skill": { label: "uses-skill", semantics: "agent → skill: a skill é plugada neste agente. No Claude Code vira o campo `skills` do subagente (pré-carrega o conteúdo); no Cursor não há campo nativo — fica documentado no corpo do agente.", type: "dependency" },
+  delegates: { label: "delegates", semantics: "agent → agent: o primeiro pode acionar o segundo como subagente (handoff/delegação).", type: "sync" },
+};
+export const AGENT_REL_KEYS = Object.keys(AGENT_RELS) as AgentRel[];
+
+/** Ponta de uma relação do modo agents: o papel do elemento. */
+export type AgentRelEnd = AgentRole;
+export const AGENT_REL_PAIRS: Record<AgentRel, { from: AgentRelEnd[]; to: AgentRelEnd[] }[]> = {
+  "uses-skill": [{ from: ["agent"], to: ["skill"] }],
+  delegates: [{ from: ["agent"], to: ["agent"] }],
+};
+
+/** Campos próprios de uma conexão do modo agents. */
+export interface AgentConnSpec {
+  rel: AgentRel;
+}
+
 /* ───────── modo domínio (DDD) ───────── */
 
-/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD). */
-export type DocMode = "architecture" | "domain" | "logic";
+/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD) · `agents` = time de agentes de IA. */
+export type DocMode = "architecture" | "domain" | "logic" | "agents";
 
 export const DOC_MODES: Record<DocMode, { label: string; hint: string }> = {
   architecture: { label: "Architecture", hint: "Arquitetura: serviços, bancos, filas, nuvem e rede." },
   domain: { label: "Domain", hint: "Domínio (DDD): bounded contexts, aggregates, commands, eventos e casos de uso." },
   logic: { label: "Logic", hint: "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos." },
+  agents: { label: "Agents", hint: "Agentes de IA: subagentes, skills (do catálogo ou próprias) e como se plugam; exporta como harness para Claude Code ou Cursor." },
 };
 
-export const docMode = (doc: { mode?: DocMode }): DocMode => (doc.mode === "domain" ? "domain" : doc.mode === "logic" ? "logic" : "architecture");
+export const docMode = (doc: { mode?: DocMode }): DocMode =>
+  doc.mode === "domain" ? "domain" : doc.mode === "logic" ? "logic" : doc.mode === "agents" ? "agents" : "architecture";
 
 export type DddRole =
   | "aggregate-root"
@@ -644,6 +718,8 @@ export interface NodeEl extends Base, Box {
   ddd?: DddNodeSpec;
   /** lógica de negócio (kind "logic"): papel e campos do papel */
   logic?: LogicNodeSpec;
+  /** agente de IA / skill (kind "agent"): papel e campos do papel */
+  agent?: AgentNodeSpec;
 }
 
 export interface GroupEl extends Base, Box {
@@ -727,6 +803,8 @@ export interface ConnectionEl {
   ddd?: DddConnSpec;
   /** semântica de fluxo (modo logic): por qual saída da decisão, escolha ou laço a seta sai */
   logic?: LogicConnSpec;
+  /** semântica do modo agents: uses-skill ou delegates */
+  agent?: AgentConnSpec;
 }
 
 /** Um slide do roteiro de apresentação (modo architecture). */
@@ -769,7 +847,7 @@ export function emptyDoc(title = "Novo diagrama", mode: DocMode = "architecture"
     id: "diagram-" + Math.random().toString(36).slice(2, 8),
     title,
     description: "",
-    ...(mode === "domain" || mode === "logic" ? { mode } : {}),
+    ...(mode === "domain" || mode === "logic" || mode === "agents" ? { mode } : {}),
     groups: [],
     nodes: [],
     notes: [],

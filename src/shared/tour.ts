@@ -118,6 +118,7 @@ const NODE_ROLE: Record<NodeKind, string> = {
   system: "Sistema",
   domain: "Domínio",
   logic: "Lógica",
+  agent: "Agente",
 };
 
 const GROUP_ROLE: Record<GroupKind, string> = {
@@ -128,6 +129,7 @@ const GROUP_ROLE: Record<GroupKind, string> = {
   context: "Contexto",
   cluster: "Cluster",
   team: "Time",
+  global: "Global",
 };
 
 const emptySpot = (): TourSpotlight => ({ nodes: [], groups: [], notes: [], conns: [] });

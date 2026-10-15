@@ -527,8 +527,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (op.title != null) doc.title = op.title;
       if (op.description != null) doc.description = op.description;
       if (op.mode != null) {
-        if (op.mode !== "architecture" && op.mode !== "domain" && op.mode !== "logic") return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain, logic` };
-        if (op.mode === "domain" || op.mode === "logic") doc.mode = op.mode;
+        if (op.mode !== "architecture" && op.mode !== "domain" && op.mode !== "logic" && op.mode !== "agents") return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain, logic, agents` };
+        if (op.mode === "domain" || op.mode === "logic" || op.mode === "agents") doc.mode = op.mode;
         else delete doc.mode;
       }
       return { ok: true };
@@ -1075,10 +1075,10 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
     "o app calcula posições (use a operação `layout`).",
     "",
     "## Tipos de componente (`kind`)",
-    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain" && k !== "logic").map(([k, v]) => `- \`${k}\`: ${v}`),
+    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain" && k !== "logic" && k !== "agent").map(([k, v]) => `- \`${k}\`: ${v}`),
     "",
     "## Tipos de grupo (`kind`)",
-    ...Object.entries(GROUP_KINDS).map(([k, v]) => `- \`${k}\`: ${v}`),
+    ...Object.entries(GROUP_KINDS).filter(([k]) => k !== "global").map(([k, v]) => `- \`${k}\`: ${v}`),
     "",
     "## Tipos de conexão (`type`)",
     ...Object.entries(CONNECTION_TYPES).map(([k, v]) => `- \`${k}\` (${v.label}): ${v.semantics}`),
@@ -1108,7 +1108,7 @@ export function normalizeDoc(raw: any): Doc {
   const out = {
     ...d,
     ...rest,
-    ...(raw?.mode === "domain" || raw?.mode === "logic" ? { mode: raw.mode as "domain" | "logic" } : {}),
+    ...(raw?.mode === "domain" || raw?.mode === "logic" || raw?.mode === "agents" ? { mode: raw.mode as "domain" | "logic" | "agents" } : {}),
     schema: SCHEMA_VERSION,
     groups: Array.isArray(raw?.groups) ? raw.groups : [],
     nodes: Array.isArray(raw?.nodes) ? raw.nodes.map((n: any) => (n?.logic?.role === "action" ? { ...n, logic: normalizeLogicRole(n.logic) } : n)) : [],

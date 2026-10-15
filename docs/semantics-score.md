@@ -38,6 +38,20 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `call` | CLARO | simulação: `falha` → seta erro; senão `devolve` e seta normal; a chamada real não roda (iteração 8) |
 | `code` | CLARO | TypeScript livre (corpo de `async (data) => {}`); o `return` vira `resultado`, lido por `devolve`; erro lançado segue pela seta erro; o app usa `mock` no lugar de executar; o código gerado roda de verdade (logicgen.test.ts) |
 
+## Papéis Agents (`agent.role`)
+
+| Item | Status | Nota |
+|---|---|---|
+| `agent` | CLARO | subagente de IA; `description`/`model`/`tools`/`prompt`; exporta `skills:` nativo no Claude Code, nota no corpo no Cursor |
+| `skill` | CLARO | conhecimento reutilizável (SKILL.md); `source` ausente = própria, presente = do catálogo (hash para detectar atualização) |
+
+## Relações do modo agents (`AgentRel`)
+
+| Item | Status | Nota |
+|---|---|---|
+| `uses-skill` | CLARO | `semantics` em `AGENT_RELS` e pares em `AGENT_REL_PAIRS`: agent → skill |
+| `delegates` | CLARO | `semantics` em `AGENT_RELS` e pares em `AGENT_REL_PAIRS`: agent → agent |
+
 ## Campos DDD
 
 | Item | Status | Nota |
@@ -94,6 +108,7 @@ Cada valor tem rótulo e uma frase de significado no schema (única fonte: UI, g
 | `architecture` | CLARO | `hint` do modo no schema (iteração 26) |
 | `domain` | CLARO | `hint` do modo no schema (iteração 26) |
 | `logic` | CLARO | `hint` do modo no schema (iteração 26) |
+| `agents` | CLARO | `hint` do modo no schema (modo agents) |
 
 ### Tipos de componente (`NodeKind`)
 
@@ -114,6 +129,7 @@ Cada valor tem rótulo e uma frase de significado no schema (única fonte: UI, g
 | `system` | CLARO | frase em `NODE_KINDS` (iteração 26) |
 | `domain` | CLARO | frase em `NODE_KINDS` (iteração 26) |
 | `logic` | CLARO | frase em `NODE_KINDS` (iteração 26) |
+| `agent` | CLARO | frase em `NODE_KINDS` (modo agents) |
 
 ### Tipos de grupo (`GroupKind`)
 
@@ -126,6 +142,7 @@ Cada valor tem rótulo e uma frase de significado no schema (única fonte: UI, g
 | `context` | CLARO | frase em `GROUP_KINDS` (iteração 26) |
 | `cluster` | CLARO | frase em `GROUP_KINDS` (iteração 26) |
 | `team` | CLARO | frase em `GROUP_KINDS` (iteração 26) |
+| `global` | CLARO | frase em `GROUP_KINDS`: skill dentro do grupo global vale para todos os agentes (modo agents) |
 
 ### Tipos de conexão (`ConnectionType`)
 

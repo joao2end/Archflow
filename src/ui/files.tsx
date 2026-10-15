@@ -33,6 +33,7 @@ export const MODE_ICON: Record<DocMode, { glyph: string; color: string; label: s
   architecture: { glyph: "mode-architecture", color: "#706fd3", label: "Arquitetura" },
   domain: { glyph: "mode-domain", color: "#b7791f", label: "Domínio (DDD)" },
   logic: { glyph: "mode-logic", color: "#0e8f9a", label: "Lógica" },
+  agents: { glyph: "mode-agents", color: "#5b8def", label: "Agentes" },
 };
 const fileMode = (f: { mode?: DocMode }): DocMode => f.mode ?? "architecture";
 const FileIcon = ({ mode, size = 16 }: { mode: DocMode; size?: number }) => <Glyph name={MODE_ICON[mode].glyph} size={size} className="tree-ico" style={{ color: MODE_ICON[mode].color }} />;
