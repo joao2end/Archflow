@@ -7,7 +7,7 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KI
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
 import { LogicConnFields, LogicFields } from "./logic";
 import { AgentConnFields, AgentFields } from "./agents";
-import { SKILL_CATALOG, searchSkillCatalog, type SkillCatalogEntry } from "../shared/skillcatalog";
+import { mergeSkillCatalog, searchSkillCatalog, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { exportHtml, exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
@@ -427,7 +427,8 @@ function CatalogSkills({ q }: { q: string }) {
   const doc = useStore((s) => s.doc);
   const sel = useStore((s) => s.sel);
   const agent = sel.length === 1 ? doc.nodes.find((n) => n.id === sel[0] && n.agent?.role === "agent") : undefined;
-  const skills = q.trim() ? searchSkillCatalog(q) : SKILL_CATALOG;
+  const custom = useStore((s) => s.skillCatalog);
+  const skills = q.trim() ? searchSkillCatalog(q, custom) : mergeSkillCatalog(custom);
   const badge = lookupAsset("agent-skill");
   const usedBy = (e: SkillCatalogEntry) => {
     const node = doc.nodes.find((n) => n.agent?.source?.repo === e.repo && n.agent.source.skillPath === e.skillPath);

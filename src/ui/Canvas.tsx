@@ -1400,6 +1400,12 @@ export function Canvas() {
       return;
     }
     if (t && t.id && (t.role === "node" || t.role === "group" || t.role === "note" || t.role === "conn")) {
+      // Ctrl+clique numa skill abre a modal de edição, sem iniciar um arraste
+      if (t.role === "node" && (e.ctrlKey || e.metaKey) && !e.shiftKey && s.doc.nodes.find((n) => n.id === t.id)?.agent?.role === "skill") {
+        select([t.id]);
+        set({ modal: { type: "skill", id: t.id, tab: "write" } });
+        return;
+      }
       let nextSel = s.sel;
       if (e.shiftKey) nextSel = s.sel.includes(t.id) ? s.sel.filter((x) => x !== t.id) : [...s.sel, t.id];
       else if (!s.sel.includes(t.id)) nextSel = [t.id];
@@ -1786,7 +1792,7 @@ export function Canvas() {
     if (skill || id === "agent-skill") {
       const under = targetOf(document.elementFromPoint(e.clientX, e.clientY));
       const agent = under?.role === "node" ? s.doc.nodes.find((n) => n.id === under.id && n.agent?.role === "agent") : undefined;
-      return plugSkill({ entry: skill ? findSkillCatalogEntry(skill) : undefined, agentId: agent?.id, groupId: agent ? undefined : groupAt(p, s.doc, new Set())?.id, x: snapV(p.x - 92, s.snap), y: snapV(p.y - 36, s.snap) });
+      return plugSkill({ entry: skill ? findSkillCatalogEntry(skill, s.skillCatalog) : undefined, agentId: agent?.id, groupId: agent ? undefined : groupAt(p, s.doc, new Set())?.id, x: snapV(p.x - 92, s.snap), y: snapV(p.y - 36, s.snap) });
     }
     if (!id) return;
     const target = groupAt(p, s.doc, new Set());

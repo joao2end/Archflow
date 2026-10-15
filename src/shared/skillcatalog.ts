@@ -16,6 +16,9 @@ export interface SkillCatalogEntry {
   skillPath: string;
   description: string;
   tags?: string;
+  /** Corpo e hash quando a skill foi instalada com `npx skills add` e gravada no catálogo local. */
+  body?: string;
+  hash?: string;
 }
 
 /**
@@ -75,20 +78,84 @@ export const SKILL_CATALOG: SkillCatalogEntry[] = [
   },
 ];
 
-/** Busca por texto livre no id, nome, descrição ou tags (case-insensitive, sem acento). */
-export function searchSkillCatalog(query: string): SkillCatalogEntry[] {
-  const q = norm(query);
-  if (!q) return SKILL_CATALOG;
-  return SKILL_CATALOG.filter((e) => norm(`${e.id} ${e.name} ${e.repo} ${e.description} ${e.tags ?? ""}`).includes(q));
+/** Catálogo curado mais as skills instaladas pelo usuário. As instaladas vêm primeiro e vencem no mesmo repo + caminho. */
+export function mergeSkillCatalog(extra: SkillCatalogEntry[] = []): SkillCatalogEntry[] {
+  const key = (e: SkillCatalogEntry) => `${e.repo.toLowerCase()} ${e.skillPath}`;
+  const seen = new Set<string>();
+  const out: SkillCatalogEntry[] = [];
+  for (const e of [...extra, ...SKILL_CATALOG]) {
+    const k = key(e);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(e);
+  }
+  return out;
 }
 
-export function findSkillCatalogEntry(id: string): SkillCatalogEntry | undefined {
-  return SKILL_CATALOG.find((e) => e.id === id);
+/** Busca por texto livre no id, nome, descrição ou tags (case-insensitive, sem acento). `extra` são skills instaladas. */
+export function searchSkillCatalog(query: string, extra: SkillCatalogEntry[] = []): SkillCatalogEntry[] {
+  const all = mergeSkillCatalog(extra);
+  const q = norm(query);
+  if (!q) return all;
+  return all.filter((e) => norm(`${e.id} ${e.name} ${e.repo} ${e.description} ${e.tags ?? ""}`).includes(q));
+}
+
+export function findSkillCatalogEntry(id: string, extra: SkillCatalogEntry[] = []): SkillCatalogEntry | undefined {
+  return extra.find((e) => e.id === id) ?? SKILL_CATALOG.find((e) => e.id === id);
+}
+
+/** Pasta que contém o SKILL.md: slug do `npx skills add -s`. Sem pasta (URL do repositório), devolve undefined. */
+export function skillInstallSlug(skillPath: string): string | undefined {
+  const parts = skillPath.split("/").filter(Boolean);
+  if (parts.length >= 2 && /^skill\.md$/i.test(parts[parts.length - 1])) return parts[parts.length - 2];
+  return undefined;
 }
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export const catalogEntryToSource = (entry: SkillCatalogEntry): AgentSkillSource => ({ repo: entry.repo, skillPath: entry.skillPath });
+
+/**
+ * Lê uma URL do GitHub e devolve a fonte da skill. Aceita a página do arquivo
+ * (`github.com/…/blob/<ref>/…/SKILL.md`), a da pasta (`…/tree/<ref>/skills/pdf`),
+ * o raw (`raw.githubusercontent.com/…`) e também só `owner/repo`.
+ * Uma pasta vira `…/SKILL.md`. A ref (branch) é descartada: a resolução usa HEAD.
+ */
+export function parseSkillGithubUrl(input: string): { repo: string; skillPath: string } | undefined {
+  let s = input.trim().replace(/[?#].*$/, "").replace(/\/+$/, "");
+  if (!s) return undefined;
+  s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  const parts = s.split("/").filter(Boolean);
+  let owner: string | undefined;
+  let repo: string | undefined;
+  let path: string[] = [];
+  if (/^raw\.githubusercontent\.com$/i.test(parts[0]) && parts.length >= 4) {
+    [, owner, repo] = parts;
+    path = parts.slice(4); // pula a ref
+  } else if (/^github\.com$/i.test(parts[0]) && parts.length >= 3) {
+    [, owner, repo] = parts;
+    if (parts.length === 3) path = [];
+    else if (/^(blob|tree|raw)$/i.test(parts[3]) && parts.length >= 5) path = parts.slice(5);
+    else return undefined; // issues, pulls, releases… não apontam para um arquivo
+  } else if (parts.length >= 2 && !parts[0].includes(".")) {
+    [owner, repo] = parts;
+    path = parts.slice(2);
+  } else return undefined;
+  repo = repo.replace(/\.git$/i, "");
+  if (!owner || !repo || /[\s]/.test(owner) || /[\s]/.test(repo)) return undefined;
+  let skillPath = path.map(decode).join("/");
+  if (!skillPath) skillPath = "SKILL.md";
+  else if (!/\.md$/i.test(skillPath)) skillPath = `${skillPath}/SKILL.md`;
+  return { repo: `${owner}/${repo}`, skillPath };
+}
+
+const decode = (s: string) => {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+};
 
 /* ───────────────────────── resolver (GitHub) ───────────────────────── */
 

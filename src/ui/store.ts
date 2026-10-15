@@ -177,6 +177,8 @@ export interface State {
   workspace: Workspace | null;
   file: string | null;
   library: Asset[];
+  /** Skills instaladas com `npx skills add` a partir de uma URL. Valem para todos os diagramas deste navegador. */
+  skillCatalog: SkillCatalogEntry[];
   past: Doc[];
   future: Doc[];
   focusTick: number;
@@ -193,6 +195,7 @@ export interface State {
 
 const LS_DOC = "archflow.doc.v1";
 const LS_LIB = "archflow.library.v1";
+const LS_SKILLS = "archflow.skillcatalog.v1";
 const LS_PREFS = "archflow.prefs.v1";
 const LS_PLAY_SPEED = "archflow.play-speed.v1";
 /** Velocidades oferecidas na reprodução (múltiplos de 1x). */
@@ -215,6 +218,24 @@ function write(key: string, v: unknown) {
   } catch {
     /* quota / modo privado */
   }
+}
+
+function readCatalog(): SkillCatalogEntry[] {
+  const raw = read<unknown>(LS_SKILLS);
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((e): e is SkillCatalogEntry => {
+    if (!e || typeof e !== "object") return false;
+    const s = e as SkillCatalogEntry;
+    return typeof s.id === "string" && typeof s.name === "string" && typeof s.repo === "string" && typeof s.skillPath === "string" && typeof s.description === "string";
+  });
+}
+
+/** Grava skills instaladas no catálogo local (substitui a mesma fonte, se já existir). */
+export function saveCatalogSkills(entries: SkillCatalogEntry[]) {
+  let catalog = state.skillCatalog;
+  for (const e of entries) catalog = [...catalog.filter((x) => x.repo !== e.repo || x.skillPath !== e.skillPath), e];
+  write(LS_SKILLS, catalog);
+  set({ skillCatalog: catalog });
 }
 
 export function sampleDoc(): Doc {
@@ -283,6 +304,7 @@ function init(): State {
     workspace: null,
     file: null,
     library: read<Asset[]>(LS_LIB) ?? [],
+    skillCatalog: readCatalog(),
     past: [],
     future: [],
     focusTick: 0,
@@ -453,7 +475,7 @@ export function placeAsset(assetId: string, x: number, y: number, parent?: strin
 export function plugSkill(opts: { entry?: SkillCatalogEntry; skillId?: string; agentId?: string; groupId?: string; x?: number; y?: number }) {
   const doc = state.doc;
   const agent = opts.agentId ? doc.nodes.find((n) => n.id === opts.agentId && n.agent?.role === "agent") : undefined;
-  const source = opts.entry ? catalogEntryToSource(opts.entry) : undefined;
+  const source = opts.entry ? { ...catalogEntryToSource(opts.entry), ...(opts.entry.hash ? { hash: opts.entry.hash } : {}) } : undefined;
   const existing = opts.skillId
     ? doc.nodes.find((n) => n.id === opts.skillId && n.agent?.role === "skill")
     : source && doc.nodes.find((n) => n.agent?.role === "skill" && n.agent.source?.repo === source.repo && n.agent.source.skillPath === source.skillPath);
@@ -468,7 +490,7 @@ export function plugSkill(opts: { entry?: SkillCatalogEntry; skillId?: string; a
       op: "add_node",
       id,
       asset: "agent-skill",
-      ...(opts.entry ? { label: opts.entry.name, agent: { role: "skill", description: opts.entry.description, source } } : {}),
+      ...(opts.entry ? { label: opts.entry.name, agent: { role: "skill", description: opts.entry.description, ...(opts.entry.body ? { body: opts.entry.body } : {}), source } } : {}),
       x: Math.round(x / 8) * 8,
       y: Math.round(y / 8) * 8,
       ...(opts.groupId ? { parent: opts.groupId } : {}),
@@ -486,7 +508,7 @@ export function plugSkill(opts: { entry?: SkillCatalogEntry; skillId?: string; a
   set({ sel: [id] });
   if (agent) toast(existing ? `${existing.label} plugada em ${agent.label}` : `Skill plugada em ${agent.label}`);
   if (!opts.entry && !existing) set({ modal: { type: "skill", id, tab: "catalog" } });
-  if (opts.entry && !existing && source) {
+  if (opts.entry && !existing && source && !(opts.entry.body && opts.entry.hash)) {
     const skillId = id;
     resolveSkillSource(source).then((r) => {
       const n = state.doc.nodes.find((x) => x.id === skillId);
@@ -653,6 +675,14 @@ const flushPush = async () => {
   clearTimeout(pushTimer);
   if (state.online && state.docSource === "local") await pushNow();
 };
+
+/** Instala a fonte com `npx skills add` (no cofre em disco) e grava as skills no catálogo local. */
+export async function installGithubSkills(repo: string, skillPath: string): Promise<{ installed: SkillCatalogEntry[]; vault?: string }> {
+  const j = await call<{ installed?: SkillCatalogEntry[]; vault?: string }>("/api/skills/install", { repo, skillPath });
+  const installed = (j.installed ?? []).filter((e) => e?.id && e.repo && e.skillPath && e.body);
+  if (installed.length) saveCatalogSkills(installed);
+  return { installed, vault: j.vault };
+}
 
 export const fsList = (path?: string) => call<{ path: string; parent: string | null; home: string; dirs: { name: string; path: string; archflow: number; vault: boolean }[]; files?: number; vault?: boolean }>("/api/fs/list" + (path ? `?path=${encodeURIComponent(path)}` : ""));
 export const fsMkdir = (path: string) => call("/api/fs/mkdir", { path });

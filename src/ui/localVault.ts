@@ -347,6 +347,7 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     return workspaceInfo();
   }
   if (path === "/api/vaults/open" || path.startsWith("/api/fs/")) throw new HttpError(400, "Indisponível no modo navegador: não há acesso a pastas do disco. Rode `npm run dev` para usar cofres em disco.");
+  if (path === "/api/skills/install") throw new HttpError(400, "Indisponível no modo navegador: não há acesso a disco para rodar o npx skills add. Rode `npm run dev` para instalar skills de verdade.");
 
   /* diagramas */
   if (path === "/api/diagrams" && method === "POST") {

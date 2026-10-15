@@ -15,6 +15,7 @@
  *   POST /api/diagrams/open|rename|duplicate|delete|move
  *   POST /api/folders | /api/folders/rename | /api/folders/delete
  *   GET  /api/fs/list?path=  · POST /api/fs/mkdir   (navegador de pastas)
+ *   POST /api/skills/install { repo, skillPath }  `npx skills add` no cofre aberto + conteúdo do SKILL.md
  *   POST /api/export { format, name?, out?, background?, scale?, padding? }  SVG/PNG renderizado pela janela do app
  *   GET  /api/events                            SSE: hello | doc | workspace | export
  * Caminhos de diagrama são relativos ao cofre, com "/" (ex.: "backend/orders.archflow.json").
@@ -30,6 +31,7 @@ import { fileURLToPath } from "node:url";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
+import { hashSkillContent, parseSkillMarkdown, skillInstallSlug } from "../src/shared/skillcatalog";
 
 export const DEFAULT_PORT = Number(process.env.ARCHFLOW_PORT ?? 7077);
 const HOST = process.env.ARCHFLOW_HOST ?? "127.0.0.1";
@@ -733,6 +735,110 @@ function installSkill() {
   return { file };
 }
 
+interface LockSkill {
+  source?: string;
+  skillPath?: string;
+}
+
+/** Entradas do `skills-lock.json` na raiz do cofre, gravado pelo próprio `npx skills add`. */
+function readSkillLock(): Record<string, LockSkill> {
+  try {
+    const lock = JSON.parse(readFileSync(join(dir, "skills-lock.json"), "utf8"));
+    return lock?.skills && typeof lock.skills === "object" ? lock.skills : {};
+  } catch {
+    return {};
+  }
+}
+
+const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "");
+
+/** Roda `npx skills …` no cofre aberto sem travar o servidor (o clone do repositório pode levar um minuto). */
+function runSkills(args: string[]): Promise<{ stdout: string; stderr: string; status: number | null }> {
+  const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
+  return new Promise((ok, fail) => {
+    const child = spawn(cmd, args, { cwd: dir, shell: process.platform === "win32", windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const timer = setTimeout(() => {
+      child.kill();
+      if (settled) return;
+      settled = true;
+      fail(new HttpError(504, "npx skills add excedeu 3 minutos"));
+    }, 180_000);
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    child.stdout.on("data", (d) => (stdout += d));
+    child.stderr.on("data", (d) => (stderr = (stderr + d).slice(-4000)));
+    child.on("error", (e) => finish(() => fail(new HttpError(502, `não deu para rodar npx skills add: ${e.message}`))));
+    child.on("close", (status) => finish(() => ok({ stdout, stderr, status })));
+  });
+}
+
+interface CliSkill {
+  name?: string;
+  status?: string;
+  error?: string;
+  path?: string;
+}
+
+/** O CLI imprime um quadro e, no fim, um JSON. Pega o array. */
+function parseCliSkills(stdout: string): CliSkill[] | undefined {
+  const start = stdout.search(/\[\s*\{/);
+  if (start < 0) return undefined;
+  try {
+    const v = JSON.parse(stdout.slice(start));
+    return Array.isArray(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Instala skill(s) de um repositório GitHub com `npx skills add` (CLI `skills`, hub skills.sh) dentro
+ * do cofre aberto: `.agents/skills/<slug>/`, links em `.claude/skills/` e `.cursor/skills/`, e
+ * `skills-lock.json`. Sem slug (URL do repositório, não de uma skill) instala todas as que o CLI achar.
+ * O hash devolvido é o do app (`hashSkillContent`), para o drift bater com o fetch do catálogo curado;
+ * o `computedHash` do lock continua sendo o sha256 do CLI.
+ */
+export async function installSkillFromCatalog(input: { repo?: unknown; skillPath?: unknown }) {
+  const repo = String(input.repo ?? "").trim();
+  const skillPath = String(input.skillPath ?? "").trim();
+  if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) throw new HttpError(400, 'repo deve ser "owner/repo"');
+  if (!skillPath) throw new HttpError(400, "skillPath vazio");
+  if (!dir) throw new HttpError(422, "nenhum cofre em disco está aberto");
+  const slug = skillInstallSlug(skillPath);
+  const args = ["--yes", "skills", "add", repo, "-a", "claude-code", "-a", "cursor", "-y", "--json"];
+  if (slug) args.splice(4, 0, "-s", slug);
+  const r = await runSkills(args);
+  const parsed = parseCliSkills(r.stdout);
+  const failed = parsed?.filter((e) => e.status === "failed") ?? [];
+  const okOnes = parsed?.filter((e) => e.status !== "failed" && e.path && e.name) ?? [];
+  if (!okOnes.length) {
+    const detail = failed.find((e) => e.error)?.error ?? stripAnsi(r.stderr || r.stdout || "sem detalhes").trim().slice(-800);
+    throw new HttpError(502, `npx skills add ${repo} falhou: ${detail}`);
+  }
+  const lock = readSkillLock();
+  const installed = [];
+  for (const entry of okOnes) {
+    const name = String(entry.name);
+    const file = join(String(entry.path), "SKILL.md");
+    if (!existsSync(file)) continue;
+    const raw = readFileSync(file, "utf8");
+    const md = parseSkillMarkdown(raw);
+    const locked = lock[name] ?? Object.entries(lock).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+    const path = locked?.skillPath || (slug ? skillPath : undefined);
+    if (!path) continue;
+    installed.push({ id: name, name: md.name || name, repo, skillPath: path, description: md.description ?? "", body: md.body, hash: hashSkillContent(raw), tags: "instalada" });
+  }
+  if (!installed.length) throw new HttpError(502, `npx skills add ${repo} instalou, mas o SKILL.md não foi encontrado`);
+  return { installed, vault: vault.name };
+}
+
 /* ───────── HTTP ───────── */
 
 const ALLOWED_HOSTS = (process.env.ARCHFLOW_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
@@ -1002,6 +1108,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       return void res.end(SKILL_MD);
     }
     if (path === "/api/skill/install" && m === "POST") return json(res, 200, installSkill());
+    if (path === "/api/skills/install" && m === "POST") return json(res, 200, await installSkillFromCatalog(await body(req)));
     if (path === "/api/export" && m === "POST") return json(res, 200, await exportImage(await body(req)));
     if (path === "/api/export/result" && m === "POST") {
       const b = await readBody(req, 120e6);

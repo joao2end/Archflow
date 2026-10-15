@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_RELS, AGENT_REL_KEYS, AGENT_ROLES, AGENT_ROLE_KEYS, type AgentNodeSpec, type AgentRel, type AgentRole, type ConnectionEl, type NodeEl } from "../shared/schema";
 import { reshapeAgent, suggestAgentRels } from "../shared/agents";
-import { SKILL_CATALOG, catalogEntryToSource, resolveSkillSource, searchSkillCatalog, type SkillCatalogEntry } from "../shared/skillcatalog";
+import { SKILL_CATALOG, catalogEntryToSource, mergeSkillCatalog, parseSkillGithubUrl, resolveSkillSource, searchSkillCatalog, skillInstallSlug, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { renderMarkdown } from "./markdown";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { insertBlock, RichEditor, RichToolbar } from "./richeditor";
-import { run, set, toast, toastError, useStore } from "./store";
+import { installGithubSkills, run, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
 
@@ -219,54 +219,102 @@ type TabProps = { node: NodeEl; agent: AgentNodeSpec; patch: Patch; upd: (p: Rec
 type Preview = { status: "loading" } | { status: "ok"; body: string } | { status: "error"; error: string };
 
 function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWrite: () => void }) {
+  const custom = useStore((s) => s.skillCatalog);
+  const catalog = useMemo(() => mergeSkillCatalog(custom), [custom]);
   const current = agent.source;
   const isCurrent = (e: SkillCatalogEntry) => current?.repo === e.repo && current.skillPath === e.skillPath;
   const [query, setQuery] = useState("");
-  const [focusId, setFocusId] = useState<string | undefined>(() => SKILL_CATALOG.find(isCurrent)?.id);
+  const [focusId, setFocusId] = useState<string | undefined>(() => catalog.find(isCurrent)?.id);
   const [previews, setPreviews] = useState<Record<string, Preview>>({});
   const [resolving, setResolving] = useState(false);
-  const [repo, setRepo] = useState("");
-  const [path, setPath] = useState("");
-  const results = query.trim() ? searchSkillCatalog(query) : SKILL_CATALOG;
+  const [installing, setInstalling] = useState(false);
+  const [url, setUrl] = useState("");
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => void (alive.current = false);
+  }, []);
+  const results = query.trim() ? searchSkillCatalog(query, custom) : catalog;
   const focused = results.find((r) => r.id === focusId) ?? results[0];
-  const preview = focused && isCurrent(focused) && agent.body ? ({ status: "ok", body: agent.body } as Preview) : focused ? previews[focused.id] : undefined;
+  const preview = focused && isCurrent(focused) && agent.body ? ({ status: "ok", body: agent.body } as Preview) : focused?.body ? ({ status: "ok", body: focused.body } as Preview) : focused ? previews[focused.id] : undefined;
+  const manualSource = !!current && !SKILL_CATALOG.some((e) => e.repo === current.repo && e.skillPath === current.skillPath);
 
   useEffect(() => {
-    if (!focused || previews[focused.id] || (isCurrent(focused) && agent.body)) return;
+    if (!focused || focused.body || previews[focused.id] || (isCurrent(focused) && agent.body)) return;
     const id = focused.id;
     setPreviews((p) => ({ ...p, [id]: { status: "loading" } }));
     resolveSkillSource(catalogEntryToSource(focused)).then((r) => setPreviews((p) => ({ ...p, [id]: r.ok ? { status: "ok", body: r.body } : { status: "error", error: r.error } })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focused?.id]);
 
-  const resolve = async (spec: AgentNodeSpec, label?: string) => {
-    if (!spec.source) return;
-    setResolving(true);
-    const r = await resolveSkillSource(spec.source);
-    setResolving(false);
-    if (!r.ok) return toastError(r.error);
-    patch({ agent: mergeAgent(spec, { body: r.body, description: r.description ?? spec.description, source: { ...spec.source, hash: r.hash } }), ...(label ? { label } : {}) });
-    toast("Skill baixada do GitHub");
-  };
   const fresh = node.label === "Nova Skill" || node.label === "Skill";
-  const use = (source: { repo: string; skillPath: string }, name: string, description?: string) => {
-    const spec: AgentNodeSpec = { role: "skill", description: description ?? agent.description, source };
-    const label = fresh ? name : undefined;
-    patch({ agent: mergeAgent(spec, {}), ...(label ? { label } : {}) });
-    void resolve(spec, label);
+  const resolve = async (spec: AgentNodeSpec, label?: string): Promise<boolean> => {
+    if (!spec.source) return false;
+    const curated = SKILL_CATALOG.some((e) => e.repo === spec.source!.repo && e.skillPath === spec.source!.skillPath);
+    setResolving(true);
+    if (!curated) setInstalling(true);
+    try {
+      if (!curated) {
+        const { installed, vault } = await installGithubSkills(spec.source.repo, spec.source.skillPath);
+        const slug = skillInstallSlug(spec.source.skillPath);
+        const match = (slug && installed.find((s) => s.id.toLowerCase() === slug.toLowerCase())) || installed.find((s) => s.skillPath === spec.source!.skillPath) || installed[0];
+        if (!match?.body) {
+          toastError("O npx skills add não devolveu o conteúdo da skill");
+          return false;
+        }
+        const repoName = spec.source.repo.split("/")[1];
+        const rename = fresh || node.label === repoName || node.label === slug;
+        patch({
+          agent: mergeAgent(spec, { body: match.body, description: match.description || spec.description, source: { repo: match.repo, skillPath: match.skillPath, hash: match.hash } }),
+          ...(rename ? { label: match.name } : {}),
+        });
+        if (alive.current) setFocusId(match.id);
+        const where = vault ? ` no cofre «${vault}»` : "";
+        toast(installed.length > 1 ? `${installed.length} skills instaladas com npx${where} e salvas no catálogo. Este nó usa ${match.name}.` : `${match.name} instalada com npx${where} e salva no catálogo`);
+        return true;
+      }
+      const r = await resolveSkillSource(spec.source);
+      if (!r.ok) {
+        toastError(r.error);
+        return false;
+      }
+      patch({ agent: mergeAgent(spec, { body: r.body, description: r.description ?? spec.description, source: { ...spec.source, hash: r.hash } }), ...(label ? { label } : {}) });
+      toast("Skill baixada do GitHub");
+      return true;
+    } catch (e) {
+      toastError(e instanceof Error ? e.message : String(e));
+      return false;
+    } finally {
+      if (alive.current) (setResolving(false), setInstalling(false));
+    }
   };
-  const repoOk = /^[^/\s]+\/[^/\s]+$/.test(repo.trim());
-  const useManual = () => {
-    const p = path.trim() || "SKILL.md";
-    use({ repo: repo.trim(), skillPath: p }, p.split("/").slice(-2, -1)[0] || repo.trim().split("/")[1]);
-    setRepo("");
-    setPath("");
+  const take = (e: SkillCatalogEntry) => {
+    const source = catalogEntryToSource(e);
+    const label = fresh ? e.name : undefined;
+    if (e.body && e.hash) {
+      patch({ agent: mergeAgent({ role: "skill", description: e.description || agent.description, body: e.body, source: { ...source, hash: e.hash } }, {}), ...(label ? { label } : {}) });
+      toast(`${e.name} aplicada a partir do catálogo`);
+      return;
+    }
+    void resolve({ role: "skill", description: e.description || agent.description, source }, label);
+  };
+  const parsed = parseSkillGithubUrl(url);
+  const parsedSlug = parsed ? skillInstallSlug(parsed.skillPath) : undefined;
+  const useManual = async () => {
+    if (!parsed || resolving) return;
+    const ok = await resolve({ role: "skill", description: agent.description, source: parsed });
+    if (ok && alive.current) setUrl("");
+  };
+  const refreshLabel = () => {
+    if (resolving) return manualSource || installing ? "Instalando…" : "Baixando…";
+    if (manualSource) return current?.hash ? "Atualizar com npx" : "Instalar com npx";
+    return current?.hash ? "Atualizar do GitHub" : "Resolver do GitHub";
   };
   /** Setas ↑/↓ na busca andam pela lista sem tirar o foco do campo. */
   const nav = (e: React.KeyboardEvent) => {
     if (!results.length || (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter")) return;
     e.preventDefault();
-    if (e.key === "Enter") return focused && use(catalogEntryToSource(focused), focused.name, focused.description);
+    if (e.key === "Enter") return focused && take(focused);
     const i = Math.max(0, results.findIndex((r) => r.id === focused?.id));
     setFocusId(results[(i + (e.key === "ArrowDown" ? 1 : results.length - 1)) % results.length].id);
   };
@@ -276,15 +324,16 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
       <aside className="skill-cat-side">
         <input className="input skill-search" autoFocus value={query} placeholder="Buscar por nome, assunto ou repositório…" onChange={(e) => setQuery(e.target.value)} onKeyDown={nav} aria-label="Buscar skill no catálogo" aria-controls="skill-cat-list" />
         <span className="skill-cat-count">
-          {results.length} de {SKILL_CATALOG.length} skills
+          {results.length} de {catalog.length} skills
         </span>
         <ul id="skill-cat-list" className="skill-cat-list" role="listbox" aria-label="Skills do catálogo">
           {results.map((r) => (
             <li key={r.id} role="option" aria-selected={r.id === focused?.id}>
-              <button className={`skill-cat${r.id === focused?.id ? " focused" : ""}${isCurrent(r) ? " active" : ""}`} onClick={() => setFocusId(r.id)} onDoubleClick={() => use(catalogEntryToSource(r), r.name, r.description)}>
+              <button className={`skill-cat${r.id === focused?.id ? " focused" : ""}${isCurrent(r) ? " active" : ""}`} onClick={() => setFocusId(r.id)} onDoubleClick={() => take(r)}>
                 <span className="skill-cat-name">
                   {r.name}
                   {isCurrent(r) && <span className="skill-cat-tag">em uso</span>}
+                  {!isCurrent(r) && r.body && <span className="skill-cat-tag">instalada</span>}
                 </span>
                 <span className="skill-cat-repo">{r.repo}</span>
                 <span className="skill-cat-desc">{r.description}</span>
@@ -294,18 +343,28 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
           {!results.length && <li className="skill-cat-none">Nada no catálogo para «{query}». Use um repositório do GitHub abaixo ou escreva do zero.</li>}
         </ul>
         <details className="skill-manual">
-          <summary>Usar outro repositório do GitHub</summary>
+          <summary>Usar uma URL do GitHub</summary>
           <label className="field">
-            <span>Repositório (owner/repo)</span>
-            <input className="input" value={repo} placeholder="anthropics/skills" onChange={(e) => setRepo(e.target.value)} />
+            <span>URL do SKILL.md ou da pasta da skill</span>
+            <input
+              className="input"
+              value={url}
+              placeholder="https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md"
+              aria-invalid={url.trim() !== "" && !parsed}
+              aria-describedby="skill-url-hint"
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && parsed) (e.preventDefault(), useManual());
+              }}
+            />
           </label>
-          <label className="field">
-            <span>Caminho do SKILL.md</span>
-            <input className="input" value={path} placeholder="skills/pdf/SKILL.md" onChange={(e) => setPath(e.target.value)} />
-          </label>
-          <button className="btn sm" disabled={!repoOk || resolving} onClick={useManual}>
-            Usar esta fonte
+          <span id="skill-url-hint" className={parsed ? "skill-ok" : url.trim() ? "skill-pending" : "skill-slug"}>
+            {parsed ? `Instala com npx skills add ${parsed.repo}${parsedSlug ? ` -s ${parsedSlug}` : ""} no cofre aberto e salva no catálogo.` : url.trim() ? "Não reconheci essa URL. Cole o link do arquivo ou da pasta no GitHub." : "Também aceita só owner/repo."}
+          </span>
+          <button className="btn sm" disabled={!parsed || resolving} onClick={useManual}>
+            {installing ? "Instalando…" : "Instalar e salvar no catálogo"}
           </button>
+          {installing && <span className="skill-pending">A primeira instalação clona o repositório e pode levar um minuto.</span>}
         </details>
         <div className="skill-or">
           Nenhuma serve?
@@ -316,7 +375,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
       </aside>
 
       <section className="skill-cat-detail" aria-label="Detalhes da skill">
-        {current && !SKILL_CATALOG.some(isCurrent) && (
+        {current && !catalog.some(isCurrent) && (
           <div className="skill-current">
             <div>
               <span className="lbl-s">Fonte atual (fora do catálogo)</span>
@@ -325,7 +384,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
               </div>
             </div>
             <button className="btn sm" onClick={() => resolve(agent)} disabled={resolving}>
-              {resolving ? "Baixando…" : current.hash ? "Atualizar do GitHub" : "Resolver do GitHub"}
+              {refreshLabel()}
             </button>
           </div>
         )}
@@ -342,7 +401,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
                 {isCurrent(focused) ? (
                   <>
                     <button className="btn sm" onClick={() => resolve(agent)} disabled={resolving}>
-                      {resolving ? "Baixando…" : current?.hash ? "Atualizar do GitHub" : "Resolver do GitHub"}
+                      {refreshLabel()}
                     </button>
                     <button
                       className="btn sm ghost"
@@ -357,7 +416,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
                     </button>
                   </>
                 ) : (
-                  <button className="btn primary" onClick={() => use(catalogEntryToSource(focused), focused.name, focused.description)} disabled={resolving}>
+                  <button className="btn primary" onClick={() => take(focused)} disabled={resolving}>
                     {resolving ? "Baixando…" : current ? "Trocar por esta skill" : "Usar esta skill"}
                   </button>
                 )}

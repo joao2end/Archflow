@@ -8,6 +8,8 @@ import {
   parseSkillMarkdown,
   resolveSkillSource,
   searchSkillCatalog,
+  parseSkillGithubUrl,
+  skillInstallSlug,
   skillRawUrl,
   skillSourceDrifted,
   type SkillFetcher,
@@ -33,6 +35,27 @@ test("searchSkillCatalog: busca por texto livre ignora acento e maiúsculas; vaz
   assert.ok(searchSkillCatalog("DIAGNÓSTICO").some((e) => e.id === "diagnosing-bugs"));
   assert.ok(searchSkillCatalog("typescript").some((e) => e.id === "typescript-advanced-types"));
   assert.deepEqual(searchSkillCatalog("inexistente-xyz"), []);
+});
+
+test("parseSkillGithubUrl: blob, pasta, raw e owner/repo viram a fonte; o resto é rejeitado", () => {
+  const pdf = { repo: "anthropics/skills", skillPath: "skills/pdf/SKILL.md" };
+  assert.deepEqual(parseSkillGithubUrl("https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md"), pdf);
+  assert.deepEqual(parseSkillGithubUrl("https://github.com/anthropics/skills/tree/main/skills/pdf/"), pdf);
+  assert.deepEqual(parseSkillGithubUrl("https://raw.githubusercontent.com/anthropics/skills/HEAD/skills/pdf/SKILL.md?token=1"), pdf);
+  assert.deepEqual(parseSkillGithubUrl("anthropics/skills"), { repo: "anthropics/skills", skillPath: "SKILL.md" });
+  assert.equal(parseSkillGithubUrl("https://github.com/anthropics/skills/issues/12"), undefined);
+  assert.equal(parseSkillGithubUrl(""), undefined);
+});
+
+test("searchSkillCatalog e skillInstallSlug: skill instalada entra na busca; slug só quando o caminho tem pasta", () => {
+  const extra = { id: "find-skills", name: "Find Skills", repo: "vercel-labs/skills", skillPath: "skills/find-skills/SKILL.md", description: "Descobre skills instaláveis.", body: "corpo", hash: "abcd1234" };
+  assert.ok(searchSkillCatalog("descobre", [extra]).some((e) => e.id === "find-skills"));
+  assert.equal(searchSkillCatalog("").length, SKILL_CATALOG.length);
+  assert.equal(searchSkillCatalog("", [extra]).length, SKILL_CATALOG.length + 1);
+  assert.equal(findSkillCatalogEntry("find-skills", [extra])?.repo, "vercel-labs/skills");
+  assert.equal(skillInstallSlug("skills/pdf/SKILL.md"), "pdf");
+  assert.equal(skillInstallSlug("plugins/javascript-typescript/skills/nodejs-backend-patterns/SKILL.md"), "nodejs-backend-patterns");
+  assert.equal(skillInstallSlug("SKILL.md"), undefined);
 });
 
 test("findSkillCatalogEntry e catalogEntryToSource", () => {
