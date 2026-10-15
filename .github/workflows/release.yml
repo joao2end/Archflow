@@ -39,6 +39,9 @@ jobs:
         run: test "v$(node -p 'require("./package.json").version')" = "$TAG"
       - run: npm ci --ignore-scripts
       - run: npm run app:dist:${{ matrix.target }}
+      - name: MCP empacotado responde (macOS)
+        if: matrix.target == 'mac'
+        run: npm run mcp:smoke -- "release/mac-arm64/Archflow.app/Contents/MacOS/Archflow"
       - name: Aguarda a release existir
         run: |
           for i in $(seq 1 30); do gh release view "$TAG" > /dev/null 2>&1 && exit 0; sleep 20; done

@@ -3,7 +3,7 @@
  * e abre a interface numa janela própria.
  */
 import { app, BrowserWindow, shell } from "electron";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { join } from "node:path";
 
 /**
@@ -19,6 +19,26 @@ function runMcp() {
     console.error("[archflow --mcp]", e);
     app.exit(1);
   });
+}
+
+/**
+ * No macOS, o app aberto pelo Finder/Dock herda do launchd só `/usr/bin:/bin:/usr/sbin:/sbin` — sem Homebrew, nvm nem
+ * `~/.local/bin`. O bridge chama `claude` (instalar o MCP no Claude Code) e `npx` (skills), então copia o PATH do
+ * shell de login do usuário. Sem efeito em dev (`npm run app`), que já herda o PATH do terminal.
+ */
+function useLoginShellPath() {
+  if (process.platform !== "darwin" || !app.isPackaged) return;
+  try {
+    const out = execFileSync(process.env.SHELL || "/bin/zsh", ["-ilc", 'printf "\n__ARCHFLOW_PATH__%s" "$PATH"'], {
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const shellPath = out.split("__ARCHFLOW_PATH__").pop()?.trim();
+    if (shellPath) process.env.PATH = [...new Set([...shellPath.split(":"), ...(process.env.PATH ?? "").split(":")])].filter(Boolean).join(":");
+  } catch {
+    /* shell lento ou com erro: segue com o PATH herdado */
+  }
 }
 
 // Precisam vir antes do import do bridge, que lê as variáveis no carregamento do módulo.
@@ -50,6 +70,7 @@ async function createWindow() {
 if (process.argv.includes("--mcp")) runMcp();
 else if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  useLoginShellPath();
   app.on("second-instance", () => {
     const w = BrowserWindow.getAllWindows()[0];
     if (w) (w.isMinimized() && w.restore(), w.focus());
