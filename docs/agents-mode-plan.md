@@ -67,9 +67,23 @@ type AgentRel = "uses-skill" | "delegates";
       atualizados — este último exige frase + linha na matriz pra cada valor novo; já documentei
       `agent.role` e `AgentRel` em `docs/semantics-score.md` embora o teste ainda não exija, pra
       não ficar inconsistente com o padrão do arquivo). Commit `85d56f8`.
-- [ ] Fase 2 — catálogo curado + resolver `owner/repo` via GitHub (ainda não iniciada; a validação
-      do formato `source: { repo, skillPath, hash? }` já existe desde a Fase 3, mas a lista
-      curada embutida e o resolver HTTP contra o GitHub seguem pendentes)
+- [x] Fase 2 — `src/shared/skillcatalog.ts`: `SKILL_CATALOG` (6 skills reais, seedadas do
+      `skills-lock.json` já existente neste projeto — `mattpocock/skills`, `anthropics/skills`,
+      `bergside/awesome-design-skills`, `wshobson/agents` ×3 — então `repo`/`skillPath`
+      sabidamente corretos), `searchSkillCatalog`/`findSkillCatalogEntry`/`catalogEntryToSource`;
+      resolver `resolveSkillSource` (busca `raw.githubusercontent.com/<repo>/<ref>/<skillPath>`,
+      `fetchImpl` injetável pra testes/ambientes sem `fetch` global), `parseSkillMarkdown`
+      (frontmatter `name`/`description` sem lib de YAML), `hashSkillContent` (FNV-1a 32-bit, sem
+      `node:crypto` pra funcionar em browser e Node — só pra detectar drift, não é hash
+      criptográfico) e `skillSourceDrifted`. Decisão de alinhar o hash com o algoritmo exato do
+      `skills-lock.json` (pra comparar hashes entre os dois arquivos) fica para a Fase 7, que já
+      é sobre o manifesto/drift. Ainda NÃO wireado a `ops.ts`/MCP nem à UI — é I/O assíncrono, não
+      cabe no modelo síncrono de `Op`; será chamado direto da UI (Fase 4, aba Skills) quando o
+      usuário clicar "resolver"/"atualizar" numa skill de catálogo. 12 testes novos em
+      `skillcatalog.test.ts` (catálogo, busca, parse de frontmatter, hash, URL, resolver com
+      fetch mockado — sucesso, 404, exceção de rede, ausência de `fetch` global — e drift).
+      `npx tsc --noEmit` limpo, 358/358 testes passando (346 + 12 novos). Commit
+      `<preencher no commit>`.
 - [x] Fase 3 — `src/shared/agents.ts` (checkAgentNode/Conn, agentRelEnd/Allows/suggest,
       agentConnectionTypeError, inGlobalGroup, `agentIssues` A001–A009, `describeAgents`,
       `schemaGuideAgents`) + wiring completo em `ops.ts`: `MODE_KINDS.agents`, `add_node`/

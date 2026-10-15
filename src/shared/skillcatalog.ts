@@ -1,0 +1,166 @@
+/**
+ * Catálogo curado de skills (estilo `catalog.ts`/`BUILTIN_ASSETS`, mas para o modo agents) +
+ * resolver que baixa o `SKILL.md` do GitHub (compatível com o formato do `skills-lock.json` que
+ * o `npx skills` da vercel-labs já usa neste projeto: `source` = "owner/repo", `skillPath`).
+ *
+ * Só depende de `schema.ts` (tipos). Determinístico, exceto `resolveSkillSource` (I/O de rede,
+ * por isso recebe `fetchImpl` injetável — testável sem rede e reaproveitável em qualquer ambiente
+ * com `fetch` global, browser ou Node 18+).
+ */
+import type { AgentSkillSource } from "./schema";
+
+export interface SkillCatalogEntry {
+  id: string;
+  name: string;
+  repo: string; // "owner/repo"
+  skillPath: string;
+  description: string;
+  tags?: string;
+}
+
+/**
+ * Seed curado: skills reais já usadas neste projeto via `npx skills` (ver `skills-lock.json`),
+ * então sabidamente existentes e com `repo`/`skillPath` corretos. Crescer esta lista é "colar"
+ * mais entradas verificadas; `source` fora da lista também funciona (campo livre no inspetor),
+ * só não aparece sugerido na busca.
+ */
+export const SKILL_CATALOG: SkillCatalogEntry[] = [
+  {
+    id: "diagnosing-bugs",
+    name: "Diagnosing Bugs",
+    repo: "mattpocock/skills",
+    skillPath: "skills/engineering/diagnosing-bugs/SKILL.md",
+    description: "Loop de diagnóstico para bugs difíceis e regressões de performance: reproduzir, isolar a causa raiz, corrigir.",
+    tags: "debug performance bug",
+  },
+  {
+    id: "frontend-design",
+    name: "Frontend Design",
+    repo: "anthropics/skills",
+    skillPath: "skills/frontend-design/SKILL.md",
+    description: "Direção visual intencional e distintiva ao criar ou reformular UI: tipografia, cor, hierarquia.",
+    tags: "ui design frontend",
+  },
+  {
+    id: "glassmorphism",
+    name: "Glassmorphism",
+    repo: "bergside/awesome-design-skills",
+    skillPath: "skills/glassmorphism/SKILL.md",
+    description: "Efeito de vidro fosco: camadas translúcidas, blur sutil e bordas luminosas para profundidade.",
+    tags: "ui design css effect",
+  },
+  {
+    id: "nodejs-backend-patterns",
+    name: "Node.js Backend Patterns",
+    repo: "wshobson/agents",
+    skillPath: "plugins/javascript-typescript/skills/nodejs-backend-patterns/SKILL.md",
+    description: "Serviços backend Node.js prontos para produção com Express/Fastify: middleware, erros, auth, integração de banco.",
+    tags: "nodejs backend express fastify",
+  },
+  {
+    id: "protocol-reverse-engineering",
+    name: "Protocol Reverse Engineering",
+    repo: "wshobson/agents",
+    skillPath: "plugins/reverse-engineering/skills/protocol-reverse-engineering/SKILL.md",
+    description: "Engenharia reversa de protocolos de rede: análise de pacotes, dissecação de protocolo, documentação de protocolo customizado.",
+    tags: "network protocol security",
+  },
+  {
+    id: "typescript-advanced-types",
+    name: "TypeScript Advanced Types",
+    repo: "wshobson/agents",
+    skillPath: "plugins/javascript-typescript/skills/typescript-advanced-types/SKILL.md",
+    description: "Sistema de tipos avançado do TypeScript: genéricos, tipos condicionais, mapped types, template literals, utility types.",
+    tags: "typescript types generics",
+  },
+];
+
+/** Busca por texto livre no id, nome, descrição ou tags (case-insensitive, sem acento). */
+export function searchSkillCatalog(query: string): SkillCatalogEntry[] {
+  const q = norm(query);
+  if (!q) return SKILL_CATALOG;
+  return SKILL_CATALOG.filter((e) => norm(`${e.id} ${e.name} ${e.repo} ${e.description} ${e.tags ?? ""}`).includes(q));
+}
+
+export function findSkillCatalogEntry(id: string): SkillCatalogEntry | undefined {
+  return SKILL_CATALOG.find((e) => e.id === id);
+}
+
+const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export const catalogEntryToSource = (entry: SkillCatalogEntry): AgentSkillSource => ({ repo: entry.repo, skillPath: entry.skillPath });
+
+/* ───────────────────────── resolver (GitHub) ───────────────────────── */
+
+/** URL raw do GitHub para o `SKILL.md` da fonte, numa ref (branch, tag ou commit). */
+export function skillRawUrl(source: AgentSkillSource, ref = "HEAD"): string {
+  return `https://raw.githubusercontent.com/${source.repo}/${ref}/${source.skillPath}`;
+}
+
+/**
+ * Hash determinístico (não criptográfico) do conteúdo — FNV-1a 32-bit, 8 chars hex. Serve só pra
+ * detectar que o `SKILL.md` do catálogo mudou desde a última resolução (drift), não pra
+ * segurança; por isso evita `node:crypto` e funciona em qualquer ambiente (browser ou Node) sem
+ * depender de API nativa de hashing.
+ */
+export function hashSkillContent(content: string): string {
+  const normalized = content.replace(/\r\n/g, "\n");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < normalized.length; i++) {
+    h ^= normalized.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Resultado de dividir um `SKILL.md`: frontmatter YAML simples (name/description) + corpo. */
+export interface ParsedSkillMarkdown {
+  name?: string;
+  description?: string;
+  body: string;
+}
+
+/**
+ * Separa o frontmatter YAML (`---\nname: ...\ndescription: ...\n---`) do corpo de um `SKILL.md`.
+ * Só lê `name`/`description` de nível raiz, sem libs de YAML (o formato das skills é sempre
+ * plano nesses dois campos); valores entre aspas são aceitos e desaspeados.
+ */
+export function parseSkillMarkdown(raw: string): ParsedSkillMarkdown {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(raw);
+  if (!m) return { body: raw.trim() };
+  const [, front, rest] = m;
+  const unquote = (v: string) => v.trim().replace(/^["']|["']$/g, "");
+  const field = (name: string) => {
+    const f = new RegExp(`^${name}:\\s*(.*)$`, "m").exec(front);
+    return f ? unquote(f[1]) : undefined;
+  };
+  return { name: field("name"), description: field("description"), body: rest.trim() };
+}
+
+/** Assinatura mínima de `fetch` que o resolver precisa — permite injetar um mock nos testes. */
+export type SkillFetcher = (url: string) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>;
+
+export type ResolveSkillResult = { ok: true; raw: string; body: string; hash: string; name?: string; description?: string } | { ok: false; error: string };
+
+/**
+ * Resolve uma fonte de catálogo baixando o `SKILL.md` do GitHub. `fetchImpl` é injetável (testes,
+ * ou ambiente sem `fetch` global); por padrão usa o `fetch` global do runtime.
+ */
+export async function resolveSkillSource(source: AgentSkillSource, fetchImpl?: SkillFetcher, ref = "HEAD"): Promise<ResolveSkillResult> {
+  const doFetch = fetchImpl ?? (globalThis.fetch as SkillFetcher | undefined);
+  if (!doFetch) return { ok: false, error: "fetch não está disponível neste ambiente; passe fetchImpl" };
+  const url = skillRawUrl(source, ref);
+  let res: Awaited<ReturnType<SkillFetcher>>;
+  try {
+    res = await doFetch(url);
+  } catch (e) {
+    return { ok: false, error: `falha ao buscar ${url}: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!res.ok) return { ok: false, error: `GitHub respondeu ${res.status} para ${url}` };
+  const raw = await res.text();
+  const { name, description, body } = parseSkillMarkdown(raw);
+  return { ok: true, raw, body, hash: hashSkillContent(raw), name, description };
+}
+
+/** true quando o hash atual (`source.hash`) difere do hash recém-calculado — a skill mudou na origem. */
+export const skillSourceDrifted = (source: AgentSkillSource | undefined, newHash: string): boolean => !!source?.hash && source.hash !== newHash;
