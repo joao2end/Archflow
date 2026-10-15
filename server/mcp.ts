@@ -19,6 +19,7 @@ import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/sha
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
 import { generateHarness } from "../src/shared/agentgen";
 import { SKILL_MD } from "../src/shared/skill.generated";
+import pkg from "../package.json" with { type: "json" };
 
 const BASE = `http://127.0.0.1:${DEFAULT_PORT}`;
 
@@ -70,7 +71,7 @@ const report = (results: Result[]) => {
 };
 
 const server = new McpServer(
-  { name: "archflow", version: "0.1.0" },
+  { name: "archflow", version: pkg.version },
   {
     instructions:
       "Archflow é um quadro branco de arquitetura de software que o usuário vê em tempo real. Trabalhe com componentes, grupos e conexões (nunca pixels). " +

@@ -97,6 +97,7 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run mcp` | Servidor MCP (stdio) em desenvolvimento |
 | `npm run mcp:bundle` | Empacota o MCP (`dist-mcp/`), levado pelo instalador em `resources/mcp/` |
 | `npm run mcp:install` / `mcp:check` | Instala o MCP no Cursor, Claude Desktop e Claude Code e testa a conexão / só testa |
+| `npm run mcp:smoke -- <exe>` | Testa o MCP de um pacote (`<exe> --mcp`): handshake e lista de ferramentas, sem abrir a janela |
 | `npm run skill` | Embute `skills/archflow/SKILL.md` no app |
 | `npm run app:pack` | Gera o app desempacotado (`release/win-unpacked`) para testes |
 | `npm run icons` | Regenera os ícones do catálogo |
@@ -125,7 +126,7 @@ Detalhes:
 
 Na mesma página de Releases:
 
-- **macOS:** `Archflow-<versão>-mac-arm64.dmg` (Apple Silicon) ou `-mac-x64.dmg` (Intel). Abra o `.dmg` e arraste o Archflow para *Aplicativos*. O app não é notarizado pela Apple: se o macOS disser que ele "está danificado" ou não pode ser aberto, rode `xattr -cr /Applications/Archflow.app` uma vez.
+- **macOS:** `Archflow-<versão>-mac-arm64.dmg` (Apple Silicon) ou `-mac-x64.dmg` (Intel). Abra o `.dmg` e arraste o Archflow para *Aplicativos*. O app não é notarizado pela Apple: se o macOS disser que ele "está danificado" ou não pode ser aberto, rode `xattr -cr /Applications/Archflow.app` uma vez. O MCP é `/Applications/Archflow.app/Contents/MacOS/Archflow --mcp`.
 - **Linux (x64):** `Archflow-<versão>-linux-x86_64.AppImage`. Dê permissão de execução (`chmod +x Archflow-*.AppImage`) e abra; distribuições recentes podem pedir o pacote `libfuse2`. O MCP é o próprio AppImage com `--mcp`.
 
 ### Gerar o instalador
@@ -227,6 +228,20 @@ claude mcp add --scope user archflow -- "C:\Program Files\Archflow\Archflow.exe"
 ```json
 { "mcpServers": { "archflow": { "command": "C:\\Program Files\\Archflow\\Archflow.exe", "args": ["--mcp"] } } }
 ```
+
+No **macOS** o executável fica dentro do `.app` (com o app em *Aplicativos*):
+
+```bash
+claude mcp add --scope user archflow -- /Applications/Archflow.app/Contents/MacOS/Archflow --mcp
+```
+
+```json
+{ "mcpServers": { "archflow": { "command": "/Applications/Archflow.app/Contents/MacOS/Archflow", "args": ["--mcp"] } } }
+```
+
+No **Linux** use o caminho absoluto do AppImage (ex.: `~/Applications/Archflow-<versão>-linux-x86_64.AppImage --mcp`).
+
+Para conferir se o MCP de um pacote responde, sem abrir a janela: `npm run mcp:smoke -- <caminho do executável>`.
 
 Quando o agente conecta, o servidor **abre o app Archflow sozinho** (se ainda não estiver aberto) e edita o diagrama pelo bridge dele — você acompanha ao vivo.
 Em desenvolvimento use `npx tsx server/mcp.ts` (o botão MCP mostra o comando certo para cada modo).
