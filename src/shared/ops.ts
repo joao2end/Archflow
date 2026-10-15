@@ -12,6 +12,8 @@ import {
   DDD_RELS,
   DDD_ROLES,
   LOGIC_ROLES,
+  AGENT_RELS,
+  AGENT_ROLES,
   isDataRole,
   SCHEMA_VERSION,
   SUBDOMAINS,
@@ -26,6 +28,9 @@ import {
   type DddNodeSpec,
   type LogicConnSpec,
   type LogicNodeSpec,
+  type AgentConnSpec,
+  type AgentNodeSpec,
+  type AgentRel,
   type DddRel,
   type DiagramRef,
   type Doc,
@@ -49,22 +54,24 @@ import { logicLayout } from "./logiclayout";
 import { migrateFacts, migrateRuleGuards, normalizeLogicRole, pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, dataNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
 import { logicSize } from "./logiccard";
 import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, migrateDddDecisions, schemaGuideDomain, suggestRels, type Issue } from "./domain";
+import { agentConnectionTypeError, agentIssues, checkAgentConn, checkAgentNode, describeAgents, schemaGuideAgents, suggestAgentRels } from "./agents";
 import { describeTour, normalizeTour, tourIssues } from "./tour";
 
-/** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain e Logic só carregam o que é compatível com o modo. */
+/** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain, Logic e Agents só carregam o que é compatível com o modo. */
 export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
   domain: ["domain", "actor", "system", "external"],
   logic: ["logic", "system"],
+  agents: ["agent", "system"],
 };
 
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; fill?: string; fillOpacity?: number; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; fill?: string; fillOpacity?: number; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
-  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec }
+  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
@@ -236,10 +243,18 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (op.kind && op.kind !== "logic") return { ok: false, error: `um nó com logic tem kind "logic" (recebeu "${op.kind}")` };
         if (ddd) return { ok: false, error: "um nó tem ddd OU logic, não os dois" };
       }
-      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : logic ? LOGIC_ROLES[logic.role].label : asset?.name) ?? "Componente";
+      const agent: AgentNodeSpec | undefined = op.agent;
+      if (agent !== undefined || op.kind === "agent") {
+        if (docMode(doc) !== "agents") return { ok: false, error: `papéis de agente (kind "agent" / agent) só existem em diagramas de modo "agents"; crie o diagrama com new_diagram mode "agents" ou troque o modo em set_diagram_info` };
+        const bad = checkAgentNode(agent);
+        if (bad) return { ok: false, error: bad };
+        if (op.kind && op.kind !== "agent") return { ok: false, error: `um nó com agent tem kind "agent" (recebeu "${op.kind}")` };
+        if (ddd || logic) return { ok: false, error: "um nó tem ddd, logic OU agent — nunca dois" };
+      }
+      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : logic ? LOGIC_ROLES[logic.role].label : agent ? AGENT_ROLES[agent.role].label : asset?.name) ?? "Componente";
       const id = uniqueId(doc, op.id ?? (endpoint && owner ? `${owner.id}-${label}` : label));
       const parent = owner ? owner.parent : op.parent && doc.groups.some((g) => g.id === op.parent) ? op.parent : undefined;
-      const kind: NodeKind = op.kind ?? (ddd ? "domain" : logic ? "logic" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
+      const kind: NodeKind = op.kind ?? (ddd ? "domain" : logic ? "logic" : agent ? "agent" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
       const allowed = MODE_KINDS[docMode(doc)];
       if (allowed && !allowed.includes(kind)) return { ok: false, error: `componente "${kind}"${asset ? ` (asset "${asset.id}")` : ""} não existe no modo ${docMode(doc)}. Neste modo só entram: ${allowed.join(", ")}. Crie um diagrama de arquitetura para componentes de infraestrutura.` };
       const isEp = kind === "endpoint";
@@ -266,6 +281,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ref: op.ref,
         ...(ddd ? { ddd } : {}),
         ...(logic ? { logic } : {}),
+        ...(agent ? { agent } : {}),
         ...(op.fill ? { fill: op.fill } : {}),
         ...(op.fillOpacity != null && op.fillOpacity !== 1 ? { fillOpacity: op.fillOpacity } : {}),
         x: pos.x,
@@ -344,9 +360,16 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         const bad = checkLogicConn(op.logic);
         if (bad) return { ok: false, error: bad };
       }
+      if (op.agent !== undefined) {
+        if (docMode(doc) !== "agents") return { ok: false, error: `agent (uses-skill/delegates) só existe em diagramas de modo "agents"` };
+        const bad = checkAgentConn(op.agent);
+        if (bad) return { ok: false, error: bad };
+      }
       // modo domain: o tipo do conector vem da relação de domínio; infraestrutura (sync/async/stream/data) não existe aqui
       let ddd = op.ddd;
+      let agentConn = op.agent;
       const domainMode = docMode(doc) === "domain";
+      const agentsMode = docMode(doc) === "agents";
       if (domainMode) {
         const typeBad = connectionTypeError(ddd?.rel, op.type);
         if (typeBad) return { ok: false, error: typeBad };
@@ -355,7 +378,15 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
           if (only.length === 1) ddd = { rel: only[0] }; // um par de elementos de domínio com uma única relação possível: já nasce com ela
         }
       }
-      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : domainMode ? "association" : docMode(doc) === "logic" ? "data" : "sync");
+      if (agentsMode) {
+        const typeBad = agentConnectionTypeError(agentConn?.rel, op.type);
+        if (typeBad) return { ok: false, error: typeBad };
+        if (!agentConn) {
+          const only = suggestAgentRels(doc, op.from, op.to);
+          if (only.length === 1) agentConn = { rel: only[0] }; // agent → skill só pode ser uses-skill; agent → agent só pode ser delegates
+        }
+      }
+      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : agentConn ? AGENT_RELS[agentConn.rel].type : domainMode ? "association" : docMode(doc) === "logic" ? "data" : "sync");
       if (!CONNECTION_TYPES[type]) return { ok: false, error: `type inválido "${type}". Válidos: ${Object.keys(CONNECTION_TYPES).join(", ")}` };
       const id = uniqueId(doc, op.id ?? `${op.from}-to-${op.to}`);
       const c: ConnectionEl = {
@@ -363,7 +394,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         from: op.from,
         to: op.to,
         type,
-        label: ddd ? composeDddLabel(ddd, op.label) : docMode(doc) === "logic" ? op.label ?? (op.logic?.case !== undefined ? caseLabel(doc, op.from, op.logic.case) : branchLabel(op.logic)) ?? "" : op.label,
+        label: ddd ? composeDddLabel(ddd, op.label) : docMode(doc) === "logic" ? op.label ?? (op.logic?.case !== undefined ? caseLabel(doc, op.from, op.logic.case) : branchLabel(op.logic)) ?? "" : agentConn ? op.label ?? AGENT_RELS[agentConn.rel].label : op.label,
         protocol: op.protocol,
         description: op.description,
         interface: op.interface,
@@ -372,6 +403,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         animated: op.animated ?? true,
         ...(ddd ? { ddd } : {}),
         ...(op.logic ? { logic: op.logic } : {}),
+        ...(agentConn ? { agent: agentConn } : {}),
       };
       doc.connections.push(c);
       return { ok: true, id };
@@ -408,8 +440,21 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (bad) return { ok: false, error: bad };
         if (patch.label === undefined) patch.label = (patch.logic as LogicConnSpec).case !== undefined ? caseLabel(doc, el.from, (patch.logic as LogicConnSpec).case!) : branchLabel(patch.logic as LogicConnSpec) ?? "";
       }
+      if ("agent" in patch && patch.agent != null) {
+        if (docMode(doc) !== "agents") return { ok: false, error: `agent só existe em diagramas de modo "agents"` };
+        const bad = isConn ? checkAgentConn(patch.agent) : isNode ? checkAgentNode(patch.agent) : "agent não se aplica a grupos";
+        if (bad) return { ok: false, error: bad };
+        if (isNode && (patch.kind ?? el.kind) !== "agent") return { ok: false, error: `um nó com agent tem kind "agent"; inclua kind: "agent" no patch` };
+      }
+      if (isConn && docMode(doc) === "agents") {
+        const rel = ("agent" in patch ? (patch.agent as { rel?: AgentRel } | null)?.rel : el.agent?.rel) as AgentRel | undefined;
+        const typeBad = agentConnectionTypeError(rel, patch.type as ConnectionType | undefined);
+        if (typeBad) return { ok: false, error: typeBad };
+        if (rel && "agent" in patch && patch.agent != null && patch.type === undefined) patch.type = AGENT_RELS[rel].type;
+      }
       if (isNode && patch.kind === "logic" && !(patch.logic ?? el.logic)) return { ok: false, error: `kind "logic" exige logic.role` };
       if (isNode && patch.kind === "domain" && !(patch.ddd ?? el.ddd)) return { ok: false, error: `kind "domain" exige ddd.role` };
+      if (isNode && patch.kind === "agent" && !(patch.agent ?? el.agent)) return { ok: false, error: `kind "agent" exige agent.role` };
       if ("subdomain" in patch && patch.subdomain != null) {
         if (!doc.groups.includes(el) || el.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
         if (!(patch.subdomain as string in SUBDOMAINS)) return { ok: false, error: `subdomain inválido "${patch.subdomain}". Válidos: ${Object.keys(SUBDOMAINS).join(", ")}` };
@@ -422,6 +467,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (isConn && "ddd" in patch && patch.ddd != null && patch.label === undefined && docMode(doc) === "domain") el.label = composeDddLabel(el.ddd as DddConnSpec, dddLabelVia(prevDdd, prevLabel));
       if ("ddd" in patch && patch.ddd == null) delete el.ddd;
       if ("logic" in patch && patch.logic == null) delete el.logic;
+      if ("agent" in patch && patch.agent == null) delete el.agent;
       if (isNode && "logic" in patch && el.logic) Object.assign(el, logicSize(el, dataNames(doc))); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("parent" in patch) {
@@ -917,6 +963,7 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
   const base = (message: string, target?: string) => issues.push({ rule: "BASE", severity: "aviso", message, target });
   const domain = docMode(doc) === "domain";
   const logicMode = docMode(doc) === "logic";
+  const agentsMode = docMode(doc) === "agents";
   const endpoints = new Set([...doc.nodes.map((n) => n.id), ...doc.groups.map((g) => g.id)]);
   const groups = new Set(doc.groups.map((g) => g.id));
   for (const c of doc.connections) {
@@ -930,11 +977,15 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
     if (n.owner && !ids.has(n.owner)) base(`${n.id}: owner ${n.owner} não existe`, n.id);
     if (n.kind === "endpoint" && !n.endpoint) base(`${n.id}: endpoint sem definição (protocol/method/path)`, n.id);
     if (n.kind === "system" && !n.ref) base(`${n.id}: componente "system" sem ref (aponte para outro diagrama)`, n.id);
+    if (n.kind === "agent" && !n.agent) base(`${n.id}: nó "agent" sem agent.role`, n.id);
+    if (n.agent && n.kind !== "agent") base(`${n.id}: agent só tem efeito em nós kind "agent"`, n.id);
     if (n.owner || n.kind === "endpoint") continue; // endpoints são expostos pelo serviço dono
-    if (!domain && !logicMode && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
+    // skills soltas no grupo Global não têm conexão (é assim que valem para todos) — não é isolamento
+    if (!domain && !logicMode && !agentsMode && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
   }
   if (domain) issues.push(...domainIssues(doc, opts));
   if (logicMode) issues.push(...logicIssues(doc));
+  if (agentsMode) issues.push(...agentIssues(doc));
   for (const message of tourIssues(doc)) base(message);
   return issues;
 }
@@ -1003,6 +1054,7 @@ export function toMermaid(doc: Doc): string {
 export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): string {
   if (docMode(doc) === "logic") return describeLogic(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "domain") return describeDomain(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
+  if (docMode(doc) === "agents") return describeAgents(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   const L: string[] = [];
   L.push(`# ${doc.title}`);
   if (doc.description) L.push("", doc.description);
@@ -1068,6 +1120,7 @@ export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } 
 export function schemaGuide(mode: DocMode = "architecture"): string {
   if (mode === "domain") return schemaGuideDomain();
   if (mode === "logic") return schemaGuideLogic();
+  if (mode === "agents") return schemaGuideAgents();
   return [
     `# Archflow ${SCHEMA_VERSION} — guia para LLMs`,
     "",
