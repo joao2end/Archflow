@@ -1,4 +1,4 @@
-import { DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
+import { AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
 
 /**
  * Catálogo de assets embutido. Cada asset diz QUE PROBLEMA a tecnologia resolve,
@@ -332,8 +332,28 @@ const logicAssets: Asset[] = LOGIC_ROLE_KEYS.map((role) => ({
   builtin: true,
 }));
 
+/** Papéis do time de agentes (modo Agents). Fonte única: `AGENT_ROLES` em schema.ts. */
+export const AGENTS_CATEGORY = "Agents";
+const AGENT_TAGS: Record<AgentRole, string> = {
+  agent: "subagente ia prompt model tools delega claude code cursor",
+  skill: "conhecimento procedimento reutilizável skill.md catálogo",
+};
+const agentAssets: Asset[] = AGENT_ROLE_KEYS.map((role) => ({
+  id: `agent-${role}`,
+  name: AGENT_ROLES[role].label,
+  category: AGENTS_CATEGORY,
+  icon: `t:${AGENT_ROLES[role].badge}`,
+  color: AGENT_ROLES[role].color,
+  kind: "agent" as const,
+  agent: { role },
+  problem: AGENT_ROLES[role].hint,
+  description: AGENT_ROLES[role].hint,
+  tags: AGENT_TAGS[role].split(" "),
+  builtin: true,
+}));
+
 const generic = base.filter((a) => a.category === "Genéricos");
-export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...logicAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
+export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...logicAssets, ...agentAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
 
 /** Genéricos que fazem sentido num diagrama de domínio: o ator do caso de uso e a ligação com outro diagrama (contexto, arquitetura). */
 const DOMAIN_MODE_GENERICS = ["user", "diagram-ref"];
@@ -348,7 +368,11 @@ export function assetsForMode(assets: Asset[], mode: DocMode, all = false): Asse
     const keep = assets.filter((a) => a.category === LOGIC_CATEGORY || (a.builtin ? a.id === "diagram-ref" : a.kind === "logic"));
     return [...keep.filter((a) => a.category === LOGIC_CATEGORY), ...keep.filter((a) => a.category !== LOGIC_CATEGORY)];
   }
-  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY);
+  if (mode === "agents") {
+    const keep = assets.filter((a) => a.category === AGENTS_CATEGORY || (a.builtin ? false : a.kind === "agent"));
+    return [...keep.filter((a) => a.category === AGENTS_CATEGORY), ...keep.filter((a) => a.category !== AGENTS_CATEGORY)];
+  }
+  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY && a.category !== AGENTS_CATEGORY);
   const keep = assets.filter((a) => a.category === DOMAIN_CATEGORY || (a.builtin ? DOMAIN_MODE_GENERICS.includes(a.id) : a.kind === "domain" || a.kind === "actor"));
   return [...keep.filter((a) => a.category === DOMAIN_CATEGORY), ...keep.filter((a) => a.category !== DOMAIN_CATEGORY)];
 }

@@ -1611,7 +1611,7 @@ export function Canvas() {
               from: d.from,
               to,
               ...(logic ? { logic } : {}),
-              ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic"
+              ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic" || docMode(s.doc) === "agents"
                 ? {}
                 : { type: s.defaults.connType, ...(s.defaults.connRouting !== "curve" ? { routing: s.defaults.connRouting } : {}) }),
             },
@@ -1757,6 +1757,11 @@ export function Canvas() {
       else set({ focusTick: getState().focusTick + 1 });
       return;
     }
+    if (t?.id && t.role === "node" && getState().doc.nodes.find((n) => n.id === t.id)?.agent?.role === "skill") {
+      select([t.id]);
+      set({ modal: { type: "skill", id: t.id } });
+      return;
+    }
     if (t?.id && t.role !== "handle" && t.role !== "open-ref") {
       select([t.id]);
       set({ focusTick: getState().focusTick + 1 });
@@ -1810,7 +1815,7 @@ export function Canvas() {
     <svg
       ref={svgRef}
       role="application"
-      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
+      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : docMode(doc) === "agents" ? "agentes de IA" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
       aria-roledescription="quadro branco"
       className={`canvas${dragOver ? " drag-over" : ""}`}
       style={{ cursor, ["--z" as string]: view.z }}

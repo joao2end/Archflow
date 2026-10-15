@@ -243,7 +243,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (op.kind && op.kind !== "logic") return { ok: false, error: `um nó com logic tem kind "logic" (recebeu "${op.kind}")` };
         if (ddd) return { ok: false, error: "um nó tem ddd OU logic, não os dois" };
       }
-      const agent: AgentNodeSpec | undefined = op.agent;
+      const agent: AgentNodeSpec | undefined = op.agent ?? (asset?.agent ? { ...asset.agent } : undefined);
       if (agent !== undefined || op.kind === "agent") {
         if (docMode(doc) !== "agents") return { ok: false, error: `papéis de agente (kind "agent" / agent) só existem em diagramas de modo "agents"; crie o diagrama com new_diagram mode "agents" ou troque o modo em set_diagram_info` };
         const bad = checkAgentNode(agent);

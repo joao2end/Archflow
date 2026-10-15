@@ -50,6 +50,16 @@ export function checkAgentNode(agent: unknown): string | undefined {
   return undefined;
 }
 
+/** Troca o papel de um nó mantendo só os campos que o novo papel aceita (não deixa lixo de campos de outro papel). */
+export function reshapeAgent(old: AgentNodeSpec | undefined, role: AgentNodeSpec["role"]): AgentNodeSpec {
+  const next: Record<string, unknown> = { role };
+  for (const f of AGENT_ROLES[role].fields) {
+    const v = (old as unknown as Record<string, unknown> | undefined)?.[f];
+    if (v !== undefined) next[f] = v;
+  }
+  return next as unknown as AgentNodeSpec;
+}
+
 /** Valida o objeto `agent` (`AgentConnSpec`) de uma conexão. */
 export function checkAgentConn(agent: unknown): string | undefined {
   if (!agent || typeof agent !== "object") return "agent deve ser um objeto { rel }";

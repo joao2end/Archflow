@@ -61,6 +61,8 @@ export type Modal =
   | { type: "llm" }
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
   | { type: "logic"; tab?: "issues" | "text" }
+  | { type: "agents"; tab?: "issues" | "text" }
+  | { type: "skill"; id: string; tab?: "catalog" | "write" }
   | { type: "ddd-guide" }
   | { type: "mcp" }
   | { type: "help" }
@@ -429,6 +431,7 @@ export function placeAsset(assetId: string, x: number, y: number, parent?: strin
   if (!r.ok) toastError(`Não deu para adicionar: ${r.error ?? "erro desconhecido"}`);
   if (r.ok && r.id) {
     set({ sel: [r.id], ...(isScenario ? { focusTick: state.focusTick + 1 } : {}) }); // Cenário novo: o campo Nome já vem selecionado para digitar o caso
+    if (assetId === "agent-skill") set({ modal: { type: "skill", id: r.id, tab: "catalog" } }); // skill nova: buscar no catálogo ou escrever do zero
     if (parent) {
       const doc = structuredClone(state.doc);
       fitGroup(doc, parent);

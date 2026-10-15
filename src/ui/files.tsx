@@ -291,7 +291,7 @@ export function FilesPanel() {
       {edit && (edit.kind === "new-file" || edit.kind === "new-folder") && edit.path === n.path && (
         <div key="new-row" className="tree-row" style={{ paddingLeft: 10 + depth * 16 }}>
           {edit.kind === "new-file" ? <FileIcon mode={edit.mode ?? mode} /> : <Glyph name="folder" size={16} className="tree-ico" />}
-          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : edit.mode === "logic" ? "Título do diagrama de lógica" : "Título do diagrama") : "Nome da pasta")}
+          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : edit.mode === "logic" ? "Título do diagrama de lógica" : edit.mode === "agents" ? "Título do time de agentes" : "Título do diagrama") : "Nome da pasta")}
         </div>
       )}
       {n.children.map((c) => (c.type === "folder" ? folderRow(c, depth) : fileRow(c, depth)))}

@@ -45,6 +45,14 @@ function replaceRange(el: Ta, start: number, end: number, text: string, selStart
   el.setSelectionRange(selStart, selEnd);
 }
 
+/** Insere um bloco no cursor, em linha própria (com o desfazer nativo do textarea). */
+export function insertBlock(el: Ta, text: string) {
+  const { selectionStart: s, selectionEnd: e, value: v } = el;
+  const lead = s === 0 ? "" : v.slice(0, s).endsWith("\n\n") ? "" : v.slice(0, s).endsWith("\n") ? "\n" : "\n\n";
+  const ins = lead + text;
+  replaceRange(el, s, e, ins, s + ins.length, s + ins.length);
+}
+
 /** Envolve a seleção com marcadores (ou os remove, se já estiverem em volta). */
 function wrap(el: Ta, before: string, after = before, placeholder = "texto") {
   const { selectionStart: s, selectionEnd: e, value: v } = el;
@@ -132,12 +140,15 @@ export function RichToolbar({
   noteCard,
   onNoteCard,
   showFill = true,
+  plain,
 }: {
   root: React.RefObject<Ta | null>;
   className?: string;
   style?: CSSProperties;
   /** menos botões — cabe acima do card */
   compact?: boolean;
+  /** só markdown padrão: sem cor/fonte/peso, que viram a sintaxe `{@…}` própria das notas (ex.: SKILL.md) */
+  plain?: boolean;
   /** tamanho e fundo do card da nota (fora do texto) */
   noteCard?: NoteCardStyle;
   onNoteCard?: (patch: NoteCardStyle) => void;
@@ -172,6 +183,8 @@ export function RichToolbar({
             {t.label}
           </button>
         ))}
+        {!plain && (
+        <>
         <span className="rt-sep" aria-hidden />
         <select
           className="rt-select"
@@ -231,7 +244,10 @@ export function RichToolbar({
             ))}
           </select>
         )}
+        </>
+        )}
       </div>
+      {!plain && (
       <div className="rt-row">
         <span className="rt-ico" aria-hidden data-tip="Cor do trecho" data-tip-pos="top">
           <RtTextIco />
@@ -308,6 +324,7 @@ export function RichToolbar({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

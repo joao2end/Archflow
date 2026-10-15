@@ -665,6 +665,8 @@ export interface Asset {
   ddd?: DddNodeSpec;
   /** valores padrão quando o asset é um papel de lógica; só entra em diagramas de modo logic */
   logic?: LogicNodeSpec;
+  /** valores padrão quando o asset é um papel do time de agentes; só entra em diagramas de modo agents */
+  agent?: AgentNodeSpec;
   icon: string;
   color: string;
   /** Qual problema a tecnologia resolve */

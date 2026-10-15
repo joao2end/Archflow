@@ -8,6 +8,7 @@ import { ColorPicker } from "./colorpicker";
 import { AssetBadge, Glyph } from "./icons";
 import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
 import { McpBody } from "./mcp";
+import { SkillModal } from "./agents";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
@@ -525,6 +526,55 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" | "code" }) {
   );
 }
 
+/* ───────── agents: validação e descrição (texto para IA) ───────── */
+
+function AgentsModal({ tab: initial }: { tab?: "issues" | "text" }) {
+  const doc = useStore((s) => s.doc);
+  const [tab, setTab] = useState<"issues" | "text">(initial ?? "issues");
+  const issues = useDomainIssues();
+  const text = tab === "text" ? describe(doc) : issues.map(issueText).join("\n");
+  const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
+  return (
+    <Modal
+      wide
+      title="Agents"
+      onClose={close}
+      foot={
+        <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+          <Glyph name="copy" size={16} /> Copiar
+        </button>
+      }
+    >
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação do time de agentes e skills. A aba Texto é o que uma IA (ou você) lê para entender o time antes de gerar o harness.</p>
+      <div className="tabs seg" role="tablist">
+        <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
+          Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
+        </button>
+        <button role="tab" aria-selected={tab === "text"} className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>
+          Texto (para IA)
+        </button>
+      </div>
+      {tab === "issues" &&
+        (issues.length ? (
+          <ul className="issue-list" aria-label="Avisos de validação">
+            {issues.map((i, k) => (
+              <li key={k}>
+                <button className={`issue ${i.severity}`} disabled={!i.target} onClick={() => i.target && (select([i.target]), close())} data-tip={i.target ? "Selecionar no quadro" : undefined} data-tip-pos="left">
+                  <span className="issue-rule">{i.rule}</span>
+                  <span className="issue-sev">{i.severity}</span>
+                  <span className="issue-msg">{i.message}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="callout">Nenhum problema encontrado neste time.</div>
+        ))}
+      {tab === "text" && <pre className="code">{text}</pre>}
+    </Modal>
+  );
+}
+
 /* ───────── MCP ───────── */
 
 function McpModal() {
@@ -792,6 +842,10 @@ export function Modals() {
       return <DomainModal tab={m.tab} />;
     case "logic":
       return <LogicModal tab={m.tab} />;
+    case "agents":
+      return <AgentsModal tab={m.tab} />;
+    case "skill":
+      return <SkillModal key={m.id} id={m.id} tab={m.tab} />;
     case "mcp":
       return <McpModal />;
     case "help":

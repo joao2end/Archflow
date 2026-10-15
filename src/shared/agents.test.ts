@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyOps, describe, schemaGuide, validateDetailed, type Op } from "./ops";
 import { emptyDoc, docMode, type AgentNodeSpec, type AgentRel, type Doc } from "./schema";
-import { inGlobalGroup } from "./agents";
+import { checkAgentNode, inGlobalGroup, reshapeAgent } from "./agents";
+import { AGENT_ROLE_KEYS } from "./schema";
 
 /* ───────── helpers ───────── */
 
@@ -171,6 +172,14 @@ test("describe: lista avisos com severidade e id de regra quando há problema", 
   const doc = build([an("x", { role: "agent" })]);
   const text = describe(doc);
   assert.match(text, /\[A001 erro\]/);
+});
+
+test("reshapeAgent: trocar o papel mantém só os campos que o novo papel aceita e o resultado é válido", () => {
+  const old: AgentNodeSpec = { role: "agent", description: "x".repeat(20), model: "sonnet", tools: ["Read"], prompt: "p" };
+  const asSkill = reshapeAgent(old, "skill");
+  assert.deepEqual(asSkill, { role: "skill", description: "x".repeat(20) });
+  for (const r of AGENT_ROLE_KEYS) assert.equal(checkAgentNode(reshapeAgent(old, r)), undefined, r);
+  assert.deepEqual(reshapeAgent(undefined, "skill"), { role: "skill" });
 });
 
 test("schemaGuide: modo agents lista papéis, relações e o fluxo recomendado; architecture não muda", () => {

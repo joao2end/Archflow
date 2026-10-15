@@ -443,6 +443,7 @@ export function ModeSwitch() {
     ["architecture", "Arch", "Arquitetura: serviços, bancos, filas, nuvem e rede"],
     ["domain", "Domain", "Domínio (DDD): contextos, aggregates, commands, eventos e casos de uso"],
     ["logic", "Logic", "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos"],
+    ["agents", "Agents", "Agents: time de agentes de IA, skills e como se plugam; exporta harness pro Claude Code ou Cursor"],
   ];
   return (
     <>
@@ -475,8 +476,9 @@ export function ModeSwitch() {
           disabled={mode === "architecture"}
           tabIndex={mode !== "architecture" ? 0 : -1}
           aria-hidden={mode === "architecture"}
-          onClick={() => set({ modal: mode === "logic" ? { type: "logic", tab: "issues" } : { type: "domain", tab: "issues" } })}
+          onClick={() => set({ modal: mode === "logic" ? { type: "logic", tab: "issues" } : mode === "agents" ? { type: "agents", tab: "issues" } : { type: "domain", tab: "issues" } })}
           data-tip={mode === "logic" ? `Validação das regras (roda os exemplos) e texto para IA
+${errors} erro(s), ${warns} aviso(s)` : mode === "agents" ? `Validação do time de agentes e texto para IA
 ${errors} erro(s), ${warns} aviso(s)` : `Validação, visão geral do cofre e código
 ${errors} erro(s), ${warns} aviso(s)`}
           data-tip-pos="bottom"

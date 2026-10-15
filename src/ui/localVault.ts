@@ -350,8 +350,8 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
 
   /* diagramas */
   if (path === "/api/diagrams" && method === "POST") {
-    if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic`);
-    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" || b.mode === "logic" ? b.mode : "architecture");
+    if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic" && b.mode !== "agents") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic, agents`);
+    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture");
     return { name: rel, ...workspaceInfo() };
   }
   if (path === "/api/vault/docs" && method === "GET") return { files: Object.entries(vault.files).map(([p, f]) => ({ path: p, doc: f.doc })) };

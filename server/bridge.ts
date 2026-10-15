@@ -832,8 +832,8 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     /* diagramas */
     if (path === "/api/diagrams" && m === "POST") {
       const b = await body(req);
-      if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic`);
-      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" || b.mode === "logic" ? b.mode : "architecture");
+      if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic" && b.mode !== "agents") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic, agents`);
+      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture");
       return ws(res, { name: rel });
     }
     if (path === "/api/diagrams/open" && m === "POST") {
@@ -1011,7 +1011,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     if (path === "/api/schema") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       const wanted = url.searchParams.get("mode");
-      return void res.end(schemaGuide(wanted === "domain" || wanted === "logic" || wanted === "architecture" ? wanted : docMode(doc)));
+      return void res.end(schemaGuide(wanted === "domain" || wanted === "logic" || wanted === "agents" || wanted === "architecture" ? wanted : docMode(doc)));
     }
     if (path === "/api/events") {
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
