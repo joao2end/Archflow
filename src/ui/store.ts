@@ -3,7 +3,8 @@ import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { buildCatalog, type CatalogExample } from "../shared/examples.catalog";
 import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shared/logic";
-import { emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
+import { catalogEntryToSource, resolveSkillSource, type SkillCatalogEntry } from "../shared/skillcatalog";
+import { AGENT_RELS, emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
 /** Estilos padrão dos próximos elementos (padrão Excalidraw), persistidos em prefs. */
 export interface ElementDefaults {
   nodeKind: NodeKind;
@@ -437,6 +438,57 @@ export function placeAsset(assetId: string, x: number, y: number, parent?: strin
       fitGroup(doc, parent);
       commit(doc);
     }
+  }
+}
+
+/**
+ * Pluga uma skill num agent (seta `uses-skill`) e/ou num grupo `global`, num único passo de desfazer.
+ * Com `entry`, reaproveita o nó que já usa a mesma fonte do catálogo e baixa o SKILL.md em seguida;
+ * sem `entry`, cria uma skill vazia e abre o diálogo para buscar ou escrever.
+ */
+export function plugSkill(opts: { entry?: SkillCatalogEntry; skillId?: string; agentId?: string; groupId?: string; x?: number; y?: number }) {
+  const doc = state.doc;
+  const agent = opts.agentId ? doc.nodes.find((n) => n.id === opts.agentId && n.agent?.role === "agent") : undefined;
+  const source = opts.entry ? catalogEntryToSource(opts.entry) : undefined;
+  const existing = opts.skillId
+    ? doc.nodes.find((n) => n.id === opts.skillId && n.agent?.role === "skill")
+    : source && doc.nodes.find((n) => n.agent?.role === "skill" && n.agent.source?.repo === source.repo && n.agent.source.skillPath === source.skillPath);
+  const ops: Op[] = [];
+  let id = existing?.id;
+  if (!id) {
+    id = uniqueId(doc, opts.entry?.name ?? "skill");
+    const used = agent ? doc.connections.filter((c) => c.from === agent.id && c.agent?.rel === "uses-skill").length : 0;
+    const x = agent ? agent.x + used * 208 : (opts.x ?? 0);
+    const y = agent ? agent.y + agent.h + 96 : (opts.y ?? 0);
+    ops.push({
+      op: "add_node",
+      id,
+      asset: "agent-skill",
+      ...(opts.entry ? { label: opts.entry.name, agent: { role: "skill", description: opts.entry.description, source } } : {}),
+      x: Math.round(x / 8) * 8,
+      y: Math.round(y / 8) * 8,
+      ...(opts.groupId ? { parent: opts.groupId } : {}),
+    });
+  } else if (opts.groupId && existing?.parent !== opts.groupId) ops.push({ op: "update", id, patch: { parent: opts.groupId } });
+  if (agent && !doc.connections.some((c) => c.from === agent.id && c.to === id && c.agent?.rel === "uses-skill")) {
+    ops.push({ op: "add_connection", from: agent.id, to: id, type: AGENT_RELS["uses-skill"].type, agent: { rel: "uses-skill" } });
+  }
+  if (!ops.length) return toast(`${agent?.label ?? "O agent"} já usa esta skill`);
+  const { doc: next, results } = applyOps(doc, ops);
+  const bad = results.find((r) => !r.ok);
+  if (bad) return toastError(`Não deu para plugar a skill: ${bad.error ?? "erro desconhecido"}`);
+  if (opts.groupId) fitGroup(next, opts.groupId);
+  commit(next);
+  set({ sel: [id] });
+  if (agent) toast(existing ? `${existing.label} plugada em ${agent.label}` : `Skill plugada em ${agent.label}`);
+  if (!opts.entry && !existing) set({ modal: { type: "skill", id, tab: "catalog" } });
+  if (opts.entry && !existing && source) {
+    const skillId = id;
+    resolveSkillSource(source).then((r) => {
+      const n = state.doc.nodes.find((x) => x.id === skillId);
+      if (!r.ok || !n?.agent?.source || n.agent.source.hash || n.agent.source.repo !== source.repo) return;
+      run([{ op: "update", id: skillId, patch: { agent: { ...n.agent, body: r.body, description: r.description ?? n.agent.description, source: { ...n.agent.source, hash: r.hash } } } }]);
+    });
   }
 }
 

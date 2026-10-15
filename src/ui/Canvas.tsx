@@ -13,7 +13,8 @@ import { IconSvg } from "./icons";
 import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./richeditor";
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
-import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
+import { findSkillCatalogEntry } from "../shared/skillcatalog";
+import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, plugSkill, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
 import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
@@ -1780,7 +1781,13 @@ export function Canvas() {
       addRefNode(file, info?.title ?? file, snapV(p.x - 92, s.snap), snapV(p.y - 36, s.snap));
       return;
     }
+    const skill = e.dataTransfer.getData("application/x-archflow-skill");
     const id = e.dataTransfer.getData("application/x-archflow-asset");
+    if (skill || id === "agent-skill") {
+      const under = targetOf(document.elementFromPoint(e.clientX, e.clientY));
+      const agent = under?.role === "node" ? s.doc.nodes.find((n) => n.id === under.id && n.agent?.role === "agent") : undefined;
+      return plugSkill({ entry: skill ? findSkillCatalogEntry(skill) : undefined, agentId: agent?.id, groupId: agent ? undefined : groupAt(p, s.doc, new Set())?.id, x: snapV(p.x - 92, s.snap), y: snapV(p.y - 36, s.snap) });
+    }
     if (!id) return;
     const target = groupAt(p, s.doc, new Set());
     // endpoint solto sobre um serviço passa a pertencer a ele (empilhado abaixo)
@@ -1826,7 +1833,7 @@ export function Canvas() {
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes("application/x-archflow-asset") || e.dataTransfer.types.includes("application/x-archflow-file")) {
+        if (["application/x-archflow-asset", "application/x-archflow-file", "application/x-archflow-skill"].some((t) => e.dataTransfer.types.includes(t))) {
           e.preventDefault();
           setDragOver(true);
         }

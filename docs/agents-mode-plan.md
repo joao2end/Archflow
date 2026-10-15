@@ -97,14 +97,17 @@ type AgentRel = "uses-skill" | "delegates";
       (conexão do modo sem relação). Testes novos em `agents.test.ts` (18 casos, cobrindo schema,
       ops, as 7 regras e describe/schemaGuide). `npx tsc --noEmit` limpo, 346/346 testes passando
       (328 + 18 novos). Commit `3c15065`.
-- [ ] Fase 4 — UI: `src/ui/agents.tsx`, aba Skills no painel, drag-to-plug
+- [x] Fase 4 — UI: `src/ui/agents.tsx`, aba Skills no painel, drag-to-plug
     - [x] (`ea14998`) modo no seletor, assets Agent/Skill na biblioteca, inspetor de agent/skill e
       de relação, modal de validação, bridge/vault aceitando `agents`
     - [x] (`ea14998`) diálogo próprio da skill (quase tela cheia, não usa o `Modal` genérico):
       aba Catálogo (lista + prévia do SKILL.md baixado do GitHub, outro repositório) e aba
       Escrever (barra markdown pura, seções-modelo, editar/dividir/visualizar, dicas ao vivo);
       abre no duplo clique do nó e ao criar uma skill nova
-    - [ ] aba Skills no painel lateral e plugar skill em agent arrastando
+    - [x] seção "Skills do catálogo" na biblioteca (modo agents) e `plugSkill` no store: arrastar
+      sobre um agent cria/reaproveita o nó e liga `uses-skill` num único passo de desfazer;
+      sobre um grupo coloca a skill nele; clique com agent selecionado pluga direto; o SKILL.md
+      é baixado em seguida
 - [ ] Fase 5 — `src/shared/agentgen.ts`: gera harness pros dois alvos
 - [ ] Fase 6 — zip sem dependência, rota de escrita no bridge, `generate_code` modo agents no MCP
 - [ ] Fase 7 — manifesto `archflow.agents.json`, `import_harness`, detecção de hash/drift

@@ -7,6 +7,7 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KI
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
 import { LogicConnFields, LogicFields } from "./logic";
 import { AgentConnFields, AgentFields } from "./agents";
+import { SKILL_CATALOG, searchSkillCatalog, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { exportHtml, exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
@@ -19,7 +20,7 @@ import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoo
 import { RichField } from "./richeditor";
 import { IS_DESKTOP } from "./platform";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
+import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, plugSkill, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
 
@@ -405,6 +406,60 @@ function CategoryCarousel({ cats, value, onChange }: { cats: string[]; value?: s
 
 /* ───────── biblioteca de assets ───────── */
 
+/** Modo agents: skills do catálogo prontas para arrastar sobre um agent (ou clicar com o agent selecionado). */
+function CatalogSkills({ q }: { q: string }) {
+  const doc = useStore((s) => s.doc);
+  const sel = useStore((s) => s.sel);
+  const agent = sel.length === 1 ? doc.nodes.find((n) => n.id === sel[0] && n.agent?.role === "agent") : undefined;
+  const skills = q.trim() ? searchSkillCatalog(q) : SKILL_CATALOG;
+  const badge = lookupAsset("agent-skill");
+  const usedBy = (e: SkillCatalogEntry) => {
+    const node = doc.nodes.find((n) => n.agent?.source?.repo === e.repo && n.agent.source.skillPath === e.skillPath);
+    return node ? doc.connections.filter((c) => c.to === node.id && c.agent?.rel === "uses-skill").length : -1;
+  };
+  const add = (e: SkillCatalogEntry) => {
+    if (agent) return plugSkill({ entry: e, agentId: agent.id });
+    const s = getState();
+    plugSkill({ entry: e, x: (window.innerWidth / 2 - s.view.x) / s.view.z - 92, y: (window.innerHeight / 2 - s.view.y) / s.view.z - 36 });
+  };
+  return (
+    <section>
+      <div className="lib-cat">Skills do catálogo</div>
+      <div className="lib-hint">{agent ? `Clique para plugar em ${agent.label}, ou arraste sobre outro agent.` : "Arraste sobre um agent para plugar, ou sobre o grupo global para todos."}</div>
+      {skills.map((e) => {
+        const n = usedBy(e);
+        return (
+          <div
+            key={e.id}
+            className="asset"
+            draggable
+            onDragStart={(ev) => {
+              ev.dataTransfer.setData("application/x-archflow-skill", e.id);
+              ev.dataTransfer.effectAllowed = "copy";
+            }}
+            onClick={() => add(e)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(ev) => ev.key === "Enter" && add(e)}
+            data-tip={`${e.repo} · ${e.skillPath}`}
+            data-tip-pos="right"
+          >
+            {badge && <AssetBadge asset={badge} size={40} />}
+            <div className="meta">
+              <div className="name">
+                {e.name}
+                {n >= 0 && <span className="lib-used">{n ? `${n} agent${n > 1 ? "s" : ""}` : "no quadro"}</span>}
+              </div>
+              <div className="desc">{e.description}</div>
+            </div>
+          </div>
+        );
+      })}
+      {!skills.length && <div className="empty">Nenhuma skill do catálogo para «{q}». Arraste o asset Skill e escreva uma do zero.</div>}
+    </section>
+  );
+}
+
 export function Library() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string | undefined>();
@@ -438,6 +493,7 @@ export function Library() {
   const addAtCenter = (id: string) => {
     const s = getState();
     const asset = allKnownAssets().find((a) => a.id === id);
+    if (id === "agent-skill" && s.sel.length === 1 && s.doc.nodes.some((n) => n.id === s.sel[0] && n.agent?.role === "agent")) return plugSkill({ agentId: s.sel[0] });
     if (asset?.kind === "endpoint" && s.sel.length === 1) {
       const sel = s.doc.nodes.find((n) => n.id === s.sel[0]);
       const host = sel?.kind === "endpoint" ? s.doc.nodes.find((n) => n.id === sel.owner) : sel;
@@ -504,7 +560,8 @@ export function Library() {
             ))}
           </section>
         ))}
-        {!list.length && <div className="empty">Nada encontrado. Cadastre este asset abaixo e descreva o problema que ele resolve.</div>}
+        {mode === "agents" && <CatalogSkills q={q} />}
+        {!list.length && mode !== "agents" && <div className="empty">Nada encontrado. Cadastre este asset abaixo e descreva o problema que ele resolve.</div>}
       </div>
       <div className="lib-foot">
         <button className="btn primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => set({ modal: { type: "asset" } })}>
