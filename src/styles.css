@@ -2705,9 +2705,19 @@ svg.canvas.drag-over {
 }
 
 /* ───────── Minimapa ───────── */
-.minimap {
+.corner-br {
   right: 16px;
   bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.corner-br > * {
+  pointer-events: auto;
+}
+.minimap {
   padding: 6px;
   border-radius: 14px;
   line-height: 0;
@@ -2809,14 +2819,31 @@ svg.canvas.drag-over {
 .tech-opt-main small { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ───────── modo domínio (DDD) ───────── */
-.mode-switch { flex: none; display: inline-flex; padding: 2px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--s-mid); }
-.mode-switch button { border: 0; background: transparent; color: var(--ink-2); height: 28px; padding: 0 12px; border-radius: 999px; font: 650 11.5px var(--sans); letter-spacing: 0.02em; white-space: nowrap; }
-.mode-switch button:hover:not(.active) { color: var(--ink); }
-.mode-switch button.active { color: #fff; background: var(--primary-600); box-shadow: 0 1px 4px rgba(75, 73, 168, 0.35); }
-.mode-switch button.active.domain { background: #9a6212; box-shadow: 0 1px 4px rgba(154, 98, 18, 0.4); } /* branco AA (5:1) */
-.mode-switch button.active.logic { background: #0b7a84; box-shadow: 0 1px 4px rgba(11, 122, 132, 0.4); } /* branco AA (5:1) */
-:root[data-theme="dark"] .mode-switch button.active:not(.domain):not(.logic) { color: #19181a; } /* texto branco sobre o roxo claro do escuro dava ~3:1 */
-.mode-switch button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.mode-select-wrap { position: relative; flex: none; }
+.mode-select { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px 0 11px; border: 0; border-radius: 999px; color: #fff; background: var(--primary-600); box-shadow: 0 1px 4px rgba(75, 73, 168, 0.35); font: 650 11.5px var(--sans); letter-spacing: 0.02em; white-space: nowrap; }
+.mode-select.domain { background: #9a6212; box-shadow: 0 1px 4px rgba(154, 98, 18, 0.4); } /* branco AA (5:1) */
+.mode-select.logic { background: #0b7a84; box-shadow: 0 1px 4px rgba(11, 122, 132, 0.4); } /* branco AA (5:1) */
+.mode-select.agents { background: #2a5cb8; box-shadow: 0 1px 4px rgba(42, 92, 184, 0.4); } /* branco AA (5:1); o #5b8def do ícone é claro demais */
+:root[data-theme="dark"] .mode-select.architecture { color: #19181a; } /* texto branco sobre o roxo claro do escuro dava ~3:1 */
+.mode-select:hover { filter: brightness(1.08); }
+.mode-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mode-select .mode-select-chev { margin-left: 2px; opacity: 0.85; transition: transform 0.14s; }
+.mode-menu { left: 0; right: auto; width: 300px; background: var(--s-solid) !important; } /* opaco: backdrop-filter não funciona aninhado no vidro da brand-pill */
+.mode-menu button { color: var(--ink); align-items: flex-start; }
+.mode-menu button.hi,
+:root[data-theme="dark"] .mode-menu button:hover { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.mode-menu .mode-dot { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: var(--primary-600); }
+.mode-menu .domain .mode-dot { background: #9a6212; }
+.mode-menu .logic .mode-dot { background: #0b7a84; }
+.mode-menu .agents .mode-dot { background: #2a5cb8; }
+:root[data-theme="dark"] .mode-menu .architecture .mode-dot { color: #19181a; }
+.mode-opt-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.mode-opt-main b { font: 650 13px var(--sans); }
+.mode-opt-main small { font-size: 11.5px; line-height: 1.35; color: var(--ink-2); }
+.mode-opt-check { flex: none; align-self: center; color: var(--primary-600); }
+:root[data-theme="dark"] .mode-opt-check { color: var(--primary); }
+.actions-pill.collapsed { padding-left: 12px; }
+.actions-toggle { flex: none; }
 /* ───────── modo Logic: cartões no vidro do app (azulejo de ícone, legenda, título, texto em português) ───────── */
 .node.logic .node-body { stroke: var(--hairline); stroke-width: 1.2; }
 .node.logic .logic-wash { opacity: 0.07; }
@@ -2882,11 +2909,14 @@ svg.canvas.drag-over {
 .logic-play-panel .lp-verdict { font: 650 12.5px var(--sans); }
 .logic-play-panel .lp-verdict.ok { color: #2f9e6b; }
 .logic-play-panel .lp-verdict.fail { color: #d6453d; }
-.mode-issues { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 26px; padding: 0; border-radius: 999px; border: 1px solid var(--hairline); background: var(--s-mid); color: var(--ink-2); }
-.mode-issues:hover { border-color: var(--primary); color: var(--ink); }
-.mode-count { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; color: #fff; font: 700 10.5px var(--sans); display: inline-flex; align-items: center; justify-content: center; }
-.mode-count.err { background: var(--danger); }
-.mode-count.warn { background: #c27c0e; }
+.mode-tools { display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; animation: pop 0.14s ease-out; }
+.mode-issues { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 13px 0 10px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--s-mid); color: var(--ink); font: 650 12px var(--sans); white-space: nowrap; }
+.mode-issues:hover { border-color: var(--primary); }
+.mode-issues:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mode-issues.ok svg { color: var(--ok); }
+.mode-issues.err { color: #fff; background: #c9302c; border-color: transparent; } /* fixo: o --danger do escuro é claro demais para texto branco */
+.mode-issues.warn { color: #fff; background: #a8690b; border-color: transparent; } /* branco AA */
+.mode-issues.err:hover, .mode-issues.warn:hover { filter: brightness(1.08); }
 .lib-all { margin: 6px 12px 0; }
 .id-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
 .id-chip { display: inline-flex; align-items: center; border: 1px solid var(--hairline); border-radius: 999px; background: var(--s-mid); overflow: hidden; }
@@ -3310,7 +3340,7 @@ svg.canvas.drag-over {
 }
 
 /* botão do guia no topo */
-.mode-guide { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--hairline); background: var(--s-mid); color: var(--ink-2); }
+.mode-guide { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--hairline); background: var(--s-mid); color: var(--ink-2); }
 .mode-guide:hover { color: var(--ink); background: var(--primary-100); }
 
 /* aviso do painel de arquivos quando o seletor de modo difere do diagrama aberto */
@@ -3852,6 +3882,7 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .skill-manual { flex: none; }
 .skill-manual summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .skill-manual[open] { display: flex; flex-direction: column; gap: 8px; }
+.skill-manual .skill-ok, .skill-manual .skill-pending, .skill-manual .skill-slug { display: block; }
 .skill-manual .btn { align-self: flex-start; }
 .skill-or { flex: none; font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
 .skill-cat-detail { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }

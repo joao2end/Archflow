@@ -122,6 +122,7 @@ export function TopBar() {
   const theme = useStore((s) => s.theme);
   const navBack = useStore((s) => s.navBack);
   const storage = useStore((s) => s.storage);
+  const hidden = useStore((s) => s.actionsHidden);
   const back = navBack.length ? navBack[navBack.length - 1].split("/").pop()?.replace(".archflow.json", "") : undefined;
   const [menu, setMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -159,9 +160,10 @@ export function TopBar() {
         <TextField deferred value={title} onCommit={setTitle} id="doc-title" label="Título do diagrama" />
         <ModeSwitch />
       </div>
-      <div className="glass actions-pill">
+      <div className={`glass actions-pill${hidden ? " collapsed" : ""}`}>
         <span
           className={`status ${online ? (storage === "local" ? "local" : "on") : ""}`}
+          aria-label={hidden ? (!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado") : undefined}
           data-tip={
             !online
               ? "Sem armazenamento. Rode `npm run dev` para usar cofres em disco."
@@ -176,60 +178,74 @@ export function TopBar() {
           onKeyDown={(e) => e.key === "Enter" && set({ modal: { type: "vaults" } })}
         >
           <span className="dot" />
-          {!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado"}
+          {!hidden && (!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado")}
         </span>
-        <div className="sep" />
-        <RecordControls bar />
-        <button className="btn ghost" onClick={enterPresent} data-tip="Modo apresentação (P). Na arquitetura, percorre o roteiro." data-tip-pos="bottom">
-          <Glyph name="present" size={17} /> Apresentar
-        </button>
-        <button className="btn ghost" onClick={() => set({ modal: { type: "llm" } })} data-tip="Veja o diagrama como um LLM o enxerga (Markdown, Mermaid, JSON)." data-tip-pos="bottom">
-          <Glyph name="sparkle" size={17} /> Visão LLM
-        </button>
-        <button className="btn ghost" onClick={() => set({ modal: { type: "mcp" } })} data-tip="Conectar Claude / agentes via MCP" data-tip-pos="bottom">
-          <Glyph name="plug" size={17} /> MCP
-        </button>
-        <div className="menu-wrap">
-          <button className="btn primary" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu}>
-            <Glyph name="download" size={17} /> Arquivo
+        {!hidden && (
+          <>
+          <div className="sep" />
+          <RecordControls bar />
+          <button className="btn ghost" onClick={enterPresent} data-tip="Modo apresentação (P). Na arquitetura, percorre o roteiro." data-tip-pos="bottom">
+            <Glyph name="present" size={17} /> Apresentar
           </button>
-          {menu && (
-            <div className="glass menu" role="menu" style={{ background: "var(--glass-strong)" }}>
-              <button onClick={() => (exportJson(), setMenu(false))}>
-                <Glyph name="download" size={17} /> Salvar .archflow.json
-              </button>
-              <button onClick={() => fileRef.current?.click()}>
-                <Glyph name="upload" size={17} /> Importar diagrama…
-              </button>
-              <button onClick={() => (void exportHtml(), setMenu(false))} data-tip="Um único .html com o diagrama como está agora (zoom e arrastar); abre em qualquer navegador" data-tip-pos="left">
-                <Glyph name="monitor" size={17} /> Exportar HTML
-              </button>
-              <button onClick={() => (exportSvg(), setMenu(false))}>
-                <Glyph name="code" size={17} /> Exportar SVG
-              </button>
-              <button onClick={() => (exportPng(), setMenu(false))}>
-                <Glyph name="grid" size={17} /> Exportar PNG (2×)
-              </button>
-            </div>
-          )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) importJson(f);
-              e.target.value = "";
-              setMenu(false);
-            }}
-          />
-        </div>
-        <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip={`Tema: ${{ system: "automático", light: "claro", dark: "escuro" }[theme]} (T)\nClique para alternar`} data-tip-pos="bottom">
-          <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme]} size={18} />
-        </button>
-        <button className="btn ghost icon" onClick={() => set({ modal: { type: "help" } })} aria-label="Ajuda e atalhos" data-tip="Atalhos (?)" data-tip-pos="bottom">
-          <Glyph name="help" size={18} />
+          <button className="btn ghost" onClick={() => set({ modal: { type: "llm" } })} data-tip="Veja o diagrama como um LLM o enxerga (Markdown, Mermaid, JSON)." data-tip-pos="bottom">
+            <Glyph name="sparkle" size={17} /> Visão LLM
+          </button>
+          <button className="btn ghost" onClick={() => set({ modal: { type: "mcp" } })} data-tip="Conectar Claude / agentes via MCP" data-tip-pos="bottom">
+            <Glyph name="plug" size={17} /> MCP
+          </button>
+          <div className="menu-wrap">
+            <button className="btn primary" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu}>
+              <Glyph name="download" size={17} /> Arquivo
+            </button>
+            {menu && (
+              <div className="glass menu" role="menu" style={{ background: "var(--glass-strong)" }}>
+                <button onClick={() => (exportJson(), setMenu(false))}>
+                  <Glyph name="download" size={17} /> Salvar .archflow.json
+                </button>
+                <button onClick={() => fileRef.current?.click()}>
+                  <Glyph name="upload" size={17} /> Importar diagrama…
+                </button>
+                <button onClick={() => (void exportHtml(), setMenu(false))} data-tip="Um único .html com o diagrama como está agora (zoom e arrastar); abre em qualquer navegador" data-tip-pos="left">
+                  <Glyph name="monitor" size={17} /> Exportar HTML
+                </button>
+                <button onClick={() => (exportSvg(), setMenu(false))}>
+                  <Glyph name="code" size={17} /> Exportar SVG
+                </button>
+                <button onClick={() => (exportPng(), setMenu(false))}>
+                  <Glyph name="grid" size={17} /> Exportar PNG (2×)
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json,application/json"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importJson(f);
+                e.target.value = "";
+                setMenu(false);
+              }}
+            />
+          </div>
+          <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip={`Tema: ${{ system: "automático", light: "claro", dark: "escuro" }[theme]} (T)\nClique para alternar`} data-tip-pos="bottom">
+            <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme]} size={18} />
+          </button>
+          <button className="btn ghost icon" onClick={() => set({ modal: { type: "help" } })} aria-label="Ajuda e atalhos" data-tip="Atalhos (?)" data-tip-pos="bottom">
+            <Glyph name="help" size={18} />
+          </button>
+          </>
+        )}
+        <button
+          className="btn ghost icon actions-toggle"
+          onClick={() => setPrefs({ actionsHidden: !hidden })}
+          aria-expanded={!hidden}
+          aria-label={hidden ? "Mostrar a barra de ações" : "Recolher a barra de ações"}
+          data-tip={hidden ? "Mostrar a barra de ações" : "Recolher a barra de ações"}
+          data-tip-pos="bottom"
+        >
+          <Glyph name="chevron" size={16} style={{ transform: hidden ? "rotate(90deg)" : "rotate(-90deg)" }} />
         </button>
       </div>
     </div>

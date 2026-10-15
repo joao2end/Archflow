@@ -55,7 +55,7 @@ export function Minimap() {
   };
 
   return (
-    <div className="hud glass minimap" role="group" aria-label={`Minimapa do diagrama${flagged.size ? ` (${flagged.size} ${flagged.size === 1 ? "componente com problema marcado" : "componentes com problema marcados"})` : ""}. Clique ou arraste para ir até uma região; com o foco aqui, as setas movem a vista.`}>
+    <div className="glass minimap" role="group" aria-label={`Minimapa do diagrama${flagged.size ? ` (${flagged.size} ${flagged.size === 1 ? "componente com problema marcado" : "componentes com problema marcados"})` : ""}. Clique ou arraste para ir até uma região; com o foco aqui, as setas movem a vista.`}>
       <svg
         width={W}
         height={H}
