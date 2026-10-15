@@ -129,6 +129,7 @@ interface Prefs {
   theme?: Theme;
   bg?: Background;
   defaults?: Partial<ElementDefaults>;
+  actionsHidden?: boolean;
 }
 
 export interface State {
@@ -156,6 +157,8 @@ export interface State {
   theme: Theme;
   animate: boolean;
   snap: boolean;
+  /** barra de ações (canto superior direito) recolhida; lembrada entre sessões */
+  actionsHidden: boolean;
   /** fundo do quadro (preferência local) */
   bg: Background;
   /** cor da caneta / marca-texto */
@@ -266,6 +269,7 @@ function init(): State {
     theme: prefs.theme ?? "system",
     animate: prefs.animate ?? true,
     snap: prefs.snap ?? true,
+    actionsHidden: prefs.actionsHidden ?? false,
     bg: { ...DEFAULT_BG, ...prefs.bg },
     inkColor: "#e5484d",
     inkCfg: { pen: { width: 4, opacity: 1 }, highlight: { width: 22, opacity: 0.38 } },
@@ -444,6 +448,7 @@ function writePrefs() {
     theme: state.theme,
     bg: state.bg,
     defaults: state.defaults,
+    actionsHidden: state.actionsHidden,
   });
 }
 

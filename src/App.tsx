@@ -6,6 +6,7 @@ import { Dock, Inspector, Library, Toast, TopBar, ZoomBar } from "./ui/panels";
 import { useHotkeys } from "./ui/keys";
 import { EmptyHint } from "./ui/emptyhint";
 import { Minimap } from "./ui/minimap";
+import { ModeTools } from "./ui/domain";
 import { DrawBar } from "./ui/drawbar";
 import { PresentMode } from "./ui/present";
 import { PlayPanel } from "./ui/logic";
@@ -32,7 +33,10 @@ export default function App() {
           {panel === "files" && <FilesPanel />}
           <Inspector />
           <ZoomBar />
-          <Minimap />
+          <div className="hud corner-br">
+            <ModeTools />
+            <Minimap />
+          </div>
           <EmptyHint />
           <DrawBar />
         </>

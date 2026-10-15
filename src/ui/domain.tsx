@@ -427,79 +427,129 @@ export function switchMode(mode: DocMode) {
   set({ modeFilter: mode, panel: "files", newDiagramFor: mode });
 }
 
-/** Switch Arch | Domain; no modo Domain, atalho para a validação (com a contagem de erros/avisos). */
+const MODES: [DocMode, string, string][] = [
+  ["architecture", "Arch", "Serviços, bancos, filas, nuvem e rede"],
+  ["domain", "Domain", "DDD: contextos, aggregates, commands, eventos e casos de uso"],
+  ["logic", "Logic", "Regras de negócio em ordem, dados e exemplos que se verificam sozinhos"],
+];
+
+/** Seletor Arch | Domain | Logic na barra superior (listbox próprio: o popup do <select> nativo não aceita o estilo do app). */
 export function ModeSwitch() {
   const doc = useStore((s) => s.doc);
   const file = useStore((s) => s.file);
   const filter = useStore((s) => s.modeFilter);
-  const mode = docMode(doc);
-  const shown = filter ?? mode;
-  // abrir outro diagrama devolve o switch ao tipo dele
+  const shown = filter ?? docMode(doc);
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const wrap = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // abrir outro diagrama devolve o seletor ao tipo dele
   useEffect(() => set({ modeFilter: null }), [file]);
-  const issues = mode !== "architecture" ? validateDetailed(doc) : [];
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [open]);
+  const current = MODES.find(([m]) => m === shown) ?? MODES[0];
+  const show = () => (setHi(Math.max(0, MODES.findIndex(([m]) => m === shown))), setOpen(true));
+  const pick = (m: DocMode) => {
+    setOpen(false);
+    trigger.current?.focus();
+    switchMode(m);
+  };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!open) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") e.preventDefault(), show();
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setHi((i) => (i + (e.key === "ArrowDown" ? 1 : -1) + MODES.length) % MODES.length);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      pick(MODES[hi][0]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    } else if (e.key === "Tab") setOpen(false);
+  };
+  return (
+    <div className="mode-select-wrap" ref={wrap} onKeyDown={onKey}>
+      <button
+        ref={trigger}
+        className={`mode-select ${shown}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Modo do diagrama: ${current[1]}`}
+        aria-activedescendant={open ? `mode-opt-${MODES[hi][0]}` : undefined}
+        onClick={() => (open ? setOpen(false) : show())}
+        data-tip={open ? undefined : `${current[2]}\nTrocar de modo abre a criação de um diagrama novo; o aberto não é convertido.`}
+        data-tip-pos="bottom"
+      >
+        <Glyph name={`mode-${shown}`} size={13} />
+        {current[1]}
+        <Glyph name="chevron" size={12} className="mode-select-chev" style={open ? { transform: "rotate(180deg)" } : undefined} />
+      </button>
+      {open && (
+        <div className="glass menu mode-menu" role="listbox" aria-label="Modo do diagrama">
+          {MODES.map(([m, label, desc], i) => (
+            <button
+              key={m}
+              id={`mode-opt-${m}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={m === shown}
+              className={`${m}${i === hi ? " hi" : ""}${m === shown ? " cur" : ""}`}
+              onPointerEnter={() => setHi(i)}
+              onClick={() => pick(m)}
+            >
+              <span className="mode-dot">
+                <Glyph name={`mode-${m}`} size={13} />
+              </span>
+              <span className="mode-opt-main">
+                <b>{label}</b>
+                <small>{desc}</small>
+              </span>
+              {m === shown && <Glyph name="check" size={14} className="mode-opt-check" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Ferramentas do diagrama aberto (Domain/Logic): validação com a contagem de erros/avisos e, no Domain, o guia de DDD. */
+export function ModeTools() {
+  const doc = useStore((s) => s.doc);
+  const mode = docMode(doc);
+  if (mode === "architecture") return null;
+  const issues = validateDetailed(doc);
   const errors = issues.filter((i) => i.severity === "erro").length;
   const warns = issues.filter((i) => i.severity === "aviso").length;
-  const MODES: [DocMode, string, string][] = [
-    ["architecture", "Arch", "Arquitetura: serviços, bancos, filas, nuvem e rede"],
-    ["domain", "Domain", "Domínio (DDD): contextos, aggregates, commands, eventos e casos de uso"],
-    ["logic", "Logic", "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos"],
-  ];
+  const state = errors ? "err" : warns ? "warn" : "ok";
+  const summary = errors ? `${errors} ${errors === 1 ? "erro" : "erros"}` : warns ? `${warns} ${warns === 1 ? "aviso" : "avisos"}` : "Tudo certo";
   return (
-    <>
-      <div
-        className="mode-switch"
-        role="radiogroup"
-        aria-label="Modo do diagrama"
-        onKeyDown={(e) => {
-          // setas só movem o foco (trocar de modo abre o painel de novo diagrama; Enter/Espaço ativa); um só tab stop
-          const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-          if (!d) return;
-          e.preventDefault();
-          const btns = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
-          const at = btns.indexOf(document.activeElement as HTMLButtonElement);
-          btns[(at + d + btns.length) % btns.length]?.focus();
-        }}
-      >
-        {MODES.map(([m, label, tip]) => (
-          <button key={m} role="radio" aria-checked={shown === m} tabIndex={shown === m ? 0 : -1} className={`${shown === m ? "active" : ""} ${m}`} onClick={() => switchMode(m)} data-tip={tip} data-tip-pos="bottom">
-            <Glyph name={`mode-${m}`} size={12} style={{ marginRight: 5, verticalAlign: "-2px" }} />
-            {label}
-          </button>
-        ))}
-      </div>
-      {/* ocupa o mesmo espaço nos dois modos (invisível em Arch): o switch não muda de lugar ao alternar */}
-      {(
-        <button
-          className="mode-issues"
-          style={mode !== "architecture" ? undefined : { visibility: "hidden" }}
-          disabled={mode === "architecture"}
-          tabIndex={mode !== "architecture" ? 0 : -1}
-          aria-hidden={mode === "architecture"}
-          onClick={() => set({ modal: mode === "logic" ? { type: "logic", tab: "issues" } : { type: "domain", tab: "issues" } })}
-          data-tip={mode === "logic" ? `Validação das regras (roda os exemplos) e texto para IA
+    <div className="glass mode-tools" role="group" aria-label="Validação do diagrama">
+      <button
+        className={`mode-issues ${state}`}
+        onClick={() => set({ modal: mode === "logic" ? { type: "logic", tab: "issues" } : { type: "domain", tab: "issues" } })}
+        data-tip={mode === "logic" ? `Validação das regras (roda os exemplos) e texto para IA
 ${errors} erro(s), ${warns} aviso(s)` : `Validação, visão geral do cofre e código
 ${errors} erro(s), ${warns} aviso(s)`}
-          data-tip-pos="bottom"
-          aria-label={`Validação do domínio: ${errors} erros, ${warns} avisos`}
-        >
-          <Glyph name="check" size={14} />
-          {(errors > 0 || warns > 0) && <span className={`mode-count ${errors ? "err" : "warn"}`}>{errors || warns}</span>}
+        data-tip-pos="top"
+        aria-label={`Validação do ${mode === "logic" ? "fluxo" : "domínio"}: ${errors} erros, ${warns} avisos`}
+      >
+        <Glyph name={state === "ok" ? "check" : "alert"} size={14} />
+        {summary}
+      </button>
+      {mode === "domain" && (
+        <button className="mode-guide" onClick={openDddGuide} data-tip="Guia animado de DDD: os conceitos em 8 passos" data-tip-pos="top" aria-label="Abrir o guia de DDD">
+          <Glyph name="play" size={11} />
         </button>
       )}
-      <button
-        className="mode-guide"
-        style={mode === "domain" ? undefined : { visibility: "hidden" }}
-        disabled={mode !== "domain"}
-        tabIndex={mode === "domain" ? 0 : -1}
-        aria-hidden={mode !== "domain"}
-        onClick={openDddGuide}
-        data-tip="Guia animado de DDD: os conceitos em 8 passos"
-        data-tip-pos="bottom"
-        aria-label="Abrir o guia de DDD"
-      >
-        <Glyph name="play" size={11} />
-      </button>
-    </>
+    </div>
   );
 }
 
