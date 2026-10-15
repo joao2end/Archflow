@@ -173,7 +173,7 @@ export function RefPicker({ node, patch }: { node: NodeEl; patch: Patch }) {
     fetchOutline(ref.diagram).then(setOutline, (e) => setErr(e instanceof Error ? e.message : String(e)));
   }, [ref?.diagram, online]);
 
-  if (!online || !ws) return <div className="callout">Referências entre diagramas precisam do cofre (bridge conectado).</div>;
+  if (!online || !ws) return <div className="callout">Referências entre diagramas precisam do projeto (bridge conectado).</div>;
 
   const files = ws.files.filter((f) => f.path !== file);
   const target = ref ? ws.files.find((f) => f.path === ref.diagram) : undefined;
@@ -194,7 +194,7 @@ export function RefPicker({ node, patch }: { node: NodeEl; patch: Patch }) {
           </option>
         ))}
       </select>
-      {ref && !target && <div className="callout warn">Este diagrama não existe mais no cofre (apagado ou movido fora do app). Escolha outro ou restaure-o da lixeira (.archflow/trash).</div>}
+      {ref && !target && <div className="callout warn">Este diagrama não existe mais no projeto (apagado ou movido fora do app). Escolha outro ou restaure-o da lixeira (.archflow/trash).</div>}
       {ref && target && (
         <>
           <label className="field" style={{ marginTop: 10 }}>

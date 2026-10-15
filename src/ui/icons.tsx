@@ -65,7 +65,7 @@ const GLYPHS: Record<string, string[]> = {
   moon: ["M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"],
   monitor: ["M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z", "M8 21h8", "M12 17v4"],
   layers: ["M12 3l9 5-9 5-9-5z", "M3 12.5l9 5 9-5", "M3 17l9 5 9-5"],
-  vault: ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"], // cofre = pasta
+  project: ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"], // projeto = pasta
   "file-plus": ["M6 3h8l4 4v14H6z", "M14 3v4h4", "M12 11v6", "M9 14h6"],
   eraser: ["M7 21h13", "M5.5 13.5l7-7a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L11 20H8l-2.5-2.5a2 2 0 0 1 0-2.8z", "M9 9l6 6"],
   text: ["M5 6V4h14v2", "M12 4v16", "M9 20h6"],

@@ -1,6 +1,6 @@
 /**
- * Ponta a ponta: sobe o MCP de verdade (stdio) com um bridge e um cofre temporários e exercita o fluxo do modo domínio
- * como uma IA faria. Nada toca no cofre/configuração do usuário (portas, config e dados isolados por variáveis de ambiente).
+ * Ponta a ponta: sobe o MCP de verdade (stdio) com um bridge e um projeto temporários e exercita o fluxo do modo domínio
+ * como uma IA faria. Nada toca no projeto/configuração do usuário (portas, config e dados isolados por variáveis de ambiente).
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";

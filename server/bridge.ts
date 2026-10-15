@@ -1,24 +1,26 @@
 /**
- * Archflow Bridge — cofres (vaults) de diagramas em disco + ponte navegador ↔ MCP.
+ * Archflow Bridge — projetos de diagramas em disco + ponte navegador ↔ MCP.
  *
- * Um COFRE é uma pasta qualquer; dentro dela, diagramas `*.archflow.json` em subpastas livres.
- * A pasta oculta `.archflow/` guarda `vault.json` e a lixeira (como o `.obsidian/` do Obsidian).
+ * Um PROJETO é uma pasta qualquer; dentro dela, diagramas `*.archflow.json` em subpastas livres e, no modo agents,
+ * o harness exportado (`.claude/`, `.cursor/`). A pasta oculta `.archflow/` guarda `project.json` e a lixeira
+ * (como o `.obsidian/` do Obsidian).
  *
  *   GET  /api/health | GET /api/doc | PUT /api/doc | POST /api/ops
- *   GET  /api/workspace                         → { vault, configured, vaults[], current, tree, files[] }
- *   GET  /api/vaults                            → { vaults[], active }
- *   POST /api/vaults/create  { name, parent }   cria pasta nova e a abre como cofre
- *   POST /api/vaults/open    { path }           abre uma pasta existente como cofre
- *   POST /api/vaults/switch  { id }
- *   POST /api/vaults/remove  { id }             só tira da lista (não apaga nada)
+ *   GET  /api/workspace                         → { project, configured, projects[], current, tree, files[] }
+ *   GET  /api/projects                          → { projects[], active }
+ *   POST /api/projects/create  { name, parent }   cria pasta nova e a abre como projeto
+ *   POST /api/projects/open    { path }           abre uma pasta existente como projeto
+ *   POST /api/projects/switch  { id }
+ *   POST /api/projects/remove  { id }             só tira da lista (não apaga nada)
  *   POST /api/diagrams          { title, folder? }
  *   POST /api/diagrams/open|rename|duplicate|delete|move
  *   POST /api/folders | /api/folders/rename | /api/folders/delete
  *   GET  /api/fs/list?path=  · POST /api/fs/mkdir   (navegador de pastas)
- *   POST /api/skills/install { repo, skillPath }  `npx skills add` no cofre aberto + conteúdo do SKILL.md
+ *   POST /api/skills/install { repo, skillPath }  `npx skills add` no projeto aberto + conteúdo do SKILL.md
+ *   POST /api/harness { target }                grava o harness do diagrama agents aberto na pasta do projeto
  *   POST /api/export { format, name?, out?, background?, scale?, padding? }  SVG/PNG renderizado pela janela do app
  *   GET  /api/events                            SSE: hello | doc | workspace | export
- * Caminhos de diagrama são relativos ao cofre, com "/" (ex.: "backend/orders.archflow.json").
+ * Caminhos de diagrama são relativos ao projeto, com "/" (ex.: "backend/orders.archflow.json").
  */
 import { spawn, spawnSync } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -28,6 +30,7 @@ import {
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { generateHarness } from "../src/shared/agentgen";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
@@ -43,21 +46,22 @@ const EXT = ".archflow.json";
 const META = ".archflow";
 /**
  * Modo público (ARCHFLOW_PUBLIC=1): só serve o app estático. Nenhuma rota /api existe e nada é gravado no
- * servidor — cada visitante usa o cofre do próprio navegador (IndexedDB), sem login e sem ver dados alheios.
+ * servidor — cada visitante usa o projeto do próprio navegador (IndexedDB), sem login e sem ver dados alheios.
  */
 const PUBLIC_MODE = process.env.ARCHFLOW_PUBLIC === "1";
 const SEG_BAD = /[\\/:*?"<>|\0]/;
 
-interface Vault {
+interface Project {
   id: string;
   name: string;
   path: string;
 }
 interface Config {
-  vaults?: Vault[];
+  projects?: Project[];
   active?: string;
   lastOpened?: Record<string, string>;
   workspace?: string; // legado (pasta única)
+  vaults?: Project[]; // legado (quando «projeto» se chamava «cofre»)
 }
 
 function readConfig(): Config {
@@ -78,7 +82,7 @@ function writeConfig(patch: Config) {
 
 /* ───────── estado ───────── */
 
-let vault: Vault = { id: "default", name: "Cofre padrão", path: DEFAULT_DIR };
+let project: Project = { id: "default", name: "Projeto padrão", path: DEFAULT_DIR };
 let dir = "";
 let configured = false;
 let current = ""; // caminho relativo do diagrama aberto
@@ -154,7 +158,7 @@ function trashDir() {
   return t;
 }
 
-/* ───────── árvore do cofre ───────── */
+/* ───────── árvore do projeto ───────── */
 
 interface FileNode {
   type: "file";
@@ -178,7 +182,7 @@ interface FolderNode {
 }
 
 function buildTree(abs: string, rel: string, depth: number, budget: { n: number }): FolderNode {
-  const node: FolderNode = { type: "folder", name: rel ? basename(rel) : vault.name, path: rel, children: [] };
+  const node: FolderNode = { type: "folder", name: rel ? basename(rel) : project.name, path: rel, children: [] };
   if (depth > 10 || !existsSync(abs)) return node;
   let entries: import("node:fs").Dirent[] = [];
   try {
@@ -222,7 +226,7 @@ function buildTree(abs: string, rel: string, depth: number, budget: { n: number 
   return node;
 }
 
-/** Atualiza `ref.diagram` em todos os diagramas do cofre quando um caminho muda. */
+/** Atualiza `ref.diagram` em todos os diagramas do projeto quando um caminho muda. */
 function rewriteRefs(map: (p: string) => string | undefined) {
   const apply = (d: any) => {
     let changed = false;
@@ -268,15 +272,15 @@ function outlineOf(name: string) {
 
 const flatten = (n: FolderNode): FileNode[] => n.children.flatMap((c) => (c.type === "file" ? [c] : flatten(c)));
 
-function vaultList() {
+function projectList() {
   const cfg = readConfig();
-  return (cfg.vaults ?? []).map((v) => ({ ...v, exists: existsSync(v.path) }));
+  return (cfg.projects ?? []).map((v) => ({ ...v, exists: existsSync(v.path) }));
 }
 
 function workspaceInfo() {
   const tree = buildTree(dir, "", 0, { n: 3000 });
   const files = flatten(tree).sort((a, b) => b.updatedAt - a.updatedAt);
-  return { vault: { id: vault.id, name: vault.name, path: vault.path }, configured, vaults: vaultList(), current, tree, files };
+  return { project: { id: project.id, name: project.name, path: project.path }, configured, projects: projectList(), current, tree, files };
 }
 
 function broadcast(event: string, data: unknown) {
@@ -292,12 +296,15 @@ function publishDoc(source: string) {
   sendWorkspace();
 }
 
-/* ───────── cofres ───────── */
+/* ───────── projetos ───────── */
 
-function initVault(path: string, name?: string) {
+function initProject(path: string, name?: string) {
   mkdirSync(join(path, META), { recursive: true });
-  const meta = join(path, META, "vault.json");
-  if (!existsSync(meta)) writeFileSync(meta, JSON.stringify({ name: name ?? basename(path), createdAt: new Date().toISOString(), schema: "archflow-vault/1" }, null, 2));
+  const meta = join(path, META, "project.json");
+  if (existsSync(meta)) return;
+  const legacy = join(path, META, "vault.json"); // pastas criadas quando «projeto» se chamava «cofre»
+  if (existsSync(legacy)) return void renameSync(legacy, meta);
+  writeFileSync(meta, JSON.stringify({ name: name ?? basename(path), createdAt: new Date().toISOString(), schema: "archflow-project/1" }, null, 2));
 }
 
 function openFile(rel: string, source = "file") {
@@ -372,12 +379,12 @@ function onDirChange() {
   sendWorkspace();
 }
 
-function activateVault(v: Vault, persist: boolean) {
+function activateProject(v: Project, persist: boolean) {
   saveNow();
   if (v.id === "default") mkdirSync(v.path, { recursive: true });
-  if (!existsSync(v.path) || !statSync(v.path).isDirectory()) throw new HttpError(404, "a pasta do cofre não existe mais");
-  initVault(v.path, v.name);
-  vault = v;
+  if (!existsSync(v.path) || !statSync(v.path).isDirectory()) throw new HttpError(404, "a pasta do projeto não existe mais");
+  initProject(v.path, v.name);
+  project = v;
   dir = v.path;
   configured = persist;
   if (persist) writeConfig({ active: v.id });
@@ -392,62 +399,68 @@ function activateVault(v: Vault, persist: boolean) {
   }
 }
 
-function registerVault(path: string, name?: string): Vault {
+function registerProject(path: string, name?: string): Project {
   const cfg = readConfig();
-  const vaults = cfg.vaults ?? [];
+  const projects = cfg.projects ?? [];
   const abs = resolve(path);
-  let v = vaults.find((x) => resolve(x.path) === abs);
+  let v = projects.find((x) => resolve(x.path) === abs);
   if (!v) {
     v = { id: `${slug(name ?? basename(abs))}-${Math.random().toString(36).slice(2, 6)}`, name: name ?? basename(abs), path: abs };
-    vaults.push(v);
-    writeConfig({ vaults });
+    projects.push(v);
+    writeConfig({ projects });
   }
   return v;
 }
 
 function boot() {
+  // migração: a lista de «cofres» vira a lista de projetos (as pastas e os ids continuam os mesmos)
+  const old = readConfig();
+  if (old.vaults?.length && !(old.projects ?? []).length) writeConfig({ projects: old.vaults, vaults: undefined });
   const cfg = readConfig();
-  // migração: antiga "pasta de trabalho" única vira um cofre
-  if (cfg.workspace && !(cfg.vaults ?? []).length && existsSync(cfg.workspace)) {
-    const v = registerVault(cfg.workspace);
+  // migração: antiga "pasta de trabalho" única vira um projeto
+  if (cfg.workspace && !(cfg.projects ?? []).length && existsSync(cfg.workspace)) {
+    const v = registerProject(cfg.workspace);
     writeConfig({ active: v.id, workspace: undefined });
   }
   const c = readConfig();
-  const active = (c.vaults ?? []).find((v) => v.id === c.active && existsSync(v.path));
+  const active = (c.projects ?? []).find((v) => v.id === c.active && existsSync(v.path));
   try {
-    if (active) activateVault(active, true);
-    else activateVault({ id: "default", name: "Cofre padrão", path: DEFAULT_DIR }, false);
+    if (active) activateProject(active, true);
+    else activateProject({ id: "default", name: "Projeto padrão", path: DEFAULT_DIR }, false);
   } catch (e) {
-    console.error("[bridge] cofre inválido, usando padrão", e);
-    activateVault({ id: "default", name: "Cofre padrão", path: DEFAULT_DIR }, false);
+    console.error("[bridge] projeto inválido, usando padrão", e);
+    activateProject({ id: "default", name: "Projeto padrão", path: DEFAULT_DIR }, false);
   }
   rev = 0;
 }
 
-function createVault(name: string, parent: string) {
+function createProject(name: string, parent: string) {
   const n = String(name ?? "").trim();
-  if (!n || SEG_BAD.test(n) || n.startsWith(".")) throw new HttpError(400, "nome de cofre inválido");
+  if (!n || SEG_BAD.test(n) || n.startsWith(".")) throw new HttpError(400, "nome de projeto inválido");
   if (!isAbsolute(String(parent))) throw new HttpError(400, "informe o local (caminho absoluto)");
   const target = resolve(parent, n);
   if (existsSync(target)) throw new HttpError(409, "já existe uma pasta com esse nome nesse local");
   mkdirSync(target, { recursive: true });
-  const v = registerVault(target, n);
-  activateVault(v, true);
+  const v = registerProject(target, n);
+  activateProject(v, true);
 }
 
 /* ───────── seletor de pastas ───────── */
+
+/** `vault.json` é o nome antigo de `project.json`; pastas criadas antes da renomeação continuam valendo como projeto. */
+const isProjectDir = (p: string) => existsSync(join(p, META, "project.json")) || existsSync(join(p, META, "vault.json"));
 
 function listDir(path?: string) {
   if (!path) {
     if (process.platform === "win32") {
       const drives = "CDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => `${l}:\\`).filter((d) => existsSync(d));
-      return { path: "", parent: null, home: homedir(), dirs: drives.map((d) => ({ name: d, path: d, archflow: 0, vault: false })) };
+      return { path: "", parent: null, home: homedir(), dirs: drives.map((d) => ({ name: d, path: d, archflow: 0, project: false })) };
     }
     path = homedir();
   }
   const p = resolve(path);
   if (!existsSync(p) || !statSync(p).isDirectory()) throw new HttpError(404, "pasta não encontrada");
-  const dirs: { name: string; path: string; archflow: number; vault: boolean }[] = [];
+  const dirs: { name: string; path: string; archflow: number; project: boolean }[] = [];
   for (const e of readdirSync(p, { withFileTypes: true })) {
     if (!e.isDirectory() || e.name.startsWith(".") || e.name.startsWith("$") || e.name === "node_modules") continue;
     const full = join(p, e.name);
@@ -457,13 +470,13 @@ function listDir(path?: string) {
     } catch {
       continue;
     }
-    dirs.push({ name: e.name, path: full, archflow, vault: existsSync(join(full, META, "vault.json")) });
+    dirs.push({ name: e.name, path: full, archflow, project: isProjectDir(full) });
     if (dirs.length >= 800) break;
   }
   dirs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   const up = dirname(p);
   const parent = up === p ? (process.platform === "win32" ? "" : null) : up;
-  return { path: p, parent, home: homedir(), dirs, vault: existsSync(join(p, META, "vault.json")), files: readdirSync(p).filter((n) => n.endsWith(EXT)).length };
+  return { path: p, parent, home: homedir(), dirs, project: isProjectDir(p), files: readdirSync(p).filter((n) => n.endsWith(EXT)).length };
 }
 
 /* ───────── integração MCP (exe / dev) ───────── */
@@ -474,9 +487,9 @@ interface McpLaunch {
   cwd?: string;
 }
 
-/** Raiz do projeto, achada pela localização deste arquivo (server/ ou dist-mcp/) — nunca pela pasta atual do processo,
- *  que muda conforme quem iniciou o servidor (ex.: uma pasta temporária) e quebrava o caminho gravado nos clientes. */
-function projectRoot(): string {
+/** Raiz do código do Archflow, achada pela localização deste arquivo (server/ ou dist-mcp/) — nunca pela pasta atual do
+ *  processo, que muda conforme quem iniciou o servidor (ex.: uma pasta temporária) e quebrava o caminho gravado nos clientes. */
+function appRoot(): string {
   if (process.env.ARCHFLOW_ROOT) return resolve(process.env.ARCHFLOW_ROOT);
   try {
     return resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -504,7 +517,7 @@ function bundleFresh(root: string, bundle: string): boolean {
 export function mcpLaunch(): McpLaunch {
   const exe = process.env.ARCHFLOW_EXE;
   if (exe) return { command: exe, args: ["--mcp"] };
-  const root = projectRoot();
+  const root = appRoot();
   const fwd = (p: string) => p.split("\\").join("/");
   const bundle = join(root, "dist-mcp", "archflow-mcp.mjs");
   const src = join(root, "server", "mcp.ts");
@@ -700,12 +713,12 @@ function requestRender(format: ImageFormat, opts: { background?: string; scale?:
   });
 }
 
-/** Sem `out`: ao lado do diagrama. Relativo = dentro do cofre. */
+/** Sem `out`: ao lado do diagrama. Relativo = dentro do projeto. */
 function exportTarget(format: ImageFormat, out?: string): string {
   const ext = `.${format}`;
   if (!out) return diagramPath(current).slice(0, -EXT.length) + ext;
   const abs = isAbsolute(out) ? resolve(out) : resolve(dir, out);
-  if (!isAbsolute(out) && !abs.startsWith(resolve(dir) + sep)) throw new HttpError(400, "caminho relativo deve ficar dentro do cofre");
+  if (!isAbsolute(out) && !abs.startsWith(resolve(dir) + sep)) throw new HttpError(400, "caminho relativo deve ficar dentro do projeto");
   const isDir = /[\\/]$/.test(out) || (existsSync(abs) && statSync(abs).isDirectory());
   if (isDir) return join(abs, basename(current).slice(0, -EXT.length) + ext);
   return extname(abs).toLowerCase() === ext ? abs : abs + ext;
@@ -735,12 +748,32 @@ function installSkill() {
   return { file };
 }
 
+/**
+ * Grava o harness do diagrama `agents` aberto na pasta do projeto (`.claude/` ou `.cursor/`), que é onde o
+ * Claude Code e o Cursor procuram subagentes e skills. Sobrescreve os arquivos gerados antes.
+ */
+function writeHarness(input: { target?: unknown }) {
+  const target = String(input.target ?? "claude");
+  if (target !== "claude" && target !== "cursor") throw new HttpError(400, `target inválido "${target}". Válidos: claude, cursor`);
+  if (docMode(doc) !== "agents") throw new HttpError(422, `o diagrama aberto está em modo "${docMode(doc)}"; o harness sai de um diagrama modo agents`);
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
+  let files;
+  try {
+    files = generateHarness(doc, target);
+  } catch (e) {
+    throw new HttpError(422, e instanceof Error ? e.message : String(e));
+  }
+  if (!files.length) throw new HttpError(422, "nada a gerar: o diagrama não tem agentes nem skills exportáveis");
+  for (const f of files) atomicWrite(join(dir, ...f.path.split("/")), f.content);
+  return { target, root: dir, files: files.map((f) => f.path) };
+}
+
 interface LockSkill {
   source?: string;
   skillPath?: string;
 }
 
-/** Entradas do `skills-lock.json` na raiz do cofre, gravado pelo próprio `npx skills add`. */
+/** Entradas do `skills-lock.json` na raiz do projeto, gravado pelo próprio `npx skills add`. */
 function readSkillLock(): Record<string, LockSkill> {
   try {
     const lock = JSON.parse(readFileSync(join(dir, "skills-lock.json"), "utf8"));
@@ -752,7 +785,7 @@ function readSkillLock(): Record<string, LockSkill> {
 
 const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "");
 
-/** Roda `npx skills …` no cofre aberto sem travar o servidor (o clone do repositório pode levar um minuto). */
+/** Roda `npx skills …` no projeto aberto sem travar o servidor (o clone do repositório pode levar um minuto). */
 function runSkills(args: string[]): Promise<{ stdout: string; stderr: string; status: number | null }> {
   const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
   return new Promise((ok, fail) => {
@@ -800,7 +833,7 @@ function parseCliSkills(stdout: string): CliSkill[] | undefined {
 
 /**
  * Instala skill(s) de um repositório GitHub com `npx skills add` (CLI `skills`, hub skills.sh) dentro
- * do cofre aberto: `.agents/skills/<slug>/`, links em `.claude/skills/` e `.cursor/skills/`, e
+ * do projeto aberto: `.agents/skills/<slug>/`, links em `.claude/skills/` e `.cursor/skills/`, e
  * `skills-lock.json`. Sem slug (URL do repositório, não de uma skill) instala todas as que o CLI achar.
  * O hash devolvido é o do app (`hashSkillContent`), para o drift bater com o fetch do catálogo curado;
  * o `computedHash` do lock continua sendo o sha256 do CLI.
@@ -810,7 +843,7 @@ export async function installSkillFromCatalog(input: { repo?: unknown; skillPath
   const skillPath = String(input.skillPath ?? "").trim();
   if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) throw new HttpError(400, 'repo deve ser "owner/repo"');
   if (!skillPath) throw new HttpError(400, "skillPath vazio");
-  if (!dir) throw new HttpError(422, "nenhum cofre em disco está aberto");
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
   const slug = skillInstallSlug(skillPath);
   const args = ["--yes", "skills", "add", repo, "-a", "claude-code", "-a", "cursor", "-y", "--json"];
   if (slug) args.splice(4, 0, "-s", slug);
@@ -836,7 +869,7 @@ export async function installSkillFromCatalog(input: { repo?: unknown; skillPath
     installed.push({ id: name, name: md.name || name, repo, skillPath: path, description: md.description ?? "", body: md.body, hash: hashSkillContent(raw), tags: "instalada" });
   }
   if (!installed.length) throw new HttpError(502, `npx skills add ${repo} instalou, mas o SKILL.md não foi encontrado`);
-  return { installed, vault: vault.name };
+  return { installed, project: project.name };
 }
 
 /* ───────── HTTP ───────── */
@@ -905,33 +938,33 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       return json(res, 200, { rev, results: out.results, file: current });
     }
 
-    /* cofres */
+    /* projetos */
     if (path === "/api/workspace" && m === "GET") return ws(res);
-    if (path === "/api/vaults" && m === "GET") return json(res, 200, { vaults: vaultList(), active: vault.id });
-    if (path === "/api/vaults/create" && m === "POST") {
+    if (path === "/api/projects" && m === "GET") return json(res, 200, { projects: projectList(), active: project.id });
+    if (path === "/api/projects/create" && m === "POST") {
       const b = await body(req);
-      createVault(b.name, b.parent);
+      createProject(b.name, b.parent);
       return ws(res);
     }
-    if (path === "/api/vaults/open" && m === "POST") {
+    if (path === "/api/projects/open" && m === "POST") {
       const b = await body(req);
       if (!isAbsolute(String(b.path))) throw new HttpError(400, "informe um caminho absoluto");
       const abs = resolve(b.path);
       if (!existsSync(abs) || !statSync(abs).isDirectory()) throw new HttpError(404, "pasta não encontrada");
-      activateVault(registerVault(abs), true);
+      activateProject(registerProject(abs), true);
       return ws(res);
     }
-    if (path === "/api/vaults/switch" && m === "POST") {
+    if (path === "/api/projects/switch" && m === "POST") {
       const b = await body(req);
-      const v = (readConfig().vaults ?? []).find((x) => x.id === b.id);
-      if (!v) throw new HttpError(404, "cofre não encontrado");
-      activateVault(v, true);
+      const v = (readConfig().projects ?? []).find((x) => x.id === b.id);
+      if (!v) throw new HttpError(404, "projeto não encontrado");
+      activateProject(v, true);
       return ws(res);
     }
-    if (path === "/api/vaults/remove" && m === "POST") {
+    if (path === "/api/projects/remove" && m === "POST") {
       const b = await body(req);
-      if (b.id === vault.id && configured) throw new HttpError(400, "feche o cofre (abra outro) antes de removê-lo da lista");
-      writeConfig({ vaults: (readConfig().vaults ?? []).filter((x) => x.id !== b.id) });
+      if (b.id === project.id && configured) throw new HttpError(400, "feche o projeto (abra outro) antes de removê-lo da lista");
+      writeConfig({ projects: (readConfig().projects ?? []).filter((x) => x.id !== b.id) });
       return ws(res);
     }
 
@@ -1029,7 +1062,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       return ws(res);
     }
 
-    /* pastas do cofre */
+    /* pastas do projeto */
     if (path === "/api/folders" && m === "POST") {
       const b = await body(req);
       segments(b.path);
@@ -1084,8 +1117,8 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       mkdirSync(resolve(b.path), { recursive: true });
       return json(res, 200, listDir(dirname(resolve(b.path))));
     }
-    if (path === "/api/vault/docs" && m === "GET") {
-      // todos os diagramas do cofre (caminho + conteúdo): base da visão geral de domínio e da checagem de referências
+    if (path === "/api/project/docs" && m === "GET") {
+      // todos os diagramas do projeto (caminho + conteúdo): base da visão geral de domínio e da checagem de referências
       const files = flatten(buildTree(dir, "", 0, { n: 3000 })).flatMap((f) => {
         try {
           return [{ path: f.path, doc: f.path === current ? doc : readDoc(f.path) }];
@@ -1109,6 +1142,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     }
     if (path === "/api/skill/install" && m === "POST") return json(res, 200, installSkill());
     if (path === "/api/skills/install" && m === "POST") return json(res, 200, await installSkillFromCatalog(await body(req)));
+    if (path === "/api/harness" && m === "POST") return json(res, 200, writeHarness(await body(req)));
     if (path === "/api/export" && m === "POST") return json(res, 200, await exportImage(await body(req)));
     if (path === "/api/export/result" && m === "POST") {
       const b = await readBody(req, 120e6);
@@ -1147,20 +1181,34 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
 }
 
 let booted = false;
+let server: ReturnType<typeof createServer> | undefined;
 /** Sobe o bridge; se a porta já estiver ocupada por outro bridge, apenas reutiliza. */
 export function ensureBridge(port = DEFAULT_PORT): Promise<"started" | "existing"> {
   return new Promise((ok, fail) => {
     const srv = createServer(handler);
+    server = srv;
     srv.once("error", (e: NodeJS.ErrnoException) => (e.code === "EADDRINUSE" ? ok("existing") : fail(e)));
     srv.listen(port, HOST, () => {
       if (!booted) {
         booted = true;
         if (!PUBLIC_MODE) boot();
       }
-      console.error(PUBLIC_MODE ? `[bridge] http://${HOST}:${port}  modo público (somente estático)` : `[bridge] http://${HOST}:${port}  cofre: ${vault.name} (${dir})`);
+      console.error(PUBLIC_MODE ? `[bridge] http://${HOST}:${port}  modo público (somente estático)` : `[bridge] http://${HOST}:${port}  projeto: ${project.name} (${dir})`);
       ok("started");
     });
   });
+}
+
+/** Fecha a porta, o watcher e as conexões SSE — o processo pode terminar (usado pelos testes). */
+export function stopBridge() {
+  saveNow();
+  clearTimeout(saveTimer);
+  clearTimeout(watchTimer);
+  watcher?.close();
+  clients.forEach((c) => c.end());
+  clients.clear();
+  server?.close();
+  server = undefined;
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => (saveNow(), process.exit(0)));

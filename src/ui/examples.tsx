@@ -6,7 +6,7 @@ import { exampleCatalog, installExample, set, useStore } from "./store";
 
 /**
  * Seção «Exemplos» do explorador: exemplos prontos de Arquitetura, Domínio e Lógica, do mais simples ao mais difícil.
- * Instalar cria os arquivos no cofre aberto (sem sobrescrever nada) e abre o principal.
+ * Instalar cria os arquivos no projeto aberto (sem sobrescrever nada) e abre o principal.
  */
 export function ExamplesSection() {
   const files = useStore((s) => s.workspace?.files);
@@ -46,7 +46,7 @@ export function ExamplesSection() {
             ))}
           </div>
           {hint && <p className="ex-hint">{hint}</p>}
-          {!online && <div className="callout warn">Sem armazenamento disponível: abra ou crie um cofre para instalar os exemplos.</div>}
+          {!online && <div className="callout warn">Sem armazenamento disponível: abra ou crie um projeto para instalar os exemplos.</div>}
           <ul className="ex-list" role="list">
             {list.map((ex) => {
               const installed = ex.files.some((f) => have.has(f.path));

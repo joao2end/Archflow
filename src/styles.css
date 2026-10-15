@@ -1332,16 +1332,16 @@ svg.canvas.drag-over {
   flex-wrap: wrap;
 }
 
-/* ───────── Cofre: explorador, menu, busca rápida ───────── */
+/* ───────── Projeto: explorador, menu, busca rápida ───────── */
 .files-panel .lib-head { padding-bottom: 6px; }
-.vault-btn {
+.project-btn {
   display: flex; align-items: center; gap: 9px; width: 100%; height: 40px; padding: 0 12px;
   border-radius: 12px; border: 1px solid var(--hairline); background: var(--s-strong);
   font-family: var(--serif); font-size: 20px; text-align: left; color: var(--ink);
 }
-.vault-btn:hover { background: var(--s-solid); }
-.vault-btn svg:first-child { color: var(--primary-600); flex: none; }
-.vault-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-btn:hover { background: var(--s-solid); }
+.project-btn svg:first-child { color: var(--primary-600); flex: none; }
+.project-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-actions { display: flex; gap: 2px; margin-top: 8px; }
 .tree { padding: 4px 8px 10px; }
 .tree.drop { outline: 2px dashed var(--primary); outline-offset: -4px; border-radius: 12px; }
@@ -1384,16 +1384,16 @@ svg.canvas.drag-over {
 .ctx-menu kbd { margin-left: auto; font: 600 11px var(--sans); color: var(--ink-3); }
 .pill.warn { background: rgba(201, 48, 44, 0.14); color: var(--danger); }
 
-.vault-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.vault-card {
+.project-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.project-card {
   display: flex; gap: 14px; padding: 16px; border-radius: 16px; border: 1px solid var(--hairline);
   background: var(--s-mid); color: var(--primary-600);
 }
-.vault-card h3 { margin: 0 0 2px; font-size: 16px; color: var(--ink); }
-.vault-card p { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
-.vault-form { display: flex; gap: 6px; flex-wrap: wrap; }
-.vault-form .input { flex: 1; min-width: 130px; }
-@media (max-width: 700px) { .vault-actions { grid-template-columns: 1fr; } }
+.project-card h3 { margin: 0 0 2px; font-size: 16px; color: var(--ink); }
+.project-card p { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
+.project-form { display: flex; gap: 6px; flex-wrap: wrap; }
+.project-form .input { flex: 1; min-width: 130px; }
+@media (max-width: 700px) { .project-actions { grid-template-columns: 1fr; } }
 
 .scrim.top { place-items: start center; padding-top: 12vh; }
 .modal.quick { width: min(640px, 100%); }
@@ -1804,7 +1804,7 @@ svg.canvas.drag-over {
   color: var(--ink-2);
 }
 
-/* modo navegador (cofres no IndexedDB) */
+/* modo navegador (projetos no IndexedDB) */
 .status.local {
   background: color-mix(in srgb, #e0a31e 16%, var(--s-mid));
   border-color: color-mix(in srgb, #e0a31e 50%, transparent);

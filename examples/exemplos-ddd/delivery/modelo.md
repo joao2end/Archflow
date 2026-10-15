@@ -2,7 +2,7 @@
 
 > Gerado a partir dos diagramas desta pasta (`npm run examples:build`); é exatamente o que um agente (MCP) recebe em `get_diagram` e `domain_overview`. Não edite à mão.
 
-# Visão geral do cofre
+# Visão geral do projeto
 
 > 7 diagrama(s) de domínio · 6 contexto(s) · 1 visão(ões) geral(is)
 

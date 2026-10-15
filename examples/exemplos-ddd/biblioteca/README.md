@@ -2,7 +2,7 @@
 
 O exemplo mais simples para entender o essencial: **dois contextos**, **um aggregate desenhado pela invariante** e **um evento** que atravessa de um contexto para o outro. Se é a sua primeira vez com DDD, comece por aqui. Conceitos explicados em [`docs/DDD.md`](../../../docs/DDD.md).
 
-**Como abrir:** no app, explorador de arquivos → ✨ *Exemplos de DDD* → *Biblioteca universitária*. Fora do app, copie a pasta `examples/exemplos-ddd` para dentro de um cofre. O modelo em texto (o que um agente de IA lê) está em [`modelo.md`](modelo.md).
+**Como abrir:** no app, explorador de arquivos → ✨ *Exemplos de DDD* → *Biblioteca universitária*. Fora do app, copie a pasta `examples/exemplos-ddd` para dentro de um projeto. O modelo em texto (o que um agente de IA lê) está em [`modelo.md`](modelo.md).
 
 ## A história
 

@@ -27,7 +27,7 @@ modelo semântico (componentes, grupos, conexões tipadas e interfaces), interfa
 - [Versão para Windows (instalador)](#versão-para-windows-instalador)
 - [Guia de utilização](#guia-de-utilização)
 - [Conectar um agente (MCP)](#conectar-um-agente-mcp)
-- [Cofre de diagramas](#cofre-de-diagramas-estilo-obsidian)
+- [Projeto de diagramas](#projeto-de-diagramas-estilo-obsidian)
 - [Endpoints e referências entre diagramas](#endpoints-e-referências-entre-diagramas)
 - [Modo Domain (DDD)](#modo-domain-ddd)
 - [Recursos](#recursos)
@@ -58,10 +58,10 @@ O Archflow está publicado em **[archflow.2-end.online](https://archflow.2-end.o
 | [archflow.2-end.online](https://archflow.2-end.online) | Landing page com a demonstração animada das ferramentas e do MCP |
 | [archflow.2-end.online/app](https://archflow.2-end.online/app) | O aplicativo, direto no navegador |
 
-Como o site é estático (sem servidor local), o app abre no **modo Memória do navegador**: os cofres ficam no IndexedDB, com pastas,
+Como o site é estático (sem servidor local), o app abre no **modo Memória do navegador**: os projetos ficam no IndexedDB, com pastas,
 referências entre diagramas, busca, modo Domain (DDD), validação, geração de código e exportação. Não há pasta em disco, Git nem MCP —
-para isso use o [instalador do Windows](#versão-para-windows-instalador) ou `npm run dev`. Faça backup com **Exportar cofre atual** /
-**Importar cofre…** no gerenciador de cofres.
+para isso use o [instalador do Windows](#versão-para-windows-instalador) ou `npm run dev`. Faça backup com **Exportar projeto atual** /
+**Importar projeto…** no gerenciador de projetos.
 
 ## Instalação e execução
 
@@ -72,13 +72,13 @@ npm install
 npm run dev      # app em http://localhost:5173/app (a landing fica em /) — já inicia o servidor local (bridge)
 ```
 
-`npm run dev` sobe tudo: o app **e** o servidor local (porta 7077) que cria cofres, grava os diagramas em disco e fala com o MCP.
+`npm run dev` sobe tudo: o app **e** o servidor local (porta 7077) que cria projetos, grava os diagramas em disco e fala com o MCP.
 
 **Sem o servidor local** (por exemplo, o app hospedado como site estático) ele entra sozinho no **modo Memória do navegador**:
-os cofres ficam no IndexedDB do navegador, com as mesmas pastas, referências entre diagramas, busca e visualização em modal.
+os projetos ficam no IndexedDB do navegador, com as mesmas pastas, referências entre diagramas, busca e visualização em modal.
 O indicador na barra superior fica âmbar ("Memória do navegador"). Limites: nada de pasta em disco, Git, edição externa nem MCP,
-e os dados somem se você limpar os dados do site — use **Exportar cofre atual** / **Importar cofre…** (no gerenciador de cofres)
-para backup e para levar o cofre a outro navegador.
+e os dados somem se você limpar os dados do site — use **Exportar projeto atual** / **Importar projeto…** (no gerenciador de projetos)
+para backup e para levar o projeto a outro navegador.
 
 Produção local:
 
@@ -118,7 +118,7 @@ Detalhes:
 
 - O instalador **não é assinado digitalmente**: o SmartScreen pode avisar na primeira execução (*Mais informações → Executar assim mesmo*).
 - O app usa a porta **7077**. Se já houver um bridge nela (por exemplo, `npm run dev` rodando), ele é reutilizado em vez de subir outro.
-- Os cofres e a lista de cofres ficam em `~/.archflow` (compartilhados com a versão de desenvolvimento); sem configuração prévia, o cofre padrão é `Documentos\Archflow`.
+- Os projetos e a lista de projetos ficam em `~/.archflow` (compartilhados com a versão de desenvolvimento); sem configuração prévia, o projeto padrão é `Documentos\Archflow`.
 - Para conectar um agente (MCP) ao app instalado, veja [Conectar um agente](#conectar-um-agente-mcp) — o bridge fica em `http://127.0.0.1:7077` e o MCP é o próprio `Archflow.exe --mcp`.
 
 ### macOS e Linux
@@ -173,12 +173,12 @@ Clique em um componente para abrir o **inspetor** à direita: nome, tecnologia/v
 
 ![Inspetor de componente](docs/screenshots/09-inspector.png)
 
-### 5. Organize seus diagramas no cofre
+### 5. Organize seus diagramas no projeto
 
-Pressione **`E`** para abrir o **explorador do cofre**: árvore de pastas e diagramas, filtro, criar diagrama/pasta, renomear (`F2`),
+Pressione **`E`** para abrir o **explorador do projeto**: árvore de pastas e diagramas, filtro, criar diagrama/pasta, renomear (`F2`),
 duplicar, arrastar para mover e menu de contexto (botão direito). **`Ctrl+O`** abre a busca rápida de diagramas.
 
-![Explorador do cofre](docs/screenshots/04-explorer.png)
+![Explorador do projeto](docs/screenshots/04-explorer.png)
 
 ### 6. Compartilhe com uma LLM
 
@@ -244,18 +244,19 @@ O texto é editado em `skills/archflow/SKILL.md`; `npm run skill` (já parte do 
 Com o app aberto (o indicador **MCP sincronizado** fica verde), peça: *"Use o archflow para desenhar uma arquitetura de pedidos com Laravel, Postgres e SQS"*.
 Edições do agente aparecem ao vivo (`Ctrl+Z` desfaz).
 
-## Cofre de diagramas (estilo Obsidian)
+## Projeto de diagramas (estilo Obsidian)
 
-Um **cofre** é uma pasta qualquer do disco; seus diagramas são arquivos `.archflow.json` em subpastas livres. A pasta oculta `.archflow/` guarda `vault.json` e a lixeira — como o `.obsidian/`.
+Um **projeto** é uma pasta qualquer do disco; seus diagramas são arquivos `.archflow.json` em subpastas livres e, no modo Agents, o harness exportado (`.claude/`, `.cursor/`) fica na raiz dele. A pasta oculta `.archflow/` guarda `project.json` e a lixeira — como o `.obsidian/`.
 
-- **Explorador** (tecla `E` ou botão do cofre no dock): árvore de pastas e diagramas, filtro, criar diagrama/pasta, renomear (`F2`), duplicar, **arrastar para mover** entre pastas, menu de contexto (botão direito) e exclusão para a lixeira do cofre.
-- **Vários cofres:** o nome do cofre no topo do explorador abre o gerenciador — *Criar novo cofre* (nome + local), *Abrir pasta como cofre* e a lista dos seus cofres. Na primeira execução o app oferece isso automaticamente.
-- **Busca rápida** (`Ctrl+O`): encontra qualquer diagrama do cofre por título ou caminho; se não existir, cria.
+- **Explorador** (tecla `E` ou botão do projeto no dock): árvore de pastas e diagramas, filtro, criar diagrama/pasta, renomear (`F2`), duplicar, **arrastar para mover** entre pastas, menu de contexto (botão direito) e exclusão para a lixeira do projeto.
+- **Vários projetos:** o nome do projeto no topo do explorador abre o gerenciador — *Criar novo projeto* (nome + local), *Abrir pasta como projeto* e a lista dos seus projetos. Na primeira execução o app oferece isso automaticamente.
+- **Busca rápida** (`Ctrl+O`): encontra qualquer diagrama do projeto por título ou caminho; se não existir, cria.
 - Cada pasta lembra o último diagrama aberto; a árvore lembra quais pastas estão expandidas. Edições externas (editor, git) são recarregadas ao vivo.
-- **MCP:** `list_diagrams`, `open_diagram`, `new_diagram { title, folder? }`. O agente nunca troca de cofre — isso é decisão sua.
+- **MCP:** `list_diagrams`, `open_diagram`, `new_diagram { title, folder? }`. O agente nunca troca de projeto — isso é decisão sua.
 - **Exportar imagem (MCP):** `export_image { format: svg | png | both, name?, out?, background?, scale? }` grava o diagrama igual à tela, com as fontes embutidas no SVG. A janela do Archflow precisa estar aberta.
 - Sem o bridge, o app segue funcionando com salvamento no navegador + importar/exportar JSON.
-- Config: `~/.archflow/config.json` (cofres, ativo, último aberto). Variáveis: `ARCHFLOW_DATA` (cofre padrão), `ARCHFLOW_CONFIG`, `ARCHFLOW_PORT`.
+- Config: `~/.archflow/config.json` (projetos, ativo, último aberto). Variáveis: `ARCHFLOW_DATA` (projeto padrão), `ARCHFLOW_CONFIG`, `ARCHFLOW_PORT`.
+- Vem de uma versão em que projetos se chamavam *cofres*? Nada a fazer: a lista e as pastas antigas (`.archflow/vault.json`) são migradas na primeira abertura.
 
 ## Endpoints e referências entre diagramas
 
@@ -273,12 +274,12 @@ Teclas no painel: `→`/`←` (ou PageDown/PageUp) trocam o slide, `Home`/`End` 
 
 ## Modo Domain (DDD)
 
-Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (arquitetura: serviços, bancos, filas) ou **Domain** (o negócio com DDD). Crie um diagrama de domínio pelo ícone de camadas do explorador (ou `new_diagram` com `mode: "domain"`); o selo abre a modal com a troca de modo, a **validação** e a **visão geral do cofre**.
+Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (arquitetura: serviços, bancos, filas) ou **Domain** (o negócio com DDD). Crie um diagrama de domínio pelo ícone de camadas do explorador (ou `new_diagram` com `mode: "domain"`); o selo abre a modal com a troca de modo, a **validação** e a **visão geral do projeto**.
 
 - **Paleta própria:** categoria *Domain* com Aggregate Root, Entity, Value Object, Domain Event, Command, Policy, Repository, Domain/Application Service, Use Case, Read Model e Process Manager (nomes em inglês, explicação em pt-BR no tooltip). Cada elemento é colorido pelo papel, como os post-its de Event Storming.
 - **Relações com semântica:** no inspetor da conexão, *Relação de domínio* (`emits`, `triggers`, `contains`, `references-by-id`, `realizes`, `context-relation`) e, entre contextos, o **padrão do Context Map** (ACL, Customer/Supplier, Shared Kernel…). Grupos `context` ganham **subdomain** (core, supporting, generic).
 - **Validação com regras DDD** (D001–D032, incluindo conectores e fluxo), cada aviso com id, severidade e clique para selecionar o elemento: caso de uso sem command, command sem aggregate, evento sem produtor, aggregates ligados por objeto…
-- **Estrutura por contexto + visão geral:** um diagrama por bounded context e um **mapa de contextos** (componentes *Outro diagrama* ligados por `context-relation`). A aba *Visão geral do cofre* consolida contextos, eventos publicados/consumidos e o rastreio dos casos de uso.
+- **Estrutura por contexto + visão geral:** um diagrama por bounded context e um **mapa de contextos** (componentes *Outro diagrama* ligados por `context-relation`). A aba *Visão geral do projeto* consolida contextos, eventos publicados/consumidos e o rastreio dos casos de uso.
 - **Casos de uso → projeto:** peça ao agente (MCP) para modelar a partir de casos de uso: `add_use_cases`, `add_components` com `ddd`, `connect` com `ddd.rel`, `validate_diagram` e `trace` (caso de uso → command → aggregate → evento). Repetir é seguro e o agente reaproveita os ids ao retomar um diagrama que você editou.
 - **Linha do tempo (Event Storming):** no *Layout automático* escolha *Linha do tempo* (ou `auto_layout` com `style: "timeline"`): raias ator → caso de uso → command → aggregate → evento → policy → read model, com os commands na ordem de `ddd.step`.
 - **Código:** a aba *Código (TypeScript)* da modal do selo (ou `generate_code`) gera o esqueleto por contexto na regra application → domain: aggregates com entities e value objects, eventos, repositories, commands, handlers, policies e sagas, mais `use-cases.md` com o rastreio. A lógica fica como TODO e o resultado compila em modo estrito.
@@ -295,7 +296,14 @@ Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (
 
 Um terceiro modo, **Logic**, descreve uma regra de negócio específica (precificação, elegibilidade, frete…) como um **fluxo executável**: Start → regras, decisões sim/não, escolhas, laços e paralelos → End. As condições e efeitos são expressões curtas em português (`preco := max(preco, piso)`, `travar preco`) e o app mostra a explicação em português ao lado. Cada regra e cada cenário levam **exemplos que o app executa**: o ✔ ou ✘ aparece no quadro, a validação `L001–L024` aponta o que falha e a reprodução (▶) mostra o valor mudando passo a passo. Pelo MCP: `new_diagram` com `mode: "logic"`, `add_components` com `logic`, `connect` com `logic.branch` e `auto_layout` em `pipeline`. Exemplo completo (engine de precificação, 11 regras e 30 exemplos) em [`examples/exemplos-logic/`](examples/exemplos-logic/); desenho e decisões em [docs/LOGIC_MODE_DESIGN.md](docs/LOGIC_MODE_DESIGN.md).
 
-Detalhes de projeto, regras e decisões do modo Domain: [docs/DOMAIN_MODE.md](docs/DOMAIN_MODE.md). Para testar a UI sem tocar nos seus diagramas: `node scripts/dev-sandbox.mjs` (cofre temporário, portas próprias).
+### Modo Agents (time de IA e harness)
+
+O modo **Agents** desenha um time de agentes de IA: subagentes (`agent`), skills (do catálogo ou escritas no app) e as setas `uses-skill` e `delegates`. Skills no grupo **Global** valem para todos os agentes.
+
+- **Exportar o harness:** o botão ⬇ ao lado da validação (ou a aba *Harness* da modal) gera `agents/*.md` e `skills/<nome>/SKILL.md` para **Claude Code** (`.claude/`) ou **Cursor** (`.cursor/`). Com um projeto aberto, os arquivos são gravados **dentro da pasta do projeto** — é onde as duas ferramentas procuram. No modo navegador (sem servidor local), vem um `.zip` com a mesma árvore para descompactar na raiz do seu repositório.
+- **Pelo MCP:** `generate_code { target: "claude" | "cursor" }` devolve os arquivos, e `generate_code { write: true }` grava direto no projeto aberto.
+
+Detalhes de projeto, regras e decisões do modo Domain: [docs/DOMAIN_MODE.md](docs/DOMAIN_MODE.md). Para testar a UI sem tocar nos seus diagramas: `node scripts/dev-sandbox.mjs` (projeto temporário, portas próprias).
 
 ## Recursos
 
@@ -315,7 +323,7 @@ Detalhes de projeto, regras e decisões do modo Domain: [docs/DOMAIN_MODE.md](do
 | Ajustar à tela | `F` | Animações on/off | `A` |
 | Desfazer / refazer | `Ctrl+Z` / `Y` | Alternar tema | `T` |
 | Duplicar | `Ctrl+D` | Busca rápida de diagramas | `Ctrl+O` |
-| Explorador do cofre | `E` | Selecionar tudo | `Ctrl+A` |
+| Explorador do projeto | `E` | Selecionar tudo | `Ctrl+A` |
 | Excluir | `Del` | Renomear · editar interface | Duplo clique |
 | Selecionar vários | `Shift+clique` | Zoom | `Ctrl+roda` |
 | Cancelar / fechar | `Esc` | Ajuda | `?` |

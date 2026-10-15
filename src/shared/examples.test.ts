@@ -49,7 +49,7 @@ test("exemplos: todo caso de uso é rastreado até um evento e cada modelo ating
   }
 });
 
-test("exemplos: a visão geral do cofre de cada exemplo não tem avisos nem erros, só dicas", () => {
+test("exemplos: a visão geral do projeto de cada exemplo não tem avisos nem erros, só dicas", () => {
   for (const { ex, files } of built) {
     const text = domainOverview(files);
     const avisos = (text.split("## Avisos")[1] ?? "").split("\n").filter((l) => /\[D\d+ (erro|aviso)\]/.test(l));

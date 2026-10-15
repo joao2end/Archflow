@@ -4,8 +4,8 @@ import { docMode, type DocMode } from "../shared/schema";
 import { Glyph } from "./icons";
 import { exportJson, importJson } from "./export";
 import {
-  addRefNode, createFolder, exportLocalVault, importLocalVault, deleteDiagram, deleteFolder, duplicateDiagram, fsList, fsMkdir, isExpanded, moveDiagram, newDiagram, openDiagram, renameDiagram, renameFolder,
-  set, toggleFolder, vaultCreate, vaultOpen, vaultRemove, vaultSwitch, useStore, type FileNode, type FolderNode,
+  addRefNode, createFolder, exportLocalProject, importLocalProject, deleteDiagram, deleteFolder, duplicateDiagram, fsList, fsMkdir, isExpanded, moveDiagram, newDiagram, openDiagram, renameDiagram, renameFolder,
+  set, toggleFolder, projectCreate, projectOpen, projectRemove, projectSwitch, useStore, type FileNode, type FolderNode,
 } from "./store";
 
 /* ───────── casco de modal ───────── */
@@ -60,14 +60,14 @@ function ago(ms: number) {
 const parentOf = (p: string) => p.split("/").slice(0, -1).join("/");
 const join = (a: string, b: string) => (a ? `${a}/${b}` : b);
 
-/** Explica por que não dá para criar cofres (o servidor local não está ativo) e como resolver. */
+/** Explica por que não dá para criar projetos (o servidor local não está ativo) e como resolver. */
 function OfflineHelp() {
   return (
     <div className="callout">
-      <b>Não foi possível conectar ao servidor local do Archflow.</b> É ele que cria a pasta do cofre e grava os diagramas no disco (e conversa com o MCP).
+      <b>Não foi possível conectar ao servidor local do Archflow.</b> É ele que cria a pasta do projeto e grava os diagramas no disco (e conversa com o MCP).
       <ol className="offline-steps">
         <li>
-          No terminal, na pasta do projeto, rode <code>npm run dev</code> — ele já inicia o servidor local junto com o app.
+          No terminal, na pasta do Archflow, rode <code>npm run dev</code> — ele já inicia o servidor local junto com o app.
         </li>
         <li>
           Já está rodando? Veja se a porta <code>7077</code> está livre ou ocupada por outro programa.
@@ -82,7 +82,7 @@ function OfflineHelp() {
   );
 }
 
-/* ───────── painel lateral: explorador do cofre ───────── */
+/* ───────── painel lateral: explorador do projeto ───────── */
 
 type Menu = { x: number; y: number; kind: "file" | "folder" | "root"; path: string; title?: string };
 type Editing = { kind: "rename-file" | "rename-folder" | "new-file" | "new-folder"; path: string; mode?: DocMode };
@@ -302,11 +302,11 @@ export function FilesPanel() {
   const hidden = ws.files.length - total;
 
   return (
-    <aside className="hud glass library files-panel" aria-label="Arquivos do cofre">
+    <aside className="hud glass library files-panel" aria-label="Arquivos do projeto">
       <div className="lib-head">
-        <button className="vault-btn" onClick={() => set({ modal: { type: "vaults" } })} data-tip={`Cofre: ${ws.vault.path}\nClique para trocar ou criar cofres`} data-tip-pos="bottom">
-          <Glyph name="vault" size={19} />
-          <span className="vault-name">{ws.vault.name}</span>
+        <button className="project-btn" onClick={() => set({ modal: { type: "projects" } })} data-tip={`Projeto: ${ws.project.path}\nClique para trocar ou criar projetos`} data-tip-pos="bottom">
+          <Glyph name="project" size={19} />
+          <span className="project-name">{ws.project.name}</span>
           <Glyph name="chevron" size={15} />
         </button>
         <div className="tree-actions">
@@ -348,7 +348,7 @@ export function FilesPanel() {
         className={`lib-list tree ${dropOn === "" ? "drop" : ""}`}
         role="tree"
         ref={treeRef}
-        aria-label="Diagramas do cofre"
+        aria-label="Diagramas do projeto"
         onFocus={(e) => {
           const it = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
           if (!it) return;
@@ -395,7 +395,7 @@ export function FilesPanel() {
         ) : (
           <>
             {childrenOf(tree!, 0)}
-            {!total && !edit && <div className="empty">{ws.files.length ? `Nenhum diagrama de ${MODE_ICON[mode].label} neste cofre. Crie um com o botão acima.` : "Cofre vazio. Crie seu primeiro diagrama com o botão acima."}</div>}
+            {!total && !edit && <div className="empty">{ws.files.length ? `Nenhum diagrama de ${MODE_ICON[mode].label} neste projeto. Crie um com o botão acima.` : "Projeto vazio. Crie seu primeiro diagrama com o botão acima."}</div>}
             {hidden > 0 && (
               <div className="empty" style={{ fontSize: 11.5 }}>
                 Mostrando só {MODE_ICON[mode].label}: {hidden} diagrama(s) de outros modos ocultos. Troque o modo no switch para vê-los.
@@ -423,7 +423,7 @@ export function FilesPanel() {
       {confirm && (
         <div className="confirm-bar" role="alertdialog">
           <span>
-            Mover <b>{confirm.label}</b> para a lixeira do cofre?
+            Mover <b>{confirm.label}</b> para a lixeira do projeto?
           </span>
           <div>
             <button className="btn sm" onClick={() => setConfirm(null)}>
@@ -446,8 +446,8 @@ export function FilesPanel() {
         <span>
           {total} diagrama(s)
         </span>
-        <button className="btn ghost sm" onClick={() => set({ modal: { type: "vaults" } })}>
-          <Glyph name="vault" size={15} /> Cofres
+        <button className="btn ghost sm" onClick={() => set({ modal: { type: "projects" } })}>
+          <Glyph name="project" size={15} /> Projetos
         </button>
       </div>
 
@@ -515,9 +515,9 @@ export function FilesPanel() {
 
 const countFiles = (n: FolderNode): number => n.children.reduce((s, c) => s + (c.type === "file" ? 1 : countFiles(c)), 0);
 
-/* ───────── gerenciador de cofres ───────── */
+/* ───────── gerenciador de projetos ───────── */
 
-export function VaultsModal() {
+export function ProjectsModal() {
   const ws = useStore((s) => s.workspace);
   const online = useStore((s) => s.online);
   const storage = useStore((s) => s.storage);
@@ -527,7 +527,7 @@ export function VaultsModal() {
 
   if (!online || !ws) {
     return (
-      <Sheet title="Cofres" onClose={closeModal}>
+      <Sheet title="Projetos" onClose={closeModal}>
         <OfflineHelp />
       </Sheet>
     );
@@ -536,17 +536,17 @@ export function VaultsModal() {
   return (
     <Sheet
       wide
-      title={ws.configured ? "Cofres" : "Bem-vindo ao Archflow"}
+      title={ws.configured ? "Projetos" : "Bem-vindo ao Archflow"}
       onClose={closeModal}
       foot={
         local ? (
           <>
-            <span style={{ color: "var(--ink-3)", marginRight: "auto" }}>Cofre guardado neste navegador.</span>
-            <button className="btn" onClick={() => void exportLocalVault()}>
-              <Glyph name="download" size={16} /> Exportar cofre atual
+            <span style={{ color: "var(--ink-3)", marginRight: "auto" }}>Projeto guardado neste navegador.</span>
+            <button className="btn" onClick={() => void exportLocalProject()}>
+              <Glyph name="download" size={16} /> Exportar projeto atual
             </button>
             <label className="btn" style={{ cursor: "pointer" }}>
-              <Glyph name="upload" size={16} /> Importar cofre…
+              <Glyph name="upload" size={16} /> Importar projeto…
               <input
                 type="file"
                 accept=".json,application/json"
@@ -554,58 +554,58 @@ export function VaultsModal() {
                 onChange={async (e) => {
                   const f = e.target.files?.[0];
                   e.target.value = "";
-                  if (f && (await importLocalVault(f))) closeModal();
+                  if (f && (await importLocalProject(f))) closeModal();
                 }}
               />
             </label>
           </>
         ) : (
-          <span style={{ color: "var(--ink-3)", marginRight: "auto" }}>Um cofre é só uma pasta com seus diagramas <code>.archflow.json</code> — versionável no Git.</span>
+          <span style={{ color: "var(--ink-3)", marginRight: "auto" }}>Um projeto é só uma pasta com seus diagramas <code>.archflow.json</code> — versionável no Git.</span>
         )
       }
     >
       {local && (
         <div className="callout warn-soft">
-          <b>Modo navegador.</b> O servidor local não está rodando, então seus cofres ficam guardados <b>neste navegador</b> (IndexedDB). Funcionam normalmente — pastas, referências entre diagramas, busca e visualização —, mas:
+          <b>Modo navegador.</b> O servidor local não está rodando, então seus projetos ficam guardados <b>neste navegador</b> (IndexedDB). Funcionam normalmente — pastas, referências entre diagramas, busca e visualização —, mas:
           <ul className="offline-steps" style={{ marginBottom: 6 }}>
-            <li>os dados somem se você limpar os dados do site; <b>exporte o cofre</b> de vez em quando;</li>
+            <li>os dados somem se você limpar os dados do site; <b>exporte o projeto</b> de vez em quando;</li>
             <li>não há pasta no disco, Git, edição externa nem agentes MCP.</li>
           </ul>
-          Quer cofres em disco e MCP? Rode <code>npm run dev</code> na pasta do projeto e recarregue a página.
+          Quer projetos em disco e MCP? Rode <code>npm run dev</code> na pasta do Archflow e recarregue a página.
         </div>
       )}
       {!ws.configured && (
         <div className="callout">
-          Escolha onde seus diagramas ficam. Você está usando o <b>cofre padrão</b> em <code>{ws.vault.path}</code>; crie um cofre próprio ou abra uma pasta existente.
+          Escolha onde seus diagramas ficam. Você está usando o <b>projeto padrão</b> em <code>{ws.project.path}</code>; crie um projeto próprio ou abra uma pasta existente.
         </div>
       )}
-      <div className="vault-actions">
-        <div className="vault-card">
+      <div className="project-actions">
+        <div className="project-card">
           <Glyph name="folder-plus" size={22} />
           <div>
-            <h3>Criar novo cofre</h3>
-            <p>{local ? "Cria um cofre guardado neste navegador." : "Cria uma pasta nova e a abre como cofre."}</p>
+            <h3>Criar novo projeto</h3>
+            <p>{local ? "Cria um projeto guardado neste navegador." : "Cria uma pasta nova e a abre como projeto."}</p>
             <form
-              className="vault-form"
+              className="project-form"
               onSubmit={async (e) => {
                 e.preventDefault();
                 if (!name.trim()) return;
                 if (!local) return set({ modal: { type: "folder", purpose: "create", name: name.trim() } });
-                if (await vaultCreate(name.trim(), "")) closeModal();
+                if (await projectCreate(name.trim(), "")) closeModal();
               }}
             >
-              <input className="input" placeholder="Nome do cofre" value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome do cofre" />
+              <input className="input" placeholder="Nome do projeto" value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome do projeto" />
               <button className="btn primary" type="submit" disabled={!name.trim()}>
-                {local ? "Criar cofre" : "Escolher local…"}
+                {local ? "Criar projeto" : "Escolher local…"}
               </button>
             </form>
           </div>
         </div>
         {!local && (
-          <div className="vault-card">
-            <Glyph name="vault" size={22} />
+          <div className="project-card">
+            <Glyph name="project" size={22} />
             <div>
-              <h3>Abrir pasta como cofre</h3>
+              <h3>Abrir pasta como projeto</h3>
               <p>Use uma pasta que já existe (com ou sem diagramas).</p>
               <button className="btn" onClick={() => set({ modal: { type: "folder", purpose: "open" } })}>
                 Escolher pasta…
@@ -617,20 +617,20 @@ export function VaultsModal() {
 
       <div className="files-head" style={{ marginTop: 18 }}>
         <span className="lbl-s" style={{ margin: 0 }}>
-          Seus cofres
+          Seus projetos
         </span>
       </div>
       <div className="file-list">
-        {ws.vaults.map((v) => {
-          const active = v.id === ws.vault.id && ws.configured;
+        {ws.projects.map((v) => {
+          const active = v.id === ws.project.id && ws.configured;
           return (
             <div key={v.id} className={`file-row ${active ? "current" : ""}`}>
-              <Glyph name="vault" size={20} className="file-ico" />
+              <Glyph name="project" size={20} className="file-ico" />
               <button
                 className="file-main file-open"
                 disabled={v.exists === false}
                 onClick={() => {
-                  if (!active) void vaultSwitch(v.id);
+                  if (!active) void projectSwitch(v.id);
                   closeModal();
                 }}
               >
@@ -647,7 +647,7 @@ export function VaultsModal() {
                       className="btn sm danger"
                       onClick={() => {
                         setConfirmDel(null);
-                        void vaultRemove(v.id);
+                        void projectRemove(v.id);
                       }}
                     >
                       Excluir
@@ -660,10 +660,10 @@ export function VaultsModal() {
                   <div className="file-actions">
                     <button
                       className="btn ghost icon sm"
-                      aria-label={local ? "Excluir cofre" : "Remover da lista"}
-                      data-tip={local ? "Excluir este cofre do navegador (apaga os diagramas)" : "Remover da lista (não apaga a pasta)"}
+                      aria-label={local ? "Excluir projeto" : "Remover da lista"}
+                      data-tip={local ? "Excluir este projeto do navegador (apaga os diagramas)" : "Remover da lista (não apaga a pasta)"}
                       data-tip-pos="top"
-                      onClick={() => (local ? setConfirmDel(v.id) : void vaultRemove(v.id))}
+                      onClick={() => (local ? setConfirmDel(v.id) : void projectRemove(v.id))}
                     >
                       <Glyph name={local ? "trash" : "close"} size={15} />
                     </button>
@@ -672,7 +672,7 @@ export function VaultsModal() {
             </div>
           );
         })}
-        {!ws.vaults.length && <div className="empty">Nenhum cofre ainda. Crie ou abra um acima.</div>}
+        {!ws.projects.length && <div className="empty">Nenhum projeto ainda. Crie ou abra um acima.</div>}
       </div>
     </Sheet>
   );
@@ -731,7 +731,7 @@ export function QuickSwitcher() {
           <Glyph name="search" size={19} />
           <input
             autoFocus
-            placeholder={ws ? `Abrir diagrama em ${ws.vault.name}…` : "Conecte o bridge para buscar"}
+            placeholder={ws ? `Abrir diagrama em ${ws.project.name}…` : "Conecte o bridge para buscar"}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
@@ -768,7 +768,7 @@ export function QuickSwitcher() {
               </span>
             </button>
           )}
-          {!total && <div className="empty">Digite para buscar diagramas do cofre.</div>}
+          {!total && <div className="empty">Digite para buscar diagramas do projeto.</div>}
         </div>
         <div className="quick-foot">
           <span><span className="kbd">↑↓</span> navegar</span>
@@ -780,15 +780,15 @@ export function QuickSwitcher() {
   );
 }
 
-/* ───────── seletor de pasta (abrir/criar cofre) ───────── */
+/* ───────── seletor de pasta (abrir/criar projeto) ───────── */
 
 interface Listing {
   path: string;
   parent: string | null;
   home: string;
-  dirs: { name: string; path: string; archflow: number; vault: boolean }[];
+  dirs: { name: string; path: string; archflow: number; project: boolean }[];
   files?: number;
-  vault?: boolean;
+  project?: boolean;
 }
 
 export function FolderModal({ purpose, name }: { purpose: "open" | "create"; name?: string }) {
@@ -810,14 +810,14 @@ export function FolderModal({ purpose, name }: { purpose: "open" | "create"; nam
     }
   };
   useEffect(() => {
-    void go(purpose === "open" ? ws?.vault.path : undefined);
+    void go(purpose === "open" ? ws?.project.path : undefined);
   }, []);
 
   const sep = ls?.path.includes("\\") ? "\\" : "/";
-  const back = () => set({ modal: { type: "vaults" } });
+  const back = () => set({ modal: { type: "projects" } });
   const choose = async () => {
     if (!ls?.path) return;
-    const ok = purpose === "create" ? await vaultCreate(name!, ls.path) : await vaultOpen(ls.path);
+    const ok = purpose === "create" ? await projectCreate(name!, ls.path) : await projectOpen(ls.path);
     if (ok) closeModal();
   };
   const mkdir = async () => {
@@ -834,7 +834,7 @@ export function FolderModal({ purpose, name }: { purpose: "open" | "create"; nam
 
   return (
     <Sheet
-      title={purpose === "create" ? `Onde criar «${name}»?` : "Abrir pasta como cofre"}
+      title={purpose === "create" ? `Onde criar «${name}»?` : "Abrir pasta como projeto"}
       onClose={back}
       foot={
         <>
@@ -846,7 +846,7 @@ export function FolderModal({ purpose, name }: { purpose: "open" | "create"; nam
                 </>
               ) : (
                 <>
-                  <b>{ls.files ?? 0}</b> diagrama(s) nesta pasta{ls.vault ? " · já é um cofre" : ""}
+                  <b>{ls.files ?? 0}</b> diagrama(s) nesta pasta{ls.project ? " · já é um projeto" : ""}
                 </>
               )
             ) : (
@@ -857,7 +857,7 @@ export function FolderModal({ purpose, name }: { purpose: "open" | "create"; nam
             Cancelar
           </button>
           <button className="btn primary" disabled={!ls?.path} onClick={choose}>
-            <Glyph name="check" size={16} /> {purpose === "create" ? "Criar cofre aqui" : "Abrir como cofre"}
+            <Glyph name="check" size={16} /> {purpose === "create" ? "Criar projeto aqui" : "Abrir como projeto"}
           </button>
         </>
       }
@@ -898,10 +898,10 @@ export function FolderModal({ purpose, name }: { purpose: "open" | "create"; nam
       <div className="dir-list" role="listbox" aria-label="Pastas">
         {ls?.dirs.map((d) => (
           <button key={d.path} className="dir-row" onClick={() => go(d.path)}>
-            <Glyph name={d.vault ? "vault" : "folder"} size={18} />
+            <Glyph name={d.project ? "project" : "folder"} size={18} />
             <span className="dir-name">{d.name}</span>
-            {d.vault && <span className="pill">cofre</span>}
-            {!d.vault && d.archflow > 0 && <span className="pill">{d.archflow} diagrama(s)</span>}
+            {d.project && <span className="pill">projeto</span>}
+            {!d.project && d.archflow > 0 && <span className="pill">{d.archflow} diagrama(s)</span>}
           </button>
         ))}
         {ls && !ls.dirs.length && <div className="empty">Nenhuma subpasta aqui.</div>}

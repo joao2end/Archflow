@@ -5,7 +5,7 @@
  *   npm run examples:build            grava
  *   npm run examples:build -- --check confere se o que está em disco está atualizado (sai com 1 se não estiver)
  *
- * Para usar um exemplo fora do app, copie a pasta `examples/exemplos-ddd` para dentro de um cofre do Archflow:
+ * Para usar um exemplo fora do app, copie a pasta `examples/exemplos-ddd` para dentro de um projeto do Archflow:
  * os vínculos entre diagramas (mapa de contextos → contextos → arquitetura) usam esses caminhos.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

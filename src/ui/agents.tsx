@@ -255,7 +255,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
     if (!curated) setInstalling(true);
     try {
       if (!curated) {
-        const { installed, vault } = await installGithubSkills(spec.source.repo, spec.source.skillPath);
+        const { installed, project } = await installGithubSkills(spec.source.repo, spec.source.skillPath);
         const slug = skillInstallSlug(spec.source.skillPath);
         const match = (slug && installed.find((s) => s.id.toLowerCase() === slug.toLowerCase())) || installed.find((s) => s.skillPath === spec.source!.skillPath) || installed[0];
         if (!match?.body) {
@@ -269,7 +269,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
           ...(rename ? { label: match.name } : {}),
         });
         if (alive.current) setFocusId(match.id);
-        const where = vault ? ` no cofre «${vault}»` : "";
+        const where = project ? ` no projeto «${project}»` : "";
         toast(installed.length > 1 ? `${installed.length} skills instaladas com npx${where} e salvas no catálogo. Este nó usa ${match.name}.` : `${match.name} instalada com npx${where} e salva no catálogo`);
         return true;
       }
@@ -359,7 +359,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
             />
           </label>
           <span id="skill-url-hint" className={parsed ? "skill-ok" : url.trim() ? "skill-pending" : "skill-slug"}>
-            {parsed ? `Instala com npx skills add ${parsed.repo}${parsedSlug ? ` -s ${parsedSlug}` : ""} no cofre aberto e salva no catálogo.` : url.trim() ? "Não reconheci essa URL. Cole o link do arquivo ou da pasta no GitHub." : "Também aceita só owner/repo."}
+            {parsed ? `Instala com npx skills add ${parsed.repo}${parsedSlug ? ` -s ${parsedSlug}` : ""} no projeto aberto e salva no catálogo.` : url.trim() ? "Não reconheci essa URL. Cole o link do arquivo ou da pasta no GitHub." : "Também aceita só owner/repo."}
           </span>
           <button className="btn sm" disabled={!parsed || resolving} onClick={useManual}>
             {installing ? "Instalando…" : "Instalar e salvar no catálogo"}

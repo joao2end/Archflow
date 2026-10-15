@@ -15,8 +15,9 @@ import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
 import { CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
-import { domainOverview, traceUseCase, type VaultDomainFile } from "../src/shared/domain";
+import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
+import { generateHarness } from "../src/shared/agentgen";
 import { SKILL_MD } from "../src/shared/skill.generated";
 
 const BASE = `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -51,9 +52,9 @@ async function api<T = any>(path: string, init?: RequestInit): Promise<T> {
   return (r.headers.get("content-type")?.includes("json") ? r.json() : r.text()) as Promise<T>;
 }
 const getDoc = async () => (await api<{ doc: Doc; rev: number }>("/api/doc")).doc;
-/** Todos os diagramas do cofre (caminho + conteúdo): base da visão geral e da checagem de referências. */
-const vaultFiles = async () => (await api<{ files: VaultDomainFile[] }>("/api/vault/docs")).files;
-const existsIn = (files: VaultDomainFile[]) => {
+/** Todos os diagramas do projeto (caminho + conteúdo): base da visão geral e da checagem de referências. */
+const projectFiles = async () => (await api<{ files: ProjectDomainFile[] }>("/api/project/docs")).files;
+const existsIn = (files: ProjectDomainFile[]) => {
   const paths = new Set(files.map((f) => f.path));
   return (p: string) => paths.has(p);
 };
@@ -231,7 +232,7 @@ server.registerTool(
     const doc = await getDoc();
     if (format === "json") return text(JSON.stringify(doc, null, 2));
     if (format === "mermaid") return text(toMermaid(doc));
-    return text(describe(doc, docMode(doc) === "domain" ? { exists: existsIn(await vaultFiles()) } : {}));
+    return text(describe(doc, docMode(doc) === "domain" ? { exists: existsIn(await projectFiles()) } : {}));
   },
 );
 
@@ -253,9 +254,9 @@ server.registerTool(
           parent: z.string().optional(),
           props: z.record(z.string(), z.string()).optional(),
           ref: z
-            .object({ diagram: z.string().describe("caminho do diagrama relativo ao cofre (de list_diagrams)"), node: z.string().optional().describe("id de um componente dentro desse diagrama") })
+            .object({ diagram: z.string().describe("caminho do diagrama relativo ao projeto (de list_diagrams)"), node: z.string().optional().describe("id de um componente dentro desse diagrama") })
             .optional()
-            .describe("kind system: referencia OUTRO diagrama do cofre"),
+            .describe("kind system: referencia OUTRO diagrama do projeto"),
         }),
       ),
     },
@@ -462,7 +463,7 @@ server.registerTool(
   },
   async () => {
     const doc = await getDoc();
-    const v = validate(doc, docMode(doc) === "domain" ? { exists: existsIn(await vaultFiles()) } : {});
+    const v = validate(doc, docMode(doc) === "domain" ? { exists: existsIn(await projectFiles()) } : {});
     return text(v.length ? v.join("\n") : "sem problemas");
   },
 );
@@ -524,12 +525,25 @@ server.registerTool(
   "generate_code",
   {
     description:
-      "Modo logic: gera TypeScript EXECUTÁVEL do fluxo (runtime.ts, <fluxo>.ts com `run(input, deps)` e <fluxo>.test.ts com um teste por exemplo de cenário); Call com `request` vira fetch de verdade. Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
-    inputSchema: { language: z.enum(CODEGEN_LANGUAGES).optional().describe("padrão e único hoje: typescript") },
+      "Modo logic: gera TypeScript EXECUTÁVEL do fluxo (runtime.ts, <fluxo>.ts com `run(input, deps)` e <fluxo>.test.ts com um teste por exemplo de cenário); Call com `request` vira fetch de verdade. Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Modo agents: gera o harness do time (`.claude/agents/*.md` + `.claude/skills/<nome>/SKILL.md`, ou os equivalentes em `.cursor/`); com `write: true` grava direto na pasta do projeto aberto. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
+    inputSchema: {
+      language: z.enum(CODEGEN_LANGUAGES).optional().describe("padrão e único hoje: typescript"),
+      target: z.enum(["claude", "cursor"]).optional().describe("modo agents: para qual ferramenta gerar o harness (padrão claude)"),
+      write: z.boolean().optional().describe("modo agents: grava o harness na pasta do projeto aberto em vez de só devolver o conteúdo"),
+    },
   },
-  async ({ language }) => {
+  async ({ language, target, write }) => {
     const doc = await getDoc();
-    if (docMode(doc) === "architecture") return text(`o diagrama aberto está em modo "${docMode(doc)}"; gere código a partir de um diagrama de domínio ou de lógica`, true);
+    const mode = docMode(doc);
+    if (mode === "architecture") return text(`o diagrama aberto está em modo "${mode}"; gere código a partir de um diagrama de domínio, de lógica ou de agents`, true);
+    if (mode === "agents") {
+      if (write) {
+        const r = await post("/api/harness", { target: target ?? "claude" });
+        return text(`gravado em ${(r as any).root}:\n${((r as any).files as string[]).map((f) => `- ${f}`).join("\n")}`);
+      }
+      const files = generateHarness(doc, target ?? "claude");
+      return text(files.length ? `${files.length} arquivo(s)\n\n${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem agentes nem skills exportáveis");
+    }
     const files = generateCode(doc, (language as CodegenLanguage | undefined) ?? "typescript");
     return text(files.length ? `${files.length} arquivo(s)
 
@@ -540,26 +554,26 @@ ${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem elementos de dom
 server.registerTool(
   "domain_overview",
   {
-    description: "Modo domain: visão geral consolidada de TODOS os diagramas de domínio do cofre (contextos, aggregates, eventos publicados/consumidos, casos de uso ✔/✘, mapa de contextos e avisos). Somente leitura.",
+    description: "Modo domain: visão geral consolidada de TODOS os diagramas de domínio do projeto (contextos, aggregates, eventos publicados/consumidos, casos de uso ✔/✘, mapa de contextos e avisos). Somente leitura.",
     inputSchema: {},
   },
-  async () => text(domainOverview(await vaultFiles())),
+  async () => text(domainOverview(await projectFiles())),
 );
 
 const post = (path: string, body: unknown) => api(path, { method: "POST", body: JSON.stringify(body) });
 const fmtWorkspace = (w: any) =>
-  [`cofre: ${w.vault.name} (${w.vault.path})`, `aberto: ${w.current}`, ...w.files.map((f: any) => `- ${f.path} | ${f.title} | ${f.nodes} componentes, ${f.connections} conexões${f.refs?.length ? ` · referencia: ${f.refs.join(", ")}` : ""}${f.path === w.current ? " (ABERTO)" : ""}`)].join("\n");
+  [`projeto: ${w.project.name} (${w.project.path})`, `aberto: ${w.current}`, ...w.files.map((f: any) => `- ${f.path} | ${f.title} | ${f.nodes} componentes, ${f.connections} conexões${f.refs?.length ? ` · referencia: ${f.refs.join(", ")}` : ""}${f.path === w.current ? " (ABERTO)" : ""}`)].join("\n");
 
 server.registerTool(
   "list_diagrams",
-  { description: "Lista os diagramas do cofre (vault) do usuário, incluindo subpastas, e indica qual está aberto. As demais tools editam o diagrama aberto.", inputSchema: {} },
+  { description: "Lista os diagramas do projeto aberto (a pasta do usuário), incluindo subpastas, e indica qual está aberto. As demais tools editam o diagrama aberto.", inputSchema: {} },
   async () => text(fmtWorkspace(await api("/api/workspace"))),
 );
 
 server.registerTool(
   "get_diagram_outline",
   {
-    description: "Resumo de OUTRO diagrama do cofre (componentes, endpoints, grupos) sem abri-lo. Use antes de criar uma referência (kind system + ref) para escolher o diagrama e o componente certos.",
+    description: "Resumo de OUTRO diagrama do projeto (componentes, endpoints, grupos) sem abri-lo. Use antes de criar uma referência (kind system + ref) para escolher o diagrama e o componente certos.",
     inputSchema: { name: z.string().describe("caminho de list_diagrams") },
   },
   async ({ name }) => {
@@ -579,7 +593,7 @@ server.registerTool(
 
 server.registerTool(
   "open_diagram",
-  { description: "Abre outro diagrama do cofre (use o caminho de list_diagrams, ex.: backend/orders.archflow.json). O app do usuário troca de diagrama.", inputSchema: { name: z.string() } },
+  { description: "Abre outro diagrama do projeto (use o caminho de list_diagrams, ex.: backend/orders.archflow.json). O app do usuário troca de diagrama.", inputSchema: { name: z.string() } },
   async ({ name }) => {
     try {
       return text("aberto.\n" + fmtWorkspace(await post("/api/diagrams/open", { name })));
@@ -596,11 +610,11 @@ server.registerTool(
   {
     description:
       "Exporta o diagrama como SVG e/ou PNG idêntico ao que o app mostra (fontes embutidas no SVG, cores do tema, setas, ícones, notas em markdown e o fundo do quadro; sem seleção nem zoom). " +
-      "A imagem é renderizada pela janela do Archflow, que precisa estar aberta. Sem `out`, grava ao lado do diagrama (ex.: backend/orders.svg). `name` exporta outro diagrama do cofre (o app troca para ele).",
+      "A imagem é renderizada pela janela do Archflow, que precisa estar aberta. Sem `out`, grava ao lado do diagrama (ex.: backend/orders.svg). `name` exporta outro diagrama do projeto (o app troca para ele).",
     inputSchema: {
       format: z.enum(["svg", "png", "both"]).optional().describe("svg (padrão), png ou both"),
       name: z.string().optional().describe("caminho de list_diagrams; omitido = diagrama aberto"),
-      out: z.string().optional().describe("arquivo ou pasta de destino; caminho relativo fica dentro do cofre. Sem extensão, recebe .svg/.png"),
+      out: z.string().optional().describe("arquivo ou pasta de destino; caminho relativo fica dentro do projeto. Sem extensão, recebe .svg/.png"),
       background: z.enum(["board", "solid", "transparent"]).optional().describe("board (padrão: cor + trama do quadro) · solid (só a cor) · transparent"),
       scale: z.number().min(0.5).max(4).optional().describe("PNG: pixels por unidade (padrão 2)"),
       padding: z.number().int().min(0).max(400).optional().describe("margem em volta do conteúdo (padrão 48)"),
@@ -627,8 +641,8 @@ server.registerTool(
 server.registerTool(
   "new_diagram",
   {
-    description: "Cria um diagrama novo (.archflow.json) no cofre, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD); depois chame get_schema_guide.",
-    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao cofre, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain") },
+    description: "Cria um diagrama novo (.archflow.json) no projeto, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD); depois chame get_schema_guide.",
+    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao projeto, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain") },
   },
   async ({ title, folder, mode }) => text("criado.\n" + fmtWorkspace(await post("/api/diagrams", { title, folder, mode, source: "mcp" }))),
 );
@@ -639,7 +653,7 @@ server.registerResource(
   { description: "Diagrama atual em markdown", mimeType: "text/markdown" },
   async (uri) => {
     const doc = await getDoc();
-    return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: describe(doc, docMode(doc) === "domain" ? { exists: existsIn(await vaultFiles()) } : {}) }] };
+    return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: describe(doc, docMode(doc) === "domain" ? { exists: existsIn(await projectFiles()) } : {}) }] };
   },
 );
 server.registerResource(

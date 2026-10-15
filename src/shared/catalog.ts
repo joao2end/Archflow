@@ -262,7 +262,7 @@ const refAsset: Asset = {
   color: "#706fd3",
   kind: "system",
   problem: "Relacionar este diagrama a um sistema já desenhado em outro, sem duplicar nada.",
-  description: "Referência a outro diagrama do cofre (ou a um componente dele). Abra com um clique e veja os backlinks.",
+  description: "Referência a outro diagrama do projeto (ou a um componente dele). Abra com um clique e veja os backlinks.",
   tags: ["referencia", "link", "sistema", "diagrama", "c4"],
   builtin: true,
 };

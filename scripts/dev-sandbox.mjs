@@ -1,6 +1,6 @@
 /**
- * Servidor de desenvolvimento com cofre descartável: o app abre vazio, em portas próprias, sem tocar
- * no cofre nem na configuração (~/.archflow) do usuário. Útil para testar a UI sem sujar os diagramas reais.
+ * Servidor de desenvolvimento com projeto descartável: o app abre vazio, em portas próprias, sem tocar
+ * no projeto nem na configuração (~/.archflow) do usuário. Útil para testar a UI sem sujar os diagramas reais.
  *
  *   node scripts/dev-sandbox.mjs        (app em http://localhost:5188, bridge em 7098)
  */
@@ -17,7 +17,7 @@ const env = {
   ARCHFLOW_DATA: join(tmp, "data"),
   PORT: process.env.PORT ?? "5188",
 };
-console.log(`[sandbox] cofre temporário em ${tmp}`);
+console.log(`[sandbox] projeto temporário em ${tmp}`);
 
 const child = spawn(process.execPath, [join("node_modules", "vite", "bin", "vite.js"), "--configLoader", "runner"], { env, stdio: "inherit" });
 const stop = () => {

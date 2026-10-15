@@ -1,7 +1,7 @@
 /**
- * Cofres na MEMÓRIA DO NAVEGADOR (IndexedDB) — usado quando o servidor local (bridge) não está rodando.
+ * Projetos na MEMÓRIA DO NAVEGADOR (IndexedDB) — usado quando o servidor local (bridge) não está rodando.
  * Implementa as mesmas rotas `/api/...` que o bridge, devolvendo `Response` como o `fetch`,
- * para a UI (explorador, cofres, referências, visualizador) funcionar sem mudanças.
+ * para a UI (explorador, projetos, referências, visualizador) funcionar sem mudanças.
  * Limites: sem pasta em disco, sem MCP e sem edição externa (Git/editor).
  */
 import { normalizeDoc, slug } from "../shared/ops";
@@ -10,7 +10,9 @@ import type { FileNode, FolderNode } from "./store";
 
 const EXT = ".archflow.json";
 const SEG_BAD = /[\\/:*?"<>|\0]/;
-const BUNDLE = "archflow-vault/1";
+const BUNDLE = "archflow-project/1";
+/** Pacotes exportados quando «projeto» se chamava «cofre»; o conteúdo é o mesmo. */
+const BUNDLE_LEGACY = "archflow-vault/1";
 
 export type LocalEmit = (event: "doc" | "workspace", data: unknown) => void;
 
@@ -18,7 +20,7 @@ interface StoredFile {
   doc: Doc;
   updatedAt: number;
 }
-interface LocalVault {
+interface LocalProject {
   id: string;
   name: string;
   createdAt: number;
@@ -28,7 +30,7 @@ interface LocalVault {
   trash: { at: number; path: string; files: Record<string, StoredFile> }[];
 }
 interface Meta {
-  vaults: { id: string; name: string }[];
+  projects: { id: string; name: string }[];
   active: string;
 }
 
@@ -98,8 +100,8 @@ export const isPersistent = () => idbOk;
 
 /* ───────── estado ───────── */
 
-let meta: Meta = { vaults: [], active: "" };
-let vault: LocalVault;
+let meta: Meta = { projects: [], active: "" };
+let project: LocalProject;
 let current = "";
 let rev = 0;
 let emit: LocalEmit = () => undefined;
@@ -115,13 +117,13 @@ function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     void kvSet("meta", meta);
-    void kvSet(`vault:${vault.id}`, vault);
+    void kvSet(`project:${project.id}`, project);
   }, 250);
 }
 const flush = async () => {
   clearTimeout(saveTimer);
   await kvSet("meta", meta);
-  await kvSet(`vault:${vault.id}`, vault);
+  await kvSet(`project:${project.id}`, project);
 };
 
 /* ───────── caminhos ───────── */
@@ -142,11 +144,11 @@ const diagramKey = (rel: string) => {
 function uniqueFile(title: string, folder = "", ignore?: string): string {
   const base = slug(title) || "diagrama";
   let name = base + EXT;
-  for (let i = 2; vault.files[relOf(folder, name)] && relOf(folder, name) !== ignore; i++) name = `${base}-${i}${EXT}`;
+  for (let i = 2; project.files[relOf(folder, name)] && relOf(folder, name) !== ignore; i++) name = `${base}-${i}${EXT}`;
   return relOf(folder, name);
 }
 const fileOrThrow = (rel: string): StoredFile => {
-  const f = vault.files[diagramKey(rel)];
+  const f = project.files[diagramKey(rel)];
   if (!f) throw new HttpError(404, "diagrama não encontrado");
   return f;
 };
@@ -154,7 +156,7 @@ const fileOrThrow = (rel: string): StoredFile => {
 /* ───────── árvore ───────── */
 
 function buildTree(): FolderNode {
-  const root: FolderNode = { type: "folder", name: vault.name, path: "", children: [] };
+  const root: FolderNode = { type: "folder", name: project.name, path: "", children: [] };
   const map = new Map<string, FolderNode>([["", root]]);
   const ensure = (p: string): FolderNode => {
     const hit = map.get(p);
@@ -165,8 +167,8 @@ function buildTree(): FolderNode {
     map.set(p, n);
     return n;
   };
-  vault.folders.forEach(ensure);
-  for (const [path, f] of Object.entries(vault.files)) {
+  project.folders.forEach(ensure);
+  for (const [path, f] of Object.entries(project.files)) {
     const refs = Array.from(new Set(f.doc.nodes.filter((n) => n.ref?.diagram).map((n) => n.ref!.diagram)));
     ensure(parentOf(path)).children.push({
       type: "file",
@@ -193,9 +195,9 @@ const flatten = (n: FolderNode): FileNode[] => n.children.flatMap((c) => (c.type
 function workspaceInfo() {
   const tree = buildTree();
   return {
-    vault: { id: vault.id, name: vault.name, path: "Memória deste navegador" },
+    project: { id: project.id, name: project.name, path: "Memória deste navegador" },
     configured: true,
-    vaults: meta.vaults.map((v) => ({ id: v.id, name: v.name, path: "Memória deste navegador", exists: true })),
+    projects: meta.projects.map((v) => ({ id: v.id, name: v.name, path: "Memória deste navegador", exists: true })),
     current,
     tree,
     files: flatten(tree).sort((a, b) => b.updatedAt - a.updatedAt),
@@ -209,7 +211,7 @@ const sendWorkspace = () => emit("workspace", workspaceInfo());
 function openFile(rel: string, source = "file") {
   const f = fileOrThrow(rel);
   current = rel;
-  vault.lastOpened = rel;
+  project.lastOpened = rel;
   rev++;
   persist();
   emit("doc", { rev, doc: f.doc, source, file: current });
@@ -218,19 +220,19 @@ function openFile(rel: string, source = "file") {
 
 function createDiagram(title: string, folder = "", mode: DocMode = "architecture"): string {
   segments(folder, true);
-  if (folder && !vault.folders.includes(folder)) vault.folders.push(folder);
+  if (folder && !project.folders.includes(folder)) project.folders.push(folder);
   const rel = uniqueFile(title, folder);
-  vault.files[rel] = { doc: emptyDoc(title, mode), updatedAt: Date.now() };
+  project.files[rel] = { doc: emptyDoc(title, mode), updatedAt: Date.now() };
   openFile(rel);
   return rel;
 }
 
 function firstFile(): string | undefined {
-  return Object.entries(vault.files).sort((a, b) => b[1].updatedAt - a[1].updatedAt)[0]?.[0];
+  return Object.entries(project.files).sort((a, b) => b[1].updatedAt - a[1].updatedAt)[0]?.[0];
 }
 
 function rewriteRefs(map: (p: string) => string | undefined) {
-  for (const [path, f] of Object.entries(vault.files)) {
+  for (const [path, f] of Object.entries(project.files)) {
     let changed = false;
     for (const n of f.doc.nodes) {
       const m = n.ref?.diagram ? map(n.ref.diagram) : undefined;
@@ -250,24 +252,24 @@ function rewriteRefs(map: (p: string) => string | undefined) {
 }
 
 function trash(path: string, files: Record<string, StoredFile>) {
-  vault.trash = [{ at: Date.now(), path, files }, ...vault.trash].slice(0, 30);
+  project.trash = [{ at: Date.now(), path, files }, ...project.trash].slice(0, 30);
 }
 
-async function loadVault(id: string) {
-  const v = await kvGet<LocalVault>(`vault:${id}`);
-  if (!v) throw new HttpError(404, "cofre não encontrado");
-  vault = v;
+async function loadProject(id: string) {
+  const v = await kvGet<LocalProject>(`project:${id}`);
+  if (!v) throw new HttpError(404, "projeto não encontrado");
+  project = v;
   meta.active = id;
   await kvSet("meta", meta);
-  const last = vault.lastOpened && vault.files[vault.lastOpened] ? vault.lastOpened : firstFile();
+  const last = project.lastOpened && project.files[project.lastOpened] ? project.lastOpened : firstFile();
   current = "";
   if (last) openFile(last);
   else createDiagram("Novo diagrama");
 }
 
-function newVault(name: string, seed?: Doc): LocalVault {
-  const id = `${slug(name) || "cofre"}-${Math.random().toString(36).slice(2, 6)}`;
-  const v: LocalVault = { id, name, createdAt: Date.now(), files: {}, folders: [], trash: [] };
+function newProject(name: string, seed?: Doc): LocalProject {
+  const id = `${slug(name) || "projeto"}-${Math.random().toString(36).slice(2, 6)}`;
+  const v: LocalProject = { id, name, createdAt: Date.now(), files: {}, folders: [], trash: [] };
   const d = seed ?? emptyDoc("Novo diagrama");
   v.files[`${slug(d.title) || "diagrama"}${EXT}`] = { doc: d, updatedAt: Date.now() };
   return v;
@@ -275,21 +277,21 @@ function newVault(name: string, seed?: Doc): LocalVault {
 
 /* ───────── pacote de exportação/importação ───────── */
 
-export interface VaultBundle {
-  format: typeof BUNDLE;
+export interface ProjectBundle {
+  format: typeof BUNDLE | typeof BUNDLE_LEGACY;
   name: string;
   folders: string[];
   files: Record<string, Doc>;
 }
-export function exportBundle(): VaultBundle {
-  return { format: BUNDLE, name: vault.name, folders: vault.folders, files: Object.fromEntries(Object.entries(vault.files).map(([p, f]) => [p, f.doc])) };
+export function exportBundle(): ProjectBundle {
+  return { format: BUNDLE, name: project.name, folders: project.folders, files: Object.fromEntries(Object.entries(project.files).map(([p, f]) => [p, f.doc])) };
 }
-export const bundleName = () => vault.name;
+export const bundleName = () => project.name;
 
 /* ───────── roteador (imita o bridge) ───────── */
 
 async function route(path: string, method: string, q: URLSearchParams, b: any): Promise<unknown> {
-  if (path === "/api/health") return { ok: true, rev, title: vault.files[current]?.doc.title };
+  if (path === "/api/health") return { ok: true, rev, title: project.files[current]?.doc.title };
   if (path === "/api/doc" && method === "GET") return { rev, doc: fileOrThrow(current).doc, file: current, pristine: false };
   if (path === "/api/doc" && method === "PUT") {
     if (b.file && b.file !== current) throw new HttpError(409, `o diagrama ativo agora é ${current}`);
@@ -303,50 +305,50 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
   }
   if (path === "/api/workspace" && method === "GET") return workspaceInfo();
 
-  /* cofres */
-  if (path === "/api/vaults/create") {
+  /* projetos */
+  if (path === "/api/projects/create") {
     const name = String(b.name ?? "").trim();
-    if (!name) throw new HttpError(400, "nome de cofre inválido");
-    if (meta.vaults.some((v) => v.name.toLowerCase() === name.toLowerCase())) throw new HttpError(409, "já existe um cofre com esse nome");
+    if (!name) throw new HttpError(400, "nome de projeto inválido");
+    if (meta.projects.some((v) => v.name.toLowerCase() === name.toLowerCase())) throw new HttpError(409, "já existe um projeto com esse nome");
     await flush();
-    const v = newVault(name);
-    meta.vaults.push({ id: v.id, name });
-    await kvSet(`vault:${v.id}`, v);
-    await loadVault(v.id);
+    const v = newProject(name);
+    meta.projects.push({ id: v.id, name });
+    await kvSet(`project:${v.id}`, v);
+    await loadProject(v.id);
     return workspaceInfo();
   }
-  if (path === "/api/vaults/switch") {
+  if (path === "/api/projects/switch") {
     await flush();
-    await loadVault(String(b.id));
+    await loadProject(String(b.id));
     return workspaceInfo();
   }
-  if (path === "/api/vaults/remove") {
-    // no modo navegador, "remover" apaga os dados do cofre
-    if (b.id === vault.id) throw new HttpError(400, "abra outro cofre antes de excluir este");
-    meta.vaults = meta.vaults.filter((v) => v.id !== b.id);
-    await kvDel(`vault:${b.id}`);
+  if (path === "/api/projects/remove") {
+    // no modo navegador, "remover" apaga os dados do projeto
+    if (b.id === project.id) throw new HttpError(400, "abra outro projeto antes de excluir este");
+    meta.projects = meta.projects.filter((v) => v.id !== b.id);
+    await kvDel(`project:${b.id}`);
     await kvSet("meta", meta);
     return workspaceInfo();
   }
-  if (path === "/api/vaults/import") {
-    const bundle = b.bundle as VaultBundle;
-    if (!bundle || bundle.format !== BUNDLE || typeof bundle.files !== "object") throw new HttpError(400, "arquivo de cofre inválido");
+  if (path === "/api/projects/import") {
+    const bundle = b.bundle as ProjectBundle;
+    if (!bundle || (bundle.format !== BUNDLE && bundle.format !== BUNDLE_LEGACY) || typeof bundle.files !== "object") throw new HttpError(400, "arquivo de projeto inválido");
     await flush();
-    let name = String(bundle.name || "Cofre importado");
-    while (meta.vaults.some((v) => v.name.toLowerCase() === name.toLowerCase())) name += " (importado)";
-    const v: LocalVault = { id: `${slug(name)}-${Math.random().toString(36).slice(2, 6)}`, name, createdAt: Date.now(), files: {}, folders: [...(bundle.folders ?? [])], trash: [] };
+    let name = String(bundle.name || "Projeto importado");
+    while (meta.projects.some((v) => v.name.toLowerCase() === name.toLowerCase())) name += " (importado)";
+    const v: LocalProject = { id: `${slug(name)}-${Math.random().toString(36).slice(2, 6)}`, name, createdAt: Date.now(), files: {}, folders: [...(bundle.folders ?? [])], trash: [] };
     for (const [p, d] of Object.entries(bundle.files)) {
       if (!p.endsWith(EXT)) continue;
       segments(p);
       v.files[p] = { doc: normalizeDoc(d), updatedAt: Date.now() };
     }
     if (!Object.keys(v.files).length) throw new HttpError(400, "o arquivo não contém diagramas");
-    meta.vaults.push({ id: v.id, name });
-    await kvSet(`vault:${v.id}`, v);
-    await loadVault(v.id);
+    meta.projects.push({ id: v.id, name });
+    await kvSet(`project:${v.id}`, v);
+    await loadProject(v.id);
     return workspaceInfo();
   }
-  if (path === "/api/vaults/open" || path.startsWith("/api/fs/")) throw new HttpError(400, "Indisponível no modo navegador: não há acesso a pastas do disco. Rode `npm run dev` para usar cofres em disco.");
+  if (path === "/api/projects/open" || path.startsWith("/api/fs/")) throw new HttpError(400, "Indisponível no modo navegador: não há acesso a pastas do disco. Rode `npm run dev` para usar projetos em disco.");
   if (path === "/api/skills/install") throw new HttpError(400, "Indisponível no modo navegador: não há acesso a disco para rodar o npx skills add. Rode `npm run dev` para instalar skills de verdade.");
 
   /* diagramas */
@@ -355,7 +357,7 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture");
     return { name: rel, ...workspaceInfo() };
   }
-  if (path === "/api/vault/docs" && method === "GET") return { files: Object.entries(vault.files).map(([p, f]) => ({ path: p, doc: f.doc })) };
+  if (path === "/api/project/docs" && method === "GET") return { files: Object.entries(project.files).map(([p, f]) => ({ path: p, doc: f.doc })) };
   if (path === "/api/diagrams/open") {
     fileOrThrow(b.name);
     openFile(b.name);
@@ -386,13 +388,13 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     f.doc = { ...f.doc, title };
     f.updatedAt = Date.now();
     if (next !== old) {
-      delete vault.files[old];
-      vault.files[next] = f;
+      delete project.files[old];
+      project.files[next] = f;
       rewriteRefs((p) => (p === old ? next : undefined));
     }
     if (old === current) {
       current = next;
-      vault.lastOpened = next;
+      project.lastOpened = next;
       rev++;
       emit("doc", { rev, doc: f.doc, source: b.source ?? "file", file: current });
     }
@@ -404,7 +406,7 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     const src = fileOrThrow(b.name);
     const title = `${src.doc.title} (cópia)`;
     const rel = uniqueFile(title, parentOf(diagramKey(b.name)));
-    vault.files[rel] = { doc: { ...structuredClone(src.doc), id: "diagram-" + Math.random().toString(36).slice(2, 8), title }, updatedAt: Date.now() };
+    project.files[rel] = { doc: { ...structuredClone(src.doc), id: "diagram-" + Math.random().toString(36).slice(2, 8), title }, updatedAt: Date.now() };
     openFile(rel);
     return { name: rel, ...workspaceInfo() };
   }
@@ -414,13 +416,13 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     const folder = String(b.folder ?? "");
     segments(folder, true);
     if (parentOf(old) === folder) return workspaceInfo();
-    if (folder && !vault.folders.includes(folder)) vault.folders.push(folder);
+    if (folder && !project.folders.includes(folder)) project.folders.push(folder);
     const next = uniqueFile(f.doc.title, folder);
-    delete vault.files[old];
-    vault.files[next] = f;
+    delete project.files[old];
+    project.files[next] = f;
     if (old === current) {
       current = next;
-      vault.lastOpened = next;
+      project.lastOpened = next;
     }
     rewriteRefs((p) => (p === old ? next : undefined));
     persist();
@@ -430,7 +432,7 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
   if (path === "/api/diagrams/delete") {
     const old = diagramKey(b.name);
     trash(old, { [old]: fileOrThrow(old) });
-    delete vault.files[old];
+    delete project.files[old];
     if (old === current) {
       const next = firstFile();
       if (next) openFile(next);
@@ -447,7 +449,7 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     const parts = segments(b.path);
     for (let i = 1; i <= parts.length; i++) {
       const p = parts.slice(0, i).join("/");
-      if (!vault.folders.includes(p)) vault.folders.push(p);
+      if (!project.folders.includes(p)) project.folders.push(p);
     }
     persist();
     sendWorkspace();
@@ -459,12 +461,12 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     if (name.includes("/")) throw new HttpError(400, "nome inválido");
     segments(b.path);
     const to = relOf(parentOf(b.path), name);
-    if (vault.folders.includes(to)) throw new HttpError(409, "já existe uma pasta com esse nome");
+    if (project.folders.includes(to)) throw new HttpError(409, "já existe uma pasta com esse nome");
     const re = (p: string) => (p === b.path ? to : p.startsWith(b.path + "/") ? to + p.slice(b.path.length) : p);
-    vault.folders = vault.folders.map(re);
-    vault.files = Object.fromEntries(Object.entries(vault.files).map(([p, f]) => [re(p), f]));
+    project.folders = project.folders.map(re);
+    project.files = Object.fromEntries(Object.entries(project.files).map(([p, f]) => [re(p), f]));
     current = re(current);
-    vault.lastOpened = vault.lastOpened ? re(vault.lastOpened) : undefined;
+    project.lastOpened = project.lastOpened ? re(project.lastOpened) : undefined;
     rewriteRefs((p) => (re(p) !== p ? re(p) : undefined));
     persist();
     sendWorkspace();
@@ -474,10 +476,10 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
     segments(b.path);
     const inside = (p: string) => p === b.path || p.startsWith(b.path + "/");
     const removed: Record<string, StoredFile> = {};
-    for (const [p, f] of Object.entries(vault.files)) if (inside(p)) removed[p] = f;
+    for (const [p, f] of Object.entries(project.files)) if (inside(p)) removed[p] = f;
     trash(b.path, removed);
-    for (const p of Object.keys(removed)) delete vault.files[p];
-    vault.folders = vault.folders.filter((p) => !inside(p));
+    for (const p of Object.keys(removed)) delete project.files[p];
+    project.folders = project.folders.filter((p) => !inside(p));
     if (inside(current)) {
       const next = firstFile();
       if (next) openFile(next);
@@ -505,20 +507,36 @@ export async function localFetch(input: string, init?: RequestInit): Promise<Res
 }
 
 /**
- * Carrega (ou cria) os cofres do navegador. Na primeira vez, o rascunho atual do app
- * (exemplo ou o último diagrama salvo no navegador) vira o primeiro diagrama do cofre.
+ * Quando «projeto» se chamava «cofre», o IndexedDB guardava `meta.vaults` e as chaves `vault:<id>`.
+ * Copia tudo para os nomes novos (os dados antigos ficam onde estão, caso a pessoa volte a uma versão anterior).
+ */
+async function migrateVaults(): Promise<Meta | undefined> {
+  const old = await kvGet<{ vaults?: { id: string; name: string }[]; active?: string }>("meta");
+  if (!old?.vaults?.length || (old as Meta).projects?.length) return undefined;
+  for (const v of old.vaults) {
+    const data = await kvGet<LocalProject>(`vault:${v.id}`);
+    if (data) await kvSet(`project:${v.id}`, data);
+  }
+  const next: Meta = { projects: old.vaults, active: old.active ?? old.vaults[0].id };
+  await kvSet("meta", next);
+  return next;
+}
+
+/**
+ * Carrega (ou cria) os projetos do navegador. Na primeira vez, o rascunho atual do app
+ * (exemplo ou o último diagrama salvo no navegador) vira o primeiro diagrama do projeto.
  */
 export async function initLocal(onEmit: LocalEmit, seed: Doc) {
   emit = onEmit;
-  const saved = await kvGet<Meta>("meta");
-  if (saved?.vaults.length) {
+  const saved = (await migrateVaults()) ?? (await kvGet<Meta>("meta"));
+  if (saved?.projects.length) {
     meta = saved;
-    await loadVault(meta.vaults.find((v) => v.id === meta.active)?.id ?? meta.vaults[0].id);
+    await loadProject(meta.projects.find((v) => v.id === meta.active)?.id ?? meta.projects[0].id);
     return;
   }
-  const v = newVault("Cofre do navegador", seed);
-  meta = { vaults: [{ id: v.id, name: v.name }], active: v.id };
-  await kvSet(`vault:${v.id}`, v);
+  const v = newProject("Projeto do navegador", seed);
+  meta = { projects: [{ id: v.id, name: v.name }], active: v.id };
+  await kvSet(`project:${v.id}`, v);
   await kvSet("meta", meta);
-  await loadVault(v.id);
+  await loadProject(v.id);
 }

@@ -1,6 +1,6 @@
 # Exemplos
 
-Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qualquer um deles no cofre aberto.
+Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qualquer um deles no projeto aberto.
 
 - **Arquitetura**: loja online, API com fila, microsserviços e pipeline de dados (definidos em `src/shared/arch.examples.ts`; instalam em `exemplos-arquitetura/`).
 - **Domínio (DDD)**: os cinco modelos abaixo, na pasta `exemplos-ddd/`.
@@ -22,9 +22,9 @@ Sugestão de ordem: **Biblioteca → Clínica → Loja → Banco → Delivery** 
 
 ## Como usar
 
-**No app:** explorador de arquivos → seção *Exemplos* (abas *Arquitetura*, *Domínio* e *Lógica*) → *Instalar e abrir*. O exemplo vira a pasta `exemplos-ddd/<exemplo>/` no cofre aberto (nada é sobrescrito) e abre o mapa de contextos; clique em um contexto para entrar nele.
+**No app:** explorador de arquivos → seção *Exemplos* (abas *Arquitetura*, *Domínio* e *Lógica*) → *Instalar e abrir*. O exemplo vira a pasta `exemplos-ddd/<exemplo>/` no projeto aberto (nada é sobrescrito) e abre o mapa de contextos; clique em um contexto para entrar nele.
 
-**Fora do app:** copie a pasta `examples/exemplos-ddd` para dentro de um cofre do Archflow (a pasta do cofre, a que contém seus `.archflow.json`). Os vínculos entre o mapa de contextos, os contextos e a arquitetura usam esses caminhos, então mantenha a estrutura `exemplos-ddd/<exemplo>/`.
+**Fora do app:** copie a pasta `examples/exemplos-ddd` para dentro de um projeto do Archflow (a pasta do projeto, a que contém seus `.archflow.json`). Os vínculos entre o mapa de contextos, os contextos e a arquitetura usam esses caminhos, então mantenha a estrutura `exemplos-ddd/<exemplo>/`.
 
 **Cada pasta tem:**
 

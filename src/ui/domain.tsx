@@ -525,7 +525,7 @@ const ISSUE_MODAL = { logic: "logic", agents: "agents", domain: "domain" } as co
 const ISSUE_TIP = {
   logic: "Validação das regras (roda os exemplos) e texto para IA",
   agents: "Validação do time de agentes e texto para IA",
-  domain: "Validação, visão geral do cofre e código",
+  domain: "Validação, visão geral do projeto e código",
 };
 const ISSUE_NAME = { logic: "fluxo", agents: "time", domain: "domínio" };
 
@@ -555,6 +555,11 @@ ${errors} erro(s), ${warns} aviso(s)`}
       {mode === "domain" && (
         <button className="mode-guide" onClick={openDddGuide} data-tip="Guia animado de DDD: os conceitos em 8 passos" data-tip-pos="top" aria-label="Abrir o guia de DDD">
           <Glyph name="play" size={11} />
+        </button>
+      )}
+      {mode === "agents" && (
+        <button className="mode-guide" onClick={() => set({ modal: { type: "agents", tab: "harness" } })} data-tip="Exportar o harness: subagentes e skills para o Claude Code ou o Cursor" data-tip-pos="top" aria-label="Exportar o harness">
+          <Glyph name="download" size={11} />
         </button>
       )}
     </div>

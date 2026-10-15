@@ -108,8 +108,16 @@ type AgentRel = "uses-skill" | "delegates";
       sobre um agent cria/reaproveita o nó e liga `uses-skill` num único passo de desfazer;
       sobre um grupo coloca a skill nele; clique com agent selecionado pluga direto; o SKILL.md
       é baixado em seguida
-- [ ] Fase 5 — `src/shared/agentgen.ts`: gera harness pros dois alvos
-- [ ] Fase 6 — zip sem dependência, rota de escrita no bridge, `generate_code` modo agents no MCP
+- [x] Fase 5 — `src/shared/agentgen.ts`: gera harness pros dois alvos (`agentgen.test.ts`, 6 casos)
+- [x] Fase 6 — `src/shared/zip.ts` (método store, sem dependência, com `zip.test.ts` lendo o próprio
+      zip pelo diretório central), `POST /api/harness { target }` no bridge gravando `.claude/` ou
+      `.cursor/` na pasta do projeto aberto, `exportHarness` no store (projeto em disco → grava;
+      modo navegador → baixa o .zip), aba **Harness** na modal de Agents com prévia e alvo, botão ⬇
+      no `ModeTools`, e `generate_code { target, write }` no MCP. `server/bridge.e2e.test.ts` cobre
+      a gravação por HTTP e os erros (target inválido, diagrama fora do modo agents).
+      Nesta fase também entrou a renomeação «cofre» → «projeto» em todo o app (rotas
+      `/api/projects/*`, `/api/project/docs`, `src/ui/localProject.ts`, `.archflow/project.json`),
+      com migração do `config.json` e das chaves do IndexedDB.
 - [ ] Fase 7 — manifesto `archflow.agents.json`, `import_harness`, detecção de hash/drift
 - [ ] Fase 8 — testes (`agents.test.ts`, `agentgen.test.ts`, `zip.test.ts`, golden, e2e)
 

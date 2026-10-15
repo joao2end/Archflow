@@ -22,7 +22,7 @@ export function renderExample(ex: DddExample): RenderedFile[] {
     "",
     `> Gerado a partir dos diagramas desta pasta (\`npm run examples:build\`); é exatamente o que um agente (MCP) recebe em \`get_diagram\` e \`domain_overview\`. Não edite à mão.`,
     "",
-    "# Visão geral do cofre",
+    "# Visão geral do projeto",
     "",
     domainOverview(docs).replace(/^# Visão geral do domínio\n\n?/, ""),
     ...docs.flatMap((d) => ["", "---", "", `<!-- ${d.path} -->`, describe(d.doc, docMode(d.doc) === "domain" ? { exists } : {})]),

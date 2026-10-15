@@ -166,16 +166,16 @@ export function TopBar() {
           aria-label={hidden ? (!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado") : undefined}
           data-tip={
             !online
-              ? "Sem armazenamento. Rode `npm run dev` para usar cofres em disco."
+              ? "Sem armazenamento. Rode `npm run dev` para usar projetos em disco."
               : storage === "local"
-                ? "Salvando na memória deste navegador (sem servidor local). Exporte o cofre para fazer backup. Rode `npm run dev` para cofres em disco e MCP."
-                : "Servidor local ativo: cofres em disco e agentes MCP editando este diagrama em tempo real."
+                ? "Salvando na memória deste navegador (sem servidor local). Exporte o projeto para fazer backup. Rode `npm run dev` para projetos em disco e MCP."
+                : "Servidor local ativo: projetos em disco e agentes MCP editando este diagrama em tempo real."
           }
           data-tip-pos="bottom"
           role="button"
           tabIndex={0}
-          onClick={() => set({ modal: { type: "vaults" } })}
-          onKeyDown={(e) => e.key === "Enter" && set({ modal: { type: "vaults" } })}
+          onClick={() => set({ modal: { type: "projects" } })}
+          onKeyDown={(e) => e.key === "Enter" && set({ modal: { type: "projects" } })}
         >
           <span className="dot" />
           {!hidden && (!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado")}
@@ -299,8 +299,8 @@ export function Dock() {
   const animate = useStore((s) => s.animate);
   return (
     <div className="hud glass dock" role="toolbar" aria-label="Ferramentas">
-      <button className={`tool ${panel === "files" ? "active" : ""}`} onClick={() => set({ panel: panel === "files" ? null : "files" })} data-tip={"Arquivos do cofre (E)\nSeus diagramas em pastas."} data-tip-pos="right" aria-label="Arquivos" aria-keyshortcuts="E" aria-pressed={panel === "files"}>
-        <Glyph name="vault" size={21} />
+      <button className={`tool ${panel === "files" ? "active" : ""}`} onClick={() => set({ panel: panel === "files" ? null : "files" })} data-tip={"Arquivos do projeto (E)\nSeus diagramas em pastas."} data-tip-pos="right" aria-label="Arquivos" aria-keyshortcuts="E" aria-pressed={panel === "files"}>
+        <Glyph name="project" size={21} />
         <kbd className="tool-key" aria-hidden>E</kbd>
       </button>
       <button className={`tool ${panel === "assets" ? "active" : ""}`} onClick={() => set({ panel: panel === "assets" ? null : "assets" })} data-tip={"Biblioteca de tecnologias (B)\nArraste para o quadro."} data-tip-pos="right" aria-label="Biblioteca" aria-keyshortcuts="B" aria-pressed={panel === "assets"}>

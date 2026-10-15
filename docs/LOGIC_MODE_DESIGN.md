@@ -97,7 +97,7 @@ Nenhum risco ficou sem resposta. A proposta passa para o desenho final.
 
 ### 4.1 O quadro responde a uma pergunta: *"por que o sistema decidiu isso?"*
 
-Um diagrama Logic por **aggregate** ou por **caso de uso**, no cofre em `logica/`. Lê-se da esquerda para a direita: **o que entra → qual regra / tabela decide → o que sai ou para qual estado vai**.
+Um diagrama Logic por **aggregate** ou por **caso de uso**, no projeto em `logica/`. Lê-se da esquerda para a direita: **o que entra → qual regra / tabela decide → o que sai ou para qual estado vai**.
 
 ### 4.2 Quatro papéis (`logic.role`), mesma mecânica do `ddd.role`
 

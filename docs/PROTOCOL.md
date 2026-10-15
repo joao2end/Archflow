@@ -65,11 +65,11 @@ Princípios:
 { "id": "orders-api-post-orders", "kind": "endpoint", "owner": "orders-api",          // endpoint preso ao serviço
   "endpoint": { "protocol": "rest|graphql|websocket|grpc|webhook|sse|event",
                 "method": "POST", "path": "/orders", "request": "…", "response": "…", "auth": "Bearer JWT" } }
-{ "id": "pagamentos", "kind": "system", "label": "Pagamentos",                          // referência a outro diagrama do cofre
+{ "id": "pagamentos", "kind": "system", "label": "Pagamentos",                          // referência a outro diagrama do projeto
   "ref": { "diagram": "pagamentos/checkout.archflow.json", "node": "pay-api" } }          // node é opcional
 ```
 Operações novas: `add_endpoint { owner, protocol?, method?, path?, … }`; `add_node` aceita `endpoint`, `owner` e `ref`. Remover o serviço remove seus endpoints; o layout os empilha sob o dono.
-Rotas novas: `GET /api/diagrams/read?name=` (documento completo) e `GET /api/diagrams/outline?name=` (resumo). Os arquivos do cofre listam `refs[]`; ao renomear/mover diagramas ou pastas o bridge reescreve `ref.diagram` nos demais arquivos.
+Rotas novas: `GET /api/diagrams/read?name=` (documento completo) e `GET /api/diagrams/outline?name=` (resumo). Os arquivos do projeto listam `refs[]`; ao renomear/mover diagramas ou pastas o bridge reescreve `ref.diagram` nos demais arquivos.
 MCP: `add_endpoints`, `get_diagram_outline`, `list_diagrams` (mostra referências).
 
 ### Vocabulário
@@ -104,7 +104,7 @@ MCP: `add_endpoints`, `get_diagram_outline`, `list_diagrams` (mostra referência
 **Fluxo (só modo domain; o papel `decision` não existe aqui, é só do modo logic):** nas conexões `triggers`/`emits`, `ddd.condition` (texto), `ddd.otherwise` (ramo padrão), `ddd.loop { until?, max? }` (a conexão que volta a um passo anterior; exige ao menos um dos dois) e `ddd.foreach` (texto). O rótulo da conexão acompanha o fluxo (`se atraso > 0 · multar`). Ops em diagramas de arquitetura recusam tudo isso.
 **Regras** (`validateDetailed` → `{ rule, severity: erro|aviso|dica, target, message }`): D001 caso de uso sem realização · D002 command sem exatamente um aggregate · D003 evento sem produtor · D004 entity fora/em mais de um aggregate · D005 aggregates ligados por objeto · D006 cruza contextos sem `context-relation` · D007 value-object com identidade · D008 repository inválido · D009 contexto sem aggregate · D010 nomes (dica) · D011 contexto sem ligação com a arquitetura (dica) · D012 nó isolado · D013 application-service com regra de negócio · D014/D015 subdomain · D016 ciclo de `references-by-id` · D017 visão geral × contextos · D018 process-manager · D019 read-model · D020 referência quebrada · D021 extremos incoerentes com a relação (matriz `DDD_REL_PAIRS`) · D022 conexão de infraestrutura ou entre elementos de domínio sem relação · D023 tipo que contradiz a relação · D024 decisão sem 2+ ramos (ou junção sem saída) · D025 ramo de decisão exclusiva sem condição / mais de um senão · D026 decisão exclusiva sem senão · D027 junção com menos de 2 entradas / decisão sem entrada · D028 ciclo por uma decisão sem loop declarado · D029 loop sem condição de parada · D030 loop que não volta a um passo visível (dica) · D031 condição em decisão paralela · D032 fluxo em relação que não é de fluxo.
 **Conectores no modo domain:** o `type` vem da relação e é fixo; `sync`/`async`/`stream`/`data` são recusados pelas ops; sem `ddd`, se só uma relação serve para o par de elementos, a conexão nasce com ela (senão é um tipo UML livre, padrão `association`).
-Operações: `add_node` aceita `ddd` (ou um asset `ddd-*`), `add_group` aceita `subdomain`, `add_connection` aceita `ddd`, `set_meta` aceita `mode`, `layout` aceita `style: "flow" | "timeline"` (timeline = raias de Event Storming, só no modo domain; `ddd.step` ordena os commands). HTTP: `POST /api/diagrams { title, folder?, mode? }`, `GET /api/vault/docs` (todos os diagramas do cofre), `GET /api/schema?mode=`. MCP: `new_diagram { mode }`, `add_use_cases`, `trace`, `domain_overview`, `generate_code` (esqueleto TypeScript por contexto), `auto_layout { style }`; `get_schema_guide`, `list_assets`, `validate_diagram` e `get_diagram` respondem pelo modo do diagrama aberto.
+Operações: `add_node` aceita `ddd` (ou um asset `ddd-*`), `add_group` aceita `subdomain`, `add_connection` aceita `ddd`, `set_meta` aceita `mode`, `layout` aceita `style: "flow" | "timeline"` (timeline = raias de Event Storming, só no modo domain; `ddd.step` ordena os commands). HTTP: `POST /api/diagrams { title, folder?, mode? }`, `GET /api/project/docs` (todos os diagramas do projeto), `GET /api/schema?mode=`. MCP: `new_diagram { mode }`, `add_use_cases`, `trace`, `domain_overview`, `generate_code` (esqueleto TypeScript por contexto), `auto_layout { style }`; `get_schema_guide`, `list_assets`, `validate_diagram` e `get_diagram` respondem pelo modo do diagrama aberto.
 
 ### Assets
 Cada asset: `{ id, name, category, vendor?, kind, icon, color, problem, description, tags[] }`.
@@ -164,27 +164,29 @@ MCP no exe: `Archflow.exe --mcp` (Electron como Node sobre `resources/mcp/archfl
 | GET | `/api/skill` | `SKILL.md` (markdown) |
 | POST | `/api/skill/install` | grava em `~/.claude/skills/archflow/SKILL.md` |
 
-### 5.4 Cofres (vaults) e arquivos
-Cofre = pasta; diagramas = `*.archflow.json` em subpastas; `.archflow/` (oculta) = `vault.json` + `trash/`. Caminhos de diagrama são **relativos ao cofre, com "/"** (ex.: `backend/orders.archflow.json`).
+### 5.4 Projetos e arquivos
+Projeto = pasta; diagramas = `*.archflow.json` em subpastas; harness do modo agents = `.claude/` · `.cursor/` na raiz; `.archflow/` (oculta) = `project.json` + `trash/`. Caminhos de diagrama são **relativos ao projeto, com "/"** (ex.: `backend/orders.archflow.json`).
 
 | Método | Rota | Corpo → Resposta |
 | --- | --- | --- |
-| GET | `/api/workspace` | → `{ vault{id,name,path}, configured, vaults[], current, tree, files[] }` (`tree` = pastas/arquivos aninhados; `files` = lista plana) |
-| POST | `/api/vaults/create` | `{ name, parent }` → cria a pasta (409 se existir) e abre |
-| POST | `/api/vaults/open` · `/switch` · `/remove` | `{ path }` · `{ id }` · `{ id }` (remove só da lista; não apaga a pasta) |
+| GET | `/api/workspace` | → `{ project{id,name,path}, configured, projects[], current, tree, files[] }` (`tree` = pastas/arquivos aninhados; `files` = lista plana) |
+| POST | `/api/projects/create` | `{ name, parent }` → cria a pasta (409 se existir) e abre |
+| POST | `/api/projects/open` · `/switch` · `/remove` | `{ path }` · `{ id }` · `{ id }` (remove só da lista; não apaga a pasta) |
 | POST | `/api/diagrams` | `{ title, folder? }` |
 | POST | `/api/diagrams/open` · `/rename` · `/duplicate` · `/delete` · `/move` | `{ name }` · `{ name, title }` · `{ name }` · `{ name }` · `{ name, folder }` |
 | POST | `/api/folders` · `/rename` · `/delete` | `{ path }` · `{ path, name }` · `{ path }` |
-| GET/POST | `/api/fs/list?path=` · `/api/fs/mkdir` | navegador de pastas (marca pastas que já são cofres) |
+| GET/POST | `/api/fs/list?path=` · `/api/fs/mkdir` | navegador de pastas (marca pastas que já são projetos) |
+| POST | `/api/harness` | `{ target: "claude" \| "cursor" }` → grava o harness do diagrama agents aberto na pasta do projeto; → `{ target, root, files[] }` (422 fora do modo agents) |
 
-SSE ganha `event: workspace` (mesmo payload de `GET /api/workspace`). `PUT /api/doc` envia `file` e recebe **409** se o diagrama ativo mudou. `pristine:true` indica cofre recém-criado, que a UI semeia com o rascunho local.
+SSE ganha `event: workspace` (mesmo payload de `GET /api/workspace`). `PUT /api/doc` envia `file` e recebe **409** se o diagrama ativo mudou. `pristine:true` indica projeto recém-criado, que a UI semeia com o rascunho local.
 Segurança: o bridge recusa (403) requisições cujo `Host`/`Origin` não sejam localhost; valida cada segmento de caminho (sem `..`, sem nomes iniciados por `.`, sem caracteres inválidos); exclusões movem para `.archflow/trash/`.
-MCP: `list_diagrams`, `open_diagram { name }`, `new_diagram { title, folder? }` — sem ferramenta para trocar de cofre (decisão do usuário).
+MCP: `list_diagrams`, `open_diagram { name }`, `new_diagram { title, folder? }` — sem ferramenta para trocar de projeto (decisão do usuário).
+Migração: `config.json` com a lista antiga `vaults[]` vira `projects[]` na primeira abertura, e `.archflow/vault.json` é renomeado para `project.json` (pastas com o nome antigo continuam sendo reconhecidas como projeto).
 
 Exportar imagem: `POST /api/export { format: "svg" | "png", name?, out?, background?, scale?, padding? }`. O bridge envia o evento SSE `export` à janela do app, que renderiza (estilos computados, fontes e imagens embutidos) e responde em `POST /api/export/result { id, data, encoding, w, h }`. Sem `out`, o arquivo vai ao lado do diagrama. Sem janela aberta, responde 409. MCP: `export_image`.
 
 ### 5.5 Backend em memória do navegador (sem bridge)
-Se `GET /api/workspace` falha (ou devolve algo que não seja um workspace — ex.: `index.html` de hospedagem estática), a UI troca `fetch` por `localFetch` (`src/ui/localVault.ts`), que implementa as MESMAS rotas `/api/doc`, `/api/workspace`, `/api/vaults/*`, `/api/diagrams/*` e `/api/folders/*` sobre o IndexedDB (`archflow-local`: chave `meta` + `vault:<id>`), emitindo localmente os eventos `doc` e `workspace`. Rotas de disco (`/api/fs/*`, `/api/vaults/open`) retornam 400. Extra: `POST /api/vaults/import { bundle }` (pacote `archflow-vault/1`). Sem EventSource, MCP ou edição externa. Uma vez em modo local na sessão, não há troca automática para servidor (evita divergência de dados).
+Se `GET /api/workspace` falha (ou devolve algo que não seja um workspace — ex.: `index.html` de hospedagem estática), a UI troca `fetch` por `localFetch` (`src/ui/localProject.ts`), que implementa as MESMAS rotas `/api/doc`, `/api/workspace`, `/api/projects/*`, `/api/diagrams/*` e `/api/folders/*` sobre o IndexedDB (`archflow-local`: chave `meta` + `project:<id>`, migradas de `vault:<id>`), emitindo localmente os eventos `doc` e `workspace`. Rotas de disco (`/api/fs/*`, `/api/projects/open`) retornam 400. Extra: `POST /api/projects/import { bundle }` (pacote `archflow-project/1`; aceita o antigo `archflow-vault/1`). Sem servidor local o harness do modo agents sai como `.zip` gerado no próprio navegador (`src/shared/zip.ts`). Sem EventSource, MCP ou edição externa. Uma vez em modo local na sessão, não há troca automática para servidor (evita divergência de dados).
 
 ## 6. Máquina de estados (UI ↔ bridge)
 

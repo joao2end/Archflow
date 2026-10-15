@@ -21,7 +21,7 @@ Modelar o **domínio** de uma aplicação com DDD, de modo que:
 - `ConnectionEl.ddd = { rel, pattern? }` e `GroupEl.subdomain` (só em grupos `context`).
 - Ids continuam slugs estáveis. Um nó `domain` sem `ddd.role`, ou `ddd` num nó de outro kind, é reportado como aviso estrutural.
 
-### Estrutura no cofre
+### Estrutura no projeto
 Um diagrama por bounded context e um **mapa de contextos** (visão geral), por convenção em `dominio/`:
 
 ```
@@ -105,7 +105,7 @@ Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e 
 | D003 | erro | `domain-event` sem produtor (`producedBy` válido ou `emits` de entrada); eventos `external` são isentos |
 | D004 | erro | `entity` fora de qualquer aggregate (sem caminho de `contains` até uma raiz) ou em mais de um; `aggregate-root` contido em outro |
 | D005 | erro | conexão entre membros de aggregates diferentes que não seja `references-by-id` |
-| D006 | aviso | conexão que cruza contextos sem `context-relation`; `external` fora do formato `contexto.evento`. No cofre (`domain_overview`): evento externo cujo contexto/evento não existe ou sem relação entre os contextos na visão geral |
+| D006 | aviso | conexão que cruza contextos sem `context-relation`; `external` fora do formato `contexto.evento`. No projeto (`domain_overview`): evento externo cujo contexto/evento não existe ou sem relação entre os contextos na visão geral |
 | D007 | aviso | `value-object` com `references-by-id` (entrada ou saída): teria identidade |
 | D008 | erro | `repository` sem `for` ou com `for` que não é `aggregate-root` |
 | D009 | aviso | contexto sem nenhum `aggregate-root` · dica: diagrama de domínio sem elementos DDD (um mapa de contextos não conta como vazio) |
@@ -115,7 +115,7 @@ Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e 
 | D014 | dica | contexto sem `subdomain` |
 | D015 | dica | contexto `generic` com mais de 5 aggregates |
 | D016 | dica | ciclo de `references-by-id` entre aggregates |
-| D017 | aviso | `system` com `ref` para diagrama inexistente (precisa do cofre); no cofre, quando existe uma visão geral: contexto que não aparece nela |
+| D017 | aviso | `system` com `ref` para diagrama inexistente (precisa do projeto); no projeto, quando existe uma visão geral: contexto que não aparece nela |
 | D018 | erro | `process-manager` sem evento de entrada ou sem command de saída |
 | D019 | erro | `read-model` sem evento de origem (`projectsFrom` ou `triggers` de um evento), ou que emite eventos |
 | D020 | erro | campo `ddd` (`realizedBy`, `producedBy`, `for`, `reactsTo`, `issues`, `compensates`, `projectsFrom`) aponta para id inexistente |
@@ -137,7 +137,7 @@ Casos de borda: evento sem consumidor é válido; um use-case pode ser realizado
 
 - **`describe`** (`get_diagram`): contextos → aggregates (entities, value objects, invariantes, commands, eventos, repository) → policies, sagas, serviços, read models → casos de uso com rastreio (`→ criar-pedido → pedido → pedido-criado ✔` ou `✘ sem realização (D001)`) → relações entre contextos → avisos com id de regra → Mermaid. Determinístico ✔.
 - **`trace`**: caminho de um caso de uso até o evento, com os problemas.
-- **`domain_overview`**: todos os diagramas de domínio do cofre: mapa de contextos, aggregates/commands/eventos publicados e consumidos por contexto, % de casos de uso rastreados e avisos (inclui D006/D017 entre diagramas).
+- **`domain_overview`**: todos os diagramas de domínio do projeto: mapa de contextos, aggregates/commands/eventos publicados e consumidos por contexto, % de casos de uso rastreados e avisos (inclui D006/D017 entre diagramas).
 - **`get_schema_guide`** responde pelo modo do diagrama aberto e traz papéis, campos, relações, padrões, convenções e o fluxo recomendado; `list_assets`/`search_assets` também respeitam o modo.
 
 ## 7. Ferramentas
@@ -152,15 +152,15 @@ Casos de borda: evento sem consumidor é válido; um use-case pode ser realizado
 | `add_use_cases` | casos de uso + ator (reaproveitado pelo nome); ids existentes são ignorados (idempotente) |
 | `validate_diagram` | regras D001–D032 |
 | `trace` | caso de uso → command → aggregate → evento |
-| `domain_overview` | visão consolidada do cofre |
+| `domain_overview` | visão consolidada do projeto |
 | `auto_layout` | `style: "timeline"` |
 | `generate_code` | esqueleto TypeScript |
 
-HTTP (bridge e cofre do navegador): `POST /api/diagrams { title, folder?, mode? }`, `GET /api/vault/docs`, `GET /api/schema?mode=`.
+HTTP (bridge e projeto do navegador): `POST /api/diagrams { title, folder?, mode? }`, `GET /api/project/docs`, `GET /api/schema?mode=`.
 
 ## 8. Interface
 
-- **Switch Arch | Domain** na barra superior, ao lado do título: troca o modo na hora, sem diálogo (nada é apagado; Ctrl+Z desfaz) ✔. Ao lado, no modo Domain, o atalho da validação com a contagem de erros/avisos; ele abre a modal **Domínio (DDD)** com três abas: **Validação** (clicável, seleciona o elemento), **Visão geral do cofre** e **Código (TypeScript)**, e o botão *Novo mapa de contextos*. A posição do switch não muda ao alternar ✔.
+- **Switch Arch | Domain** na barra superior, ao lado do título: troca o modo na hora, sem diálogo (nada é apagado; Ctrl+Z desfaz) ✔. Ao lado, no modo Domain, o atalho da validação com a contagem de erros/avisos; ele abre a modal **Domínio (DDD)** com três abas: **Validação** (clicável, seleciona o elemento), **Visão geral do projeto** e **Código (TypeScript)**, e o botão *Novo mapa de contextos*. A posição do switch não muda ao alternar ✔.
 - Explorador: ícone de camadas (e item do menu de contexto) cria diagrama de domínio; a seção **Exemplos** do explorador tem a aba *Domínio* com os exemplos de DDD (e o botão *Exemplos* do estado vazio abre a seção).
 - Biblioteca: no modo domain mostra a categoria *Domain* (um asset por papel), o ator e *Outro diagrama*; "Mostrar também as tecnologias" libera o resto. Em architecture a categoria Domain não aparece.
 - Canvas: elementos coloridos pelo papel com selo (AGG, CMD, EVT…); grupos mostram `CONTEXT · CORE`.
@@ -207,7 +207,7 @@ A lógica fica como TODO (o modelo sabe nomes, invariantes, intenção, eventos 
 
 | Arquivo | Cobre |
 |---|---|
-| `src/shared/domain.test.ts` | schema/ops (rejeições com mensagem acionável), as regras D001–D021 com caso positivo e negativo, rastreio, `describe`, visão geral do cofre, rótulos, `reshapeDdd`, `evaluateDomain` |
+| `src/shared/domain.test.ts` | schema/ops (rejeições com mensagem acionável), as regras D001–D021 com caso positivo e negativo, rastreio, `describe`, visão geral do projeto, rótulos, `reshapeDdd`, `evaluateDomain` |
 | `src/shared/connectors.test.ts` | a matriz de relações, a inferência (`suggestRels`), o tipo fixo pela relação, recusa de infraestrutura nas ops (`add_connection` e `update`), D021, D022, D023 |
 | `src/shared/arch.golden.test.ts` | **regressão**: a saída de arquitetura é idêntica byte a byte à do commit anterior ao modo domínio (`fixtures/arch-golden.json`) |
 | `src/shared/catalog.test.ts` | categoria Domain derivada de `DDD_ROLES`, paleta por modo, `add_node` por asset |
@@ -217,15 +217,15 @@ A lógica fica como TODO (o modelo sabe nomes, invariantes, intenção, eventos 
 | `src/shared/codegen.test.ts` | estrutura e conteúdo; **compila com `tsc --strict`**, inclusive com nomes difíceis |
 | `src/shared/examples.test.ts` | os 5 exemplos: validam sem erros nem avisos, todo caso de uso rastreado, metas de qualidade, cobrem todos os papéis, relações, padrões do Context Map e propriedades, eventos entre contextos existem dos dois lados, arquivos de `examples/` em dia, esqueleto compila, ids citados nos README existem, links relativos da documentação resolvem |
 | `src/shared/evalscript.test.ts` | `eval:domain` (exit 0/1/2) |
-| `server/mcp.e2e.test.ts` | sobe o MCP real com bridge e cofre temporários: casos de uso → modelo → validação → rastreio → timeline → código → visão geral; regras dos conectores via MCP; a skill documenta todas as tools |
+| `server/mcp.e2e.test.ts` | sobe o MCP real com bridge e projeto temporários: casos de uso → modelo → validação → rastreio → timeline → código → visão geral; regras dos conectores via MCP; a skill documenta todas as tools |
 
-A UI foi verificada no navegador com `node scripts/dev-sandbox.mjs` (cofre temporário, portas próprias; configuração `vite-sandbox` em `.claude/launch.json`): criação de diagrama de domínio, paleta, inspetor, troca de relação/padrão, undo, validação clicável, visão geral com dois contextos, layout em linha do tempo, aba de código, switch de modo (posição estável), rótulos completos e a instalação de um exemplo pelo diálogo (mapa de contextos → contexto → backlinks). Não há teste automatizado de UI.
+A UI foi verificada no navegador com `node scripts/dev-sandbox.mjs` (projeto temporário, portas próprias; configuração `vite-sandbox` em `.claude/launch.json`): criação de diagrama de domínio, paleta, inspetor, troca de relação/padrão, undo, validação clicável, visão geral com dois contextos, layout em linha do tempo, aba de código, switch de modo (posição estável), rótulos completos e a instalação de um exemplo pelo diálogo (mapa de contextos → contexto → backlinks). Não há teste automatizado de UI.
 
 ## 13. Limites conhecidos
 
 - A geração de código cobre só TypeScript e não grava em disco (devolve os arquivos; quem chama decide onde salvar).
 - D010 é heurística (português e inglês) e por isso só gera dica.
-- A visão geral consolida diagramas do cofre aberto; não há geração de código nem avaliação para o cofre inteiro de uma vez (rode por diagrama).
+- A visão geral consolida diagramas do projeto aberto; não há geração de código nem avaliação para o projeto inteiro de uma vez (rode por diagrama).
 - Modelos grandes ficam largos na linha do tempo (uma coluna por command).
 - O arquivo `.archflow.json` guarda `ddd` livremente: validação estrita acontece nas ops e no `validate`, não na leitura de arquivos importados.
 
@@ -233,7 +233,7 @@ A UI foi verificada no navegador com `node scripts/dev-sandbox.mjs` (cofre tempo
 
 - [`docs/DDD.md`](DDD.md): guia para quem nunca usou DDD (subdomínios, linguagem ubíqua, bounded context, os 8 padrões do Context Map, cada peça tática com a pergunta que ajuda a decidir, método dos casos de uso ao modelo, regras dos conectores, erros comuns e glossário).
 - [`examples/`](../examples/README.md): 5 exemplos completos em ordem de dificuldade, cada um com mapa de contextos, um diagrama por contexto, o modelo em texto (`modelo.md`, gerado) e um README com a história, como ler, as decisões de modelagem e exercícios: **Biblioteca** (iniciante), **Clínica** e **Loja** (intermediário; a loja inclui o diagrama de arquitetura ligado aos contextos) **Banco** (avançado, com saga de compensação) e **Delivery** (o tour completo: usa todos os recursos do modo Domain).
-- **No app:** explorador → seção *Exemplos* → aba *Domínio* → *Instalar e abrir* cria `exemplos-ddd/<exemplo>/` no cofre aberto, sem sobrescrever nada (se a pasta já existir, só abre). Os exemplos são definidos como ops em `src/shared/examples.ts`; `npm run examples:build` grava os arquivos de `examples/` (e `-- --check` confere).
+- **No app:** explorador → seção *Exemplos* → aba *Domínio* → *Instalar e abrir* cria `exemplos-ddd/<exemplo>/` no projeto aberto, sem sobrescrever nada (se a pasta já existir, só abre). Os exemplos são definidos como ops em `src/shared/examples.ts`; `npm run examples:build` grava os arquivos de `examples/` (e `-- --check` confere).
 - Juntos os exemplos usam os 12 papéis, as 7 relações, os 3 subdomínios e as construções de fluxo (a retentativa da loja é uma policy com ramos condicionais e loop; a biblioteca tem condição e senão; a reserva de estoque itera "para cada item"); padrões do Context Map ilustrados: `customer-supplier`, `partnership`, `shared-kernel` e `published-language` (o `acl` aparece na loja como o tradutor do gateway; `conformist`, `ohs` e `separate-ways` estão explicados em `docs/DDD.md`).
 
 ## Passo a passo na apresentação

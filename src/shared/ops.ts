@@ -227,7 +227,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const owner = op.owner ? doc.nodes.find((n) => n.id === op.owner) : undefined;
       if (op.owner && !owner) return { ok: false, error: `owner "${op.owner}" não é um componente existente` };
       if (owner && owner.kind === "endpoint") return { ok: false, error: "um endpoint não pode ser dono de outro endpoint" };
-      if (op.ref && !op.ref.diagram) return { ok: false, error: "ref.diagram é obrigatório (caminho relativo ao cofre)" };
+      if (op.ref && !op.ref.diagram) return { ok: false, error: "ref.diagram é obrigatório (caminho relativo ao projeto)" };
       const ddd: DddNodeSpec | undefined = op.ddd ?? (asset?.ddd ? { ...asset.ddd } : undefined);
       if (ddd !== undefined || op.kind === "domain") {
         if (docMode(doc) !== "domain") return { ok: false, error: `papéis de domínio (kind "domain" / ddd) só existem em diagramas de modo "domain"; crie o diagrama com new_diagram mode "domain" ou troque o modo em set_diagram_info` };
@@ -1142,7 +1142,7 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
     "`connect` aceita o id de um endpoint em from/to — conecte clientes ao endpoint específico.",
     "",
     "## Referências entre diagramas",
-    'Um componente `kind: "system"` com `ref: { diagram, node? }` aponta para OUTRO diagrama do cofre (e opcionalmente para um componente dele).',
+    'Um componente `kind: "system"` com `ref: { diagram, node? }` aponta para OUTRO diagrama do projeto (e opcionalmente para um componente dele).',
     "Use `list_diagrams` e `get_diagram_outline` para descobrir caminhos e ids antes de referenciar.",
     "",
     "## Fluxo recomendado",

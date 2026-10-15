@@ -1,10 +1,10 @@
 /**
  * Exemplos de DDD (modo Domain) para aprender e para partir de um modelo pronto.
  *
- * Cada exemplo é um conjunto de diagramas de um cofre: um mapa de contextos (visão geral) e um diagrama por bounded context
+ * Cada exemplo é um conjunto de diagramas de um projeto: um mapa de contextos (visão geral) e um diagrama por bounded context
  * (mais, em um deles, a arquitetura que implementa os contextos). Tudo é definido como lista de ops, a mesma linguagem que a UI
  * e o MCP usam, então:
- *   - o app instala os exemplos no cofre do usuário (`exemplos-ddd/<exemplo>/…`);
+ *   - o app instala os exemplos no projeto do usuário (`exemplos-ddd/<exemplo>/…`);
  *   - `scripts/build-examples.ts` grava os mesmos diagramas em `examples/` (arquivos .archflow.json + o texto que a IA lê);
  *   - os testes garantem que todos validam sem erros nem avisos, rastreiam todos os casos de uso e não ficam desatualizados.
  */
@@ -32,7 +32,7 @@ export interface DddExample {
   files: ExampleFile[];
 }
 
-/** Caminho do diagrama dentro do cofre (o mesmo no app e na pasta `examples/`). */
+/** Caminho do diagrama dentro do projeto (o mesmo no app e na pasta `examples/`). */
 export const examplePath = (ex: Pick<DddExample, "id">, file: string) => `${EXAMPLES_DIR}/${ex.id}/${file}.archflow.json`;
 
 /* ───────── helpers de autoria ───────── */
@@ -923,7 +923,7 @@ export function buildExampleDoc(f: ExampleFile, description?: string): Doc {
   return doc;
 }
 
-/** Todos os diagramas de um exemplo, com o caminho que terão no cofre. */
+/** Todos os diagramas de um exemplo, com o caminho que terão no projeto. */
 export function buildExample(ex: DddExample): { path: string; doc: Doc }[] {
   return ex.files.map((f) => {
     const doc = buildExampleDoc(f, f.file === "visao-geral" ? `${ex.title}: mapa de contextos. ${ex.summary}` : undefined);

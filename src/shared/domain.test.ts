@@ -393,7 +393,7 @@ test("schemaGuide: modo domain lista papéis, relações, padrões e convençõe
   assert.ok(!arch.includes("aggregate-root"));
 });
 
-/* ───────── visão geral do cofre ───────── */
+/* ───────── visão geral do projeto ───────── */
 
 test("domainOverview: consolida contextos, mapa, casos de uso e avisos entre diagramas", () => {
   const pedidos = build([...clean(), dn("pagamento-aprovado", { role: "domain-event", external: "pagamentos.pagamento-aprovado" }, "pedidos")]);
@@ -453,7 +453,7 @@ test("domainOverview: diagrama de domínio sem contexto explica o que falta", ()
   assert.match(text, /## Contextos\n- nenhum: crie um grupo kind context/);
 });
 
-test("domainOverview: cofre sem diagramas de domínio", () => {
+test("domainOverview: projeto sem diagramas de domínio", () => {
   assert.match(domainOverview([{ path: "a.archflow.json", doc: build(archOps, "architecture") }]), /Nenhum diagrama de modo `domain`/);
 });
 

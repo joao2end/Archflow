@@ -523,7 +523,7 @@ const FEATURES: { icon: string; title: string; text: string }[] = [
   { icon: "plug", title: "Feito para agentes", text: "Clientes MCP leem e editam o diagrama ao vivo. Você ajusta ou desfaz." },
   { icon: "layers", title: "Modos Domain e Logic", text: "Modele DDD com validação e regras de negócio que o app executa." },
   { icon: "sparkle", title: "Visão LLM e código", text: "Markdown, Mermaid ou JSON para o chat, e esqueleto TypeScript do domínio." },
-  { icon: "vault", title: "Cofre local", text: "Seus diagramas numa pasta sua, versionável no Git. Sem nuvem obrigatória." },
+  { icon: "project", title: "Projeto local", text: "Seus diagramas numa pasta sua, versionável no Git. Sem nuvem obrigatória." },
 ];
 
 function Spot({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -794,7 +794,7 @@ export default function Landing() {
             <h2>
               Pronto para desenhar <i>junto</i>?
             </h2>
-            <p>Abra o app, crie um cofre e comece com o exemplo ou com uma tela em branco.</p>
+            <p>Abra o app, crie um projeto e comece com o exemplo ou com uma tela em branco.</p>
             <div className="lp-cta lp-cta-center">
               <a className="btn primary lg shine" href="/app">
                 Abrir o Archflow

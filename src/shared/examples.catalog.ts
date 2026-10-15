@@ -1,7 +1,7 @@
 /**
  * Catálogo único de exemplos da seção «Exemplos» do app: Arquitetura, Domínio (DDD) e Lógica.
  *
- * Cada exemplo é uma pasta do cofre com um ou mais diagramas. Arquitetura e Domínio saem de listas de ops (código); os
+ * Cada exemplo é uma pasta do projeto com um ou mais diagramas. Arquitetura e Domínio saem de listas de ops (código); os
  * algoritmos de Lógica são arquivos `examples/exemplos-algoritmos/*.archflow.json` (gerados por `scripts/build-algorithms.ts`)
  * e chegam por um carregador, para o app buscá-los só quando a pessoa instalar (não entram no pacote principal).
  */
@@ -15,7 +15,7 @@ export type ExampleLevel = "iniciante" | "intermediário" | "avançado";
 
 export interface CatalogFile {
   title: string;
-  /** caminho que o arquivo tem no cofre depois de instalado */
+  /** caminho que o arquivo tem no projeto depois de instalado */
   path: string;
   mode: DocMode;
   load: () => Doc | Promise<Doc>;

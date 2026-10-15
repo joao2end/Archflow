@@ -6,13 +6,14 @@ import { domainOverview, issueText, type Issue } from "../shared/domain";
 import { NODE_KINDS, docMode, type Asset, type InterfaceKind, type InterfaceOperation, type InterfaceSpec, type NodeKind, type Routing } from "../shared/schema";
 import { ColorPicker } from "./colorpicker";
 import { AssetBadge, Glyph } from "./icons";
-import { FolderModal, QuickSwitcher, VaultsModal } from "./files";
+import { FolderModal, ProjectsModal, QuickSwitcher } from "./files";
 import { McpBody } from "./mcp";
 import { SkillModal } from "./agents";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
-import { allKnownAssets, fetchVaultDocs, getState, lookupAsset, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
+import { HARNESS_TARGETS, allKnownAssets, exportHarness, fetchProjectDocs, getState, harnessFiles, lookupAsset, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
+import type { HarnessTarget } from "../shared/agentgen";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -376,7 +377,7 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
   useEffect(() => {
     if (tab !== "overview" || mode !== "domain") return;
     setErr("");
-    fetchVaultDocs().then(
+    fetchProjectDocs().then(
       (files) => {
         const s = getState();
         setOverview(domainOverview(files.map((f) => (f.path === s.file ? { ...f, doc: s.doc } : f))));
@@ -414,7 +415,7 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
         ) : undefined
       }
     >
-      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação das regras de DDD, visão geral dos contextos do cofre e esqueleto de código. O modo (Arch | Domain) é trocado no switch da barra superior.</p>
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação das regras de DDD, visão geral dos contextos do projeto e esqueleto de código. O modo (Arch | Domain) é trocado no switch da barra superior.</p>
       {mode === "domain" && (
         <>
           <div className="tabs seg" role="tablist">
@@ -422,7 +423,7 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
               Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
             </button>
             <button role="tab" aria-selected={tab === "overview"} className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
-              Visão geral do cofre
+              Visão geral do projeto
             </button>
             <button role="tab" aria-selected={tab === "code"} className={tab === "code" ? "active" : ""} onClick={() => setTab("code")}>
               Código (TypeScript)
@@ -528,30 +529,46 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" | "code" }) {
 
 /* ───────── agents: validação e descrição (texto para IA) ───────── */
 
-function AgentsModal({ tab: initial }: { tab?: "issues" | "text" }) {
+function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) {
   const doc = useStore((s) => s.doc);
-  const [tab, setTab] = useState<"issues" | "text">(initial ?? "issues");
+  const storage = useStore((s) => s.storage);
+  const project = useStore((s) => s.workspace?.project);
+  const [tab, setTab] = useState<"issues" | "text" | "harness">(initial ?? "issues");
+  const [target, setTarget] = useState<HarnessTarget>("claude");
   const issues = useDomainIssues();
-  const text = tab === "text" ? describe(doc) : issues.map(issueText).join("\n");
+  const files = useMemo(() => (tab === "harness" ? harnessFiles(target) : []), [tab, target, doc]);
+  const text = tab === "text" ? describe(doc) : tab === "harness" ? filesToMarkdown(files) : issues.map(issueText).join("\n");
   const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
+  const onDisk = storage === "server";
+  const root = HARNESS_TARGETS.find((t) => t.id === target)!.root;
   return (
     <Modal
       wide
       title="Agents"
       onClose={close}
       foot={
-        <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
-          <Glyph name="copy" size={16} /> Copiar
-        </button>
+        <>
+          {tab === "harness" && (
+            <button className="btn primary" style={{ marginRight: "auto" }} disabled={!files.length} onClick={() => void exportHarness(target)} data-tip={onDisk ? `Grava ${root}/ dentro da pasta do projeto aberto` : "Baixa um .zip com a árvore pronta"} data-tip-pos="top">
+              <Glyph name="download" size={16} /> {onDisk ? "Gravar no projeto" : "Baixar .zip"}
+            </button>
+          )}
+          <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+            <Glyph name="copy" size={16} /> Copiar
+          </button>
+        </>
       }
     >
-      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação do time de agentes e skills. A aba Texto é o que uma IA (ou você) lê para entender o time antes de gerar o harness.</p>
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação do time de agentes e skills. A aba Texto é o que uma IA (ou você) lê para entender o time; a aba Harness exporta os arquivos que o Claude Code ou o Cursor leem.</p>
       <div className="tabs seg" role="tablist">
         <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
           Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
         </button>
         <button role="tab" aria-selected={tab === "text"} className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>
           Texto (para IA)
+        </button>
+        <button role="tab" aria-selected={tab === "harness"} className={tab === "harness" ? "active" : ""} onClick={() => setTab("harness")}>
+          Harness
         </button>
       </div>
       {tab === "issues" &&
@@ -571,6 +588,23 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" }) {
           <div className="callout">Nenhum problema encontrado neste time.</div>
         ))}
       {tab === "text" && <pre className="code">{text}</pre>}
+      {tab === "harness" && (
+        <>
+          <div className="seg" role="radiogroup" aria-label="Ferramenta de destino" style={{ marginBottom: 10 }}>
+            {HARNESS_TARGETS.map((t) => (
+              <button key={t.id} role="radio" aria-checked={target === t.id} className={target === t.id ? "active" : ""} onClick={() => setTarget(t.id)}>
+                {t.label} <code style={{ opacity: 0.7 }}>{t.root}/</code>
+              </button>
+            ))}
+          </div>
+          <div className="callout">
+            {onDisk
+              ? <>Grava <code>{root}/agents/</code> e <code>{root}/skills/</code> dentro de <code>{project?.path}</code> — é lá que o {HARNESS_TARGETS.find((t) => t.id === target)!.label} procura. Os arquivos gerados antes são sobrescritos.</>
+              : <>Sem servidor local, o harness sai como <code>.zip</code> com a árvore <code>{root}/</code> pronta: descompacte na raiz do seu repositório. Rode <code>npm run dev</code> para gravar direto no projeto.</>}
+          </div>
+          {files.length ? <pre className="code">{text}</pre> : <div className="callout warn">Nada a exportar: o time precisa de pelo menos um agente, ou de uma skill no grupo Global (ou ligada a um agente por <code>uses-skill</code>).</div>}
+        </>
+      )}
     </Modal>
   );
 }
@@ -603,7 +637,7 @@ function HelpModal() {
   const groups: [string, [string, string][]][] = [
     ["Montar o diagrama", [["B", "Biblioteca"], ["/", "Buscar asset"], ["G", "Grupo"], ["C", "Conector"], ["N", "Nota"], ["Duplo clique", "Renomear · editar interface"], ["Shift+clique", "Selecionar vários"]]],
     ["Editar", [["Ctrl+Z / Y", "Desfazer / refazer"], ["Ctrl+D", "Duplicar"], ["Ctrl+C / X / V", "Copiar · recortar · colar componentes e notas"], ["Ctrl+A", "Selecionar tudo"], ["Del", "Excluir"], ["Setas", "Mover seleção (Shift = 10×)"], ["Tab / Shift+Tab", "Selecionar próximo / anterior componente"]]],
-    ["Navegar", [["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["F / Shift+F", "Ajustar à tela / ajustar à seleção"], ["Ctrl + / − / 0", "Zoom: aproximar · afastar · 100%"], ["Ctrl+roda", "Zoom"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (cofre)"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Esc", "Cancelar / fechar"]]],
+    ["Navegar", [["V", "Selecionar"], ["H / Espaço", "Mover tela"], ["F / Shift+F", "Ajustar à tela / ajustar à seleção"], ["Ctrl + / − / 0", "Zoom: aproximar · afastar · 100%"], ["Ctrl+roda", "Zoom"], ["Ctrl+O", "Busca rápida de diagramas"], ["E", "Explorador de arquivos (projeto)"], ["Botão direito", "Em um componente: inspecionar o fluxo ligado a ele (Esc sai)"], ["Esc", "Cancelar / fechar"]]],
     ["Desenhar e anotar", [["D · M · X · W · I", "Caneta · marca-texto · borracha · texto · lista"]]],
     ["Aparência", [["L / Shift+L", "Auto-layout: abre a configuração (horizontal / vertical)"], ["T", "Alternar tema (auto/claro/escuro)"], ["A", "Animações on/off"]]],
     ["Apresentar", [["P", "Modo apresentação (V navegar · P caneta · H marca-texto · L laser · X limpar · Espaço pausa o cronômetro)"]]],
@@ -854,8 +888,8 @@ export function Modals() {
       return <DddGuideModal />;
     case "layout":
       return <LayoutModal key={m.direction} direction={m.direction} />;
-    case "vaults":
-      return <VaultsModal />;
+    case "projects":
+      return <ProjectsModal />;
     case "quick":
       return <QuickSwitcher />;
     case "diagram-view":

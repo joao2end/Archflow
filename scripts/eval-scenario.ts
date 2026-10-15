@@ -1,7 +1,7 @@
 /**
  * JEV aplicado aos CENÁRIOS (criação e posicionamento), em cima dos diagramas Logic.
  *
- *   npm run eval:scenario                    # exemplos + cofre (examples/exemplos-logic, diagrams)
+ *   npm run eval:scenario                    # exemplos + projeto (examples/exemplos-logic, diagrams)
  *   npm run eval:scenario -- <arquivo|pasta> # só o que for passado
  *
  *  - Executor: cada pergunta/atrito que quem cria ou lê um cenário teria (campos vazios, nome genérico, entrada faltando).

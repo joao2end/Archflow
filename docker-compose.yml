@@ -5,7 +5,7 @@ services:
     expose:
       - "7077"
     environment:
-      ARCHFLOW_PUBLIC: "1" # só estático: cada visitante usa o cofre do próprio navegador
+      ARCHFLOW_PUBLIC: "1" # só estático: cada visitante usa o projeto do próprio navegador
       ARCHFLOW_ALLOWED_HOSTS: archflow.2end.online,archflow.2-end.online
     volumes:
       - archflow-data:/data

@@ -520,7 +520,7 @@ export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolea
   // D017 consistência da visão geral (precisa saber quais diagramas existem)
   if (opts.exists) {
     for (const n of doc.nodes) {
-      if (n.kind === "system" && n.ref?.diagram && !opts.exists(n.ref.diagram)) add("D017", "aviso", `${quote(m, n.id)} referencia o diagrama "${n.ref.diagram}", que não existe no cofre`, n.id);
+      if (n.kind === "system" && n.ref?.diagram && !opts.exists(n.ref.diagram)) add("D017", "aviso", `${quote(m, n.id)} referencia o diagrama "${n.ref.diagram}", que não existe no projeto`, n.id);
     }
   }
 
@@ -787,19 +787,19 @@ export function describeDomain(doc: Doc, issues: Issue[]): string {
   return L.join("\n");
 }
 
-/* ───────────────────────── visão geral do cofre ───────────────────────── */
+/* ───────────────────────── visão geral do projeto ───────────────────────── */
 
-export interface VaultDomainFile {
+export interface ProjectDomainFile {
   path: string;
   doc: Doc;
 }
 
-/** Resumo consolidado de todos os diagramas `domain` do cofre. Somente leitura; nada é gravado. */
-export function domainOverview(files: VaultDomainFile[]): string {
+/** Resumo consolidado de todos os diagramas `domain` do projeto. Somente leitura; nada é gravado. */
+export function domainOverview(files: ProjectDomainFile[]): string {
   const domain = files.filter((f) => docMode(f.doc) === "domain").sort((a, b) => a.path.localeCompare(b.path));
   const exists = (p: string) => files.some((f) => f.path === p);
   const L: string[] = ["# Visão geral do domínio", ""];
-  if (!domain.length) return L.concat("Nenhum diagrama de modo `domain` neste cofre. Crie um com `new_diagram` (mode: domain).").join("\n");
+  if (!domain.length) return L.concat("Nenhum diagrama de modo `domain` neste projeto. Crie um com `new_diagram` (mode: domain).").join("\n");
 
   const overviewFiles = domain.filter((f) => f.doc.connections.some((c) => c.ddd?.rel === "context-relation"));
   const ctxFiles = domain.filter((f) => f.doc.groups.some((g) => g.kind === "context"));
@@ -807,12 +807,12 @@ export function domainOverview(files: VaultDomainFile[]): string {
   const allIssues: { path: string; issue: Issue }[] = [];
   for (const f of domain) for (const i of domainIssues(f.doc, { exists })) allIssues.push({ path: f.path, issue: i });
 
-  // D017 (cofre): contextos × visão geral
+  // D017 (projeto): contextos × visão geral
   if (overviewFiles.length) {
     for (const f of ctxFiles) if (!overviewFiles.includes(f) && !referencedByOverview.has(f.path)) allIssues.push({ path: f.path, issue: { rule: "D017", severity: "aviso", message: `diagrama de contexto "${f.path}" não aparece na visão geral` } });
   }
-  // D006 (cofre): evento externo exige relação entre os contextos
-  const ctxIdOf = (f: VaultDomainFile) => f.doc.groups.find((g) => g.kind === "context")?.id;
+  // D006 (projeto): evento externo exige relação entre os contextos
+  const ctxIdOf = (f: ProjectDomainFile) => f.doc.groups.find((g) => g.kind === "context")?.id;
   const relPairs = new Set<string>();
   for (const f of overviewFiles) {
     for (const c of f.doc.connections) {
@@ -842,7 +842,7 @@ export function domainOverview(files: VaultDomainFile[]): string {
       if (!ext || !/^[^.\s]+\.[^.\s]+$/.test(ext)) continue;
       const other = ext.split(".")[0];
       const producer = ctxFiles.find((x) => ctxIdOf(x) === other);
-      if (!producer) allIssues.push({ path: f.path, issue: { rule: "D006", severity: "aviso", message: `evento externo "${ext}": o contexto "${other}" não existe no cofre`, target: n.id } });
+      if (!producer) allIssues.push({ path: f.path, issue: { rule: "D006", severity: "aviso", message: `evento externo "${ext}": o contexto "${other}" não existe no projeto`, target: n.id } });
       else if (!producer.doc.nodes.some((e) => e.id === ext.split(".")[1] && e.ddd?.role === "domain-event")) allIssues.push({ path: f.path, issue: { rule: "D006", severity: "aviso", message: `evento externo "${ext}": o contexto "${other}" não publica o evento "${ext.split(".")[1]}"`, target: n.id } });
       else if (me && !relPairs.has(`${me}|${other}`)) allIssues.push({ path: f.path, issue: { rule: "D006", severity: "aviso", message: `evento externo "${ext}" consumido sem relação entre os contextos "${me}" e "${other}" na visão geral`, target: n.id } });
     }
@@ -915,7 +915,7 @@ export function schemaGuideDomain(): string {
     "- `invariants` (aggregate-root, entity, value-object, command): lista de textos livres, um por item, só DOCUMENTAL: o app não executa nem confere. Em aggregate, entity e value-object são as regras que sempre valem; no command, as condições para ele ser aceito. Viram comentário no código gerado e aparecem na história do caso de uso.",
     "- `step` (só command): número que ordena os commands no `auto_layout` `timeline` (menor primeiro; sem `step`, vai para o fim na ordem de criação). Não tem outro efeito e não existe em evento.",
     "- `actor` (use-case): TEXTO livre com quem executa (o nome do papel). Aparece no cartão, na descrição e na tabela do código. Não é uma ligação: para desenhar o ator, crie um componente `kind: \"actor\"` e ligue-o ao use-case por `association`; os dois são independentes (o app não confere se combinam).",
-    "- `external` (domain-event): `\"contexto.evento\"` = o id do grupo `context` do OUTRO diagrama + o id do evento nele; a visão geral do cofre confere se os dois existem (D006).",
+    "- `external` (domain-event): `\"contexto.evento\"` = o id do grupo `context` do OUTRO diagrama + o id do evento nele; a visão geral do projeto confere se os dois existem (D006).",
     "- `subdomain` (grupo context): `core`, `supporting` ou `generic`. É informativo: aparece na descrição, falta dá a dica D014 e um `generic` com mais de 5 aggregates dá a dica D015.",
     "",
     "## Qual elemento usar (quando dois parecem servir)",

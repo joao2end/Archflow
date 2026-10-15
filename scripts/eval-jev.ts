@@ -1,9 +1,9 @@
 /**
  * Modelo JEV (Juiz · Executor · Verificador) sobre os três algoritmos de referência (simples, médio, complexo)
- * ou sobre diagramas Logic do cofre. Critério de aceite: poucas perguntas em aberto e clareza/representatividade ≥ 8.
+ * ou sobre diagramas Logic do projeto. Critério de aceite: poucas perguntas em aberto e clareza/representatividade ≥ 8.
  *
  *   npm run eval:jev                          # os três casos de referência
- *   npm run eval:jev -- <arquivo|pasta> …     # diagramas do cofre (sem oráculo: só Executor e Juiz)
+ *   npm run eval:jev -- <arquivo|pasta> …     # diagramas do projeto (sem oráculo: só Executor e Juiz)
  *
  * Sai com 1 se algum diagrama não for adequado.
  */

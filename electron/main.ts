@@ -1,5 +1,5 @@
 /**
- * Archflow Desktop — casca Electron: sobe o bridge embutido (cofres em disco + MCP)
+ * Archflow Desktop — casca Electron: sobe o bridge embutido (projetos em disco + MCP)
  * e abre a interface numa janela própria.
  */
 import { app, BrowserWindow, shell } from "electron";

@@ -11,7 +11,7 @@ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const nameOf = (p: string) => p.split("/").pop()?.replace(".archflow.json", "") ?? p;
 
 /**
- * Visualizador (somente leitura) de outro diagrama do cofre, em modal.
+ * Visualizador (somente leitura) de outro diagrama do projeto, em modal.
  * Clicar numa referência dentro dele carrega o diagrama seguinte no próprio modal;
  * as setas ← → percorrem o histórico de navegação do modal.
  */

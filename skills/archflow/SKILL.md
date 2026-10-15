@@ -1,6 +1,6 @@
 ---
 name: archflow
-description: Desenha e edita diagramas de arquitetura de software no Archflow (quadro branco com MCP). Use quando o usuário pedir para desenhar, documentar, revisar ou evoluir uma arquitetura — serviços, bancos, filas, APIs, endpoints, fronteiras de nuvem/rede — ou mencionar Archflow, "diagrama de arquitetura", cofre de diagramas ou as tools add_components/connect/auto_layout. Também modela o DOMÍNIO com DDD (bounded contexts, aggregates, commands, eventos, casos de uso, context map): use quando o usuário falar de DDD, domínio, casos de uso, event storming ou pedir para transformar requisitos em modelo. Também modela REGRAS DE NEGÓCIO como fluxo executável (modo logic: regras em ordem, decisões, laços, dados e exemplos que o app executa): use quando o usuário falar de regra de negócio, engine de preço/cálculo, fluxo de decisão, elegibilidade, "se… então…" ou pedir exemplos verificáveis.
+description: Desenha e edita diagramas de arquitetura de software no Archflow (quadro branco com MCP). Use quando o usuário pedir para desenhar, documentar, revisar ou evoluir uma arquitetura — serviços, bancos, filas, APIs, endpoints, fronteiras de nuvem/rede — ou mencionar Archflow, "diagrama de arquitetura", projeto de diagramas ou as tools add_components/connect/auto_layout. Também modela o DOMÍNIO com DDD (bounded contexts, aggregates, commands, eventos, casos de uso, context map): use quando o usuário falar de DDD, domínio, casos de uso, event storming ou pedir para transformar requisitos em modelo. Também modela REGRAS DE NEGÓCIO como fluxo executável (modo logic: regras em ordem, decisões, laços, dados e exemplos que o app executa): use quando o usuário falar de regra de negócio, engine de preço/cálculo, fluxo de decisão, elegibilidade, "se… então…" ou pedir exemplos verificáveis.
 ---
 
 # Archflow — como diagramar arquitetura via MCP
@@ -11,7 +11,7 @@ O Archflow é um quadro branco de arquitetura. O usuário vê o diagrama numa ja
 
 1. As tools do servidor MCP `archflow` precisam estar disponíveis (`get_schema_guide`, `add_components`, `connect`…). Se não estiverem, peça ao usuário para conectar o MCP pelo botão **MCP** do app e reiniciar o cliente.
 2. O app abre sozinho quando o servidor MCP inicia. Se uma tool falhar com erro de conexão, peça para abrir o Archflow e tente de novo.
-3. Todas as tools editam o **diagrama aberto** no momento. Chame `list_diagrams` para saber qual é e o que existe no cofre (vault).
+3. Todas as tools editam o **diagrama aberto** no momento. Chame `list_diagrams` para saber qual é e o que existe no projeto (a pasta aberta pelo usuário, com os diagramas e, no modo agents, o harness).
 
 ## Fluxo recomendado (siga a ordem)
 
@@ -47,9 +47,9 @@ Agrupe chamadas: cada tool aceita **listas** (`components`, `connections`…) �
 | `set_presentation` | Roteiro de slides do modo architecture: `steps` com `title`, `text` (o que falar) e `focus` (ids de componentes, grupos, conexões ou notas). Lista vazia apaga. |
 | `validate_diagram` | Aponta referências quebradas e componentes isolados. |
 | `clear_diagram` | **Destrutivo.** Só com pedido explícito do usuário. |
-| `list_diagrams` · `open_diagram` · `new_diagram` · `get_diagram_outline` | Navegar o cofre: listar, abrir, criar (opcionalmente em subpasta, com `mode`: architecture, domain ou logic) e resumir outro diagrama sem abri-lo. |
+| `list_diagrams` · `open_diagram` · `new_diagram` · `get_diagram_outline` | Navegar o projeto: listar, abrir, criar (opcionalmente em subpasta, com `mode`: architecture, domain ou logic) e resumir outro diagrama sem abri-lo. |
 | `export_image` | Grava o diagrama como `svg`, `png` ou `both`, idêntico à tela (fontes embutidas). Sem `out`, fica ao lado do `.archflow.json`; `name` exporta outro diagrama. Precisa do app aberto. |
-| `add_use_cases` · `trace` · `domain_overview` · `generate_code` | **Modo domain**: criar casos de uso, rastreá-los até o evento, ver o domínio inteiro do cofre e gerar o esqueleto de código. Ver a seção abaixo. |
+| `add_use_cases` · `trace` · `domain_overview` · `generate_code` | **Modo domain**: criar casos de uso, rastreá-los até o evento, ver o domínio inteiro do projeto e gerar o esqueleto de código. Ver a seção abaixo. **Modo agents**: `generate_code` gera o harness do time (`target` claude ou cursor); com `write: true` grava `.claude/` ou `.cursor/` na pasta do projeto aberto. |
 | `add_components` com `logic` · `connect` com `logic` | **Modo logic**: passos do fluxo (`logic.role`) e saídas das setas (`logic.branch` / `logic.case`). Ver a seção "Modo logic". |
 
 Resources: `archflow://diagram` (diagrama atual em markdown), `archflow://schema` (guia do schema) e `archflow://skill` (este guia).
@@ -77,7 +77,7 @@ Com `asset`, o `kind` já vem do catálogo — não repita.
 
 Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio) ou `logic` (as regras do negócio, ver mais abaixo). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
 
-Estrutura no cofre: **um diagrama por bounded context** + um **mapa de contextos** (visão geral), tudo em `dominio/`.
+Estrutura no projeto: **um diagrama por bounded context** + um **mapa de contextos** (visão geral), tudo em `dominio/`.
 
 Fluxo (casos de uso → projeto DDD):
 1. `new_diagram` com `mode: "domain"` por contexto (e um `Visão geral`). **Confirme com o usuário os contextos e o subdomain** (core, supporting, generic) antes de criar: é decisão dele, a heurística é só sugestão.
@@ -85,14 +85,14 @@ Fluxo (casos de uso → projeto DDD):
 3. `add_components` com `ddd: { role, ... }` (kind vira `domain`): `aggregate-root`, `entity`, `value-object`, `command`, `domain-event`, `policy`, `repository`, `domain-service`, `application-service`, `read-model`, `process-manager`. Cada papel aceita só os seus campos (a tool recusa o resto e diz quais valem).
 4. `connect` com `ddd: { rel }` — **sem `type`**: ele vem da relação (sync/async/stream/data não existem no modo domain). Relações e quem elas ligam: `contains` (aggregate/entity → entity/value-object), `triggers` (command → aggregate-root; evento → policy/saga/read-model; policy/saga → command), `emits` (command/aggregate/saga → evento), `realizes` (command/serviço → use-case), `uses` (command/policy/saga/serviço → domain-service/repository), `references-by-id` (aggregate → OUTRO aggregate, nunca por objeto) e `context-relation` + `pattern` entre contextos (`from` = upstream). Se você omitir `ddd` e só uma relação servir para o par, a conexão já nasce com ela; ator → caso de uso é `association`. Combinação inválida = aviso D021/D022 com a sugestão do que serve.
 5. `validate_diagram` e `trace`: corrija os **erros** (D001 caso de uso sem command, D002 command sem aggregate, D003 evento sem produtor, D004/D005 aggregates, D008 repository) antes de responder; `aviso` e `dica` informam. Diga ao usuário o que você inferiu e o que ficou sem resolver.
-6. `auto_layout` com `style: "timeline"` (raias: ator → caso de uso → command → aggregate → evento → policy → read model → estrutura; commands na ordem de `ddd.step`). Num mapa de contextos use `kind: "system"` + `ref` para cada contexto e `context-relation` entre eles; `domain_overview` consolida o cofre.
+6. `auto_layout` com `style: "timeline"` (raias: ator → caso de uso → command → aggregate → evento → policy → read model → estrutura; commands na ordem de `ddd.step`). Num mapa de contextos use `kind: "system"` + `ref` para cada contexto e `context-relation` entre eles; `domain_overview` consolida o projeto.
 7. Se o usuário quiser código: `validate_diagram` limpo e então `generate_code` (TypeScript): devolve os arquivos em Markdown (um diretório por contexto, application → domain, lógica como TODO) para você gravar no projeto dele. Não invente a lógica: o que o modelo não sabe fica como TODO.
 
 Heurísticas (sempre como sugestão, marque em `description`): verbo no imperativo = command; fato no passado = evento; substantivo com identidade = entity; sem identidade = value-object. Commands e eventos têm nomes diferentes (`criar-pedido` / `pedido-criado`). Ao retomar um diagrama que o usuário editou, **releia com `get_diagram` e reutilize os ids**; não recrie o que existe.
 
 **Condições, loops e iteração (só modo domain):** não existe `decision` no modo domain (ela é só do modo logic). Para escolher um caminho, a `policy` (ou saga) que reage ao evento liga-se por `triggers` a mais de um command, cada ramo com `ddd.condition` (ou `ddd.otherwise` para o *senão*); ramos sem condição seguem todos (paralelo). Para modelar uma espera por vários eventos, use um `process-manager` com todos em `reactsTo` (o app só documenta a espera; `reactsTo` é a lista de eventos a que policy e saga reagem). Command com dois desfechos: duas conexões `emits`, uma com `condition` e outra com `otherwise`. **Loop**: a conexão que VOLTA a um passo anterior leva `ddd.loop: { until, max }` (sem parada é erro D029). **Iteração**: `ddd.foreach`. Regras D025 a D032 (ramos condicionais com condição ou senão, ciclo por nó condicional exige loop). Nada disso existe no modo architecture.
 
-Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do cofre do usuário (seção *Exemplos* do explorador, aba Domínio) ou `examples/` do projeto (biblioteca, clínica, loja, banco); o guia conceitual é `docs/DDD.md`. Ao explicar DDD ao usuário, use um deles como referência concreta.
+Exemplos prontos para consultar ou instalar: pasta `exemplos-ddd/` do projeto do usuário (seção *Exemplos* do explorador, aba Domínio) ou `examples/` do projeto (biblioteca, clínica, loja, banco); o guia conceitual é `docs/DDD.md`. Ao explicar DDD ao usuário, use um deles como referência concreta.
 
 ## Modo logic: regras de negócio como fluxo executável
 
@@ -127,7 +127,7 @@ Modelo pronto para consultar: `examples/exemplos-logic/` (engine de precificaç�
 
 ## Vários diagramas e referências
 
-Sistemas grandes viram vários diagramas no mesmo cofre (uma visão geral + um por contexto).
+Sistemas grandes viram vários diagramas no mesmo projeto (uma visão geral + um por contexto).
 1. `list_diagrams` para ver caminhos (ex.: `pagamentos/checkout.archflow.json`).
 2. `get_diagram_outline` para ver componentes de outro diagrama **sem abri-lo**.
 3. Na visão geral, crie um componente `kind: "system"` com `ref: { diagram: "<caminho>", node: "<id opcional>" }`.

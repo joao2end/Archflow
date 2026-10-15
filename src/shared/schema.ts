@@ -41,7 +41,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   infra: "Infraestrutura, plataforma, CI/CD, observabilidade",
   library: "Biblioteca, framework ou linguagem",
   endpoint: "Ponto de comunicação de um serviço (endpoint REST, canal WebSocket, operação GraphQL, método gRPC, webhook, evento)",
-  system: "Sistema descrito em OUTRO diagrama do cofre (referência, campo `ref`)",
+  system: "Sistema descrito em OUTRO diagrama do projeto (referência, campo `ref`)",
   domain: "Elemento do modelo de domínio (DDD): o papel (aggregate-root, command, domain-event...) está em `ddd.role`. Só existe em diagramas de modo `domain`",
   logic: "Elemento da lógica de negócio: o papel (action, decision, input, output, variable, scenario…) está em `logic.role`. Só existe em diagramas de modo `logic`",
   agent: "Agente de IA ou skill: o papel (agent, skill) está em `agent.role`. Só existe em diagramas de modo `agents`",
@@ -695,7 +695,7 @@ export interface Box {
 }
 
 export interface DiagramRef {
-  /** caminho do diagrama relativo ao cofre, ex.: "pagamentos/checkout.archflow.json" */
+  /** caminho do diagrama relativo ao projeto, ex.: "pagamentos/checkout.archflow.json" */
   diagram: string;
   /** id de um componente dentro do diagrama referenciado */
   node?: string;
@@ -712,7 +712,7 @@ export interface NodeEl extends Base, Box {
   endpoint?: EndpointSpec;
   /** id do serviço que EXPÕE este endpoint; ele é desenhado preso ao serviço */
   owner?: string;
-  /** referência a outro diagrama do cofre (kind "system"), opcionalmente a um componente dele */
+  /** referência a outro diagrama do projeto (kind "system"), opcionalmente a um componente dele */
   ref?: DiagramRef;
   /** metadados livres chave→valor (porta, versão, SLA, ...) */
   props?: Record<string, string>;

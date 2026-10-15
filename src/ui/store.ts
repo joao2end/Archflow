@@ -4,6 +4,8 @@ import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type Op
 import { buildCatalog, type CatalogExample } from "../shared/examples.catalog";
 import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shared/logic";
 import { catalogEntryToSource, resolveSkillSource, type SkillCatalogEntry } from "../shared/skillcatalog";
+import { generateHarness, type HarnessTarget } from "../shared/agentgen";
+import { zip } from "../shared/zip";
 import { AGENT_RELS, emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
 /** Estilos padrão dos próximos elementos (padrão Excalidraw), persistidos em prefs. */
 export interface ElementDefaults {
@@ -62,13 +64,13 @@ export type Modal =
   | { type: "llm" }
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
   | { type: "logic"; tab?: "issues" | "text" }
-  | { type: "agents"; tab?: "issues" | "text" }
+  | { type: "agents"; tab?: "issues" | "text" | "harness" }
   | { type: "skill"; id: string; tab?: "catalog" | "write" }
   | { type: "ddd-guide" }
   | { type: "mcp" }
   | { type: "help" }
   | { type: "layout"; direction: "LR" | "TB" }
-  | { type: "vaults" }
+  | { type: "projects" }
   | { type: "quick" }
   | { type: "diagram-view"; diagram: string; node?: string }
   | { type: "folder"; purpose: "open" | "create"; name?: string }
@@ -93,16 +95,16 @@ export interface FolderNode {
   path: string;
   children: (FolderNode | FileNode)[];
 }
-export interface VaultInfo {
+export interface ProjectInfo {
   id: string;
   name: string;
   path: string;
   exists?: boolean;
 }
 export interface Workspace {
-  vault: VaultInfo;
+  project: ProjectInfo;
   configured: boolean;
-  vaults: VaultInfo[];
+  projects: ProjectInfo[];
   current: string;
   tree: FolderNode;
   files: FileNode[];
@@ -632,7 +634,7 @@ function adoptRemote(doc: Doc, rev: number, source: string, file?: string) {
 }
 
 /** `fetch` das rotas /api: servidor local quando disponível; senão, o backend em memória do navegador. */
-let localMod: typeof import("./localVault") | null = null;
+let localMod: typeof import("./localProject") | null = null;
 const apiFetch = (path: string, init?: RequestInit) => (state.storage === "local" && localMod ? localMod.localFetch(path, init) : fetch(path, init));
 
 async function pushNow() {
@@ -676,15 +678,15 @@ const flushPush = async () => {
   if (state.online && state.docSource === "local") await pushNow();
 };
 
-/** Instala a fonte com `npx skills add` (no cofre em disco) e grava as skills no catálogo local. */
-export async function installGithubSkills(repo: string, skillPath: string): Promise<{ installed: SkillCatalogEntry[]; vault?: string }> {
-  const j = await call<{ installed?: SkillCatalogEntry[]; vault?: string }>("/api/skills/install", { repo, skillPath });
+/** Instala a fonte com `npx skills add` (no projeto em disco) e grava as skills no catálogo local. */
+export async function installGithubSkills(repo: string, skillPath: string): Promise<{ installed: SkillCatalogEntry[]; project?: string }> {
+  const j = await call<{ installed?: SkillCatalogEntry[]; project?: string }>("/api/skills/install", { repo, skillPath });
   const installed = (j.installed ?? []).filter((e) => e?.id && e.repo && e.skillPath && e.body);
   if (installed.length) saveCatalogSkills(installed);
-  return { installed, vault: j.vault };
+  return { installed, project: j.project };
 }
 
-export const fsList = (path?: string) => call<{ path: string; parent: string | null; home: string; dirs: { name: string; path: string; archflow: number; vault: boolean }[]; files?: number; vault?: boolean }>("/api/fs/list" + (path ? `?path=${encodeURIComponent(path)}` : ""));
+export const fsList = (path?: string) => call<{ path: string; parent: string | null; home: string; dirs: { name: string; path: string; archflow: number; project: boolean }[]; files?: number; project?: boolean }>("/api/fs/list" + (path ? `?path=${encodeURIComponent(path)}` : ""));
 export const fsMkdir = (path: string) => call("/api/fs/mkdir", { path });
 
 const reload = async (path: string, body: unknown) => {
@@ -714,7 +716,7 @@ export const goBack = () =>
     return reload("/api/diagrams/open", { name: prev });
   });
 
-/** Lê o diagrama completo de outro arquivo do cofre (para o visualizador em modal). */
+/** Lê o diagrama completo de outro arquivo do projeto (para o visualizador em modal). */
 export const fetchDiagram = (name: string) => call<{ name: string; doc: Doc }>(`/api/diagrams/read?name=${encodeURIComponent(name)}`);
 export const openViewer = (diagram: string, node?: string) => set({ modal: { type: "diagram-view", diagram, node } });
 
@@ -728,7 +730,7 @@ export interface Outline {
 }
 export const fetchOutline = (name: string) => call<Outline>(`/api/diagrams/outline?name=${encodeURIComponent(name)}`);
 
-/** Insere, no diagrama atual, um componente que referencia outro diagrama do cofre. */
+/** Insere, no diagrama atual, um componente que referencia outro diagrama do projeto. */
 export function addRefNode(diagram: string, title: string, x?: number, y?: number, node?: string) {
   if (diagram === state.file) return toast("Um diagrama não pode referenciar a si mesmo");
   const [r] = run([{ op: "add_node", asset: "diagram-ref", label: title, ref: { diagram, node }, x, y }]);
@@ -750,7 +752,7 @@ export const exampleCatalog: CatalogExample[] = buildCatalog(async (file) => {
 export const openExamples = (tab: DocMode | null = null) => set({ panel: "files", modal: null, examples: { open: true, tab } });
 
 /**
- * Instala um exemplo no cofre aberto e abre o principal. Não sobrescreve nada: se algum arquivo do exemplo já existir,
+ * Instala um exemplo no projeto aberto e abre o principal. Não sobrescreve nada: se algum arquivo do exemplo já existir,
  * só abre o que já está lá.
  */
 export async function installExample(ex: CatalogExample): Promise<boolean> {
@@ -758,7 +760,7 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   const folder = (path: string) => path.slice(0, path.lastIndexOf("/"));
   if (ex.files.some((f) => have.has(f.path))) {
     await openDiagram(have.has(ex.open) ? ex.open : ex.files.find((f) => have.has(f.path))!.path);
-    toast(`O exemplo já está no cofre (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
+    toast(`O exemplo já está no projeto (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
     return false;
   }
   let toOpen = ex.open;
@@ -782,45 +784,45 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   return true;
 }
 
-/** Todos os diagramas do cofre (caminho + conteúdo): base da visão geral de domínio. */
-export const fetchVaultDocs = () => call<{ files: { path: string; doc: Doc }[] }>("/api/vault/docs").then((r) => r.files);
+/** Todos os diagramas do projeto (caminho + conteúdo): base da visão geral de domínio. */
+export const fetchProjectDocs = () => call<{ files: { path: string; doc: Doc }[] }>("/api/project/docs").then((r) => r.files);
 export const duplicateDiagram = (name: string) => guard(() => reload("/api/diagrams/duplicate", { name }));
 export const renameDiagram = (name: string, title: string) => guard(() => reload("/api/diagrams/rename", { name, title }));
 export const moveDiagram = (name: string, folder: string) => guard(() => reload("/api/diagrams/move", { name, folder }));
-export const deleteDiagram = (name: string) => guard(async () => void (await call("/api/diagrams/delete", { name }), toast("Movido para a lixeira do cofre (.archflow/trash)")));
+export const deleteDiagram = (name: string) => guard(async () => void (await call("/api/diagrams/delete", { name }), toast("Movido para a lixeira do projeto (.archflow/trash)")));
 export const createFolder = (path: string) => guard(() => call("/api/folders", { path }));
 export const renameFolder = (path: string, name: string) => guard(() => reload("/api/folders/rename", { path, name }));
-export const deleteFolder = (path: string) => guard(async () => void (await call("/api/folders/delete", { path }), toast("Pasta movida para a lixeira do cofre")));
+export const deleteFolder = (path: string) => guard(async () => void (await call("/api/folders/delete", { path }), toast("Pasta movida para a lixeira do projeto")));
 
-export const vaultCreate = (name: string, parent: string) =>
+export const projectCreate = (name: string, parent: string) =>
   guard(async () => {
     await flushPush();
-    await call("/api/vaults/create", { name, parent });
-    toast(`Cofre «${name}» criado`);
+    await call("/api/projects/create", { name, parent });
+    toast(`Projeto «${name}» criado`);
     return true;
   });
-export const vaultOpen = (path: string) =>
+export const projectOpen = (path: string) =>
   guard(async () => {
     await flushPush();
-    await call("/api/vaults/open", { path });
-    toast("Cofre aberto");
+    await call("/api/projects/open", { path });
+    toast("Projeto aberto");
     return true;
   });
-export const vaultSwitch = (id: string) =>
+export const projectSwitch = (id: string) =>
   guard(async () => {
     await flushPush();
-    await call("/api/vaults/switch", { id });
+    await call("/api/projects/switch", { id });
     return true;
   });
-export const vaultRemove = (id: string) => guard(() => call("/api/vaults/remove", { id }));
+export const projectRemove = (id: string) => guard(() => call("/api/projects/remove", { id }));
 
 export function toggleFolder(path: string, force?: boolean) {
-  const key = `${state.workspace?.vault.id ?? ""}:${path}`;
+  const key = `${state.workspace?.project.id ?? ""}:${path}`;
   const expanded = { ...state.expanded, [key]: force ?? !state.expanded[key] };
   set({ expanded });
   write(LS_TREE, expanded);
 }
-export const isExpanded = (path: string, ex = state.expanded) => !!ex[`${state.workspace?.vault.id ?? ""}:${path}`];
+export const isExpanded = (path: string, ex = state.expanded) => !!ex[`${state.workspace?.project.id ?? ""}:${path}`];
 
 /** Título do diagrama: com bridge, renomeia o arquivo junto. */
 export function setTitle(title: string) {
@@ -854,10 +856,10 @@ export function startSync() {
   };
   const onWorkspace = (w: Workspace) => set(w.current ? { workspace: w, file: w.current } : { workspace: w });
 
-  /** Sem servidor local: cofres guardados no IndexedDB deste navegador. */
+  /** Sem servidor local: projetos guardados no IndexedDB deste navegador. */
   const goLocal = async () => {
     try {
-      localMod = await import("./localVault");
+      localMod = await import("./localProject");
       set({ storage: "local" });
       await localMod.initLocal((ev, data) => (ev === "doc" ? onDoc(data as never) : onWorkspace(data as Workspace)), state.doc);
       set({ workspace: await call<Workspace>("/api/workspace"), online: true });
@@ -875,13 +877,13 @@ export function startSync() {
     try {
       const w = await call<Workspace>("/api/workspace");
       // hospedagem estática responde index.html (200) para /api/*: só vale se vier um workspace de verdade
-      if (!w?.vault || !Array.isArray(w.files)) throw new Error("sem servidor local");
+      if (!w?.project || !Array.isArray(w.files)) throw new Error("sem servidor local");
       everConnected = true;
       set({ workspace: w, storage: "server" });
       await loadFromBridge();
       if (!w.configured && !read<boolean>(LS_WELCOME)) {
-        write(LS_WELCOME, true); // primeira execução: oferece criar/abrir um cofre (como o Obsidian)
-        set({ modal: { type: "vaults" } });
+        write(LS_WELCOME, true); // primeira execução: oferece criar/abrir um projeto (como o Obsidian)
+        set({ modal: { type: "projects" } });
       }
       const es = new EventSource("/api/events");
       es.addEventListener("doc", (ev) => onDoc(JSON.parse((ev as MessageEvent).data)));
@@ -905,23 +907,63 @@ export function startSync() {
   connect();
 }
 
-/* ───────── cofre do navegador: backup (exportar/importar) ───────── */
+/* ───────── projeto do navegador: backup (exportar/importar) ───────── */
 
-export async function exportLocalVault() {
+export async function exportLocalProject() {
   if (state.storage !== "local" || !localMod) return;
   const bundle = localMod.exportBundle();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
-  a.download = `${localMod.bundleName().replace(/[^\w\-]+/g, "_")}.archflow-vault.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  download(`${localMod.bundleName().replace(/[^\w\-]+/g, "_")}.archflow-project.json`, new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
 }
-export const importLocalVault = (file: File) =>
+export const importLocalProject = (file: File) =>
   guard(async () => {
     const bundle = JSON.parse(await file.text());
     await flushPush();
-    await call("/api/vaults/import", { bundle });
-    toast("Cofre importado");
+    await call("/api/projects/import", { bundle });
+    toast("Projeto importado");
+    return true;
+  });
+
+/* ───────── modo Agents: exportar o harness ───────── */
+
+export const HARNESS_TARGETS: { id: HarnessTarget; label: string; root: string }[] = [
+  { id: "claude", label: "Claude Code", root: ".claude" },
+  { id: "cursor", label: "Cursor", root: ".cursor" },
+];
+
+/** Os arquivos que o harness do diagrama aberto geraria (vazio fora do modo agents). */
+export function harnessFiles(target: HarnessTarget) {
+  try {
+    return generateHarness(state.doc, target);
+  } catch {
+    return [];
+  }
+}
+
+function download(name: string, blob: Blob) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/**
+ * Com um projeto em disco aberto, grava o harness dentro dele (`.claude/` ou `.cursor/`), que é onde o
+ * Claude Code e o Cursor procuram. Sem servidor local (modo navegador), baixa a mesma árvore em um .zip.
+ */
+export const exportHarness = (target: HarnessTarget) =>
+  guard(async () => {
+    const label = HARNESS_TARGETS.find((t) => t.id === target)!;
+    if (state.storage === "server" && state.online) {
+      const r = await call<{ root: string; files: string[] }>("/api/harness", { target });
+      toast(`${r.files.length} arquivo(s) do harness ${label.label} em ${r.root}${r.root.endsWith("/") ? "" : "/"}${label.root}`);
+      return true;
+    }
+    const files = harnessFiles(target);
+    if (!files.length) return void toastError("Nada a gerar: o diagrama precisa ter agentes ou skills exportáveis (modo agents).");
+    const base = (state.doc.title || "harness").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "harness";
+    download(`${base}-${target}.zip`, new Blob([zip(files) as unknown as BlobPart], { type: "application/zip" }));
+    toast(`Harness ${label.label} baixado (${files.length} arquivo(s))`);
     return true;
   });
 

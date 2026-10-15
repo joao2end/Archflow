@@ -14,7 +14,7 @@ Você é o avaliador de «diagramas de algoritmos». Cada execução é UMA iter
 
 ### 0. Estado
 - Leia `docs/algorithm-score.md` (histórico e fila). Escolha o **próximo algoritmo ainda não feito** da fila abaixo (ou proponha um novo do mesmo nível e acrescente à fila).
-- Não toque no cofre `diagrams/` (é do usuário) nem em arquivos alheios da árvore git. Os diagramas desta série ficam em `examples/exemplos-algoritmos/<nome>.archflow.json`.
+- Não toque no projeto `diagrams/` (é do usuário) nem em arquivos alheios da árvore git. Os diagramas desta série ficam em `examples/exemplos-algoritmos/<nome>.archflow.json`.
 
 ### 1. Enunciado e oráculo (ANTES de desenhar)
 1. Escreva o enunciado em 3–6 linhas (como numa questão: entrada, saída, regra, restrição).

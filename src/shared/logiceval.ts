@@ -198,7 +198,7 @@ export function runOracle(doc: Doc, cases: OracleCase[]): Verdict["oracle"] {
 }
 
 /** Juiz + decisão: combina perguntas, geometria e oráculo no veredito. */
-/** `requireOracle: false` (diagramas do cofre, sem enunciado): só Executor e Juiz decidem; a representatividade fica "não verificada". */
+/** `requireOracle: false` (diagramas do projeto, sem enunciado): só Executor e Juiz decidem; a representatividade fica "não verificada". */
 export function judge(doc: Doc, oracleCases: OracleCase[], opts: { requireOracle?: boolean } = {}): Verdict {
   const T = JEV_TARGETS;
   const questions = questionsFor(doc);
