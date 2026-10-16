@@ -9,10 +9,11 @@ import { AssetBadge, Glyph } from "./icons";
 import { FolderModal, ProjectsModal, QuickSwitcher } from "./files";
 import { McpBody } from "./mcp";
 import { SkillModal } from "./agents";
+import { ToolModal } from "./mcpcatalog";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
-import { HARNESS_TARGETS, allKnownAssets, exportHarness, fetchProjectDocs, getState, harnessFiles, lookupAsset, newAssetId, newDiagram, run, saveAsset, select, set, toast, useStore } from "./store";
+import { HARNESS_TARGETS, allKnownAssets, exportHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore } from "./store";
 import type { HarnessTarget } from "../shared/agentgen";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
@@ -535,6 +536,14 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
   const project = useStore((s) => s.workspace?.project);
   const [tab, setTab] = useState<"issues" | "text" | "harness">(initial ?? "issues");
   const [target, setTarget] = useState<HarnessTarget>("claude");
+  const [auto, setAuto] = useState<HarnessTarget[] | undefined>();
+  useEffect(() => {
+    if (tab === "harness" && storage === "server" && !auto) loadHarnessSync().then(setAuto, () => setAuto([]));
+  }, [tab, storage, auto]);
+  const toggleAuto = (t: HarnessTarget) => {
+    const next = auto?.includes(t) ? auto.filter((x) => x !== t) : [...(auto ?? []), t];
+    void saveHarnessSync(next).then((saved) => saved && setAuto(saved));
+  };
   const issues = useDomainIssues();
   const files = useMemo(() => (tab === "harness" ? harnessFiles(target) : []), [tab, target, doc]);
   const text = tab === "text" ? describe(doc) : tab === "harness" ? filesToMarkdown(files) : issues.map(issueText).join("\n");
@@ -599,9 +608,20 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
           </div>
           <div className="callout">
             {onDisk
-              ? <>Grava <code>{root}/agents/</code> e <code>{root}/skills/</code> dentro de <code>{project?.path}</code> — é lá que o {HARNESS_TARGETS.find((t) => t.id === target)!.label} procura. Os arquivos gerados antes são sobrescritos.</>
+              ? <>Grava <code>{root}/agents/</code> e <code>{root}/skills/</code> dentro de <code>{project?.path}</code> — é lá que o {HARNESS_TARGETS.find((t) => t.id === target)!.label} procura. Pelo botão ⬇ os arquivos gerados antes são sobrescritos.</>
               : <>Sem servidor local, o harness sai como <code>.zip</code> com a árvore <code>{root}/</code> pronta: descompacte na raiz do seu repositório. Rode <code>npm run dev</code> para gravar direto no projeto.</>}
           </div>
+          {onDisk && (
+            <div className="callout" role="group" aria-label="Sincronização automática">
+              <strong>Sincronizar automaticamente</strong> a cada edição deste diagrama:{" "}
+              {HARNESS_TARGETS.map((t) => (
+                <label key={t.id} style={{ marginRight: 14, whiteSpace: "nowrap" }}>
+                  <input type="checkbox" checked={!!auto?.includes(t.id)} disabled={!auto} onChange={() => toggleAuto(t.id)} /> {t.label} <code>{t.root}/</code>
+                </label>
+              ))}
+              <div style={{ opacity: 0.8, marginTop: 4 }}>Arquivos que saem do diagrama são apagados; arquivos que você editou à mão não são sobrescritos (o botão ⬇ força). O controle fica em <code>archflow.agents.json</code>.</div>
+            </div>
+          )}
           {files.length ? <pre className="code">{text}</pre> : <div className="callout warn">Nada a exportar: o time precisa de pelo menos um agente, ou de uma skill no grupo Global (ou ligada a um agente por <code>uses-skill</code>).</div>}
         </>
       )}
@@ -880,6 +900,8 @@ export function Modals() {
       return <AgentsModal tab={m.tab} />;
     case "skill":
       return <SkillModal key={m.id} id={m.id} tab={m.tab} />;
+    case "tool":
+      return <ToolModal key={m.id} id={m.id} tab={m.tab} />;
     case "mcp":
       return <McpModal />;
     case "help":

@@ -27,7 +27,7 @@
     "eval:scenario": "tsx scripts/eval-scenario.ts",
     "eval:nodes": "tsx scripts/eval-nodes.ts",
     "test": "tsx --test \"src/shared/*.test.ts\" \"server/*.test.ts\"",
-    "electron:bundle": "esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/main.cjs",
+    "electron:bundle": "esbuild electron/main.ts --bundle --platform=node --format=cjs --external:electron --external:node-pty --outfile=dist-electron/main.cjs",
     "app": "npm run build && npm run electron:bundle && electron .",
     "app:icon": "tsx scripts/build-app-icon.ts",
     "app:dist": "npm run build && npm run electron:bundle && npm run mcp:bundle && electron-builder --win nsis",
@@ -44,10 +44,15 @@
     "@fontsource/instrument-serif": "^5.3.0",
     "@fontsource/inter-tight": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "highlight.js": "^11.12.0",
     "markdown-it": "^15.0.2",
+    "node-pty": "^1.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -56,6 +61,7 @@
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
@@ -82,6 +88,9 @@
       "package.json"
     ],
     "asar": true,
+    "asarUnpack": [
+      "**/node_modules/node-pty/**"
+    ],
     "win": {
       "target": [
         {

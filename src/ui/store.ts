@@ -6,7 +6,9 @@ import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shar
 import { catalogEntryToSource, resolveSkillSource, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { generateHarness, type HarnessTarget } from "../shared/agentgen";
 import { zip } from "../shared/zip";
-import { AGENT_RELS, emptyDoc, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
+import { mcpEntryToSpec, type McpCatalogEntry } from "../shared/mcpcatalog";
+import { freeSpotBelow } from "../shared/placement";
+import { AGENT_RELS, NATIVE_TOOL_NAMES, emptyDoc, type AgentToolType, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
 /** Estilos padrão dos próximos elementos (padrão Excalidraw), persistidos em prefs. */
 export interface ElementDefaults {
   nodeKind: NodeKind;
@@ -66,6 +68,7 @@ export type Modal =
   | { type: "logic"; tab?: "issues" | "text" }
   | { type: "agents"; tab?: "issues" | "text" | "harness" }
   | { type: "skill"; id: string; tab?: "catalog" | "write" }
+  | { type: "tool"; id: string; tab?: "search" | "paste" | "manual" }
   | { type: "ddd-guide" }
   | { type: "mcp" }
   | { type: "help" }
@@ -193,6 +196,12 @@ export interface State {
   toastError: boolean; // aviso de erro: destaque visual, anunciado na hora e fica mais tempo
   /** modo apresentação: tela limpa com desenho, laser e cronômetro */
   present: boolean;
+  /** painel do terminal do Claude Code (modo agents) */
+  termOpen: boolean;
+  /** o bridge tem terminal? (undefined = ainda não sabemos); o botão da barra preenche */
+  termAvail?: boolean;
+  /** pedido de «rodar no terminal»: o painel abre uma sessão do claude com o texto já digitado (sem Enter) */
+  termRequest: { n: number; prefill: string; title: string; target: "new" | "active" } | null;
 }
 
 const LS_DOC = "archflow.doc.v1";
@@ -316,6 +325,8 @@ function init(): State {
     toastUndo: false,
     toastError: false,
     present: false,
+    termOpen: false,
+    termRequest: null,
   };
 }
 
@@ -383,6 +394,26 @@ export function redo() {
   const [f, ...rest] = state.future;
   if (!f) return;
   set({ doc: f, docSource: "local", past: [...state.past, state.doc], future: rest, sel: [] });
+}
+
+/**
+ * Troca o id de um componente (e as conexões que o citam) por um slug livre derivado de `wanted`.
+ * O harness usa o id como nome do arquivo e do `name:` da skill, então ele precisa acompanhar o nome real.
+ */
+export function renameNode(oldId: string, wanted: string): string | undefined {
+  const doc = state.doc;
+  const node = doc.nodes.find((n) => n.id === oldId);
+  if (!node) return undefined;
+  const id = uniqueId({ ...doc, nodes: doc.nodes.filter((n) => n.id !== oldId) }, wanted);
+  if (id === oldId) return oldId;
+  const swap = (v: string) => (v === oldId ? id : v);
+  commit({
+    ...doc,
+    nodes: doc.nodes.map((n) => (n.id === oldId ? { ...n, id } : n)),
+    connections: doc.connections.map((c) => ({ ...c, from: swap(c.from), to: swap(c.to) })),
+  });
+  set({ sel: state.sel.map(swap), ...((state.modal?.type === "skill" || state.modal?.type === "tool") && state.modal.id === oldId ? { modal: { ...state.modal, id } } : {}) });
+  return id;
 }
 
 export function run(ops: Op[]): OpResult[] {
@@ -461,6 +492,7 @@ export function placeAsset(assetId: string, x: number, y: number, parent?: strin
   if (r.ok && r.id) {
     set({ sel: [r.id], ...(isScenario ? { focusTick: state.focusTick + 1 } : {}) }); // Cenário novo: o campo Nome já vem selecionado para digitar o caso
     if (assetId === "agent-skill") set({ modal: { type: "skill", id: r.id, tab: "catalog" } }); // skill nova: buscar no catálogo ou escrever do zero
+    if (assetId === "agent-tool") set({ modal: { type: "tool", id: r.id, tab: "search" } }); // tool nova: buscar (nativas, catálogo MCP, registro) ou configurar à mão
     if (parent) {
       const doc = structuredClone(state.doc);
       fitGroup(doc, parent);
@@ -485,9 +517,9 @@ export function plugSkill(opts: { entry?: SkillCatalogEntry; skillId?: string; a
   let id = existing?.id;
   if (!id) {
     id = uniqueId(doc, opts.entry?.name ?? "skill");
-    const used = agent ? doc.connections.filter((c) => c.from === agent.id && c.agent?.rel === "uses-skill").length : 0;
-    const x = agent ? agent.x + used * 208 : (opts.x ?? 0);
-    const y = agent ? agent.y + agent.h + 96 : (opts.y ?? 0);
+    const spot = agent ? freeSpotBelow(doc, agent) : undefined; // vaga livre sob o agent, sem cair em cima de outro nó
+    const x = spot ? spot.x : (opts.x ?? 0);
+    const y = spot ? spot.y : (opts.y ?? 0);
     ops.push({
       op: "add_node",
       id,
@@ -518,6 +550,113 @@ export function plugSkill(opts: { entry?: SkillCatalogEntry; skillId?: string; a
       run([{ op: "update", id: skillId, patch: { agent: { ...n.agent, body: r.body, description: r.description ?? n.agent.description, source: { ...n.agent.source, hash: r.hash } } } }]);
     });
   }
+}
+
+/**
+ * Modo agents: pluga uma ferramenta num agent (seta `uses-tool`) ou a solta num grupo/no canvas.
+ * Tool nativa já existente no diagrama é reaproveitada; servidor MCP novo abre pedindo o nome no inspetor.
+ */
+export function plugTool(opts: { agentId?: string; groupId?: string; toolType?: AgentToolType; toolName?: string; entry?: McpCatalogEntry; x?: number; y?: number; openCatalog?: boolean }): void {
+  const doc = state.doc;
+  const agent = opts.agentId ? doc.nodes.find((n) => n.id === opts.agentId && n.agent?.role === "agent") : undefined;
+  const blank = !opts.entry && !opts.toolType && !opts.toolName; // tool nova sem escolha: abre o diálogo de busca, como a skill
+  const toolType: AgentToolType = opts.entry ? "mcp" : opts.toolType ?? "native";
+  const existing = opts.entry
+    ? doc.nodes.find((n) => n.agent?.role === "tool" && n.agent.mcpSource?.id === opts.entry!.id && n.agent.mcpSource.catalog === opts.entry!.origin)
+    : toolType === "native" && opts.toolName ? doc.nodes.find((n) => n.agent?.role === "tool" && n.agent.toolType === "native" && n.agent.toolName === opts.toolName) : undefined;
+  const ops: Op[] = [];
+  let id = existing?.id;
+  if (!id) {
+    const label = opts.entry ? opts.entry.name : blank ? "Tool" : toolType === "native" ? opts.toolName ?? "Tool" : "Servidor MCP";
+    id = uniqueId(doc, opts.entry ? opts.entry.id : label);
+    const spot = agent ? freeSpotBelow(doc, agent) : undefined; // vaga livre sob o agent, sem cair em cima de outro nó
+    const x = spot ? spot.x : (opts.x ?? 0);
+    const y = spot ? spot.y : (opts.y ?? 0);
+    ops.push({
+      op: "add_node",
+      id,
+      asset: "agent-tool",
+      label,
+      agent: opts.entry ? mcpEntryToSpec(opts.entry) : blank ? { role: "tool" } : { role: "tool", toolType, ...(toolType === "native" && opts.toolName ? { toolName: opts.toolName } : {}), ...(toolType === "mcp" ? { transport: "stdio" as const } : {}) },
+      x: Math.round(x / 8) * 8,
+      y: Math.round(y / 8) * 8,
+      ...(opts.groupId ? { parent: opts.groupId } : {}),
+    });
+  } else if (opts.groupId && existing?.parent !== opts.groupId) ops.push({ op: "update", id, patch: { parent: opts.groupId } });
+  if (agent && !doc.connections.some((c) => c.from === agent.id && c.to === id && c.agent?.rel === "uses-tool")) {
+    ops.push({ op: "add_connection", from: agent.id, to: id, type: AGENT_RELS["uses-tool"].type, agent: { rel: "uses-tool" } });
+  }
+  if (!ops.length) return toast(`${agent?.label ?? "O agent"} já usa esta ferramenta`);
+  const { doc: next, results } = applyOps(doc, ops);
+  const bad = results.find((r) => !r.ok);
+  if (bad) return toastError(`Não deu para plugar a ferramenta: ${bad.error ?? "erro desconhecido"}`);
+  if (opts.groupId) fitGroup(next, opts.groupId);
+  commit(next);
+  set({ sel: [id] });
+  if (agent) toast(`${existing?.label ?? opts.entry?.name ?? (toolType === "mcp" ? "Servidor MCP" : opts.toolName ?? "Tool")} plugada em ${agent.label}`);
+  if (opts.entry?.requiredVars?.length && !existing) toast(`Defina no ambiente: ${opts.entry.requiredVars.map((v) => v.name).join(", ")}`);
+  if ((blank || opts.openCatalog) && !opts.entry && !existing) set({ modal: { type: "tool", id, tab: "search" } });
+}
+
+/** Aplica uma entrada do catálogo MCP a um nó Tool existente (nome, id, conexão e origem) num passo de desfazer. */
+export function applyMcpEntry(nodeId: string, entry: McpCatalogEntry) {
+  const node = state.doc.nodes.find((n) => n.id === nodeId && n.agent?.role === "tool");
+  if (!node) return;
+  run([{ op: "update", id: nodeId, patch: { label: entry.name, agent: mcpEntryToSpec(entry) } }]);
+  renameNode(nodeId, entry.id);
+  if (entry.requiredVars?.length) toast(`${entry.name} aplicado. Defina no ambiente: ${entry.requiredVars.map((v) => v.name).join(", ")}`);
+  else toast(`${entry.name} aplicado`);
+}
+
+/** Faz do nó Tool uma tool nativa (Read, Bash…): nome, id e tipo num passo de desfazer. */
+export function applyNativeTool(nodeId: string, toolName: string) {
+  const node = state.doc.nodes.find((n) => n.id === nodeId && n.agent?.role === "tool");
+  if (!node) return;
+  run([{ op: "update", id: nodeId, patch: { label: toolName, agent: { role: "tool", toolType: "native", toolName } } }]);
+  renameNode(nodeId, toolName);
+  toast(`${toolName} aplicada`);
+}
+
+/** Sonda um servidor MCP (executa o comando ou conecta na url). SÓ chamar depois de o usuário confirmar o que será executado. */
+export const probeMcpServer = (spec: { transport?: string; command?: string; args?: string[]; url?: string; env?: Record<string, string>; headers?: Record<string, string> }) =>
+  call<{ tools: { name: string; description?: string }[]; server?: { name?: string; version?: string } }>("/api/mcp/probe", { ...spec, confirm: true });
+
+/** Quais variáveis de ambiente existem no processo do Archflow (só booleanos). Vazio sem servidor local. */
+export const checkMcpEnv = (names: string[]) => (names.length ? call<Record<string, boolean>>(`/api/mcp/env-check?names=${encodeURIComponent(names.join(","))}`) : Promise.resolve({} as Record<string, boolean>));
+
+/** Busca no registro oficial de servidores MCP (via bridge). */
+export const searchMcpRegistryApi = (q: string) => call<{ entries: McpCatalogEntry[] }>(`/api/mcp-registry/search?q=${encodeURIComponent(q)}`);
+
+/** Transforma a lista de texto `tools` de um agent em componentes Tool ligados por `uses-tool` (um passo de desfazer). */
+export function convertLegacyTools(agentId: string) {
+  const doc = state.doc;
+  const agent = doc.nodes.find((n) => n.id === agentId && n.agent?.role === "agent");
+  const names = agent?.agent?.tools ?? [];
+  if (!agent || !names.length) return;
+  const ops: Op[] = [];
+  let work = doc;
+  const keep: string[] = [];
+  names.forEach((name) => {
+    if (!NATIVE_TOOL_NAMES.includes(name)) return void keep.push(name); // mcp__… e nomes desconhecidos ficam como estão
+    let node = work.nodes.find((n) => n.agent?.role === "tool" && n.agent.toolType === "native" && n.agent.toolName === name);
+    if (!node) {
+      const id = uniqueId(work, name);
+      const spot = freeSpotBelow(work, agent);
+      const o: Op = { op: "add_node", id, asset: "agent-tool", label: name, agent: { role: "tool", toolType: "native", toolName: name }, x: spot.x, y: spot.y };
+      work = applyOps(work, [o]).doc;
+      ops.push(o);
+      node = work.nodes.find((n) => n.id === id)!;
+    }
+    ops.push({ op: "add_connection", from: agent.id, to: node.id, type: AGENT_RELS["uses-tool"].type, agent: { rel: "uses-tool" } });
+  });
+  const rest = { ...agent.agent!, ...(keep.length ? { tools: keep } : {}) };
+  if (!keep.length) delete rest.tools;
+  ops.push({ op: "update", id: agent.id, patch: { agent: rest } });
+  const { doc: next, results } = applyOps(doc, ops);
+  const bad = results.find((r) => !r.ok);
+  if (bad) return toastError(`Não deu para converter: ${bad.error ?? "erro desconhecido"}`);
+  commit(next);
+  toast(`${names.length - keep.length} tool(s) viraram componentes${keep.length ? `; ${keep.length} ficaram na lista (${keep.join(", ")})` : ""}`);
 }
 
 function writePrefs() {
@@ -679,11 +818,46 @@ const flushPush = async () => {
 };
 
 /** Instala a fonte com `npx skills add` (no projeto em disco) e grava as skills no catálogo local. */
-export async function installGithubSkills(repo: string, skillPath: string): Promise<{ installed: SkillCatalogEntry[]; project?: string }> {
-  const j = await call<{ installed?: SkillCatalogEntry[]; project?: string }>("/api/skills/install", { repo, skillPath });
+export async function installGithubSkills(repo: string, skillPath: string, force = false): Promise<{ installed: SkillCatalogEntry[]; project?: string }> {
+  const j = await call<{ installed?: SkillCatalogEntry[]; project?: string }>("/api/skills/install", { repo, skillPath, force });
   const installed = (j.installed ?? []).filter((e) => e?.id && e.repo && e.skillPath && e.body);
   if (installed.length) saveCatalogSkills(installed);
   return { installed, project: j.project };
+}
+
+export interface HubSkill {
+  repo: string;
+  skillId: string;
+  name: string;
+  installs: number;
+}
+/** Busca no catálogo público (skills.sh) via servidor local. */
+export const searchSkillsHub = async (q: string) => (await call<{ skills: HubSkill[] }>(`/api/skills/search?q=${encodeURIComponent(q)}`)).skills;
+
+export const topSkillsHub = async () => (await call<{ skills: HubSkill[] }>("/api/skills/top")).skills;
+
+export interface SkillSourceInfo {
+  repo: string;
+  indexedAt?: string;
+  error?: string;
+  count: number;
+}
+/** Fontes de skills (repositórios GitHub) registradas e indexadas no banco local (~/.archflow/skill-sources.json). */
+export const listSkillSources = async () => (await call<{ sources: SkillSourceInfo[] }>("/api/skills/sources")).sources;
+export const addSkillSource = async (repo: string) => (await call<{ sources: SkillSourceInfo[] }>("/api/skills/sources", { repo })).sources;
+export const refreshSkillSources = async (repo?: string) => (await call<{ sources: SkillSourceInfo[] }>("/api/skills/sources/refresh", { repo })).sources;
+export const removeSkillSource = async (repo: string) => (await call<{ sources: SkillSourceInfo[] }>("/api/skills/sources/remove", { repo })).sources;
+export const indexedSkills = async () => (await call<{ skills: { repo: string; id: string; name: string; skillPath: string; description: string }[] }>("/api/skills/indexed")).skills;
+
+/** Skills já baixadas (banco local do servidor): entram no catálogo como instaladas, sem baixar de novo. */
+export async function loadDownloadedSkills() {
+  try {
+    const j = await call<{ skills?: SkillCatalogEntry[] }>("/api/skills/downloaded");
+    const list = (j.skills ?? []).filter((e) => e?.id && e.repo && e.skillPath && e.body);
+    if (list.length) saveCatalogSkills(list);
+  } catch {
+    /* sem servidor ou sem banco: o catálogo local segue valendo */
+  }
 }
 
 export const fsList = (path?: string) => call<{ path: string; parent: string | null; home: string; dirs: { name: string; path: string; archflow: number; project: boolean }[]; files?: number; project?: boolean }>("/api/fs/list" + (path ? `?path=${encodeURIComponent(path)}` : ""));
@@ -889,6 +1063,12 @@ export function startSync() {
       es.addEventListener("doc", (ev) => onDoc(JSON.parse((ev as MessageEvent).data)));
       es.addEventListener("workspace", (ev) => onWorkspace(JSON.parse((ev as MessageEvent).data) as Workspace));
       es.addEventListener("hello", () => set({ online: true }));
+      es.addEventListener("harness", (ev) => {
+        const r = JSON.parse((ev as MessageEvent).data) as { ok: boolean; error?: string; changed?: number; conflicts?: string[] };
+        if (!r.ok) return toastError(`Harness não sincronizado: ${r.error}`);
+        if (r.conflicts?.length) toastError(`Harness: ${r.conflicts.length} arquivo(s) editado(s) à mão foram preservados (${r.conflicts.slice(0, 2).join(", ")}${r.conflicts.length > 2 ? "…" : ""}). Exporte pelo botão ⬇ para sobrescrever.`);
+        else if (r.changed) toast(`Harness atualizado no projeto (${r.changed} arquivo(s))`);
+      });
       es.addEventListener("export", (ev) => {
         const req = JSON.parse((ev as MessageEvent).data);
         void import("./export").then((m) => m.answerExport(req));
@@ -923,12 +1103,25 @@ export const importLocalProject = (file: File) =>
     return true;
   });
 
+/** Abre o terminal e digita `prefill` (o usuário confirma com Enter): numa sessão nova do Claude Code ou, com `target: "active"`, na aba ativa. */
+let termReqN = 0;
+export const runInTerminal = (prefill: string, title: string, target: "new" | "active" = "new") => set({ termOpen: true, termRequest: { n: ++termReqN, prefill, title, target } });
+
 /* ───────── modo Agents: exportar o harness ───────── */
 
 export const HARNESS_TARGETS: { id: HarnessTarget; label: string; root: string }[] = [
   { id: "claude", label: "Claude Code", root: ".claude" },
   { id: "cursor", label: "Cursor", root: ".cursor" },
 ];
+
+/** Alvos que o projeto regrava sozinho a cada edição do diagrama (`.archflow/project.json`). */
+export const loadHarnessSync = () => call<{ targets: HarnessTarget[] }>("/api/harness/settings").then((r) => r.targets);
+export const saveHarnessSync = (targets: HarnessTarget[]) =>
+  guard(async () => {
+    const r = await call<{ targets: HarnessTarget[] }>("/api/harness/settings", { targets });
+    toast(r.targets.length ? `Harness sincronizado automaticamente: ${r.targets.join(" + ")}` : "Sincronização automática do harness desligada");
+    return r.targets;
+  });
 
 /** Os arquivos que o harness do diagrama aberto geraria (vazio fora do modo agents). */
 export function harnessFiles(target: HarnessTarget) {

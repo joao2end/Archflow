@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AGENT_RELS, AGENT_REL_KEYS, AGENT_ROLES, AGENT_ROLE_KEYS, type AgentNodeSpec, type AgentRel, type AgentRole, type ConnectionEl, type NodeEl } from "../shared/schema";
-import { reshapeAgent, suggestAgentRels } from "../shared/agents";
+import { AGENT_RELS, AGENT_REL_KEYS, AGENT_ROLES, AGENT_ROLE_KEYS, MCP_TRANSPORTS, NATIVE_TOOLS, NATIVE_TOOL_NAMES, type McpTransport, type AgentNodeSpec, type AgentRel, type AgentRole, type ConnectionEl, type NodeEl } from "../shared/schema";
+import { mcpVars } from "../shared/mcpcatalog";
+import { isOrchestrator, testPrompt } from "../shared/agentprompt";
+import { inGlobalGroup, looksLikeSecret, reshapeAgent, suggestAgentRels } from "../shared/agents";
 import { SKILL_CATALOG, catalogEntryToSource, mergeSkillCatalog, parseSkillGithubUrl, resolveSkillSource, searchSkillCatalog, skillInstallSlug, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { renderMarkdown } from "./markdown";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { insertBlock, RichEditor, RichToolbar } from "./richeditor";
-import { installGithubSkills, run, set, toast, toastError, useStore } from "./store";
+import { installGithubSkills, searchSkillsHub, topSkillsHub, listSkillSources, addSkillSource, refreshSkillSources, removeSkillSource, indexedSkills, loadDownloadedSkills, renameNode, checkMcpEnv, probeMcpServer, plugTool, convertLegacyTools, runInTerminal, type SkillSourceInfo, run, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
 
@@ -41,17 +43,24 @@ export function AgentFields({ node, patch }: { node: NodeEl; patch: Patch }) {
         </select>
       </label>
       <div className="callout">{role.hint}</div>
-      {agent.role === "agent" && <AgentRoleFields agent={agent} upd={upd} />}
+      {agent.role === "agent" && <AgentRoleFields node={node} agent={agent} upd={upd} />}
       {agent.role === "skill" && <SkillRoleFields node={node} agent={agent} upd={upd} />}
+      {agent.role === "tool" && <ToolRoleFields node={node} agent={agent} upd={upd} patch={patch} />}
     </>
   );
 }
 
 const MODEL_OPTIONS = ["inherit", "sonnet", "opus", "haiku"];
 
-function AgentRoleFields({ agent, upd }: { agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+function AgentRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+  const doc = useStore((s) => s.doc);
+  const avail = useStore((s) => s.termAvail);
+  const orch = isOrchestrator(doc, node.id);
   return (
     <>
+      <button className="btn sm" style={{ marginBottom: 10 }} disabled={avail === false} onClick={() => runInTerminal(testPrompt(node.id), `Testar ${node.id}`)} data-tip={avail === false ? "O terminal não está disponível (veja o botão «Terminal» da barra)." : `Abre o Claude Code na pasta do projeto com «${testPrompt(node.id).trim()}» já digitado. O harness é sincronizado antes.`} data-tip-pos="left">
+        ▶ {orch ? "Testar orquestrador no Claude Code" : "Testar no Claude Code"}
+      </button>
       <label className="field">
         <span>Description (quando o orquestrador deve delegar pra ele)</span>
         <TextField multiline value={agent.description ?? ""} placeholder="Use para revisar pull requests: aponta bugs, estilo e falhas de segurança." onCommit={(v) => upd({ description: v.trim() || undefined })} />
@@ -66,14 +75,317 @@ function AgentRoleFields({ agent, upd }: { agent: AgentNodeSpec; upd: (p: Record
           ))}
         </datalist>
       </label>
-      <label className="field">
-        <span>Tools (uma por linha; vazio = todas)</span>
-        <TextField multiline value={(agent.tools ?? []).join("\n")} placeholder="Read\nGrep\nBash" onCommit={(v) => upd({ tools: v.split("\n").map((s) => s.trim()).filter(Boolean) })} />
-      </label>
+      <AgentToolsSection node={node} agent={agent} />
       <label className="field">
         <span>Prompt (corpo do system prompt do subagente)</span>
         <TextField multiline value={agent.prompt ?? ""} placeholder="Você é um revisor de código focado em…" onCommit={(v) => upd({ prompt: v.trim() || undefined })} />
       </label>
+    </>
+  );
+}
+
+
+/** Ferramentas ligadas a um agent (e o atalho para plugar mais). Substitui o antigo campo de texto «tools». */
+function AgentToolsSection({ node, agent }: { node: NodeEl; agent: AgentNodeSpec }) {
+  const doc = useStore((s) => s.doc);
+  const linked = doc.connections.filter((c) => c.from === node.id && c.agent?.rel === "uses-tool").map((c) => doc.nodes.find((n) => n.id === c.to)).filter((n): n is NodeEl => !!n);
+  const global = doc.nodes.filter((n) => n.agent?.role === "tool" && !linked.some((l) => l.id === n.id) && inGlobalGroup(doc, n.id));
+  return (
+    <div className="field">
+      <span className="lbl-s">Ferramentas</span>
+      {linked.length || global.length ? (
+        <div className="callout">
+          {linked.map((t) => (
+            <div key={t.id}>
+              <b>{t.label}</b> <small style={{ opacity: 0.7 }}>{t.agent?.toolType === "mcp" ? "MCP" : "nativa"}</small>
+            </div>
+          ))}
+          {global.map((t) => (
+            <div key={t.id}>
+              <b>{t.label}</b> <small style={{ opacity: 0.7 }}>{t.agent?.toolType === "mcp" ? "MCP" : "nativa"} · global</small>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="callout">Sem ferramentas ligadas: o agente herda todas as tools disponíveis.</div>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <select
+          className="input"
+          style={{ flex: 1, minWidth: 140 }}
+          value=""
+          aria-label="Adicionar tool nativa"
+          onChange={(e) => e.target.value && plugTool({ agentId: node.id, toolType: "native", toolName: e.target.value })}
+        >
+          <option value="">+ Tool nativa…</option>
+          {NATIVE_TOOL_NAMES.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+        <button className="btn sm" onClick={() => plugTool({ agentId: node.id })}>
+          + Buscar tool / MCP
+        </button>
+      </div>
+      {!!agent.tools?.length && (
+        <div className="callout warn" style={{ marginTop: 8 }}>
+          Lista de texto antiga: <code>{agent.tools.join(", ")}</code> (A014).{" "}
+          <button className="btn sm" onClick={() => convertLegacyTools(node.id)}>
+            Converter em componentes
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const linesToMap = (text: string, sep: RegExp): Record<string, string> =>
+  Object.fromEntries(
+    text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const m = sep.exec(l);
+        return m ? [l.slice(0, m.index).trim(), l.slice(m.index + m[0].length).trim()] : [l, ""];
+      })
+      .filter(([k]) => k),
+  );
+const mapToLines = (m: Record<string, string> | undefined, sep: string) => Object.entries(m ?? {}).map(([k, v]) => `${k}${sep}${v}`).join("\n");
+
+/** Variáveis `${VAR}` do servidor e se cada uma existe no ambiente do Archflow (só sim/não; o valor nunca aparece). */
+function McpVarsStatus({ agent }: { agent: AgentNodeSpec }) {
+  const online = useStore((s) => s.storage === "server" && s.online);
+  const vars = mcpVars(agent);
+  const key = vars.map((v) => v.name).join(",");
+  const [status, setStatus] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (!online || !key) return void setStatus({});
+    let stale = false;
+    checkMcpEnv(key.split(",")).then((r) => !stale && setStatus(r), () => !stale && setStatus({}));
+    return () => void (stale = true);
+  }, [key, online]);
+  if (!vars.length) return null;
+  return (
+    <div className="callout">
+      <b>Variáveis de ambiente</b>
+      {vars.map((v) => {
+        const known = v.name in status;
+        const ok = status[v.name];
+        return (
+          <div key={v.name}>
+            <code>{v.name}</code> {!known ? "" : ok ? "· definida" : v.hasDefault ? "· não definida (usa o padrão)" : "· faltando"}
+          </div>
+        );
+      })}
+      <small style={{ opacity: 0.75 }}>{online ? "Conferido no ambiente do Archflow; o Claude Code lê o ambiente dele." : "Sem servidor local não dá para conferir."}</small>
+    </div>
+  );
+}
+
+/**
+ * «Testar servidor»: faz o handshake MCP e lista as tools que o servidor expõe. Isso EXECUTA o comando (stdio) ou
+ * conecta na URL, então só acontece depois de o usuário ver exatamente o que será executado e confirmar.
+ */
+function McpProbe({ agent, upd }: { agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+  const online = useStore((s) => s.storage === "server" && s.online);
+  const [phase, setPhase] = useState<"idle" | "confirm" | "running" | "done" | "error">("idle");
+  const [result, setResult] = useState<{ tools: { name: string; description?: string }[]; server?: { name?: string; version?: string } }>();
+  const [error, setError] = useState("");
+  const transport = agent.transport ?? (agent.url ? "http" : "stdio");
+  const target = transport === "stdio" ? [agent.command, ...(agent.args ?? [])].filter(Boolean).join(" ") : agent.url ?? "";
+  const ready = !!target;
+  const run = async () => {
+    setPhase("running");
+    try {
+      setResult(await probeMcpServer({ transport, command: agent.command, args: agent.args, url: agent.url, env: agent.env, headers: agent.headers }));
+      setPhase("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPhase("error");
+    }
+  };
+  const known = (agent.mcpTools ?? []).join("\n");
+  const found = (result?.tools ?? []).map((t) => t.name).join("\n");
+  return (
+    <div className="field">
+      <span className="lbl-s">Testar servidor</span>
+      {phase === "idle" && (
+        <button className="btn sm" disabled={!online || !ready} onClick={() => setPhase("confirm")} data-tip={online ? "Conecta e lista as tools do servidor" : "Precisa do servidor local (npm run dev)"} data-tip-pos="left">
+          Testar servidor…
+        </button>
+      )}
+      {phase === "confirm" && (
+        <div className="callout warn" role="alertdialog" aria-label="Confirmar execução">
+          {transport === "stdio" ? "Isto vai EXECUTAR no seu computador:" : "Isto vai CONECTAR em:"}
+          <pre className="code" style={{ margin: "6px 0", whiteSpace: "pre-wrap" }}>{target}</pre>
+          <small style={{ opacity: 0.8 }}>As variáveis {"${VAR}"} são lidas do ambiente do Archflow e nunca aparecem no resultado. Só continue se você confia neste servidor.</small>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button className="btn sm primary" onClick={run}>
+              Executar e listar tools
+            </button>
+            <button className="btn sm" onClick={() => setPhase("idle")}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+      {phase === "running" && <div className="callout">Conectando… (até 10 s)</div>}
+      {phase === "error" && (
+        <div className="callout warn">
+          {error}{" "}
+          <button className="btn sm" onClick={() => setPhase("confirm")}>
+            Tentar de novo
+          </button>
+        </div>
+      )}
+      {phase === "done" && result && (
+        <div className="callout">
+          <b>{result.server?.name ?? "Servidor"}</b>
+          {result.server?.version ? ` ${result.server.version}` : ""}: {result.tools.length} tool{result.tools.length === 1 ? "" : "s"}
+          <div style={{ marginTop: 4 }}>
+            {result.tools.map((t) => (
+              <div key={t.name} title={t.description}>
+                <code>{t.name}</code>
+                {t.description ? <small style={{ opacity: 0.75 }}> — {t.description}</small> : null}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button className="btn sm primary" disabled={!result.tools.length || known === found} onClick={() => upd({ mcpTools: result.tools.map((t) => t.name) })}>
+              {known === found && found ? "Já são as tools conhecidas" : "Usar como tools conhecidas"}
+            </button>
+            <button className="btn sm" onClick={() => setPhase("idle")}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** O mesmo formulário do inspetor, para a aba «Configurar» do diálogo da Tool. */
+export function ToolEditor({ node }: { node: NodeEl }) {
+  const agent = node.agent!;
+  const patch = (p: Record<string, unknown>) => run([{ op: "update", id: node.id, patch: p }]);
+  return <ToolRoleFields node={node} agent={agent} upd={(p) => patch({ agent: mergeAgent(agent, p) })} patch={patch} />;
+}
+
+/** Tool: nativa (nome da lista) ou servidor MCP (nome, transporte, comando/URL, variáveis, tools). */
+function ToolRoleFields({ node, agent, upd, patch }: { node: NodeEl; agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void; patch: Patch }) {
+  const type = agent.toolType ?? "native";
+  const transport: McpTransport = agent.transport ?? (agent.url ? "http" : "stdio");
+  const setType = (t: "native" | "mcp") => t !== type && patch({ agent: t === "native" ? { role: "tool", toolType: "native" } : { role: "tool", toolType: "mcp", transport: "stdio", ...(agent.description ? { description: agent.description } : {}) } });
+  const leaks = [...Object.entries(agent.env ?? {}), ...Object.entries(agent.headers ?? {})].filter(([k, v]) => looksLikeSecret(k, v)).map(([k]) => k);
+  return (
+    <>
+      <div className="field">
+        <span className="lbl-s">Tipo</span>
+        <div className="seg" role="radiogroup" aria-label="Tipo de ferramenta">
+          {([["native", "Nativa"], ["mcp", "Servidor MCP"]] as const).map(([k, l]) => (
+            <button key={k} role="radio" aria-checked={type === k} className={type === k ? "active" : ""} onClick={() => setType(k)}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="field">
+        <div className="callout skill-summary">
+          <b>{agent.mcpSource ? `Do catálogo (${{ curated: "curado", registry: "registro oficial", pasted: "colado" }[agent.mcpSource.catalog]})` : type === "mcp" || agent.toolName ? "Configurada à mão" : "Ainda não escolhida"}</b>
+          {agent.mcpSource?.version && <> · versão {agent.mcpSource.version}</>}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn sm" onClick={() => set({ modal: { type: "tool", id: node.id, tab: "search" } })}>
+            Buscar no catálogo
+          </button>
+          <button className="btn sm" onClick={() => set({ modal: { type: "tool", id: node.id, tab: "paste" } })}>
+            Colar config
+          </button>
+        </div>
+      </div>
+      {type === "native" ? (
+        <>
+          <label className="field">
+            <span>Tool</span>
+            <select className="input" value={agent.toolName ?? ""} onChange={(e) => patch({ label: e.target.value || node.label, agent: mergeAgent(agent, { toolName: e.target.value || undefined }) })}>
+              <option value="">— escolha —</option>
+              {NATIVE_TOOL_NAMES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              {agent.toolName && !NATIVE_TOOL_NAMES.includes(agent.toolName) && <option value={agent.toolName}>{agent.toolName} (desconhecida)</option>}
+            </select>
+          </label>
+          {agent.toolName && NATIVE_TOOLS[agent.toolName] && <div className="callout">{NATIVE_TOOLS[agent.toolName]}</div>}
+          {!agent.toolName && <div className="callout warn">Escolha a tool: sem nome ela não entra no harness (A013).</div>}
+        </>
+      ) : (
+        <>
+          <label className="field">
+            <span>Nome do servidor (vira <code>mcp__nome__tool</code>)</span>
+            <TextField
+              value={node.label}
+              placeholder="playwright"
+              onCommit={(v) => {
+                if (!v.trim()) return;
+                patch({ label: v.trim() });
+                renameNode(node.id, v.trim());
+              }}
+            />
+          </label>
+          <label className="field">
+            <span>Description (o que o servidor faz)</span>
+            <TextField multiline value={agent.description ?? ""} placeholder="Controla um navegador real para testar a interface." onCommit={(v) => upd({ description: v.trim() || undefined })} />
+          </label>
+          <label className="field">
+            <span>Transporte</span>
+            <select className="input" value={transport} onChange={(e) => upd({ transport: e.target.value })}>
+              {Object.entries(MCP_TRANSPORTS).map(([k, l]) => (
+                <option key={k} value={k}>
+                  {k} — {l}
+                </option>
+              ))}
+            </select>
+          </label>
+          {transport === "stdio" ? (
+            <>
+              <label className="field">
+                <span>Comando</span>
+                <TextField value={agent.command ?? ""} placeholder="npx" onCommit={(v) => upd({ command: v.trim() || undefined })} />
+              </label>
+              <label className="field">
+                <span>Argumentos (um por linha)</span>
+                <TextField multiline value={(agent.args ?? []).join("\n")} placeholder={"-y\n@playwright/mcp@latest"} onCommit={(v) => upd({ args: v.split("\n").map((s) => s.trim()).filter(Boolean) })} />
+              </label>
+              <label className="field">
+                <span>Variáveis de ambiente (NOME=valor; segredo sempre como {"${VAR}"})</span>
+                <TextField multiline value={mapToLines(agent.env, "=")} placeholder={"API_KEY=${MINHA_API_KEY}"} onCommit={(v) => upd({ env: linesToMap(v, /=/) })} />
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="field">
+                <span>URL</span>
+                <TextField value={agent.url ?? ""} placeholder="https://exemplo.com/mcp" onCommit={(v) => upd({ url: v.trim() || undefined })} />
+              </label>
+              <label className="field">
+                <span>Cabeçalhos (Nome: valor; segredo sempre como {"${VAR}"})</span>
+                <TextField multiline value={mapToLines(agent.headers, ": ")} placeholder={"Authorization: Bearer ${MEU_TOKEN}"} onCommit={(v) => upd({ headers: linesToMap(v, /:\s*/) })} />
+              </label>
+            </>
+          )}
+          <McpVarsStatus agent={agent} />
+          <McpProbe agent={agent} upd={upd} />
+          {leaks.length > 0 && <div className="callout warn">{leaks.join(", ")}: parece um segredo em texto puro. Use uma variável de ambiente, como <code>{"${NOME}"}</code> (A011); o valor nunca deve ir para o diagrama nem para o <code>.mcp.json</code>.</div>}
+          <label className="field">
+            <span>Tools que o servidor expõe (uma por linha; opcional — alimenta a lista de permitidas por agente)</span>
+            <TextField multiline value={(agent.mcpTools ?? []).join("\n")} placeholder={"browser_navigate\nbrowser_click"} onCommit={(v) => upd({ mcpTools: v.split("\n").map((s) => s.trim()).filter(Boolean) })} />
+          </label>
+        </>
+      )}
     </>
   );
 }
@@ -165,6 +477,11 @@ export function SkillModal({ id, tab: initial }: { id: string; tab?: "catalog" |
     ref.current?.focus();
     return () => prev?.focus?.();
   }, []);
+  // skill nova nasce como «skill», «skill-2»…; ao receber o nome do catálogo o id acompanha (é o nome no harness)
+  const generic = /^skill(-\d+)?$/.test(id) && !!node?.agent?.source && !/^(skill|nova skill)$/i.test(node.label ?? "skill");
+  useEffect(() => {
+    if (generic && node) renameNode(id, node.label);
+  }, [generic, id, node?.label]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!node || !agent) return null;
   const patch = (p: Record<string, unknown>) => run([{ op: "update", id, patch: p }]);
   const upd = (p: Record<string, unknown>) => patch({ agent: mergeAgent(agent, p) });
@@ -216,6 +533,18 @@ export function SkillModal({ id, tab: initial }: { id: string; tab?: "catalog" |
 
 type TabProps = { node: NodeEl; agent: AgentNodeSpec; patch: Patch; upd: (p: Record<string, unknown>) => void };
 
+/** Áreas de desenvolvimento: cada uma vira uma busca no skills.sh, ordenada pelas mais instaladas. */
+const SKILL_AREAS = [
+  { label: "Front-end", q: "frontend react" },
+  { label: "Back-end", q: "backend api" },
+  { label: "Requisitos", q: "requirements prd" },
+  { label: "UI", q: "ui design" },
+  { label: "UX", q: "ux" },
+  { label: "Motion graphics", q: "motion animation" },
+  { label: "Banco de dados", q: "database postgres" },
+  { label: "Arquitetura", q: "architecture" },
+];
+
 type Preview = { status: "loading" } | { status: "ok"; body: string } | { status: "error"; error: string };
 
 function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWrite: () => void }) {
@@ -228,19 +557,79 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
   const [previews, setPreviews] = useState<Record<string, Preview>>({});
   const [resolving, setResolving] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const [url, setUrl] = useState("");
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
     return () => void (alive.current = false);
   }, []);
-  const results = query.trim() ? searchSkillCatalog(query, custom) : catalog;
-  const focused = results.find((r) => r.id === focusId) ?? results[0];
+  const [hub, setHub] = useState<SkillCatalogEntry[]>([]);
+  const [hubState, setHubState] = useState<"idle" | "loading" | "error">("idle");
+  const [area, setArea] = useState(-1);
+  const ghLink = /github\.com|githubusercontent\.com/i.test(query) ? parseSkillGithubUrl(query) : undefined;
+  const typed = query.trim().length >= 2 && !ghLink;
+  useEffect(() => {
+    const q = typed ? query.trim() : area >= 0 ? SKILL_AREAS[area].q : "";
+    let stale = false;
+    setHubState("loading");
+    const t = setTimeout(() => {
+      (q ? searchSkillsHub(q) : topSkillsHub())
+        .then((list) => {
+          if (stale) return;
+          setHub((q ? [...list].sort((a, b) => b.installs - a.installs) : list).map((h) => ({ id: `hub:${h.repo}/${h.skillId}`, name: h.name, repo: h.repo, skillPath: `skills/${h.skillId}/SKILL.md`, description: `${h.installs.toLocaleString("pt-BR")} instalações · catálogo skills.sh`, tags: "skills.sh", remote: true })));
+          setHubState("idle");
+        })
+        .catch(() => !stale && (setHub([]), setHubState("error")));
+    }, 350);
+    return () => ((stale = true), clearTimeout(t));
+  }, [query, area]);
+  const [sources, setSources] = useState<SkillSourceInfo[]>([]);
+  const [indexed, setIndexed] = useState<SkillCatalogEntry[]>([]);
+  const [srcBusy, setSrcBusy] = useState(false);
+  const [srcInput, setSrcInput] = useState("");
+  const loadIndexed = () => indexedSkills().then((l) => alive.current && setIndexed(l.map((k) => ({ id: `src:${k.repo}/${k.skillPath}`, name: k.name, repo: k.repo, skillPath: k.skillPath, description: k.description || "Sem description no SKILL.md.", tags: "fonte", remote: true })))).catch(() => undefined);
+  const srcRun = async (fn: () => Promise<SkillSourceInfo[]>) => {
+    setSrcBusy(true);
+    try {
+      const list = await fn();
+      if (alive.current) setSources(list);
+      await loadIndexed();
+    } catch (e) {
+      toastError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (alive.current) setSrcBusy(false);
+    }
+  };
+  useEffect(() => void loadDownloadedSkills(), []);
+  useEffect(() => {
+    // Fontes novas (nunca indexadas) são indexadas na primeira abertura, em segundo plano.
+    listSkillSources()
+      .then((list) => {
+        setSources(list);
+        void loadIndexed();
+        if (list.some((s) => !s.indexedAt && !s.error)) void srcRun(() => refreshSkillSources());
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const local = query.trim() ? searchSkillCatalog(query, custom) : catalog;
+  const results = useMemo(() => {
+    const have = new Set(local.map((e) => `${e.repo.toLowerCase()}/${skillInstallSlug(e.skillPath) ?? e.id}`.toLowerCase()));
+    const fromSources = typed ? searchSkillCatalog(query, indexed) .filter((e) => e.remote) : indexed;
+    const extra = [...hub, ...fromSources].filter((e) => {
+      const k = `${e.repo}/${skillInstallSlug(e.skillPath) ?? e.id}`.toLowerCase();
+      if (have.has(k)) return false;
+      have.add(k);
+      return true;
+    });
+    return [...local, ...extra];
+  }, [local, hub, indexed, typed, query]);
+  const [detail, setDetail] = useState(false);
+  const focused = detail ? results.find((r) => r.id === focusId) ?? results[0] : undefined;
   const preview = focused && isCurrent(focused) && agent.body ? ({ status: "ok", body: agent.body } as Preview) : focused?.body ? ({ status: "ok", body: focused.body } as Preview) : focused ? previews[focused.id] : undefined;
   const manualSource = !!current && !SKILL_CATALOG.some((e) => e.repo === current.repo && e.skillPath === current.skillPath);
 
   useEffect(() => {
-    if (!focused || focused.body || previews[focused.id] || (isCurrent(focused) && agent.body)) return;
+    if (!focused || focused.remote || focused.body || previews[focused.id] || (isCurrent(focused) && agent.body)) return;
     const id = focused.id;
     setPreviews((p) => ({ ...p, [id]: { status: "loading" } }));
     resolveSkillSource(catalogEntryToSource(focused)).then((r) => setPreviews((p) => ({ ...p, [id]: r.ok ? { status: "ok", body: r.body } : { status: "error", error: r.error } })));
@@ -248,14 +637,14 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
   }, [focused?.id]);
 
   const fresh = node.label === "Nova Skill" || node.label === "Skill";
-  const resolve = async (spec: AgentNodeSpec, label?: string): Promise<boolean> => {
+  const resolve = async (spec: AgentNodeSpec, label?: string, force = false): Promise<boolean> => {
     if (!spec.source) return false;
     const curated = SKILL_CATALOG.some((e) => e.repo === spec.source!.repo && e.skillPath === spec.source!.skillPath);
     setResolving(true);
     if (!curated) setInstalling(true);
     try {
       if (!curated) {
-        const { installed, project } = await installGithubSkills(spec.source.repo, spec.source.skillPath);
+        const { installed, project } = await installGithubSkills(spec.source.repo, spec.source.skillPath, force);
         const slug = skillInstallSlug(spec.source.skillPath);
         const match = (slug && installed.find((s) => s.id.toLowerCase() === slug.toLowerCase())) || installed.find((s) => s.skillPath === spec.source!.skillPath) || installed[0];
         if (!match?.body) {
@@ -298,38 +687,53 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
     }
     void resolve({ role: "skill", description: e.description || agent.description, source }, label);
   };
-  const parsed = parseSkillGithubUrl(url);
-  const parsedSlug = parsed ? skillInstallSlug(parsed.skillPath) : undefined;
-  const useManual = async () => {
-    if (!parsed || resolving) return;
-    const ok = await resolve({ role: "skill", description: agent.description, source: parsed });
-    if (ok && alive.current) setUrl("");
+  const ghSlug = ghLink ? skillInstallSlug(ghLink.skillPath) : undefined;
+  const downloadLink = async () => {
+    if (!ghLink || resolving) return;
+    const ok = await resolve({ role: "skill", description: agent.description, source: ghLink });
+    if (ok && alive.current) setQuery("");
   };
   const refreshLabel = () => {
     if (resolving) return manualSource || installing ? "Instalando…" : "Baixando…";
     if (manualSource) return current?.hash ? "Atualizar com npx" : "Instalar com npx";
     return current?.hash ? "Atualizar do GitHub" : "Resolver do GitHub";
   };
-  /** Setas ↑/↓ na busca andam pela lista sem tirar o foco do campo. */
-  const nav = (e: React.KeyboardEvent) => {
-    if (!results.length || (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter")) return;
-    e.preventDefault();
-    if (e.key === "Enter") return focused && take(focused);
-    const i = Math.max(0, results.findIndex((r) => r.id === focused?.id));
-    setFocusId(results[(i + (e.key === "ArrowDown" ? 1 : results.length - 1)) % results.length].id);
-  };
-
   return (
     <div className="skill-cat-layout">
+      {!detail && (
       <aside className="skill-cat-side">
-        <input className="input skill-search" autoFocus value={query} placeholder="Buscar por nome, assunto ou repositório…" onChange={(e) => setQuery(e.target.value)} onKeyDown={nav} aria-label="Buscar skill no catálogo" aria-controls="skill-cat-list" />
+        <div style={{ display: "flex", gap: 8 }}>
+          <input className="input skill-search" style={{ flex: 1 }} autoFocus value={query} placeholder="Buscar por nome, assunto ou repositório, ou colar um link do GitHub…" onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ghLink && (e.preventDefault(), downloadLink())} aria-label="Buscar skill no catálogo ou colar link do GitHub" />
+          {ghLink && (
+            <button className="btn primary" disabled={resolving} onClick={downloadLink}>
+              {installing ? "Baixando…" : "Baixar skill"}
+            </button>
+          )}
+        </div>
+        {ghLink && (
+          <span className="skill-ok">
+            Link do GitHub reconhecido: {ghLink.repo}
+            {ghSlug ? ` · ${ghSlug}` : " · todas as skills do repositório"}. Baixa com npx skills add e guarda no banco local.
+            {installing && " A primeira vez clona o repositório e pode levar um minuto."}
+          </span>
+        )}
+        <div className="skill-areas" role="group" aria-label="Áreas de desenvolvimento" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          <button className={`btn sm${!typed && area < 0 ? " primary" : " ghost"}`} aria-pressed={!typed && area < 0} onClick={() => (setQuery(""), setArea(-1))}>
+            Top geral
+          </button>
+          {SKILL_AREAS.map((a, i) => (
+            <button key={a.label} className={`btn sm${!typed && i === area ? " primary" : " ghost"}`} aria-pressed={!typed && i === area} onClick={() => (setQuery(""), setArea(i))}>
+              {a.label}
+            </button>
+          ))}
+        </div>
         <span className="skill-cat-count">
-          {results.length} de {catalog.length} skills
+          {results.length} skills{hubState === "loading" && " · buscando no skills.sh…"}{hubState === "error" && " · skills.sh indisponível, mostrando as fontes locais"}
         </span>
-        <ul id="skill-cat-list" className="skill-cat-list" role="listbox" aria-label="Skills do catálogo">
+        <ul id="skill-cat-list" className="skill-grid" aria-label="Skills do catálogo">
           {results.map((r) => (
-            <li key={r.id} role="option" aria-selected={r.id === focused?.id}>
-              <button className={`skill-cat${r.id === focused?.id ? " focused" : ""}${isCurrent(r) ? " active" : ""}`} onClick={() => setFocusId(r.id)} onDoubleClick={() => take(r)}>
+            <li key={r.id} className={`skill-card${isCurrent(r) ? " active" : ""}`}>
+              <button className="skill-card-main" onClick={() => (setFocusId(r.id), setDetail(true))}>
                 <span className="skill-cat-name">
                   {r.name}
                   {isCurrent(r) && <span className="skill-cat-tag">em uso</span>}
@@ -338,33 +742,35 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
                 <span className="skill-cat-repo">{r.repo}</span>
                 <span className="skill-cat-desc">{r.description}</span>
               </button>
+              <button className="btn sm primary" onClick={() => take(r)} disabled={resolving || isCurrent(r)}>
+                {isCurrent(r) ? "Em uso" : resolving ? "Baixando…" : r.body ? "Usar" : "Instalar e usar"}
+              </button>
             </li>
           ))}
-          {!results.length && <li className="skill-cat-none">Nada no catálogo para «{query}». Use um repositório do GitHub abaixo ou escreva do zero.</li>}
+          {!results.length && <li className="skill-cat-none">{hubState === "loading" ? "Buscando no skills.sh…" : `Nada encontrado${query.trim() ? ` para «${query}»` : ""}. Use um repositório do GitHub abaixo ou escreva do zero.`}</li>}
         </ul>
         <details className="skill-manual">
-          <summary>Usar uma URL do GitHub</summary>
+          <summary>Fontes de skills ({sources.length})</summary>
+          <span className="skill-slug">Repositórios do GitHub indexados no banco local. Valem mesmo sem o skills.sh.</span>
+          {sources.map((src) => (
+            <div key={src.repo} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <code>{src.repo}</code>
+              <span className={src.error ? "skill-pending" : "skill-slug"}>{src.error ?? `${src.count} skills`}</span>
+              <button className="btn sm ghost" disabled={srcBusy} onClick={() => srcRun(() => refreshSkillSources(src.repo))}>
+                Atualizar
+              </button>
+              <button className="btn sm ghost" disabled={srcBusy} onClick={() => srcRun(() => removeSkillSource(src.repo))}>
+                Remover
+              </button>
+            </div>
+          ))}
           <label className="field">
-            <span>URL do SKILL.md ou da pasta da skill</span>
-            <input
-              className="input"
-              value={url}
-              placeholder="https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md"
-              aria-invalid={url.trim() !== "" && !parsed}
-              aria-describedby="skill-url-hint"
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && parsed) (e.preventDefault(), useManual());
-              }}
-            />
+            <span>Adicionar fonte (owner/repo ou URL do repositório)</span>
+            <input className="input" value={srcInput} placeholder="anthropics/skills" onChange={(e) => setSrcInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && srcInput.trim() && !srcBusy && (e.preventDefault(), srcRun(() => addSkillSource(srcInput)).then(() => setSrcInput("")))} />
           </label>
-          <span id="skill-url-hint" className={parsed ? "skill-ok" : url.trim() ? "skill-pending" : "skill-slug"}>
-            {parsed ? `Instala com npx skills add ${parsed.repo}${parsedSlug ? ` -s ${parsedSlug}` : ""} no projeto aberto e salva no catálogo.` : url.trim() ? "Não reconheci essa URL. Cole o link do arquivo ou da pasta no GitHub." : "Também aceita só owner/repo."}
-          </span>
-          <button className="btn sm" disabled={!parsed || resolving} onClick={useManual}>
-            {installing ? "Instalando…" : "Instalar e salvar no catálogo"}
+          <button className="btn sm" disabled={!srcInput.trim() || srcBusy} onClick={() => srcRun(() => addSkillSource(srcInput)).then(() => setSrcInput(""))}>
+            {srcBusy ? "Indexando…" : "Adicionar e indexar"}
           </button>
-          {installing && <span className="skill-pending">A primeira instalação clona o repositório e pode levar um minuto.</span>}
         </details>
         <div className="skill-or">
           Nenhuma serve?
@@ -373,8 +779,13 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
           </button>
         </div>
       </aside>
+      )}
 
+      {detail && (
       <section className="skill-cat-detail" aria-label="Detalhes da skill">
+        <button className="btn sm ghost" style={{ alignSelf: "flex-start" }} onClick={() => setDetail(false)}>
+          ← Voltar ao catálogo
+        </button>
         {current && !catalog.some(isCurrent) && (
           <div className="skill-current">
             <div>
@@ -383,7 +794,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
                 <code>{current.repo}</code> · <code>{current.skillPath}</code>
               </div>
             </div>
-            <button className="btn sm" onClick={() => resolve(agent)} disabled={resolving}>
+            <button className="btn sm" onClick={() => resolve(agent, undefined, true)} disabled={resolving}>
               {refreshLabel()}
             </button>
           </div>
@@ -394,13 +805,13 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
               <div>
                 <h3>{focused.name}</h3>
                 <div className="skill-cat-repo">
-                  {focused.repo} · {focused.skillPath}
+                  {focused.repo}{!focused.remote && ` · ${focused.skillPath}`}
                 </div>
               </div>
               <div className="skill-current-actions">
                 {isCurrent(focused) ? (
                   <>
-                    <button className="btn sm" onClick={() => resolve(agent)} disabled={resolving}>
+                    <button className="btn sm" onClick={() => resolve(agent, undefined, true)} disabled={resolving}>
                       {refreshLabel()}
                     </button>
                     <button
@@ -425,7 +836,9 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
             <p className="skill-detail-desc">{focused.description}</p>
             {isCurrent(focused) && <div className={current?.hash ? "skill-ok" : "skill-pending"}>{current?.hash ? `Em uso · resolvida (hash ${current.hash})` : "Em uso · ainda não resolvida (A006): o corpo fica vazio até baixar"}</div>}
             <div className="skill-detail-body">
-              {!preview || preview.status === "loading" ? (
+              {focused.remote ? (
+                <div className="skill-empty">Skill do catálogo público skills.sh. «Usar esta skill» baixa com npx skills add no projeto aberto e mostra o conteúdo aqui.</div>
+              ) : !preview || preview.status === "loading" ? (
                 <div className="skill-empty">Carregando o SKILL.md do GitHub…</div>
               ) : preview.status === "error" ? (
                 <div className="skill-empty">Não deu para carregar a prévia: {preview.error}</div>
@@ -438,6 +851,7 @@ function SkillCatalogTab({ node, agent, patch, upd, onWrite }: TabProps & { onWr
           <div className="skill-empty">Escolha uma skill na lista para ver o conteúdo.</div>
         )}
       </section>
+      )}
     </div>
   );
 }
@@ -544,7 +958,7 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
   const valid = suggestAgentRels(doc, conn.from, conn.to);
   const setRel = (rel: AgentRel | "") => {
     if (!rel) return patch({ agent: null });
-    patch({ agent: { rel }, type: AGENT_RELS[rel].type });
+    patch({ agent: { rel, ...(a?.usage ? { usage: a.usage } : {}), ...(rel === "uses-tool" && a?.allow?.length ? { allow: a.allow } : {}) }, type: AGENT_RELS[rel].type });
   };
   return (
     <>
@@ -560,6 +974,33 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
           ))}
         </select>
       </label>
+      {a && (
+        <label className="field">
+          <span>Como usa <small style={{ opacity: 0.7 }}>(vai para o corpo do agente no harness)</small></span>
+          <textarea
+            className="input"
+            rows={4}
+            value={a.usage ?? ""}
+            placeholder={AGENT_RELS[a.rel].usageHint}
+            onChange={(e) => patch({ agent: { rel: a.rel, ...(e.target.value ? { usage: e.target.value } : {}), ...(a.allow?.length ? { allow: a.allow } : {}) } })}
+          />
+        </label>
+      )}
+      {a?.rel === "uses-tool" && doc.nodes.find((n) => n.id === conn.to)?.agent?.toolType === "mcp" && (
+        <label className="field">
+          <span>Tools permitidas deste servidor <small style={{ opacity: 0.7 }}>(uma por linha; vazio = todas)</small></span>
+          <TextField
+            multiline
+            value={(a.allow ?? []).join("\n")}
+            placeholder={(doc.nodes.find((n) => n.id === conn.to)?.agent?.mcpTools ?? ["create_issue"]).slice(0, 3).join("\n")}
+            onCommit={(v) => {
+              const allow = v.split("\n").map((s) => s.trim()).filter(Boolean);
+              patch({ agent: { rel: a.rel, ...(a.usage ? { usage: a.usage } : {}), ...(allow.length ? { allow } : {}) } });
+            }}
+          />
+        </label>
+      )}
+      {a && !a.usage?.trim() && <div className="callout warn">Sem «como usa»: o agente só saberá o que o destino faz, não como ele próprio deve usá-lo (aviso A018).</div>}
       {!a && <div className="callout">{valid.length ? `Sem relação. Para este par: ${valid.join(", ")}.` : "Nenhuma relação do modo agents liga este par (precisa ser agent → skill ou agent → agent)."}</div>}
       {a && <div className="callout">{AGENT_RELS[a.rel].semantics}{!valid.includes(a.rel) && " Atenção: esta combinação não é válida para esta relação (aviso A008)."}</div>}
     </>

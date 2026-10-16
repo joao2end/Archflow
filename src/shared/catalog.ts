@@ -337,6 +337,7 @@ export const AGENTS_CATEGORY = "Agents";
 const AGENT_TAGS: Record<AgentRole, string> = {
   agent: "subagente ia prompt model tools delega claude code cursor",
   skill: "conhecimento procedimento reutilizável skill.md catálogo",
+  tool: "ferramenta tool mcp servidor bash read write edit grep claude cursor",
 };
 const agentAssets: Asset[] = AGENT_ROLE_KEYS.map((role) => ({
   id: `agent-${role}`,

@@ -75,7 +75,7 @@ Com `asset`, o `kind` já vem do catálogo — não repita.
 
 ## Modo domain (DDD): do caso de uso ao modelo
 
-Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio) ou `logic` (as regras do negócio, ver mais abaixo). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
+Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio), `logic` (as regras do negócio, ver mais abaixo) ou `agents` (time de agentes de IA, ver «Modo agents»). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
 
 Estrutura no projeto: **um diagrama por bounded context** + um **mapa de contextos** (visão geral), tudo em `dominio/`.
 
@@ -112,6 +112,20 @@ Fluxo (siga a ordem):
 5. `auto_layout` (padrão `pipeline`) e `validate_diagram`: ele **executa os exemplos de verdade** (L004 = exemplo que falha) e checa o fluxo (L012–L024). Corrija até limpar; se um número esperado parecer errado, pergunte ao usuário qual é o certo em vez de ajustar o exemplo para passar.
 
 Modelo pronto para consultar: `examples/exemplos-logic/` (engine de precificação com 11 ações, 7 cenários e 30 exemplos) e o desenho do modo em `docs/LOGIC_MODE_DESIGN.md`. No app, a reprodução de um `scenario` anima o valor passo a passo pelo quadro.
+
+## Modo agents: um time de agentes de IA como harness
+
+Quarto modo (`mode: "agents"`): desenha um **time de agentes** (subagentes, skills e ferramentas) e o exporta como **harness** para o Claude Code (`.claude/`, `.mcp.json`) ou o Cursor (`.cursor/`). **Chame `get_schema_guide` antes** (devolve o guia do modo aberto) e não use assets de tecnologia.
+
+Papéis (`add_components` com `agent: { role, ... }`; kind vira `agent`): `agent` (`description` = QUANDO delegar, `prompt`, `model`) · `skill` (`description` = quando puxar, `body` ou `source: { repo, skillPath }` do catálogo) · `tool` (`toolType: "native"` + `toolName` — Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch, NotebookEdit, TodoWrite, Agent — ou `toolType: "mcp"` + `transport`, `command`/`args` ou `url`, `env`/`headers`). Skills e tools dentro de um grupo `kind: "global"` valem para todos os agentes.
+
+Relações (`connect` com `agent: { rel, usage }`; o `type` vem da relação): `uses-skill` e `uses-tool` (agent → skill/tool) e `delegates` (agent → agent). **`usage` diz COMO o agente de origem usa o destino** (quando, para quê, o que passa e espera de volta): vai para o corpo do agente no harness e sem ele há aviso A018. Em `uses-tool` para um servidor MCP, `allow` limita as tools do servidor que aquele agente pode chamar.
+
+**Segredos**: `env` e `headers` do MCP levam SEMPRE `${VARIAVEL}`, nunca o valor (A011 é erro). O id do nó MCP é o nome do servidor (`mcp__<id>__<tool>`): use um slug estável.
+
+Fluxo: `new_diagram` com `mode: "agents"` → `add_components` (agentes, skills, tools) → `connect` (com `usage`) → `validate_diagram` (erros A001, A002, A010, A011, A013 primeiro; A006 = skill do catálogo ainda sem conteúdo) → `generate_code` com `target` `claude` ou `cursor` (`write: true` grava na pasta do projeto). Com o projeto em disco, o app regrava o harness sozinho a cada edição (alvos em `.archflow/project.json`; o controle fica em `archflow.agents.json`: apaga o que saiu do diagrama e **não sobrescreve** `.md` que o usuário editou à mão; `.mcp.json` é mesclado por servidor). O usuário testa o time no próprio app: o botão **Terminal** abre o Claude Code na pasta do projeto (você não precisa abrir nem controlar esse terminal; o que ele executa é o harness gravado).
+
+O que dizer ao usuário depois de gerar: **o Claude Code pede para aprovar cada servidor de `.mcp.json` na primeira vez** (fica «Pending approval» até lá) e, para servidor MCP **inline** num agente, para **confiar na pasta**; as `${VAR}` precisam existir no ambiente dele. No Cursor o MCP vale para o projeto todo (`.cursor/mcp.json`, `${env:VAR}`), sem isolamento por agente. Sem nenhuma tool nativa ligada, o agente herda todas as tools (inclusive MCP); com alguma, `tools:` vira lista de permissão e o Archflow soma as `mcp__…`.
 
 ## Convenções que evitam retrabalho
 

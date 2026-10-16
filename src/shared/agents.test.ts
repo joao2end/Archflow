@@ -25,7 +25,7 @@ const serious = (doc: Doc) => validateDetailed(doc).filter((i) => i.severity !==
 const clean = (): Op[] => [
   an("revisor", { role: "agent", description: "Revisa pull requests e aponta bugs de correção e segurança." }, "Code Reviewer"),
   an("review-skill", { role: "skill", description: "Checklist de revisão de código: estilo, testes, segurança.", body: "..." }, "Review Checklist"),
-  rel("revisor", "review-skill", "uses-skill"),
+  { op: "add_connection", from: "revisor", to: "review-skill", agent: { rel: "uses-skill", usage: "Aplica o checklist em cada diff antes de aprovar." } },
 ];
 
 /* ───────── fase 1: schema ───────── */
@@ -188,4 +188,98 @@ test("schemaGuide: modo agents lista papéis, relações e o fluxo recomendado; 
   const arch = schemaGuide();
   assert.equal(arch, schemaGuide("architecture"));
   assert.ok(!arch.includes("uses-skill"));
+});
+
+test("A018: relação sem «usage» (ou curto demais) avisa; com usage some", () => {
+  const base = (usage?: string): Op[] => [
+    an("a", { role: "agent", description: "Agente que coordena o trabalho do time." }),
+    an("s", { role: "skill", description: "Skill de revisão de textos de marketing." }),
+    { op: "add_connection", from: "a", to: "s", agent: { rel: "uses-skill", ...(usage !== undefined ? { usage } : {}) } },
+  ];
+  const id = (ops: Op[]) => build(ops).connections[0].id;
+  assert.ok(has(build(base()), "A018", id(base())));
+  assert.ok(has(build(base("curto")), "A018", id(base("curto"))));
+  assert.equal(has(build(base("Passa o rascunho e usa o checklist antes de publicar.")), "A018"), false);
+  const bad = applyOps(emptyDoc("t", "agents"), [...base().slice(0, 2), { op: "add_connection", from: "a", to: "s", agent: { rel: "uses-skill", usage: 3 as never } }]);
+  assert.match(bad.results[2].error ?? "", /agent\.usage deve ser um texto/);
+});
+
+test("describe: mostra o «como usa» de cada relação", () => {
+  const doc = build([
+    an("a", { role: "agent", description: "Agente que coordena o trabalho do time." }),
+    an("s", { role: "skill", description: "Skill de revisão de textos de marketing." }),
+    { op: "add_connection", from: "a", to: "s", agent: { rel: "uses-skill", usage: "revisa cada título antes de publicar" } },
+  ]);
+  assert.match(describe(doc), /usa as skills: s — revisa cada título antes de publicar/);
+});
+
+/* ───────── ferramentas (role tool) ───────── */
+
+const tool = (id: string, agent: Record<string, unknown>, parent?: string): Op => an(id, { role: "tool", ...agent } as AgentNodeSpec, id, parent);
+const useTool = (from: string, to: string, extra: Record<string, unknown> = {}): Op => ({ op: "add_connection", from, to, agent: { rel: "uses-tool", usage: "Usa quando a tarefa pede essa ferramenta.", ...extra } as never });
+const ag = (): Op => an("a", { role: "agent", description: "Agente que executa o trabalho do time." });
+
+test("tool: validação de entrada dos campos", () => {
+  const bad = (agent: Record<string, unknown>) => applyOps(emptyDoc("t", "agents"), [{ op: "add_node", id: "x", kind: "agent", agent: agent as never }]).results[0].error ?? "";
+  assert.match(bad({ role: "tool", toolType: "docker" }), /toolType/);
+  assert.match(bad({ role: "tool", transport: "ws" }), /transport inválido/);
+  assert.match(bad({ role: "tool", env: { A: 1 } }), /agent\.env deve ser um objeto/);
+  assert.match(bad({ role: "tool", args: "x" }), /agent\.args deve ser uma lista/);
+  assert.match(bad({ role: "agent", toolName: "Bash" }), /campo "toolName" não existe no papel "agent"/);
+  assert.equal(bad({ role: "tool", toolType: "mcp", transport: "stdio", command: "npx", args: ["-y"], env: { A: "${A}" } }), "");
+});
+
+test("uses-tool: a relação é inferida (agent → tool) e allow só vale aí", () => {
+  const doc = build([ag(), tool("bash", { toolType: "native", toolName: "Bash" }), { op: "add_connection", from: "a", to: "bash" }]);
+  assert.equal(doc.connections[0].agent?.rel, "uses-tool");
+  const r = applyOps(doc, [{ op: "add_connection", from: "a", to: "bash", agent: { rel: "uses-skill", allow: ["x"] } as never }]);
+  assert.match(r.results[0].error ?? "", /allow só vale em uses-tool/);
+});
+
+test("A010/A011/A013: servidor sem command/url, segredo em texto puro e tool sem tipo/nome", () => {
+  const d = build([
+    ag(),
+    tool("semcmd", { toolType: "mcp", transport: "stdio", description: "Servidor sem comando algum." }),
+    tool("semurl", { toolType: "mcp", transport: "http", description: "Servidor remoto sem url." }),
+    tool("segredo", { toolType: "mcp", transport: "http", url: "https://x", headers: { Authorization: "Bearer abcdef123456" }, env: { API_KEY: "sk-live" } }),
+    tool("ok", { toolType: "mcp", transport: "http", url: "https://x", headers: { Authorization: "Bearer ${TOKEN}" }, description: "Servidor com variável de ambiente." }),
+    tool("semtipo", { description: "Tool sem tipo nenhum definido." }),
+    tool("semnome", { toolType: "native" }),
+    useTool("a", "semcmd"), useTool("a", "semurl"), useTool("a", "segredo"), useTool("a", "ok"), useTool("a", "semtipo"), useTool("a", "semnome"),
+  ]);
+  assert.ok(has(d, "A010", "semcmd") && has(d, "A010", "semurl"));
+  assert.ok(has(d, "A011", "segredo"));
+  assert.equal(has(d, "A011", "ok"), false);
+  assert.ok(has(d, "A013", "semtipo") && has(d, "A013", "semnome"));
+  assert.ok(has(build([ag(), tool("t", { toolType: "native", toolName: "Banana" }), useTool("a", "t")]), "A013", "t"), "nome nativo desconhecido avisa");
+});
+
+test("A012: ferramenta órfã avisa; no Global ou com seta não", () => {
+  const d = build([ag(), tool("solta", { toolType: "native", toolName: "Read" }), tool("lig", { toolType: "native", toolName: "Bash" }), { op: "add_group", id: "g", label: "Global", kind: "global" }, tool("glob", { toolType: "native", toolName: "Grep" }, "g"), useTool("a", "lig")]);
+  assert.ok(has(d, "A012", "solta"));
+  assert.equal(has(d, "A012", "lig"), false);
+  assert.equal(has(d, "A012", "glob"), false);
+});
+
+test("A014/A015/A016/A018: tools legado, allow fora das conhecidas ou em nativa, sse e uses-tool sem usage", () => {
+  const d = build([
+    an("legado", { role: "agent", description: "Agente que ainda usa a lista de texto.", tools: ["Read"] }),
+    tool("srv", { toolType: "mcp", transport: "sse", url: "https://x", mcpTools: ["a", "b"], description: "Servidor com lista conhecida." }),
+    tool("nat", { toolType: "native", toolName: "Read" }),
+    { op: "add_connection", from: "legado", to: "srv", agent: { rel: "uses-tool", allow: ["a", "z"] } },
+    { op: "add_connection", from: "legado", to: "nat", agent: { rel: "uses-tool", usage: "Leitura de arquivos do projeto.", allow: ["x"] } },
+  ]);
+  assert.ok(has(d, "A014", "legado"));
+  assert.ok(has(d, "A016", "srv"));
+  assert.ok(issues(d, "A015").length === 2);
+  assert.ok(has(d, "A018"), "uses-tool sem usage também avisa");
+});
+
+test("describe e guia citam as ferramentas", () => {
+  const doc = build([ag(), tool("bash", { toolType: "native", toolName: "Bash" }), tool("pw", { toolType: "mcp", transport: "stdio", command: "npx", args: ["-y", "x"], description: "Controla o navegador." }), useTool("a", "bash"), useTool("a", "pw")]);
+  const text = describe(doc);
+  assert.match(text, /usa as ferramentas: bash — Usa quando/);
+  assert.match(text, /## Ferramentas[\s\S]*\*\*pw\*\* \(pw\): Controla o navegador\. — MCP stdio · npx -y x · ligada por seta/);
+  assert.match(schemaGuide("agents"), /uses-tool/);
+  assert.match(schemaGuide("agents"), /mcpServers/);
 });

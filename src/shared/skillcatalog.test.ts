@@ -19,22 +19,18 @@ const mdFixture = ["---", "name: Diagnosing Bugs", 'description: "Loop de diagn�
 
 /* ───────── catálogo ───────── */
 
-test("SKILL_CATALOG: entradas têm repo owner/repo e skillPath apontando pra um SKILL.md", () => {
-  assert.ok(SKILL_CATALOG.length >= 6);
-  for (const e of SKILL_CATALOG) {
-    assert.match(e.repo, /^[^/\s]+\/[^/\s]+$/, e.id);
-    assert.match(e.skillPath, /SKILL\.md$/, e.id);
-    assert.ok(e.description.length >= 20, e.id);
-  }
-  const ids = SKILL_CATALOG.map((e) => e.id);
-  assert.equal(new Set(ids).size, ids.length, "ids únicos");
+const fixture = { id: "frontend-design", name: "Frontend Design", repo: "anthropics/skills", skillPath: "skills/frontend-design/SKILL.md", description: "Direção visual intencional para UI.", tags: "ui design typescript" };
+
+test("SKILL_CATALOG: não traz skills embutidas; o catálogo vem do skills.sh e das instaladas", () => {
+  assert.deepEqual(SKILL_CATALOG, []);
+  assert.deepEqual(searchSkillCatalog(""), []);
 });
 
 test("searchSkillCatalog: busca por texto livre ignora acento e maiúsculas; vazio devolve tudo", () => {
-  assert.deepEqual(searchSkillCatalog(""), SKILL_CATALOG);
-  assert.ok(searchSkillCatalog("DIAGNÓSTICO").some((e) => e.id === "diagnosing-bugs"));
-  assert.ok(searchSkillCatalog("typescript").some((e) => e.id === "typescript-advanced-types"));
-  assert.deepEqual(searchSkillCatalog("inexistente-xyz"), []);
+  assert.deepEqual(searchSkillCatalog("", [fixture]), [fixture]);
+  assert.ok(searchSkillCatalog("DIREÇÃO", [fixture]).length === 1);
+  assert.ok(searchSkillCatalog("typescript", [fixture]).length === 1);
+  assert.deepEqual(searchSkillCatalog("inexistente-xyz", [fixture]), []);
 });
 
 test("parseSkillGithubUrl: blob, pasta, raw e owner/repo viram a fonte; o resto é rejeitado", () => {
@@ -59,10 +55,10 @@ test("searchSkillCatalog e skillInstallSlug: skill instalada entra na busca; slu
 });
 
 test("findSkillCatalogEntry e catalogEntryToSource", () => {
-  const e = findSkillCatalogEntry("frontend-design")!;
+  const e = findSkillCatalogEntry("frontend-design", [fixture])!;
   assert.equal(e.repo, "anthropics/skills");
   assert.deepEqual(catalogEntryToSource(e), { repo: "anthropics/skills", skillPath: "skills/frontend-design/SKILL.md" });
-  assert.equal(findSkillCatalogEntry("nao-existe"), undefined);
+  assert.equal(findSkillCatalogEntry("nao-existe", [fixture]), undefined);
 });
 
 /* ───────── parseSkillMarkdown ───────── */

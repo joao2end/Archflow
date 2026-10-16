@@ -7,6 +7,9 @@ import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KI
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
 import { LogicConnFields, LogicFields } from "./logic";
 import { AgentConnFields, AgentFields } from "./agents";
+import { CatalogAgents } from "./agentcatalog";
+import { CatalogMcp } from "./mcpcatalog";
+import { TerminalButton } from "./terminal";
 import { mergeSkillCatalog, searchSkillCatalog, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { exportHtml, exportJson, exportPng, exportSvg, importJson } from "./export";
 import { Glyph, AssetBadge } from "./icons";
@@ -20,7 +23,7 @@ import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoo
 import { RichField } from "./richeditor";
 import { IS_DESKTOP } from "./platform";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, plugSkill, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
+import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, plugSkill, plugTool, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
 
@@ -193,6 +196,7 @@ export function TopBar() {
           <button className="btn ghost" onClick={() => set({ modal: { type: "mcp" } })} data-tip="Conectar Claude / agentes via MCP" data-tip-pos="bottom">
             <Glyph name="plug" size={17} /> MCP
           </button>
+          <TerminalButton />
           <div className="menu-wrap">
             <button className="btn primary" onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu}>
               <Glyph name="download" size={17} /> Arquivo
@@ -472,7 +476,7 @@ function CatalogSkills({ q }: { q: string }) {
           </div>
         );
       })}
-      {!skills.length && <div className="empty">Nenhuma skill do catálogo para «{q}». Arraste o asset Skill e escreva uma do zero.</div>}
+      {!skills.length && <div className="empty">{q.trim() ? `Nenhuma skill instalada para «${q}».` : "Nenhuma skill instalada ainda."} Arraste o asset Skill e use «Buscar no catálogo» para baixar uma, ou escreva do zero.</div>}
     </section>
   );
 }
@@ -510,6 +514,7 @@ export function Library() {
   const addAtCenter = (id: string) => {
     const s = getState();
     const asset = allKnownAssets().find((a) => a.id === id);
+    if (id === "agent-tool" && s.sel.length === 1 && s.doc.nodes.some((n) => n.id === s.sel[0] && n.agent?.role === "agent")) return plugTool({ agentId: s.sel[0] });
     if (id === "agent-skill" && s.sel.length === 1 && s.doc.nodes.some((n) => n.id === s.sel[0] && n.agent?.role === "agent")) return plugSkill({ agentId: s.sel[0] });
     if (asset?.kind === "endpoint" && s.sel.length === 1) {
       const sel = s.doc.nodes.find((n) => n.id === s.sel[0]);
@@ -577,7 +582,9 @@ export function Library() {
             ))}
           </section>
         ))}
+        {mode === "agents" && <CatalogAgents q={q} />}
         {mode === "agents" && <CatalogSkills q={q} />}
+        {mode === "agents" && <CatalogMcp q={q} />}
         {!list.length && mode !== "agents" && <div className="empty">Nada encontrado. Cadastre este asset abaixo e descreva o problema que ele resolve.</div>}
       </div>
       <div className="lib-foot">
@@ -838,15 +845,14 @@ export function Inspector() {
         <InspectorGrip />
         <div className="insp-head">
           <div>
-            <div className="kicker">{docMode(doc) === "logic" ? "Seta do fluxo" : `Conexão · ${t.label}`}</div>
+            <div className="kicker">{docMode(doc) === "logic" ? "Seta do fluxo" : agentsConn ? `Relação${conn.agent ? ` · ${conn.agent.rel}` : ""}` : `Conexão · ${t.label}`}</div>
             <div className="ttl" role="heading" aria-level={2}>
               {name(conn.from)} → {name(conn.to)}
             </div>
           </div>
         </div>
         {domainConn && conn.ddd && <div className="callout">O tipo <b>{t.label}</b> é definido pela relação <b>{conn.ddd.rel}</b>. Para escolher outro tipo UML, remova a relação.</div>}
-        {agentsConn && conn.agent && <div className="callout">O tipo <b>{t.label}</b> é definido pela relação <b>{conn.agent.rel}</b>. Para escolher outro tipo UML, remova a relação.</div>}
-        <div className="type-grid" role="radiogroup" aria-label="Tipo" style={(domainConn && conn.ddd) || (agentsConn && conn.agent) || docMode(doc) === "logic" ? { display: "none" } : undefined}>
+        <div className="type-grid" role="radiogroup" aria-label="Tipo" style={(domainConn && conn.ddd) || agentsConn || docMode(doc) === "logic" ? { display: "none" } : undefined}>
           {CONNECTION_TYPE_KEYS.filter((k) => !domainConn || !INFRA_CONNECTION_TYPES.includes(k)).map((k) => (
             <button key={k} role="radio" aria-checked={conn.type === k} className={`type-btn ${conn.type === k ? "active" : ""}`} style={{ ["--tc" as string]: CONNECTION_TYPES[k].color }} onClick={() => patch({ type: k }, "conn")} data-tip={CONNECTION_TYPES[k].semantics} data-tip-pos="left">
               <ConnSample type={k} />
@@ -854,7 +860,7 @@ export function Inspector() {
             </button>
           ))}
         </div>
-        {docMode(doc) !== "logic" && <div className="callout">{t.semantics}</div>}
+        {docMode(doc) !== "logic" && !agentsConn && <div className="callout">{t.semantics}</div>}
         {docMode(doc) === "domain" && <DddConnFields conn={conn} patch={patch} />}
         {docMode(doc) === "logic" && <LogicConnFields conn={conn} patch={patch} />}
         {agentsConn && <AgentConnFields conn={conn} patch={patch} />}
@@ -862,7 +868,7 @@ export function Inspector() {
           <span>Rótulo</span>
           <TextField id="insp-first" value={conn.label ?? ""} placeholder="ex.: cria pedido" onCommit={(v) => patch({ label: v || undefined })} />
         </label>
-        {docMode(doc) !== "logic" && (
+        {docMode(doc) !== "logic" && !agentsConn && (
           <label className="field">
             <span>Protocolo</span>
             <TextField value={conn.protocol ?? ""} placeholder="HTTPS/REST · gRPC · AMQP · TCP/5432" onCommit={(v) => patch({ protocol: v || undefined })} />
@@ -891,7 +897,7 @@ export function Inspector() {
             <button className="switch" role="switch" aria-checked={conn.animated !== false} aria-label="Animar fluxo" onClick={() => patch({ animated: conn.animated === false })} />
           </div>
         )}
-        {docMode(doc) !== "logic" && (
+        {docMode(doc) !== "logic" && !agentsConn && (
         <>
         <div className="callout">
           {conn.interface ? (

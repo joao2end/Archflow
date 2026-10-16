@@ -14,7 +14,9 @@ import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./riche
 import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { findSkillCatalogEntry } from "../shared/skillcatalog";
-import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, plugSkill, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
+import { findMcpCatalogEntry } from "../shared/mcpcatalog";
+import { applyAgentTemplate } from "./agentcatalog";
+import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, plugSkill, plugTool, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
 import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
@@ -1769,10 +1771,15 @@ export function Canvas() {
       set({ modal: { type: "skill", id: t.id } });
       return;
     }
+    if (t?.id && t.role === "node" && getState().doc.nodes.find((n) => n.id === t.id)?.agent?.role === "tool") {
+      select([t.id]);
+      set({ modal: { type: "tool", id: t.id, tab: "search" } });
+      return;
+    }
     if (t?.id && t.role !== "handle" && t.role !== "open-ref") {
       select([t.id]);
       set({ focusTick: getState().focusTick + 1 });
-      if (t.role === "conn") set({ modal: { type: "interface", id: t.id } });
+      if (t.role === "conn" && getState().doc.mode !== "agents") set({ modal: { type: "interface", id: t.id } }); // relações de agents não têm contrato de interface
     }
   };
 
@@ -1789,6 +1796,20 @@ export function Canvas() {
     }
     const skill = e.dataTransfer.getData("application/x-archflow-skill");
     const id = e.dataTransfer.getData("application/x-archflow-asset");
+    const tpl = e.dataTransfer.getData("application/x-archflow-agent-template");
+    if (tpl) return applyAgentTemplate(tpl, { x: snapV(p.x - 92, s.snap), y: snapV(p.y - 36, s.snap) });
+    const mcp = e.dataTransfer.getData("application/x-archflow-mcp");
+    if (mcp) {
+      const entry = findMcpCatalogEntry(mcp);
+      const under = targetOf(document.elementFromPoint(e.clientX, e.clientY));
+      const agent = under?.role === "node" ? s.doc.nodes.find((n) => n.id === under.id && n.agent?.role === "agent") : undefined;
+      if (entry) return plugTool({ entry, agentId: agent?.id, groupId: agent ? undefined : groupAt(p, s.doc, new Set())?.id, x: snapV(p.x - 92, s.snap), y: snapV(p.y - 36, s.snap) });
+    }
+    if (id === "agent-tool") {
+      const under = targetOf(document.elementFromPoint(e.clientX, e.clientY));
+      const agent = under?.role === "node" ? s.doc.nodes.find((n) => n.id === under.id && n.agent?.role === "agent") : undefined;
+      return plugTool({ agentId: agent?.id, groupId: agent ? undefined : groupAt(p, s.doc, new Set())?.id, x: snapV(p.x - 92, s.snap), y: snapV(p.y - 36, s.snap) });
+    }
     if (skill || id === "agent-skill") {
       const under = targetOf(document.elementFromPoint(e.clientX, e.clientY));
       const agent = under?.role === "node" ? s.doc.nodes.find((n) => n.id === under.id && n.agent?.role === "agent") : undefined;

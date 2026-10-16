@@ -16,8 +16,19 @@
  *   POST /api/diagrams/open|rename|duplicate|delete|move
  *   POST /api/folders | /api/folders/rename | /api/folders/delete
  *   GET  /api/fs/list?path=  · POST /api/fs/mkdir   (navegador de pastas)
+ *   GET/POST /api/skills/sources[/refresh|/remove]  fontes de skills (repos GitHub) indexadas em ~/.archflow/skill-sources.json
+ *   GET  /api/skills/indexed?q=           skills das fontes registradas
+ *   GET  /api/skills/top                  ranking da home do skills.sh
+ *   GET  /api/skills/search?q=            busca no catálogo público skills.sh
  *   POST /api/skills/install { repo, skillPath }  `npx skills add` no projeto aberto + conteúdo do SKILL.md
- *   POST /api/harness { target }                grava o harness do diagrama agents aberto na pasta do projeto
+ *   GET  /api/term/info                         { token, max, sessions[], cwd } (token só legível na mesma origem)
+ *   POST /api/term/start { program?, args?, title?, cols?, rows?, prefill? }  PTY do `claude` na pasta do projeto (header x-archflow-term)
+ *   GET  /api/term/conversation?id=<uuid>       { exists } a conversa do Claude Code já foi gravada? (base do --resume dos workflows)
+ *   POST /api/term/kill { id }
+ *   WS   /api/term?session=&token=              terminal interativo (mesma origem + token; ver server/terminal.ts)
+ *   GET/PUT /api/prompts                        { library, dropped[] } prompts e workflows do projeto (`.archflow/prompts.json`)
+ *   GET  /api/harness/status?target=claude     { applicable, stale[], owner, current, foreign } (só leitura)
+ *   POST /api/harness { target }               grava o harness do diagrama agents aberto na pasta do projeto
  *   POST /api/export { format, name?, out?, background?, scale?, padding? }  SVG/PNG renderizado pela janela do app
  *   GET  /api/events                            SSE: hello | doc | workspace | export
  * Caminhos de diagrama são relativos ao projeto, com "/" (ex.: "backend/orders.archflow.json").
@@ -30,8 +41,13 @@ import {
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateHarness } from "../src/shared/agentgen";
+import { generateHarness, type HarnessTarget } from "../src/shared/agentgen";
+import { parseProbeBody, probeMcp, ProbeError } from "./mcpprobe";
+import { searchMcpRegistry } from "./mcpregistry";
+import { assertToken, conversationExists, detectClaude, handleUpgrade, killAll, killSession, startSession, terminalEnabled, termInfo, TermError } from "./terminal";
+import { harnessDiff, syncHarness, type HarnessSyncResult, readManifest } from "./harnesssync";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
+import { normalizeLibrary } from "../src/shared/prompts";
 import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
 import { hashSkillContent, parseSkillMarkdown, skillInstallSlug } from "../src/shared/skillcatalog";
@@ -292,6 +308,7 @@ function publishDoc(source: string) {
   rev++;
   pristine = false;
   scheduleSave();
+  scheduleHarnessSync();
   broadcast("doc", { rev, doc, source, file: current });
   sendWorkspace();
 }
@@ -752,7 +769,7 @@ function installSkill() {
  * Grava o harness do diagrama `agents` aberto na pasta do projeto (`.claude/` ou `.cursor/`), que é onde o
  * Claude Code e o Cursor procuram subagentes e skills. Sobrescreve os arquivos gerados antes.
  */
-function writeHarness(input: { target?: unknown }) {
+function writeHarness(input: { target?: unknown; force?: unknown }) {
   const target = String(input.target ?? "claude");
   if (target !== "claude" && target !== "cursor") throw new HttpError(400, `target inválido "${target}". Válidos: claude, cursor`);
   if (docMode(doc) !== "agents") throw new HttpError(422, `o diagrama aberto está em modo "${docMode(doc)}"; o harness sai de um diagrama modo agents`);
@@ -764,8 +781,117 @@ function writeHarness(input: { target?: unknown }) {
     throw new HttpError(422, e instanceof Error ? e.message : String(e));
   }
   if (!files.length) throw new HttpError(422, "nada a gerar: o diagrama não tem agentes nem skills exportáveis");
-  for (const f of files) atomicWrite(join(dir, ...f.path.split("/")), f.content);
-  return { target, root: dir, files: files.map((f) => f.path) };
+  // pedido explícito: o diagrama manda (sobrescreve edições manuais), a menos que `force: false`
+  const r = syncHarness(dir, files, rootsOf(target as HarnessTarget), current, input.force !== false);
+  return { target, root: dir, files: files.map((f) => f.path), ...r };
+}
+
+/**
+ * Quais variáveis de ambiente existem (e não estão vazias) no processo do Archflow. SÓ booleanos: o valor nunca sai.
+ * Atenção: o Claude Code resolve `${VAR}` no ambiente dele; isto é uma dica de configuração, não uma garantia.
+ */
+function envCheck(names: string | null): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const n of (names ?? "").split(",").slice(0, 50)) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(n)) out[n] = !!process.env[n];
+  }
+  return out;
+}
+
+/* ───────── prompts e workflows do projeto ───────── */
+
+const promptsFile = () => join(dir, META, "prompts.json");
+
+/** Biblioteca de prompts do projeto aberto; arquivo ausente ou corrompido vira biblioteca vazia. */
+function readPrompts() {
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
+  try {
+    return normalizeLibrary(JSON.parse(readFileSync(promptsFile(), "utf8")));
+  } catch {
+    return normalizeLibrary(undefined);
+  }
+}
+
+function writePrompts(input: { library?: unknown }) {
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
+  if (!input || typeof input.library !== "object" || input.library === null) throw new HttpError(400, "informe { library }");
+  const out = normalizeLibrary(input.library);
+  atomicWrite(promptsFile(), `${JSON.stringify(out.library, null, 2)}\n`);
+  return out;
+}
+
+/** O harness gravado no projeto está em dia com o diagrama aberto? (só leitura; base do aviso do terminal) */
+function harnessStatus(target: string | null) {
+  const t: HarnessTarget = target === "cursor" ? "cursor" : "claude";
+  if (!dir || !current || docMode(doc) !== "agents") return { applicable: false, stale: [] as string[], owner: undefined, current };
+  let files;
+  try {
+    files = generateHarness(doc, t);
+  } catch {
+    return { applicable: false, stale: [] as string[], owner: undefined, current };
+  }
+  const owner = readManifest(dir).diagram;
+  return { applicable: files.length > 0, stale: files.length ? harnessDiff(dir, files, rootsOf(t)) : [], owner, current, foreign: !!owner && owner !== current };
+}
+
+/* ───────── harness automático ───────── */
+
+const HARNESS_TARGETS: HarnessTarget[] = ["claude", "cursor"];
+/** Pastas/arquivos que cada alvo administra: o Claude Code lê servidores MCP do `.mcp.json` na raiz. */
+const rootsOf = (t: HarnessTarget) => (t === "claude" ? [".claude", ".mcp.json"] : [".cursor"]);
+
+/** Alvos que o projeto mantém sincronizados sozinhos (`.archflow/project.json` → `harness.targets`). Padrão: só Claude Code. */
+function harnessTargets(): HarnessTarget[] {
+  try {
+    const meta = JSON.parse(readFileSync(join(dir, META, "project.json"), "utf8"));
+    const t = meta?.harness?.targets;
+    if (Array.isArray(t)) return HARNESS_TARGETS.filter((x) => t.includes(x));
+  } catch {
+    /* sem metadados: padrão */
+  }
+  return ["claude"];
+}
+
+function setHarnessTargets(input: { targets?: unknown }) {
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
+  if (!Array.isArray(input.targets) || input.targets.some((t) => !HARNESS_TARGETS.includes(t as HarnessTarget))) throw new HttpError(400, "targets deve ser uma lista com claude e/ou cursor");
+  const path = join(dir, META, "project.json");
+  let meta: Record<string, unknown> = {};
+  try {
+    meta = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    /* recria */
+  }
+  const targets = HARNESS_TARGETS.filter((t) => (input.targets as string[]).includes(t));
+  atomicWrite(path, JSON.stringify({ ...meta, harness: { targets } }, null, 2));
+  scheduleHarnessSync(0);
+  return { targets };
+}
+
+let harnessTimer: ReturnType<typeof setTimeout> | undefined;
+/** Regrava o harness depois de uma edição do diagrama agents; some em silêncio quando não se aplica. */
+function scheduleHarnessSync(delay = 800) {
+  clearTimeout(harnessTimer);
+  harnessTimer = setTimeout(() => {
+    if (!dir || !configured || !current || docMode(doc) !== "agents") return;
+    const targets = harnessTargets();
+    if (!targets.length) return;
+    const owner = readManifest(dir).diagram;
+    if (owner && owner !== current) return; // o harness do projeto pertence a outro diagrama agents; só o botão explícito troca
+    const results: Record<string, HarnessSyncResult> = {};
+    try {
+      for (const target of targets) {
+        const files = generateHarness(doc, target);
+        results[target] = syncHarness(dir, files, rootsOf(target), current);
+      }
+    } catch (e) {
+      return broadcast("harness", { ok: false, error: e instanceof Error ? e.message : String(e) });
+    }
+    const all = Object.values(results);
+    const changed = all.reduce((n, r) => n + r.written.length + r.removed.length, 0);
+    const conflicts = all.flatMap((r) => r.conflicts);
+    if (changed || conflicts.length) broadcast("harness", { ok: true, targets, changed, conflicts });
+  }, delay);
 }
 
 interface LockSkill {
@@ -784,6 +910,40 @@ function readSkillLock(): Record<string, LockSkill> {
 }
 
 const stripAnsi = (s: string) => s.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "");
+
+/* ───────── skills baixadas (banco local) ───────── */
+
+interface DownloadedSkill {
+  id: string;
+  name: string;
+  repo: string;
+  skillPath: string;
+  description: string;
+  body: string;
+  hash: string;
+  tags?: string;
+  downloadedAt: string;
+}
+/** Skills já baixadas ficam em ~/.archflow/skills-downloaded.json: valem para qualquer projeto e não repetem o `npx skills add`. */
+const DOWNLOADED_FILE = () => join(CONFIG_DIR, "skills-downloaded.json");
+const readDownloaded = (): DownloadedSkill[] => {
+  const j = readJsonFile(DOWNLOADED_FILE());
+  return Array.isArray(j?.skills) ? j.skills : [];
+};
+export const listDownloadedSkills = () => ({ skills: readDownloaded() });
+function saveDownloaded(entries: Omit<DownloadedSkill, "downloadedAt">[]) {
+  const all = readDownloaded();
+  for (const e of entries) {
+    const i = all.findIndex((d) => d.repo.toLowerCase() === e.repo.toLowerCase() && d.id.toLowerCase() === e.id.toLowerCase());
+    const row = { ...e, downloadedAt: new Date().toISOString() };
+    if (i >= 0) all[i] = row;
+    else all.push(row);
+  }
+  atomicWrite(DOWNLOADED_FILE(), JSON.stringify({ version: 1, skills: all }, null, 2));
+}
+function findDownloaded(repo: string, skillPath: string, slug: string | undefined) {
+  return readDownloaded().find((d) => d.repo.toLowerCase() === repo.toLowerCase() && (d.skillPath === skillPath || (!!slug && d.id.toLowerCase() === slug.toLowerCase())));
+}
 
 /** Roda `npx skills …` no projeto aberto sem travar o servidor (o clone do repositório pode levar um minuto). */
 function runSkills(args: string[]): Promise<{ stdout: string; stderr: string; status: number | null }> {
@@ -838,13 +998,15 @@ function parseCliSkills(stdout: string): CliSkill[] | undefined {
  * O hash devolvido é o do app (`hashSkillContent`), para o drift bater com o fetch do catálogo curado;
  * o `computedHash` do lock continua sendo o sha256 do CLI.
  */
-export async function installSkillFromCatalog(input: { repo?: unknown; skillPath?: unknown }) {
+export async function installSkillFromCatalog(input: { repo?: unknown; skillPath?: unknown; force?: unknown }) {
   const repo = String(input.repo ?? "").trim();
   const skillPath = String(input.skillPath ?? "").trim();
   if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) throw new HttpError(400, 'repo deve ser "owner/repo"');
   if (!skillPath) throw new HttpError(400, "skillPath vazio");
-  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
   const slug = skillInstallSlug(skillPath);
+  const cached = input.force ? undefined : findDownloaded(repo, skillPath, slug);
+  if (cached) return { installed: [{ ...cached, tags: "instalada" }], project: project?.name, cached: true };
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
   const args = ["--yes", "skills", "add", repo, "-a", "claude-code", "-a", "cursor", "-y", "--json"];
   if (slug) args.splice(4, 0, "-s", slug);
   const r = await runSkills(args);
@@ -869,7 +1031,167 @@ export async function installSkillFromCatalog(input: { repo?: unknown; skillPath
     installed.push({ id: name, name: md.name || name, repo, skillPath: path, description: md.description ?? "", body: md.body, hash: hashSkillContent(raw), tags: "instalada" });
   }
   if (!installed.length) throw new HttpError(502, `npx skills add ${repo} instalou, mas o SKILL.md não foi encontrado`);
+  saveDownloaded(installed);
   return { installed, project: project.name };
+}
+
+/** Busca no catálogo público skills.sh (o mesmo do `npx skills find`); feita aqui para não esbarrar em CORS. */
+export async function searchSkillsHub(q: unknown) {
+  const query = String(q ?? "").trim().slice(0, 100);
+  if (query.length < 2) return { skills: [] };
+  let res: Response;
+  try {
+    res = await fetch(`https://skills.sh/api/search?q=${encodeURIComponent(query)}&limit=20`, { signal: AbortSignal.timeout(10_000) });
+  } catch (e) {
+    throw new HttpError(502, `não deu para consultar o skills.sh: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  if (!res.ok) throw new HttpError(502, `skills.sh respondeu ${res.status}`);
+  const j = (await res.json().catch(() => ({}))) as { skills?: { source?: unknown; skillId?: unknown; name?: unknown; installs?: unknown }[] };
+  const skills = (j.skills ?? [])
+    .filter((e) => typeof e.source === "string" && /^\w[\w.-]*\/\w[\w.-]*$/.test(e.source) && typeof e.skillId === "string" && /^[\w.-]+$/.test(e.skillId))
+    .map((e) => ({ repo: e.source as string, skillId: e.skillId as string, name: String(e.name ?? e.skillId), installs: Number(e.installs) || 0 }));
+  return { skills };
+}
+
+/* ───────── fontes de skills (índice local) ───────── */
+
+interface IndexedSkill {
+  id: string;
+  name: string;
+  skillPath: string;
+  description: string;
+}
+interface SkillSource {
+  repo: string;
+  indexedAt?: string;
+  error?: string;
+  skills: IndexedSkill[];
+}
+const SOURCES_FILE = () => join(CONFIG_DIR, "skill-sources.json");
+/** Fontes iniciais (repositórios públicos com várias skills); o usuário pode remover e adicionar as dele. */
+const DEFAULT_SOURCES = ["anthropics/skills", "mattpocock/skills", "wshobson/agents", "vercel-labs/agent-skills"];
+
+function readSources(): SkillSource[] {
+  const j = readJsonFile(SOURCES_FILE());
+  if (Array.isArray(j?.sources)) return j.sources;
+  return DEFAULT_SOURCES.map((repo) => ({ repo, skills: [] }));
+}
+const writeSources = (sources: SkillSource[]) => atomicWrite(SOURCES_FILE(), JSON.stringify({ version: 1, sources }, null, 2));
+const sourceSummary = (s: SkillSource) => ({ repo: s.repo, indexedAt: s.indexedAt, error: s.error, count: s.skills.length });
+
+function ghHeaders(): Record<string, string> {
+  const h: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "archflow" };
+  if (process.env.GITHUB_TOKEN) h.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  return h;
+}
+
+/** Lista os SKILL.md do repositório (1 chamada à API do GitHub) e lê name/description de cada um no raw. */
+async function indexSource(repo: string): Promise<SkillSource> {
+  const prev: SkillSource = { repo, skills: [] };
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`, { headers: ghHeaders(), signal: AbortSignal.timeout(20_000) });
+    if (res.status === 403 || res.status === 429) throw new Error("limite da API do GitHub atingido (defina GITHUB_TOKEN ou tente mais tarde)");
+    if (!res.ok) throw new Error(`GitHub respondeu ${res.status} para ${repo}`);
+    const tree = ((await res.json()) as { tree?: { path: string; type: string }[] }).tree ?? [];
+    const paths = tree.filter((t) => t.type === "blob" && /(^|\/)SKILL\.md$/i.test(t.path) && !/(^|\/)(node_modules|\.git)\//.test(t.path)).map((t) => t.path).slice(0, 300);
+    const skills: IndexedSkill[] = [];
+    let next = 0;
+    const worker = async () => {
+      while (next < paths.length) {
+        const skillPath = paths[next++];
+        const slug = skillInstallSlug(skillPath) ?? repo.split("/")[1];
+        try {
+          const r = await fetch(`https://raw.githubusercontent.com/${repo}/HEAD/${skillPath}`, { signal: AbortSignal.timeout(15_000) });
+          const md = r.ok ? parseSkillMarkdown(await r.text()) : undefined;
+          skills.push({ id: slug, name: md?.name || slug, skillPath, description: md?.description ?? "" });
+        } catch {
+          skills.push({ id: slug, name: slug, skillPath, description: "" });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    skills.sort((a, b) => a.skillPath.localeCompare(b.skillPath));
+    return { repo, indexedAt: new Date().toISOString(), skills };
+  } catch (e) {
+    return { ...prev, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+const checkRepo = (v: unknown) => {
+  const repo = String(v ?? "").trim().replace(/^https?:\/\/(www\.)?github\.com\//i, "").replace(/\.git$/i, "").replace(/\/+$/, "");
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new HttpError(400, 'fonte deve ser "owner/repo" ou a URL do repositório no GitHub');
+  return repo;
+};
+
+export const listSkillSources = () => ({ sources: readSources().map(sourceSummary) });
+
+/** Skills indexadas de todas as fontes (busca opcional por texto). */
+export function indexedSkills(q: unknown) {
+  const query = String(q ?? "").trim().toLowerCase();
+  const out = readSources().flatMap((s) => s.skills.map((k) => ({ repo: s.repo, ...k })));
+  return { skills: query ? out.filter((k) => `${k.id} ${k.name} ${k.repo} ${k.description}`.toLowerCase().includes(query)) : out };
+}
+
+export async function addSkillSource(input: { repo?: unknown }) {
+  const repo = checkRepo(input.repo);
+  const all = readSources();
+  const idx = all.findIndex((s) => s.repo.toLowerCase() === repo.toLowerCase());
+  const fresh = await indexSource(repo);
+  if (idx >= 0) all[idx] = fresh;
+  else all.push(fresh);
+  writeSources(all);
+  return listSkillSources();
+}
+
+/** Reindexa uma fonte (ou todas, sem `repo`). */
+export async function refreshSkillSources(input: { repo?: unknown }) {
+  const all = readSources();
+  const only = input.repo ? checkRepo(input.repo).toLowerCase() : undefined;
+  for (let i = 0; i < all.length; i++) {
+    if (only && all[i].repo.toLowerCase() !== only) continue;
+    const fresh = await indexSource(all[i].repo);
+    all[i] = fresh.error && all[i].skills.length ? { ...all[i], error: fresh.error } : fresh; // mantém o índice antigo se falhar
+  }
+  writeSources(all);
+  return listSkillSources();
+}
+
+export function removeSkillSource(input: { repo?: unknown }) {
+  const repo = checkRepo(input.repo).toLowerCase();
+  writeSources(readSources().filter((s) => s.repo.toLowerCase() !== repo));
+  return listSkillSources();
+}
+
+let topCache: { at: number; skills: { repo: string; skillId: string; name: string; installs: number }[] } | undefined;
+
+/**
+ * Ranking da página inicial do skills.sh (all time). Não há API JSON para isso, então lê o HTML
+ * renderizado no servidor; cache de 10 min. Se o site mudar o markup, devolve erro e a UI cai na busca.
+ */
+export async function topSkillsHub() {
+  if (topCache && Date.now() - topCache.at < 10 * 60_000) return { skills: topCache.skills };
+  let html: string;
+  try {
+    const res = await fetch("https://www.skills.sh/", { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    html = await res.text();
+  } catch (e) {
+    throw new HttpError(502, `não deu para consultar o skills.sh: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const mult: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9 };
+  const skills: { repo: string; skillId: string; name: string; installs: number }[] = [];
+  const seen = new Set<string>();
+  for (const m of html.matchAll(/<a class="group grid[^>]*href="\/([^"\/]+\/[^"\/]+)\/([^"\/]+)">([\s\S]*?)<\/a>/g)) {
+    const [, repo, skillId, inner] = m;
+    const text = inner.replace(/<[^>]+>/g, "|").split("|").map((t) => t.trim()).filter(Boolean);
+    const inst = /^([\d.]+)([KMB])?$/.exec(text[text.length - 1] ?? "");
+    if (!inst || seen.has(`${repo}/${skillId}`)) continue;
+    seen.add(`${repo}/${skillId}`);
+    skills.push({ repo, skillId, name: text[1] ?? skillId, installs: Math.round(Number(inst[1]) * (mult[inst[2]] ?? 1)) });
+  }
+  if (!skills.length) throw new HttpError(502, "não consegui ler o ranking do skills.sh");
+  topCache = { at: Date.now(), skills };
+  return { skills };
 }
 
 /* ───────── HTTP ───────── */
@@ -1141,7 +1463,61 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       return void res.end(SKILL_MD);
     }
     if (path === "/api/skill/install" && m === "POST") return json(res, 200, installSkill());
+    if (path === "/api/skills/sources" && m === "GET") return json(res, 200, listSkillSources());
+    if (path === "/api/skills/sources" && m === "POST") return json(res, 200, await addSkillSource(await body(req)));
+    if (path === "/api/skills/sources/refresh" && m === "POST") return json(res, 200, await refreshSkillSources(await body(req)));
+    if (path === "/api/skills/sources/remove" && m === "POST") return json(res, 200, removeSkillSource(await body(req)));
+    if (path === "/api/skills/indexed" && m === "GET") return json(res, 200, indexedSkills(url.searchParams.get("q")));
+    if (path === "/api/skills/top" && m === "GET") return json(res, 200, await topSkillsHub());
+    if (path === "/api/skills/search" && m === "GET") return json(res, 200, await searchSkillsHub(url.searchParams.get("q")));
+    if (path === "/api/skills/downloaded" && m === "GET") return json(res, 200, listDownloadedSkills());
     if (path === "/api/skills/install" && m === "POST") return json(res, 200, await installSkillFromCatalog(await body(req)));
+    if (path === "/api/mcp/env-check" && m === "GET") return json(res, 200, envCheck(url.searchParams.get("names")));
+    if (path === "/api/mcp/probe" && m === "POST") {
+      // EXECUTA o comando (stdio) ou conecta na URL: só com confirmação explícita vinda de um clique do usuário
+      let parsed;
+      try {
+        parsed = parseProbeBody(await body(req));
+      } catch (e) {
+        throw new HttpError(400, e instanceof Error ? e.message : String(e));
+      }
+      if (!parsed.confirm) throw new HttpError(400, "testar o servidor executa o comando (ou conecta na url): envie confirm: true depois de mostrar ao usuário o que será executado");
+      try {
+        return json(res, 200, await probeMcp(parsed.spec, { cwd: dir || undefined }));
+      } catch (e) {
+        throw new HttpError(e instanceof ProbeError ? 502 : 500, e instanceof ProbeError ? e.message : "falha inesperada ao testar o servidor");
+      }
+    }
+    if (path === "/api/mcp-registry/search" && m === "GET") {
+      try {
+        return json(res, 200, await searchMcpRegistry(url.searchParams.get("q")));
+      } catch (e) {
+        throw new HttpError(502, e instanceof Error ? e.message : String(e));
+      }
+    }
+    if (path.startsWith("/api/term")) {
+      if (!terminalEnabled(HOST)) throw new HttpError(404, "terminal desabilitado (ARCHFLOW_TERM=0 ou host não é loopback)");
+      try {
+        if (path === "/api/term/info" && m === "GET") return json(res, 200, { ...termInfo(dir), cwd: dir, claude: await detectClaude({ refresh: url.searchParams.get("refresh") === "1" }) });
+        if (path === "/api/term/conversation" && m === "GET") return json(res, 200, { exists: conversationExists(url.searchParams.get("id") ?? "") });
+        assertToken(req);
+        if (path === "/api/term/start" && m === "POST") {
+          if (!dir) throw new HttpError(409, "abra um projeto antes de iniciar o terminal");
+          const b = await body(req);
+          const args = Array.isArray(b.args) ? b.args.filter((a: unknown) => typeof a === "string") : [];
+          return json(res, 200, await startSession({ cwd: dir, program: b.program, args, title: b.title, cols: b.cols, rows: b.rows, prefill: typeof b.prefill === "string" ? b.prefill : undefined }));
+        }
+        if (path === "/api/term/kill" && m === "POST") return json(res, 200, { ok: killSession(String((await body(req)).id)) });
+      } catch (e) {
+        if (e instanceof TermError) throw new HttpError(e.status, e.message);
+        throw e;
+      }
+    }
+    if (path === "/api/harness/settings" && m === "GET") return json(res, 200, { targets: dir ? harnessTargets() : [] });
+    if (path === "/api/harness/settings" && m === "POST") return json(res, 200, setHarnessTargets(await body(req)));
+    if (path === "/api/prompts" && m === "GET") return json(res, 200, readPrompts());
+    if (path === "/api/prompts" && m === "PUT") return json(res, 200, writePrompts(await readBody(req, 6e6)));
+    if (path === "/api/harness/status" && m === "GET") return json(res, 200, harnessStatus(url.searchParams.get("target")));
     if (path === "/api/harness" && m === "POST") return json(res, 200, writeHarness(await body(req)));
     if (path === "/api/export" && m === "POST") return json(res, 200, await exportImage(await body(req)));
     if (path === "/api/export/result" && m === "POST") {
@@ -1187,6 +1563,9 @@ export function ensureBridge(port = DEFAULT_PORT): Promise<"started" | "existing
   return new Promise((ok, fail) => {
     const srv = createServer(handler);
     server = srv;
+    srv.on("upgrade", (req, socket, head) => {
+      if (PUBLIC_MODE || !isLocalHost(req.headers.host) || !handleUpgrade(req, socket, head, terminalEnabled(HOST))) socket.destroy();
+    });
     srv.once("error", (e: NodeJS.ErrnoException) => (e.code === "EADDRINUSE" ? ok("existing") : fail(e)));
     srv.listen(port, HOST, () => {
       if (!booted) {
@@ -1201,6 +1580,7 @@ export function ensureBridge(port = DEFAULT_PORT): Promise<"started" | "existing
 
 /** Fecha a porta, o watcher e as conexões SSE — o processo pode terminar (usado pelos testes). */
 export function stopBridge() {
+  killAll();
   saveNow();
   clearTimeout(saveTimer);
   clearTimeout(watchTimer);
@@ -1212,7 +1592,7 @@ export function stopBridge() {
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => (saveNow(), process.exit(0)));
-process.on("exit", saveNow);
+process.on("exit", () => (killAll(), saveNow()));
 
 if (process.argv[1] && /bridge\.(ts|js)$/.test(process.argv[1])) {
   ensureBridge().then((r) => r === "existing" && console.error(`[bridge] porta ${DEFAULT_PORT} já em uso — bridge existente`));

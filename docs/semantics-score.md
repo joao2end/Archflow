@@ -44,6 +44,7 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 |---|---|---|
 | `agent` | CLARO | subagente de IA; `description`/`model`/`tools`/`prompt`; exporta `skills:` nativo no Claude Code, nota no corpo no Cursor |
 | `skill` | CLARO | conhecimento reutilizável (SKILL.md); `source` ausente = própria, presente = do catálogo (hash para detectar atualização) |
+| `tool` | CLARO | ferramenta: `toolType` `native` (`toolName` da lista `NATIVE_TOOLS`) ou `mcp` (`transport`, `command`/`args` ou `url`, `env`/`headers` com `${VAR}`, `mcpTools`, `mcpSource`); gera `tools:` / `mcpServers` / `.mcp.json`; sem nenhuma nativa o `tools:` é omitido (herda tudo) |
 
 ## Relações do modo agents (`AgentRel`)
 
@@ -51,6 +52,8 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 |---|---|---|
 | `uses-skill` | CLARO | `semantics` em `AGENT_RELS` e pares em `AGENT_REL_PAIRS`: agent → skill |
 | `delegates` | CLARO | `semantics` em `AGENT_RELS` e pares em `AGENT_REL_PAIRS`: agent → agent |
+| `uses-tool` | CLARO | `semantics` em `AGENT_RELS` e pares em `AGENT_REL_PAIRS`: agent → tool; `allow` limita as tools de um servidor MCP |
+| `usage` (campo da relação) | CLARO | COMO o agente usa o destino; vai para o corpo do agente; sem ele, A018 |
 
 ## Campos DDD
 

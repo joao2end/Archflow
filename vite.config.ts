@@ -26,7 +26,8 @@ export default defineConfig({
   plugins: [react(), archflowBridge()],
   server: {
     port: Number(process.env.PORT) || 5173,
-    proxy: { "/api": { target: `http://127.0.0.1:${DEFAULT_PORT}`, changeOrigin: true } },
+    // ws: o terminal usa WebSocket em /api/term. changeOrigin ligado trocaria o Host e o bridge (que exige Origin == Host) recusaria
+    proxy: { "/api": { target: `http://127.0.0.1:${DEFAULT_PORT}`, ws: true } },
     // no Windows, um diretório observado não pode ser renomeado, e o electron-builder renomeia release/win-unpacked.tmp
     watch: { ignored: ["**/release/**", "**/release-test/**", "**/dist/**", "**/dist-electron/**", "**/dist-mcp/**"] },
   },

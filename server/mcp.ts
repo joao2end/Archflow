@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
+import { AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -141,6 +141,36 @@ const logicNodeSchema = z
     value: logicValue.optional().describe("input/variable: valor fixo (na variável, o valor inicial)"),
   })
   .describe("modo logic: papel e campos (ver get_schema_guide)");
+const agentNodeSchema = z
+  .object({
+    role: z.enum(AGENT_ROLE_KEYS as [string, ...string[]]).describe("agent = subagente · skill = conhecimento reutilizável · tool = ferramenta (nativa ou servidor MCP)"),
+    description: z.string().optional().describe("agent: QUANDO o orquestrador deve delegar · skill: QUANDO o agente deve puxá-la"),
+    model: z.string().optional().describe("agent: inherit | alias | id completo"),
+    tools: z.array(z.string()).optional().describe("agent: tools permitidas; ausente = herda todas"),
+    prompt: z.string().optional().describe("agent: corpo do system prompt (markdown)"),
+    body: z.string().optional().describe("skill: corpo do SKILL.md (markdown)"),
+    source: z.object({ repo: z.string(), skillPath: z.string(), hash: z.string().optional() }).optional().describe("skill do catálogo (GitHub); ausente = skill própria"),
+    toolType: z.enum(["native", "mcp"]).optional().describe("tool: native (Read, Bash…) ou mcp (servidor MCP)"),
+    toolName: z.string().optional().describe("tool nativa: Read | Write | Edit | Glob | Grep | Bash | WebFetch | WebSearch | NotebookEdit | TodoWrite | Agent"),
+    transport: z.enum(["stdio", "http", "sse"]).optional().describe("tool mcp: stdio usa command+args; http/sse usam url"),
+    command: z.string().optional().describe("tool mcp stdio: ex. npx"),
+    args: z.array(z.string()).optional(),
+    url: z.string().optional().describe("tool mcp http/sse"),
+    env: z.record(z.string(), z.string()).optional().describe("tool mcp: variáveis; segredos SEMPRE como ${VAR}, nunca o valor"),
+    headers: z.record(z.string(), z.string()).optional().describe("tool mcp remoto: cabeçalhos; segredos como ${VAR}"),
+    mcpTools: z.array(z.string()).optional().describe("tool mcp: tools que o servidor expõe (opcional)"),
+    mcpSource: z.object({ catalog: z.enum(["curated", "registry", "pasted"]), id: z.string(), version: z.string().optional() }).optional().describe("tool mcp: origem no catálogo; ausente = escrito à mão"),
+  })
+  .describe("modo agents (kind vira \"agent\")");
+
+const agentConnSchema = z
+  .object({
+    rel: z.enum(AGENT_REL_KEYS as [string, ...string[]]).describe(Object.entries(AGENT_RELS).map(([k, r]) => `${k}: ${r.semantics}`).join(" · ") + " O `type` é inferido da relação."),
+    allow: z.array(z.string()).optional().describe("uses-tool para servidor MCP: só estas tools do servidor (vazio = todas)"),
+    usage: z.string().optional().describe("COMO o agente de origem usa o destino (a skill ou o outro agente): quando, para quê, o que passa e o que espera de volta. Vai para o corpo do agente no harness; sem ele, aviso A018."),
+  })
+  .describe("modo agents");
+
 const dddNodeSchema = z
   .object({
     role: z.enum(DDD_ROLE_KEYS as [string, ...string[]]).describe(DDD_ROLE_KEYS.map((r) => `${r}: ${DDD_ROLES[r].hint}`).join(" · ")),
@@ -247,8 +277,9 @@ server.registerTool(
           id: z.string().optional().describe("slug estável, ex.: orders-api"),
           label: z.string().optional(),
           asset: z.string().optional(),
-          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic"]).optional(),
+          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic", "agent"]).optional(),
           ddd: dddNodeSchema.optional(),
+          agent: agentNodeSchema.optional(),
           logic: logicNodeSchema.optional(),
           technology: z.string().optional().describe("stack/versão: 'Laravel 11 / PHP 8.3'"),
           description: z.string().optional().describe("responsabilidade do componente"),
@@ -298,7 +329,7 @@ server.registerTool(
         z.object({
           id: z.string().optional(),
           label: z.string(),
-          kind: z.enum(["boundary", "layer", "cloud", "network", "context", "cluster", "team"]).optional(),
+          kind: z.enum(["boundary", "layer", "cloud", "network", "context", "cluster", "team", "global"]).optional().describe("global (modo agents): skills dentro dele valem para todos os agentes"),
           subdomain: z.enum(Object.keys(SUBDOMAINS) as [string, ...string[]]).optional().describe("só em kind context: " + Object.entries(SUBDOMAINS).map(([k, v]) => `${k} = ${v}`).join(" · ")),
           description: z.string().optional(),
           parent: z.string().optional(),
@@ -340,6 +371,7 @@ server.registerTool(
               foreach: z.string().optional().describe("fluxo: repete para cada elemento, ex.: 'item do pedido'"),
             })
             .optional(),
+          agent: agentConnSchema.optional(),
           logic: z
             .object({
               branch: z.enum(["sim", "nao", "repete", "segue", "outros"]).optional().describe("modo logic: saída da decisão (sim/nao), do loop (repete/segue) ou da escolha (outros)"),

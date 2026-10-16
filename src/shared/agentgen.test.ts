@@ -82,3 +82,99 @@ test("description com dois-pontos sai entre aspas", () => {
   const agent = generateHarness(doc, "cursor")[0].content;
   assert.match(fm(agent), /^description: "Use quando: o diff for grande\."$/m);
 });
+
+test("usage: o «como usa» da seta entra no corpo (claude e cursor) ao lado do que o destino faz", () => {
+  const ops = team();
+  ops[ops.length - 2] = { op: "add_connection", from: "revisor", to: "checklist", agent: { rel: "uses-skill", usage: "Siga o checklist em cada PR antes de aprovar." } };
+  ops[ops.length - 1] = { op: "add_connection", from: "revisor", to: "qa", agent: { rel: "delegates", usage: "Passa o diff revisado e recebe a lista de testes que faltam." } };
+  const doc = build(ops);
+  const claude = file(generateHarness(doc, "claude"), ".claude/agents/revisor.md").content;
+  assert.match(claude, /## Como usar as skills\n\n- \*\*checklist\*\*: Siga o checklist em cada PR antes de aprovar\. _\(Checklist de revisão/);
+  assert.match(claude, /- \*\*qa\*\*: Passa o diff revisado e recebe a lista de testes que faltam\. _\(Escreve e roda testes/);
+  assert.doesNotMatch(claude, /\*\*tom\*\*/, "skill global sem seta não tem «como usa»");
+  const cursor = file(generateHarness(doc, "cursor"), ".cursor/agents/revisor.md").content;
+  assert.match(cursor, /- \*\*checklist\*\*: Siga o checklist em cada PR antes de aprovar\./);
+  assert.match(cursor, /- \*\*tom\*\* \(global\): Tom de voz do time/);
+});
+
+test("usage ausente: o corpo continua como antes (sem a seção «Como usar as skills»)", () => {
+  const claude = file(generateHarness(build(team()), "claude"), ".claude/agents/revisor.md").content;
+  assert.doesNotMatch(claude, /Como usar as skills/);
+  assert.match(claude, /- \*\*qa\*\*: Escreve e roda testes/);
+});
+
+/* ───────── ferramentas: tools nativas e servidores MCP ───────── */
+
+const tl = (id: string, agent: Partial<AgentNodeSpec>, parent?: string): Op => an(id, { role: "tool", ...agent } as AgentNodeSpec, parent);
+const uses = (from: string, to: string, usage?: string, allow?: string[]): Op => ({ op: "add_connection", from, to, agent: { rel: "uses-tool", ...(usage ? { usage } : {}), ...(allow ? { allow } : {}) } });
+
+const toolTeam = (): Op[] => [
+  an("dev", { role: "agent", description: "Implementa as mudanças pedidas no código do projeto." }),
+  an("qa", { role: "agent", description: "Testa a entrega no navegador e confere o resultado." }),
+  tl("bash", { toolType: "native", toolName: "Bash", description: "Executa comandos." }),
+  tl("read", { toolType: "native", toolName: "Read" }),
+  tl("playwright", { toolType: "mcp", transport: "stdio", command: "npx", args: ["-y", "@playwright/mcp@latest"], description: "Controla um navegador." }),
+  tl("github", { toolType: "mcp", transport: "http", url: "https://api.example.com/mcp", headers: { Authorization: "Bearer ${GITHUB_TOKEN}" } }),
+  { op: "add_group", id: "glob", label: "Global", kind: "global" },
+  tl("docs", { toolType: "mcp", transport: "stdio", command: "npx", args: ["docs-mcp"], env: { DOCS_URL: "${DOCS_URL:-https://docs.example.com}" } }, "glob"),
+  tl("quebrado", { toolType: "mcp", transport: "stdio" }),
+  uses("dev", "bash", "Só para rodar testes e o linter; nunca comandos destrutivos."),
+  uses("dev", "read"),
+  uses("dev", "playwright", "Abre a página para conferir o que implementou."),
+  uses("dev", "github", undefined, ["create_issue"]),
+  uses("qa", "playwright"),
+  uses("qa", "github"),
+  uses("qa", "quebrado"),
+];
+
+test("claude: tools nativas e mcp__ entram em tools:, MCP de um só agente fica inline e o compartilhado vai para .mcp.json", () => {
+  const files = generateHarness(build(toolTeam()), "claude");
+  const dev = fm(file(files, ".claude/agents/dev.md").content);
+  assert.match(dev, /tools:\n  - Bash\n  - Read\n  - mcp__docs\n  - mcp__github__create_issue\n  - mcp__playwright\n/);
+  // playwright é usado por dev E qa → referência por nome; github também; docs é global → herdado
+  assert.match(dev, /mcpServers:\n  - github\n  - playwright$/);
+  assert.doesNotMatch(dev, /"type":"stdio"/);
+  const mcp = JSON.parse(file(files, ".mcp.json").content);
+  assert.deepEqual(Object.keys(mcp.mcpServers), ["docs", "github", "playwright"]);
+  assert.deepEqual(mcp.mcpServers.playwright, { type: "stdio", command: "npx", args: ["-y", "@playwright/mcp@latest"] });
+  assert.deepEqual(mcp.mcpServers.github, { type: "http", url: "https://api.example.com/mcp", headers: { Authorization: "Bearer ${GITHUB_TOKEN}" } });
+  assert.equal(mcp.mcpServers.docs.env.DOCS_URL, "${DOCS_URL:-https://docs.example.com}");
+  assert.equal(mcp.mcpServers.quebrado, undefined, "servidor sem command não entra");
+});
+
+test("claude: sem nenhuma tool nativa o tools: é omitido (herda tudo, inclusive MCP)", () => {
+  const qa = fm(file(generateHarness(build(toolTeam()), "claude"), ".claude/agents/qa.md").content);
+  assert.doesNotMatch(qa, /^tools:/m);
+  assert.match(qa, /mcpServers:\n  - github\n  - playwright$/);
+});
+
+test("claude: MCP de um único agente vai inline no frontmatter e não aparece em .mcp.json", () => {
+  const ops = toolTeam().filter((o) => !(o.op === "add_connection" && o.from === "qa" && o.to === "playwright"));
+  const files = generateHarness(build(ops), "claude");
+  assert.match(fm(file(files, ".claude/agents/dev.md").content), /- \{"playwright":\{"type":"stdio","command":"npx","args":\["-y","@playwright\/mcp@latest"\]\}\}/);
+  assert.deepEqual(Object.keys(JSON.parse(file(files, ".mcp.json").content).mcpServers), ["docs", "github"]);
+});
+
+test("claude: o «como usa» das ferramentas vai para o corpo", () => {
+  const dev = file(generateHarness(build(toolTeam()), "claude"), ".claude/agents/dev.md").content;
+  assert.match(dev, /## Como usar as ferramentas\n\n- \*\*Bash\*\*: Só para rodar testes e o linter; nunca comandos destrutivos\. _\(Executa comandos\.\)_/);
+  assert.match(dev, /- \*\*playwright\*\*: Abre a página para conferir o que implementou\./);
+});
+
+test("cursor: todo servidor ligado vai para .cursor/mcp.json com ${env:VAR}; o agente só documenta", () => {
+  const files = generateHarness(build(toolTeam()), "cursor");
+  const mcp = JSON.parse(file(files, ".cursor/mcp.json").content);
+  assert.deepEqual(Object.keys(mcp.mcpServers), ["docs", "github", "playwright"]);
+  assert.deepEqual(mcp.mcpServers.github, { url: "https://api.example.com/mcp", headers: { Authorization: "Bearer ${env:GITHUB_TOKEN}" } });
+  assert.equal(mcp.mcpServers.docs.env.DOCS_URL, "${env:DOCS_URL}");
+  assert.equal(mcp.mcpServers.playwright.type, undefined);
+  const dev = file(files, ".cursor/agents/dev.md").content;
+  assert.doesNotMatch(fm(dev), /mcpServers/);
+  assert.match(fm(dev), /tools:\n  - Bash\n  - Read$/);
+  assert.match(dev, /## Ferramentas[\s\S]*valem para o projeto todo/);
+  assert.match(dev, /- \*\*github\*\*: .* — só: create_issue/);
+});
+
+test("sem ferramentas o harness continua igual (nem .mcp.json)", () => {
+  assert.ok(!generateHarness(build(team()), "claude").some((f) => f.path.endsWith("mcp.json")));
+});

@@ -10,11 +10,13 @@ import { ModeTools } from "./ui/domain";
 import { DrawBar } from "./ui/drawbar";
 import { PresentMode } from "./ui/present";
 import { PlayPanel } from "./ui/logic";
+import { TerminalPanel } from "./ui/terminal";
 import { startSync, useStore } from "./ui/store";
 
 export default function App() {
   const panel = useStore((s) => s.panel);
   const present = useStore((s) => s.present);
+  const agentsMode = useStore((s) => s.doc.mode === "agents");
   useHotkeys();
   useEffect(() => {
     startSync();
@@ -42,6 +44,7 @@ export default function App() {
         </>
       )}
       <PlayPanel />
+      {agentsMode && !present && <TerminalPanel />}
       <Toast />
       <Modals />
     </>

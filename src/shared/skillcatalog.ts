@@ -19,64 +19,12 @@ export interface SkillCatalogEntry {
   /** Corpo e hash quando a skill foi instalada com `npx skills add` e gravada no catálogo local. */
   body?: string;
   hash?: string;
+  /** Veio da busca no skills.sh e ainda não foi instalada (skillPath é só uma dica; o lock traz o real). */
+  remote?: boolean;
 }
 
-/**
- * Seed curado: skills reais já usadas neste projeto via `npx skills` (ver `skills-lock.json`),
- * então sabidamente existentes e com `repo`/`skillPath` corretos. Crescer esta lista é "colar"
- * mais entradas verificadas; `source` fora da lista também funciona (campo livre no inspetor),
- * só não aparece sugerido na busca.
- */
-export const SKILL_CATALOG: SkillCatalogEntry[] = [
-  {
-    id: "diagnosing-bugs",
-    name: "Diagnosing Bugs",
-    repo: "mattpocock/skills",
-    skillPath: "skills/engineering/diagnosing-bugs/SKILL.md",
-    description: "Loop de diagnóstico para bugs difíceis e regressões de performance: reproduzir, isolar a causa raiz, corrigir.",
-    tags: "debug performance bug",
-  },
-  {
-    id: "frontend-design",
-    name: "Frontend Design",
-    repo: "anthropics/skills",
-    skillPath: "skills/frontend-design/SKILL.md",
-    description: "Direção visual intencional e distintiva ao criar ou reformular UI: tipografia, cor, hierarquia.",
-    tags: "ui design frontend",
-  },
-  {
-    id: "glassmorphism",
-    name: "Glassmorphism",
-    repo: "bergside/awesome-design-skills",
-    skillPath: "skills/glassmorphism/SKILL.md",
-    description: "Efeito de vidro fosco: camadas translúcidas, blur sutil e bordas luminosas para profundidade.",
-    tags: "ui design css effect",
-  },
-  {
-    id: "nodejs-backend-patterns",
-    name: "Node.js Backend Patterns",
-    repo: "wshobson/agents",
-    skillPath: "plugins/javascript-typescript/skills/nodejs-backend-patterns/SKILL.md",
-    description: "Serviços backend Node.js prontos para produção com Express/Fastify: middleware, erros, auth, integração de banco.",
-    tags: "nodejs backend express fastify",
-  },
-  {
-    id: "protocol-reverse-engineering",
-    name: "Protocol Reverse Engineering",
-    repo: "wshobson/agents",
-    skillPath: "plugins/reverse-engineering/skills/protocol-reverse-engineering/SKILL.md",
-    description: "Engenharia reversa de protocolos de rede: análise de pacotes, dissecação de protocolo, documentação de protocolo customizado.",
-    tags: "network protocol security",
-  },
-  {
-    id: "typescript-advanced-types",
-    name: "TypeScript Advanced Types",
-    repo: "wshobson/agents",
-    skillPath: "plugins/javascript-typescript/skills/typescript-advanced-types/SKILL.md",
-    description: "Sistema de tipos avançado do TypeScript: genéricos, tipos condicionais, mapped types, template literals, utility types.",
-    tags: "typescript types generics",
-  },
-];
+/** Sem skills embutidas: o catálogo vem da busca no skills.sh e das skills que o usuário instalou. */
+export const SKILL_CATALOG: SkillCatalogEntry[] = [];
 
 /** Catálogo curado mais as skills instaladas pelo usuário. As instaladas vêm primeiro e vencem no mesmo repo + caminho. */
 export function mergeSkillCatalog(extra: SkillCatalogEntry[] = []): SkillCatalogEntry[] {

@@ -176,7 +176,11 @@ Projeto = pasta; diagramas = `*.archflow.json` em subpastas; harness do modo age
 | POST | `/api/diagrams/open` · `/rename` · `/duplicate` · `/delete` · `/move` | `{ name }` · `{ name, title }` · `{ name }` · `{ name }` · `{ name, folder }` |
 | POST | `/api/folders` · `/rename` · `/delete` | `{ path }` · `{ path, name }` · `{ path }` |
 | GET/POST | `/api/fs/list?path=` · `/api/fs/mkdir` | navegador de pastas (marca pastas que já são projetos) |
-| POST | `/api/harness` | `{ target: "claude" \| "cursor" }` → grava o harness do diagrama agents aberto na pasta do projeto; → `{ target, root, files[] }` (422 fora do modo agents) |
+| POST | `/api/harness` | `{ target: "claude" \| "cursor", force? }` → grava o harness do diagrama agents aberto na pasta do projeto (`.claude/`+`.mcp.json` ou `.cursor/`); → `{ target, root, files[], written[], unchanged[], removed[], conflicts[] }` (422 fora do modo agents). Pedido explícito sobrescreve edições manuais (`force: false` protege); `.mcp.json`/`.cursor/mcp.json` são mesclados por servidor (conflitos aparecem como `arquivo#servidor`) |
+| GET/POST | `/api/harness/settings` | `{ targets: ["claude","cursor"] }` — alvos que o projeto regrava sozinho a cada edição do diagrama agents (padrão `["claude"]`; `[]` desliga). Guardado em `.archflow/project.json` → `harness.targets`; o controle de arquivos gerados fica em `archflow.agents.json` (hash por arquivo e por servidor MCP) |
+| GET | `/api/mcp/env-check?names=A,B` | `{ A: true, B: false }` — se cada variável de ambiente existe no processo do Archflow. SÓ booleanos, nunca o valor |
+| GET | `/api/mcp-registry/search?q=` | `{ entries: McpCatalogEntry[] }` — busca no registro oficial de servidores MCP (versão mais recente, cache de 5 min); servidores sem como conectar são descartados |
+| POST | `/api/mcp/probe` | `{ transport?, command?, args?, url?, env?, headers?, confirm: true }` → faz o handshake MCP e devolve `{ tools[{name,description?}], server? }`. **EXECUTA o comando (stdio) ou conecta na url**: 400 sem `confirm: true` (booleano); 502 com mensagem segura. `${VAR}` são expandidas no bridge e mascaradas de volta nas mensagens; timeout de 10 s |
 
 SSE ganha `event: workspace` (mesmo payload de `GET /api/workspace`). `PUT /api/doc` envia `file` e recebe **409** se o diagrama ativo mudou. `pristine:true` indica projeto recém-criado, que a UI semeia com o rascunho local.
 Segurança: o bridge recusa (403) requisições cujo `Host`/`Origin` não sejam localhost; valida cada segmento de caminho (sem `..`, sem nomes iniciados por `.`, sem caracteres inválidos); exclusões movem para `.archflow/trash/`.
@@ -187,6 +191,30 @@ Exportar imagem: `POST /api/export { format: "svg" | "png", name?, out?, backgro
 
 ### 5.5 Backend em memória do navegador (sem bridge)
 Se `GET /api/workspace` falha (ou devolve algo que não seja um workspace — ex.: `index.html` de hospedagem estática), a UI troca `fetch` por `localFetch` (`src/ui/localProject.ts`), que implementa as MESMAS rotas `/api/doc`, `/api/workspace`, `/api/projects/*`, `/api/diagrams/*` e `/api/folders/*` sobre o IndexedDB (`archflow-local`: chave `meta` + `project:<id>`, migradas de `vault:<id>`), emitindo localmente os eventos `doc` e `workspace`. Rotas de disco (`/api/fs/*`, `/api/projects/open`) retornam 400. Extra: `POST /api/projects/import { bundle }` (pacote `archflow-project/1`; aceita o antigo `archflow-vault/1`). Sem servidor local o harness do modo agents sai como `.zip` gerado no próprio navegador (`src/shared/zip.ts`). Sem EventSource, MCP ou edição externa. Uma vez em modo local na sessão, não há troca automática para servidor (evita divergência de dados).
+
+### 5.6 Terminal do Claude Code (modo agents)
+O bridge abre sessões PTY (`node-pty`) do `claude` — ou do shell do usuário — na **pasta do projeto aberto** e as liga por WebSocket ao xterm.js da UI. Implementação: `server/terminal.ts`; cliente: `src/ui/termclient.ts` e `src/shared/termproto.ts`. Só existe com o bridge em disco (nunca na memória do navegador) e **não existe no modo público**.
+
+| Método | Rota | Corpo → Resposta |
+| --- | --- | --- |
+| GET | `/api/term/info` | → `{ token, max, cwd, sessions[{id,title,cwd,cmd,startedAt,exited?}], claude{found,version?,error?} }`. `sessions` são só as do projeto aberto; `?refresh=1` refaz a detecção do `claude` (cache de 30 s) |
+| POST | `/api/term/start` | `{ program?: "claude"｜"shell", args?, title?, cols?, rows?, prefill? }` (`args` só em dois formatos fixos, usados pelos workflows (todos os passos compartilham uma conversa): automático `-p (--session-id｜--resume) <uuid> [--permission-mode acceptEdits｜plan｜manual] -- <texto>` e manual/interativo `(--session-id｜--resume) <uuid> [--permission-mode …]` (o texto vai em `prefill`); qualquer outra coisa → 400, nunca `--dangerously-skip-permissions`/`bypassPermissions`) → `{ id, title, cwd, cmd, startedAt }`. `prefill` é digitado SEM Enter, só depois que a saída para e nenhum diálogo «trust this folder»/«New MCP server» está na tela |
+| GET | `/api/term/conversation?id=<uuid>` | → `{ exists }`: a conversa do Claude Code já foi gravada em `<config>/projects/*/<id>.jsonl`? (só depois da 1ª mensagem; o workflow usa `--session-id` quando não existe e `--resume` quando existe) |
+| POST | `/api/term/kill` | `{ id }` → `{ ok }` |
+| GET | `/api/harness/status?target=claude` | → `{ applicable, stale[], owner?, current?, foreign? }` (só leitura; `stale` = arquivos ou `.mcp.json#servidor` diferentes do que o diagrama geraria) |
+| GET/PUT | `/api/prompts` | `{ library }` → `{ library, dropped[] }`: prompts e workflows do projeto em `.archflow/prompts.json` (`archflow-prompts/1`: `prompts[{id,name,text,agent?,notes?}]`, `workflows[{id,name,steps[{promptId,mode:manual｜auto}]}]`; normalizado ao gravar) |
+| WS | `/api/term?session=<id>&token=<token>` | terminal interativo |
+
+Os `POST` exigem o header `x-archflow-term: <token>` (o token do boot, vindo de `/api/term/info`). Erros: `403` token inválido · `404` terminal desabilitado · `409` sem projeto aberto · `424` `claude` fora do PATH · `429` limite de sessões (`ARCHFLOW_TERM_MAX`, padrão 4, somando todos os projetos) · `501` `node-pty` não carregou.
+
+Mensagens do WebSocket (JSON em texto):
+```
+cliente → servidor  {"t":"in","d":"ls\r"}   {"t":"resize","cols":120,"rows":30}
+servidor → cliente  {"t":"hello","id","cols","rows"}   {"t":"out","d":"…"}   {"t":"exit","code":0}
+```
+Ao conectar, o servidor envia `hello` e reenvia o scrollback (até 200 KB), então reconectar restaura a tela. Fechar o WebSocket **não** encerra a sessão; só `/api/term/kill` (ou a saída do processo) encerra. Sessões pertencem ao projeto: continuam vivas ao trocar de projeto e reaparecem ao reabri-lo; as que saíram e ninguém fechou são podadas após 30 min.
+
+Segurança: o upgrade só passa com `Origin` **igual ao `Host`** (mesma origem) e o token na query, comparado em tempo constante; o token só é legível por `GET /api/term/info`, e o bridge não envia cabeçalhos CORS. O comando é fixo (`claude` ou o shell do usuário, em argv, sem interpolação em shell). Variáveis: `ARCHFLOW_TERM=0` desliga; `ARCHFLOW_TERM=1` liga mesmo com `ARCHFLOW_HOST` fora do loopback (por sua conta e risco); `ARCHFLOW_TERM_MAX` limita as sessões.
 
 ## 6. Máquina de estados (UI ↔ bridge)
 

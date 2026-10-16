@@ -185,7 +185,32 @@ export const CONNECTION_TYPE_KEYS = Object.keys(CONNECTION_TYPES) as ConnectionT
 
 /* ───────── modo agents (times de agentes de IA) ───────── */
 
-export type AgentRole = "agent" | "skill";
+export type AgentRole = "agent" | "skill" | "tool";
+
+/** `native` = tool do próprio Claude Code (Read, Bash…) · `mcp` = servidor MCP, com as tools que ele expõe. */
+export type AgentToolType = "native" | "mcp";
+export type McpTransport = "stdio" | "http" | "sse";
+export const MCP_TRANSPORTS: Record<McpTransport, string> = {
+  stdio: "Processo local (command + args)",
+  http: "Servidor remoto HTTP (url)",
+  sse: "Servidor remoto SSE (url, obsoleto)",
+};
+
+/** Tools nativas que um subagente pode receber. O nome é o que vai em `tools:` no frontmatter. */
+export const NATIVE_TOOLS: Record<string, string> = {
+  Read: "Lê arquivos do projeto.",
+  Write: "Cria ou sobrescreve arquivos.",
+  Edit: "Altera trechos de arquivos existentes.",
+  Glob: "Procura arquivos por padrão de nome.",
+  Grep: "Procura texto no conteúdo dos arquivos.",
+  Bash: "Executa comandos de shell.",
+  WebFetch: "Baixa e lê uma página da web.",
+  WebSearch: "Pesquisa na web.",
+  NotebookEdit: "Edita células de notebooks Jupyter.",
+  TodoWrite: "Mantém uma lista de tarefas da sessão.",
+  Agent: "Aciona outros subagentes.",
+};
+export const NATIVE_TOOL_NAMES = Object.keys(NATIVE_TOOLS);
 
 /** Origem de uma skill vinda do catálogo (hub `npx skills` / skills.sh): repositório GitHub + caminho do SKILL.md. Ausente = skill própria, escrita no Archflow. */
 export interface AgentSkillSource {
@@ -211,6 +236,22 @@ export interface AgentNodeSpec {
   body?: string;
   /** skill: origem no catálogo; ausente = skill própria (editável, sem atualização) */
   source?: AgentSkillSource;
+  /** tool: nativa ou servidor MCP */
+  toolType?: AgentToolType;
+  /** tool nativa: nome exato da tool (Read, Bash, …) */
+  toolName?: string;
+  /** tool MCP: como conectar */
+  transport?: McpTransport;
+  command?: string;
+  args?: string[];
+  url?: string;
+  /** valores com `${VAR}`; nunca o segredo em si */
+  env?: Record<string, string>;
+  headers?: Record<string, string>;
+  /** tool MCP: tools que o servidor expõe (opcional; alimenta a lista de tools permitidas por agente) */
+  mcpTools?: string[];
+  /** tool MCP: de onde veio (catálogo curado, registro oficial ou colado); ausente = escrito à mão */
+  mcpSource?: { catalog: "curated" | "registry" | "pasted"; id: string; version?: string };
 }
 export type AgentField = Exclude<keyof AgentNodeSpec, "role">;
 
@@ -229,13 +270,21 @@ export const AGENT_ROLES: Record<AgentRole, { label: string; hint: string; color
     badge: "SKILL",
     fields: ["description", "body", "source"],
   },
+  tool: {
+    label: "Tool",
+    hint: "Ferramenta que um agente pode usar: uma tool nativa (Read, Bash…) ou um servidor MCP (comando ou URL, variáveis e tools). Ligada a um agente por uma seta uses-tool, ou solta no grupo Global para valer para todos.",
+    color: "#d9822b",
+    badge: "TOOL",
+    fields: ["description", "toolType", "toolName", "transport", "command", "args", "url", "env", "headers", "mcpTools", "mcpSource"],
+  },
 };
 export const AGENT_ROLE_KEYS = Object.keys(AGENT_ROLES) as AgentRole[];
 
-export type AgentRel = "uses-skill" | "delegates";
-export const AGENT_RELS: Record<AgentRel, { label: string; semantics: string; type: ConnectionType }> = {
-  "uses-skill": { label: "uses-skill", semantics: "agent → skill: a skill é plugada neste agente. No Claude Code vira o campo `skills` do subagente (pré-carrega o conteúdo); no Cursor não há campo nativo — fica documentado no corpo do agente.", type: "dependency" },
-  delegates: { label: "delegates", semantics: "agent → agent: o primeiro pode acionar o segundo como subagente (handoff/delegação).", type: "sync" },
+export type AgentRel = "uses-skill" | "delegates" | "uses-tool";
+export const AGENT_RELS: Record<AgentRel, { label: string; semantics: string; type: ConnectionType; usageHint: string }> = {
+  "uses-skill": { usageHint: "Como este agente usa a skill: em que momento a puxa e para quê. Ex.: «ao escrever títulos e CTAs, para manter o tom da marca».", label: "uses-skill", semantics: "agent → skill: a skill é plugada neste agente. No Claude Code vira o campo `skills` do subagente (pré-carrega o conteúdo); no Cursor não há campo nativo — fica documentado no corpo do agente.", type: "dependency" },
+  "uses-tool": { usageHint: "Como este agente usa a ferramenta: quando a aciona e com que cuidado. Ex.: «Bash só para rodar o linter; nunca comandos destrutivos».", label: "uses-tool", semantics: "agent → tool: a ferramenta fica disponível a este agente. No Claude Code vira entrada em `tools` (nativa) ou `mcpServers` + `mcp__servidor` (MCP); no Cursor o servidor MCP vale para o projeto todo (`.cursor/mcp.json`).", type: "dependency" },
+  delegates: { usageHint: "Como este agente usa o outro: o que delega, o que entrega a ele e o que espera de volta. Ex.: «passa docs/copy.md aprovado e recebe docs/design.md».", label: "delegates", semantics: "agent → agent: o primeiro pode acionar o segundo como subagente (handoff/delegação).", type: "sync" },
 };
 export const AGENT_REL_KEYS = Object.keys(AGENT_RELS) as AgentRel[];
 
@@ -244,11 +293,19 @@ export type AgentRelEnd = AgentRole;
 export const AGENT_REL_PAIRS: Record<AgentRel, { from: AgentRelEnd[]; to: AgentRelEnd[] }[]> = {
   "uses-skill": [{ from: ["agent"], to: ["skill"] }],
   delegates: [{ from: ["agent"], to: ["agent"] }],
+  "uses-tool": [{ from: ["agent"], to: ["tool"] }],
 };
 
 /** Campos próprios de uma conexão do modo agents. */
 export interface AgentConnSpec {
   rel: AgentRel;
+  /**
+   * COMO o agente de origem usa o destino (a skill ou o outro agente): quando, para quê, o que passa e o que espera.
+   * Entra no harness, no corpo do agente, ao lado da description do destino — que diz o que o destino faz, não como ESTE agente o usa.
+   */
+  usage?: string;
+  /** uses-tool para um servidor MCP: só estas tools do servidor (vazio = todas) */
+  allow?: string[];
 }
 
 /* ───────── modo domínio (DDD) ───────── */
