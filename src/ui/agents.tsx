@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_RELS, AGENT_REL_KEYS, AGENT_ROLES, AGENT_ROLE_KEYS, MCP_TRANSPORTS, NATIVE_TOOLS, NATIVE_TOOL_NAMES, type McpTransport, type AgentNodeSpec, type AgentRel, type AgentRole, type ConnectionEl, type NodeEl } from "../shared/schema";
 import { mcpVars } from "../shared/mcpcatalog";
 import { isOrchestrator, testPrompt } from "../shared/agentprompt";
-import { inGlobalGroup, looksLikeSecret, reshapeAgent, suggestAgentRels } from "../shared/agents";
+import { inGlobalGroup, looksLikeSecret, reshapeAgent, suggestAgentRels, workflowSteps } from "../shared/agents";
+import { promptVars } from "../shared/prompts";
 import { SKILL_CATALOG, catalogEntryToSource, mergeSkillCatalog, parseSkillGithubUrl, resolveSkillSource, searchSkillCatalog, skillInstallSlug, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { renderMarkdown } from "./markdown";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { insertBlock, RichEditor, RichToolbar } from "./richeditor";
-import { installGithubSkills, searchSkillsHub, topSkillsHub, listSkillSources, addSkillSource, refreshSkillSources, removeSkillSource, indexedSkills, loadDownloadedSkills, renameNode, checkMcpEnv, probeMcpServer, plugTool, convertLegacyTools, runInTerminal, type SkillSourceInfo, run, set, toast, toastError, useStore } from "./store";
+import { installGithubSkills, searchSkillsHub, topSkillsHub, listSkillSources, addSkillSource, refreshSkillSources, removeSkillSource, indexedSkills, loadDownloadedSkills, renameNode, checkMcpEnv, probeMcpServer, plugTool, convertLegacyTools, runInTerminal, runNodeInTerminal, setPromptAgent, addWorkflowStep, reorderWorkflowSteps, type SkillSourceInfo, run, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
 
@@ -46,6 +47,105 @@ export function AgentFields({ node, patch }: { node: NodeEl; patch: Patch }) {
       {agent.role === "agent" && <AgentRoleFields node={node} agent={agent} upd={upd} />}
       {agent.role === "skill" && <SkillRoleFields node={node} agent={agent} upd={upd} />}
       {agent.role === "tool" && <ToolRoleFields node={node} agent={agent} upd={upd} patch={patch} />}
+      {agent.role === "prompt" && <PromptRoleFields node={node} agent={agent} upd={upd} />}
+      {agent.role === "workflow" && <WorkflowRoleFields node={node} agent={agent} upd={upd} />}
+    </>
+  );
+}
+
+/* ───────── nó prompt / workflow ───────── */
+
+function RunButton({ id, what }: { id: string; what: string }) {
+  const avail = useStore((s) => s.termAvail);
+  return (
+    <button className="btn sm" style={{ marginBottom: 10 }} disabled={avail === false} onClick={() => runNodeInTerminal(id)} data-tip={avail === false ? "O terminal não está disponível (veja o botão «Terminal» da barra)." : `Abre o terminal do Claude Code com ${what}. O harness é sincronizado antes.`} data-tip-pos="left">
+      ▶ Executar no Claude Code
+    </button>
+  );
+}
+
+function PromptRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+  const doc = useStore((s) => s.doc);
+  const agents = doc.nodes.filter((n) => n.agent?.role === "agent");
+  const host = doc.connections.find((c) => c.from === node.id && c.agent?.rel === "runs-on")?.to ?? "";
+  const vars = promptVars(agent.text ?? "");
+  return (
+    <>
+      <RunButton id={node.id} what="o texto digitado (sem Enter)" />
+      <label className="field">
+        <span>Texto do prompt</span>
+        <TextField multiline value={agent.text ?? ""} placeholder="Revise {{arquivo}} e liste os riscos de segurança." onCommit={(v) => upd({ text: v.trim() ? v : undefined })} />
+        <small className="hint">Use {"{{variável}}"} para o que muda a cada execução.{vars.length > 0 && ` Variáveis: ${vars.join(", ")}.`} Em um workflow, <code>{"{{anterior}}"}</code> traz a resposta do passo anterior e <code>{"{{resultado.id-do-prompt}}"}</code> a de um passo específico.</small>
+      </label>
+      {!agent.text?.trim() && <div className="callout warn">Sem texto não há o que executar (A020).</div>}
+      <label className="field">
+        <span>Subagente <small className="opt">opcional (seta runs-on)</small></span>
+        <select className="input" value={host} onChange={(e) => setPromptAgent(node.id, e.target.value)}>
+          <option value="">Conversa normal</option>
+          {agents.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>Notas <small className="opt">opcional</small></span>
+        <TextField multiline value={agent.description ?? ""} placeholder="Só para você" onCommit={(v) => upd({ description: v.trim() || undefined })} />
+      </label>
+    </>
+  );
+}
+
+function WorkflowRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+  const doc = useStore((s) => s.doc);
+  const steps = workflowSteps(doc, node.id);
+  const free = doc.nodes.filter((n) => n.agent?.role === "prompt");
+  const move = (i: number, d: -1 | 1) => {
+    const ids = steps.map((s) => s.conn);
+    const j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    reorderWorkflowSteps(node.id, ids);
+  };
+  const setMode = (conn: string, mode: "manual" | "auto") => {
+    const c = doc.connections.find((x) => x.id === conn);
+    if (!c?.agent) return;
+    const { mode: _drop, ...rest } = c.agent;
+    run([{ op: "update", id: conn, patch: { agent: mode === "auto" ? { ...rest, mode } : rest } }]);
+  };
+  return (
+    <>
+      <RunButton id={node.id} what="o formulário do workflow" />
+      <div className="field">
+        <span>Passos <small className="opt">(setas step)</small></span>
+        {!steps.length && <div className="callout">Sem passos. Adicione prompts abaixo ou ligue o workflow a um prompt no canvas (A022).</div>}
+        {steps.map((s, i) => (
+          <div key={s.conn} className="wf-step">
+            <span className="wf-n">{i + 1}</span>
+            <span className="wf-name" title={s.prompt.agent?.text}>{s.prompt.label}</span>
+            <div className="tseg sm" role="radiogroup" aria-label={`Modo do passo ${i + 1}`}>
+              <button role="radio" aria-checked={s.mode === "manual"} className={s.mode === "manual" ? "on" : ""} title="Você confirma cada passo no terminal" onClick={() => setMode(s.conn, "manual")}>Manual</button>
+              <button role="radio" aria-checked={s.mode === "auto"} className={s.mode === "auto" ? "on" : ""} title="Roda sozinho (claude -p) e segue ao terminar" onClick={() => setMode(s.conn, "auto")}>Auto</button>
+            </div>
+            <button className="btn ghost icon sm" aria-label="Mover para cima" disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+            <button className="btn ghost icon sm" aria-label="Mover para baixo" disabled={i === steps.length - 1} onClick={() => move(i, 1)}>↓</button>
+            <button className="btn ghost icon sm" aria-label="Remover passo" onClick={() => { run([{ op: "remove", id: s.conn }]); reorderWorkflowSteps(node.id, steps.filter((x) => x.conn !== s.conn).map((x) => x.conn)); }}>×</button>
+          </div>
+        ))}
+        <select className="input" aria-label="Adicionar passo" value="" disabled={!free.length} onChange={(e) => e.target.value && addWorkflowStep(node.id, e.target.value)}>
+          <option value="">{free.length ? "+ Adicionar passo" : "Crie prompts no diagrama primeiro"}</option>
+          {free.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <label className="field">
+        <span>Notas <small className="opt">opcional</small></span>
+        <TextField multiline value={agent.description ?? ""} placeholder="O que este workflow entrega" onCommit={(v) => upd({ description: v.trim() || undefined })} />
+      </label>
     </>
   );
 }
@@ -956,10 +1056,20 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
   const doc = useStore((s) => s.doc);
   const a = conn.agent;
   const valid = suggestAgentRels(doc, conn.from, conn.to);
+  /** Regrava o `agent` da conexão mantendo o que já tinha (usage, allow, order, mode) e descartando vazios. */
+  const upd = (p: Record<string, unknown>) => {
+    const next: Record<string, unknown> = { ...a, ...p };
+    for (const k of Object.keys(next)) {
+      const v = next[k];
+      if (v === undefined || v === "" || (Array.isArray(v) && !v.length)) delete next[k];
+    }
+    patch({ agent: next });
+  };
   const setRel = (rel: AgentRel | "") => {
     if (!rel) return patch({ agent: null });
-    patch({ agent: { rel, ...(a?.usage ? { usage: a.usage } : {}), ...(rel === "uses-tool" && a?.allow?.length ? { allow: a.allow } : {}) }, type: AGENT_RELS[rel].type });
+    patch({ agent: { rel, ...(a?.usage ? { usage: a.usage } : {}), ...(rel === "uses-tool" && a?.allow?.length ? { allow: a.allow } : {}), ...(rel === "step" && a?.order ? { order: a.order } : {}), ...(rel === "step" && a?.mode ? { mode: a.mode } : {}) }, type: AGENT_RELS[rel].type });
   };
+  const needsUsage = a?.rel === "uses-skill" || a?.rel === "delegates" || a?.rel === "uses-tool";
   return (
     <>
       <label className="field">
@@ -976,15 +1086,24 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
       </label>
       {a && (
         <label className="field">
-          <span>Como usa <small style={{ opacity: 0.7 }}>(vai para o corpo do agente no harness)</small></span>
-          <textarea
-            className="input"
-            rows={4}
-            value={a.usage ?? ""}
-            placeholder={AGENT_RELS[a.rel].usageHint}
-            onChange={(e) => patch({ agent: { rel: a.rel, ...(e.target.value ? { usage: e.target.value } : {}), ...(a.allow?.length ? { allow: a.allow } : {}) } })}
-          />
+          <span>{needsUsage ? "Como usa" : "Nota"} <small style={{ opacity: 0.7 }}>{needsUsage ? "(vai para o corpo do agente no harness)" : "(opcional)"}</small></span>
+          <textarea className="input" rows={needsUsage ? 4 : 2} value={a.usage ?? ""} placeholder={AGENT_RELS[a.rel].usageHint} onChange={(e) => upd({ usage: e.target.value })} />
         </label>
+      )}
+      {a?.rel === "step" && (
+        <>
+          <label className="field">
+            <span>Posição no workflow <small style={{ opacity: 0.7 }}>(1, 2, 3…; vazio = ordem das setas)</small></span>
+            <input className="input" type="number" min={1} step={1} value={a.order ?? ""} onChange={(e) => upd({ order: e.target.value ? Math.max(1, Math.round(Number(e.target.value))) : undefined })} />
+          </label>
+          <div className="field">
+            <span>Modo</span>
+            <div className="tseg sm" role="radiogroup" aria-label="Modo do passo">
+              <button role="radio" aria-checked={(a.mode ?? "manual") === "manual"} className={(a.mode ?? "manual") === "manual" ? "on" : ""} title="Você confirma cada passo no terminal" onClick={() => upd({ mode: undefined })}>Manual</button>
+              <button role="radio" aria-checked={a.mode === "auto"} className={a.mode === "auto" ? "on" : ""} title="Roda sozinho (claude -p) e segue ao terminar" onClick={() => upd({ mode: "auto" })}>Auto</button>
+            </div>
+          </div>
+        </>
       )}
       {a?.rel === "uses-tool" && doc.nodes.find((n) => n.id === conn.to)?.agent?.toolType === "mcp" && (
         <label className="field">
@@ -993,15 +1112,12 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
             multiline
             value={(a.allow ?? []).join("\n")}
             placeholder={(doc.nodes.find((n) => n.id === conn.to)?.agent?.mcpTools ?? ["create_issue"]).slice(0, 3).join("\n")}
-            onCommit={(v) => {
-              const allow = v.split("\n").map((s) => s.trim()).filter(Boolean);
-              patch({ agent: { rel: a.rel, ...(a.usage ? { usage: a.usage } : {}), ...(allow.length ? { allow } : {}) } });
-            }}
+            onCommit={(v) => upd({ allow: v.split("\n").map((s) => s.trim()).filter(Boolean) })}
           />
         </label>
       )}
-      {a && !a.usage?.trim() && <div className="callout warn">Sem «como usa»: o agente só saberá o que o destino faz, não como ele próprio deve usá-lo (aviso A018).</div>}
-      {!a && <div className="callout">{valid.length ? `Sem relação. Para este par: ${valid.join(", ")}.` : "Nenhuma relação do modo agents liga este par (precisa ser agent → skill ou agent → agent)."}</div>}
+      {a && needsUsage && !a.usage?.trim() && <div className="callout warn">Sem «como usa»: o agente só saberá o que o destino faz, não como ele próprio deve usá-lo (aviso A018).</div>}
+      {!a && <div className="callout">{valid.length ? `Sem relação. Para este par: ${valid.join(", ")}.` : "Nenhuma relação do modo agents liga este par (ex.: agent → skill, agent → agent, prompt → agent, workflow → prompt)."}</div>}
       {a && <div className="callout">{AGENT_RELS[a.rel].semantics}{!valid.includes(a.rel) && " Atenção: esta combinação não é válida para esta relação (aviso A008)."}</div>}
     </>
   );

@@ -16,7 +16,7 @@
   "type": "module",
   "scripts": {
     "icons": "tsx scripts/build-icons.ts",
-    "dev": "vite --configLoader runner",
+    "dev": "node scripts/free-bridge.mjs && vite --configLoader runner",
     "build": "npm run skill && tsc --noEmit && vite build --configLoader runner",
     "bridge": "tsx server/bridge.ts",
     "mcp": "tsx server/mcp.ts",

@@ -283,3 +283,52 @@ test("describe e guia citam as ferramentas", () => {
   assert.match(schemaGuide("agents"), /uses-tool/);
   assert.match(schemaGuide("agents"), /mcpServers/);
 });
+
+/* ───────── prompts e workflows como nós ───────── */
+
+test("prompt/workflow: runs-on e step ligam os pares certos e A020/A022 avisam", () => {
+  const d = build([
+    an("dev", { role: "agent", description: "Implementa features seguindo o plano aprovado." }),
+    an("p1", { role: "prompt", text: "Planeje {{feature}}" }),
+    an("p2", { role: "prompt", text: "Implemente o plano" }),
+    an("vazio", { role: "prompt" }),
+    an("wf", { role: "workflow" }),
+    an("wf-vazio", { role: "workflow" }),
+    rel("p2", "dev", "runs-on"),
+    { op: "add_connection", from: "wf", to: "p2", agent: { rel: "step", order: 2, mode: "auto" } },
+    { op: "add_connection", from: "wf", to: "p1", agent: { rel: "step", order: 1 } },
+  ]);
+  assert.ok(has(d, "A020", "vazio"));
+  assert.equal(has(d, "A020", "p1"), false);
+  assert.ok(has(d, "A022", "wf-vazio"));
+  assert.equal(has(d, "A022", "wf"), false);
+  assert.equal(has(d, "A008"), false);
+  assert.equal(has(d, "A018"), false, "runs-on e step não pedem «como usa»");
+});
+
+test("step: order e mode só valem em step", () => {
+  const ops: Op[] = [an("dev", { role: "agent", description: "Implementa features seguindo o plano." }), an("p", { role: "prompt", text: "x" }), an("wf", { role: "workflow" })];
+  const base = emptyDoc("t", "agents");
+  const { doc } = applyOps(base, ops);
+  const bad = (agent: unknown) => applyOps(doc, [{ op: "add_connection", from: "wf", to: "p", agent } as Op]).results[0];
+  assert.equal(bad({ rel: "step", order: 1, mode: "auto" }).ok, true);
+  assert.equal(bad({ rel: "step", mode: "fast" }).ok, false);
+  assert.equal(bad({ rel: "step", order: 0 }).ok, false);
+  assert.equal(applyOps(doc, [{ op: "add_connection", from: "p", to: "dev", agent: { rel: "runs-on", order: 1 } } as Op]).results[0].ok, false);
+});
+
+test("libraryFromDoc: prompts com agente da seta runs-on e passos em ordem", async () => {
+  const { libraryFromDoc } = await import("./workflow");
+  const d = build([
+    an("dev", { role: "agent", description: "Implementa features seguindo o plano aprovado." }),
+    an("a", { role: "prompt", text: "A", description: "nota" }),
+    an("b", { role: "prompt", text: "B" }),
+    an("wf", { role: "workflow" }),
+    rel("b", "dev", "runs-on"),
+    { op: "add_connection", from: "wf", to: "b", agent: { rel: "step", order: 2, mode: "auto" } },
+    { op: "add_connection", from: "wf", to: "a", agent: { rel: "step", order: 1 } },
+  ]);
+  const lib = libraryFromDoc(d);
+  assert.deepEqual(lib.prompts.map((p) => [p.id, p.agent, p.notes]), [["a", undefined, "nota"], ["b", "dev", undefined]]);
+  assert.deepEqual(lib.workflows[0].steps, [{ promptId: "a", mode: "manual" }, { promptId: "b", mode: "auto" }]);
+});

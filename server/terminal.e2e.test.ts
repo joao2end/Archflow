@@ -188,6 +188,8 @@ test("sanitizeClaudeArgs: só o formato fixo do passo automático; nada de flags
   assert.deepEqual(sanitizeClaudeArgs(["-p", "--resume", id, "--permission-mode", "acceptEdits", "--", "-começa com hífen"]), ["-p", "--resume", id, "--permission-mode", "acceptEdits", "--", "-começa com hífen"]);
   assert.deepEqual(sanitizeClaudeArgs(["--session-id", id]), ["--session-id", id], "interativo (passo manual)");
   assert.deepEqual(sanitizeClaudeArgs(["--resume", id, "--permission-mode", "plan"]), ["--resume", id, "--permission-mode", "plan"]);
+  assert.deepEqual(sanitizeClaudeArgs(["-p", "--resume", id, "--allowedTools", "WebSearch,mcp__playwright", "--", "x"]), ["-p", "--resume", id, "--allowedTools", "WebSearch,mcp__playwright", "--", "x"]);
+  for (const t of ["Bash", "Write", "WebSearch,Bash", "Bash(rm:*)", "", "mcp__"]) assert.throws(() => sanitizeClaudeArgs(["-p", "--resume", id, "--allowedTools", t, "--", "x"]), /não permitidos/, t);
   const ruins: string[][] = [
     ["--resume", id, "--", "x"],
     ["--session-id", id, "--dangerously-skip-permissions"],

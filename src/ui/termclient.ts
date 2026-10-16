@@ -93,6 +93,10 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 /** A conversa do Claude Code já foi gravada? (um `--resume` de conversa inexistente falha) */
 export const conversationExists = (id: string) => fetch(`/api/term/conversation?id=${encodeURIComponent(id)}`).then((r) => r.json()).then((j) => !!j.exists, () => false);
 
+/** Última resposta do agente principal na conversa (a memória do workflow); undefined se não houver. */
+export const lastConversationText = (id: string) =>
+  post<{ text: string | null }>("/api/term/conversation/last", { id }).then((j) => (typeof j.text === "string" ? j.text : undefined), () => undefined);
+
 export const startTermSession = (o: StartOptions = {}) => post<TermSessionInfo>("/api/term/start", o);
 export const killTermSession = (id: string) => post<{ ok: boolean }>("/api/term/kill", { id });
 

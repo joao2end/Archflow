@@ -41,7 +41,7 @@ export function checkAgentNode(agent: unknown): string | undefined {
   for (const f of ["description", "model", "prompt", "body"] as AgentField[]) {
     if (a[f] !== undefined && typeof a[f] !== "string") return `agent.${f} deve ser texto`;
   }
-  for (const f of ["toolName", "command", "url"]) {
+  for (const f of ["toolName", "command", "url", "text"]) {
     if (a[f] !== undefined && typeof a[f] !== "string") return `agent.${f} deve ser texto`;
   }
   for (const f of ["tools", "args", "mcpTools"]) {
@@ -85,12 +85,15 @@ export function reshapeAgent(old: AgentNodeSpec | undefined, role: AgentNodeSpec
 /** Valida o objeto `agent` (`AgentConnSpec`) de uma conexão. */
 export function checkAgentConn(agent: unknown): string | undefined {
   if (!agent || typeof agent !== "object") return "agent deve ser um objeto { rel, usage? }";
-  const a = agent as { rel?: string; usage?: unknown; allow?: unknown };
-  for (const k of Object.keys(a)) if (k !== "rel" && k !== "usage" && k !== "allow") return `conexão do modo agents não tem o campo "${k}". Campos: rel, usage, allow`;
+  const a = agent as { rel?: string; usage?: unknown; allow?: unknown; order?: unknown; mode?: unknown };
+  for (const k of Object.keys(a)) if (!["rel", "usage", "allow", "order", "mode"].includes(k)) return `conexão do modo agents não tem o campo "${k}". Campos: rel, usage, allow, order, mode`;
   if (!AGENT_REL_KEYS.includes(a.rel as never)) return `agent.rel inválido "${a.rel}". Válidos: ${AGENT_REL_KEYS.join(", ")}`;
   if (a.usage !== undefined && typeof a.usage !== "string") return "agent.usage deve ser um texto: como o agente de origem usa o destino";
   if (a.allow !== undefined && (!Array.isArray(a.allow) || a.allow.some((x) => typeof x !== "string"))) return "agent.allow deve ser uma lista com os nomes das tools do servidor MCP que o agente pode chamar";
   if (a.allow !== undefined && a.rel !== "uses-tool") return `agent.allow só vale em uses-tool (esta conexão é ${a.rel})`;
+  for (const f of ["order", "mode"] as const) if (a[f] !== undefined && a.rel !== "step") return `agent.${f} só vale em step (esta conexão é ${a.rel})`;
+  if (a.order !== undefined && (typeof a.order !== "number" || !Number.isInteger(a.order) || a.order < 1)) return "agent.order deve ser um inteiro a partir de 1";
+  if (a.mode !== undefined && a.mode !== "manual" && a.mode !== "auto") return 'agent.mode deve ser "manual" ou "auto"';
   return undefined;
 }
 
@@ -119,6 +122,17 @@ export function agentConnectionTypeError(rel: AgentRel | undefined, type: Connec
   if (!type || !rel) return undefined;
   const want = AGENT_RELS[rel].type;
   return type === want ? undefined : `a relação "${rel}" fixa o type em "${want}" (recebeu "${type}"); omita type ou remova a relação (agent: null) para escolher outro tipo`;
+}
+
+/** Passos de um workflow na ordem de execução: `order` da seta (quando houver), senão a ordem das setas. Só prompts existentes. */
+export function workflowSteps(doc: Doc, workflowId: string): { prompt: NodeEl; mode: "manual" | "auto"; conn: string }[] {
+  const out: { prompt: NodeEl; mode: "manual" | "auto"; conn: string; order: number; i: number }[] = [];
+  doc.connections.forEach((c, i) => {
+    if (c.from !== workflowId || c.agent?.rel !== "step") return;
+    const prompt = doc.nodes.find((n) => n.id === c.to && n.agent?.role === "prompt");
+    if (prompt) out.push({ prompt, mode: c.agent.mode ?? "manual", conn: c.id, order: c.agent.order ?? Number.MAX_SAFE_INTEGER, i });
+  });
+  return out.sort((a, b) => a.order - b.order || a.i - b.i).map(({ prompt, mode, conn }) => ({ prompt, mode, conn }));
 }
 
 /** true quando o id (nó ou grupo) está dentro de um grupo kind "global", em qualquer profundidade. */
@@ -201,6 +215,20 @@ export function agentIssues(doc: Doc): Issue[] {
     add("A014", "aviso", `${quote(n)}: usa o campo de texto "tools"; modele como componentes Tool ligados por uses-tool (aparecem no diagrama, aceitam MCP e têm «como usa»)`, n.id);
   }
 
+  // prompts e workflows: A020–A023
+  for (const n of nodes) {
+    const spec = n.agent as AgentNodeSpec;
+    if (spec.role === "prompt" && !spec.text?.trim()) add("A020", "erro", `${quote(n)}: prompt sem text — não há o que executar no terminal`, n.id);
+    if (spec.role === "prompt") {
+      const hosts = doc.connections.filter((c) => c.from === n.id && c.agent?.rel === "runs-on");
+      if (hosts.length > 1) add("A021", "aviso", `${quote(n)}: runs-on para ${hosts.length} agentes; só o primeiro é usado no prefixo «Use o subagente…»`, n.id);
+    }
+    if (spec.role === "workflow") {
+      const steps = workflowSteps(doc, n.id);
+      if (!steps.length) add("A022", "aviso", `${quote(n)}: workflow sem passos — ligue prompts com setas step`, n.id);
+    }
+  }
+
   // A003 skill órfã: nem uses-skill de algum agent, nem dentro do grupo Global
   const usedBy = new Set(doc.connections.filter((c) => c.agent?.rel === "uses-skill").map((c) => c.to));
   for (const n of nodes.filter((n) => n.agent?.role === "skill")) {
@@ -234,7 +262,7 @@ export function agentIssues(doc: Doc): Issue[] {
 
   // A018 relação sem «como usa»: o destino só tem a própria description, que não diz como ESTE agente o usa
   for (const c of doc.connections) {
-    if (!c.agent?.rel || !agentRelAllows(c.agent.rel, agentRelEnd(doc, c.from), agentRelEnd(doc, c.to))) continue;
+    if (!c.agent?.rel || c.agent.rel === "runs-on" || c.agent.rel === "step" || !agentRelAllows(c.agent.rel, agentRelEnd(doc, c.from), agentRelEnd(doc, c.to))) continue;
     const usage = c.agent.usage?.trim() ?? "";
     const from = byId.get(c.from);
     const to = byId.get(c.to);
@@ -311,6 +339,19 @@ export function describeAgents(doc: Doc, issues: Issue[]): string {
     const what = spec.toolType === "mcp" ? `MCP ${spec.transport ?? (spec.url ? "http" : "stdio")}${spec.command ? ` · ${spec.command} ${(spec.args ?? []).join(" ")}`.trimEnd() : ""}${spec.url ? ` · ${spec.url}` : ""}` : `nativa${spec.toolName ? ` · ${spec.toolName}` : ""}`;
     L.push(`- **${t.label}** (${t.id}): ${spec.description ?? NATIVE_DESC(spec) ?? "(sem description)"} — ${what} · ${inGlobalGroup(doc, t.id) ? "GLOBAL (todos os agentes)" : "ligada por seta"}`);
   }
+  const prompts = doc.nodes.filter((n) => n.agent?.role === "prompt");
+  const workflows = doc.nodes.filter((n) => n.agent?.role === "workflow");
+  if (prompts.length || workflows.length) {
+    L.push("", "## Prompts");
+    if (!prompts.length) L.push("(nenhum)");
+    for (const p of prompts) {
+      const host = doc.connections.find((c) => c.from === p.id && c.agent?.rel === "runs-on")?.to;
+      L.push(`- **${p.label}** (${p.id}): ${(p.agent?.text ?? "(sem text)").replace(/\s*\n\s*/g, " ").slice(0, 120)}${host ? ` — executa no agente ${host}` : ""}`);
+    }
+    L.push("", "## Workflows");
+    if (!workflows.length) L.push("(nenhum)");
+    for (const w of workflows) L.push(`- **${w.label}** (${w.id}): ${workflowSteps(doc, w.id).map((s) => `${s.prompt.label} [${s.mode}]`).join(" → ") || "(sem passos)"}`);
+  }
   if (globalSkills.length) L.push("", `Skills globais (grupo "Global"): ${globalSkills.map((s) => s.label).join(", ")} — valem para todos os agentes do harness, sem precisar de seta.`);
   if (issues.length) L.push("", "## Avisos", ...issues.map((i) => `- [${i.rule} ${i.severity}] ${i.message}`));
   return L.join("\n");
@@ -333,6 +374,9 @@ export function schemaGuideAgents(): string {
     "",
     "## Ferramentas (`agent.role: \"tool\"`)",
     '`toolType: "native"` + `toolName` (Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch, NotebookEdit, TodoWrite, Agent) ou `toolType: "mcp"` com `transport` (stdio: `command` + `args`; http/sse: `url`), `env`/`headers` (segredos SEMPRE como `${VAR}`, aviso/erro A011 se vier em texto puro) e `mcpTools` (tools que o servidor expõe, opcional). O id do nó MCP é o nome do servidor (`mcp__<id>__<tool>`): use um slug estável. Claude Code: nativa vira `tools:` do agente; MCP ligado a UM agente vira `mcpServers` inline (isolado, não gasta contexto da sessão principal); MCP no Global ou usado por 2+ agentes vai para `.mcp.json` (o agente o referencia por nome). Se o agente não tem nenhuma tool nativa, `tools:` é omitido (herda todas, inclusive MCP). Cursor: `.cursor/mcp.json` vale para o projeto todo (sem isolamento por agente).',
+    "",
+    "## Prompts e workflows (`agent.role: \"prompt\"` / `\"workflow\"`)",
+    "Não entram no harness exportado: são executados no terminal do Claude Code do app. `prompt` leva `text` (aceita `{{variável}}`); `runs-on` (prompt → agent) faz o texto sair como «Use o subagente <agent> para: …». `workflow` junta prompts por setas `step` (workflow → prompt) com `order` (1, 2, 3…) e `mode` (`manual` | `auto`); todos os passos compartilham uma conversa. Regras A020 (prompt sem text), A021 (runs-on para vários agentes), A022 (workflow sem passos).",
     "",
     "## Escopo global",
     'Uma skill DENTRO de um grupo `kind: "global"` vale para TODOS os agentes do harness, sem precisar de seta `uses-skill`. Uma skill fora do Global só é usada pelo(s) agente(s) ligados a ela por essa seta; sem seta e fora do Global, a skill não entra em nenhum harness exportado (aviso A003).',

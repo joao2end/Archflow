@@ -23,6 +23,7 @@
  *   POST /api/skills/install { repo, skillPath }  `npx skills add` no projeto aberto + conteúdo do SKILL.md
  *   GET  /api/term/info                         { token, max, sessions[], cwd } (token só legível na mesma origem)
  *   POST /api/term/start { program?, args?, title?, cols?, rows?, prefill? }  PTY do `claude` na pasta do projeto (header x-archflow-term)
+ *   POST /api/term/conversation/last { id }      { text|null } última resposta do agente na conversa (memória dos workflows)
  *   GET  /api/term/conversation?id=<uuid>       { exists } a conversa do Claude Code já foi gravada? (base do --resume dos workflows)
  *   POST /api/term/kill { id }
  *   WS   /api/term?session=&token=              terminal interativo (mesma origem + token; ver server/terminal.ts)
@@ -44,7 +45,7 @@ import { fileURLToPath } from "node:url";
 import { generateHarness, type HarnessTarget } from "../src/shared/agentgen";
 import { parseProbeBody, probeMcp, ProbeError } from "./mcpprobe";
 import { searchMcpRegistry } from "./mcpregistry";
-import { assertToken, conversationExists, detectClaude, handleUpgrade, killAll, killSession, startSession, terminalEnabled, termInfo, TermError } from "./terminal";
+import { assertToken, conversationExists, lastAssistantText, detectClaude, handleUpgrade, killAll, killSession, startSession, terminalEnabled, termInfo, TermError } from "./terminal";
 import { harnessDiff, syncHarness, type HarnessSyncResult, readManifest } from "./harnesssync";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { normalizeLibrary } from "../src/shared/prompts";
@@ -1501,6 +1502,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
         if (path === "/api/term/info" && m === "GET") return json(res, 200, { ...termInfo(dir), cwd: dir, claude: await detectClaude({ refresh: url.searchParams.get("refresh") === "1" }) });
         if (path === "/api/term/conversation" && m === "GET") return json(res, 200, { exists: conversationExists(url.searchParams.get("id") ?? "") });
         assertToken(req);
+        if (path === "/api/term/conversation/last" && m === "POST") return json(res, 200, { text: lastAssistantText(String((await body(req)).id ?? "")) ?? null });
         if (path === "/api/term/start" && m === "POST") {
           if (!dir) throw new HttpError(409, "abra um projeto antes de iniciar o terminal");
           const b = await body(req);

@@ -9,15 +9,16 @@
  * Protocolo (JSON em texto): cliente → { t:"in", d } | { t:"resize", cols, rows };
  * servidor → { t:"out", d } | { t:"exit", code } | { t:"hello", id, cols, rows }.
  */
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, existsSync, readdirSync, statSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import type { IncomingMessage } from "node:http";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
+import { createStreamFormatter } from "./streamfmt";
 
 /** Subconjunto de `node-pty` que usamos (o módulo é nativo e carregado sob demanda). */
 interface Pty {
@@ -133,6 +134,27 @@ const runClaudeVersion: RunVersion = () =>
 let claudeCache: { at: number; status: ClaudeStatus } | undefined;
 const CLAUDE_TTL = 30_000;
 
+/**
+ * Comando que o PTY deve spawnar. No Windows o node-pty não aplica PATHEXT, então `claude`
+ * não resolve: o instalador nativo publica `claude.exe` e o npm publica `claude.cmd`.
+ * A ordem segue o PATH e, em cada pasta, o PATHEXT (.exe, .bat, .cmd).
+ */
+export function resolveClaudeCommand(opts?: { platform?: NodeJS.Platform; path?: string; exists?: (file: string) => boolean }): string {
+  const platform = opts?.platform ?? process.platform;
+  if (platform !== "win32") return "claude";
+  const path = opts?.path ?? process.env.PATH ?? process.env.Path ?? "";
+  const exists = opts?.exists ?? existsSync;
+  for (const dir of path.split(delimiter)) {
+    const trimmed = dir.trim().replace(/^"|"$/g, "");
+    if (!trimmed) continue;
+    for (const name of ["claude.exe", "claude.bat", "claude.cmd"]) {
+      const full = join(trimmed, name);
+      if (exists(full)) return full;
+    }
+  }
+  return "claude.exe";
+}
+
 /** O `claude` está no PATH deste processo? Cacheado por 30 s (o botão da barra consulta várias vezes); `refresh` ignora o cache. */
 export async function detectClaude(o: { refresh?: boolean; run?: RunVersion; now?: number } = {}): Promise<ClaudeStatus> {
   const now = o.now ?? Date.now();
@@ -193,11 +215,18 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** Modos de permissão que o Archflow aceita passar ao `claude`: nunca `bypassPermissions`/`dontAsk`/`auto`. */
 export const SAFE_PERMISSION_MODES = ["acceptEdits", "plan", "manual"] as const;
 export const MAX_PROMPT_ARG = 40_000;
+/** Tools que a UI pode liberar sem perguntar (`--allowedTools`): leitura, web e servidores MCP. Nunca Bash/Write/Edit (esses seguem pelo terminal ou por `acceptEdits`). */
+export const SAFE_ALLOWED_TOOLS = ["Read", "Glob", "Grep", "WebFetch", "WebSearch", "TodoWrite", "Agent"] as const;
+const MCP_TOOL_RE = /^mcp__[A-Za-z0-9_-]{1,64}(__[A-Za-z0-9_-]{1,64})?$/;
+const allowedToolsOk = (v: string | undefined) => {
+  const names = (v ?? "").split(",");
+  return names.length > 0 && names.length <= 40 && names.every((n) => (SAFE_ALLOWED_TOOLS as readonly string[]).includes(n) || MCP_TOOL_RE.test(n));
+};
 
 /**
  * Argumentos aceitos para o `claude` dos workflows (todos os passos compartilham uma conversa), só nestes dois formatos:
- *   passo automático:   -p (--session-id|--resume) <uuid> [--permission-mode <modo seguro>] -- <texto>
- *   passo manual:       (--session-id|--resume) <uuid> [--permission-mode <modo seguro>]     (sessão interativa; o texto vai por `prefill`)
+ *   passo automático:   -p (--session-id|--resume) <uuid> [--permission-mode <modo seguro>] [--allowedTools <a,b>] -- <texto>
+ *   passo manual:       (--session-id|--resume) <uuid> [--permission-mode <modo seguro>] [--allowedTools <a,b>]     (sessão interativa; o texto vai por `prefill`)
  * (o `--` impede que um texto começando com «-» seja lido como opção). Lista vazia = sessão interativa comum.
  * Qualquer outra coisa é recusada: o cliente nunca consegue passar `--dangerously-skip-permissions`, `--mcp-config` etc.
  */
@@ -216,6 +245,12 @@ export function sanitizeClaudeArgs(args: string[] | undefined): string[] {
     const mode = a.shift();
     if (!SAFE_PERMISSION_MODES.includes(mode as (typeof SAFE_PERMISSION_MODES)[number])) throw bad();
     out.push("--permission-mode", mode!);
+  }
+  if (a[0] === "--allowedTools") {
+    a.shift();
+    const tools = a.shift();
+    if (!allowedToolsOk(tools)) throw bad();
+    out.push("--allowedTools", tools!);
   }
   if (!print) {
     if (a.length) throw bad();
@@ -242,6 +277,85 @@ export function conversationExists(id: string, configDir = process.env.CLAUDE_CO
   }
 }
 
+/**
+ * Separa o passo automático em argumentos fixos (+ `--output-format stream-json --verbose`) e o texto do passo.
+ * O texto vai pelo stdin, não pelo argv: não passa por shell nem tem limite de linha de comando.
+ */
+export function withStreamFlags(args: string[]): { args: string[]; text: string } {
+  const i = args.indexOf("--");
+  const base = i < 0 ? args : args.slice(0, i);
+  return { args: [...base, "--output-format", "stream-json", "--verbose"], text: i < 0 ? "" : (args[i + 1] ?? "") };
+}
+
+/**
+ * Passo automático como processo comum (pipes), não PTY: o ConPTY quebra as linhas JSON compridas em pedaços e o tradutor
+ * não conseguiria lê-las. Expõe a mesma interface do PTY; o stdout e o stderr já saem traduzidos para texto legível.
+ */
+export function spawnPiped(file: string, args: string[], text: string, cwd: string): Pty {
+  const shell = process.platform === "win32" && /\.(cmd|bat)$/i.test(file); // só os argumentos fixos passam pelo shell; o texto vai pelo stdin
+  const child = spawn(file, args, { cwd, shell, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: { ...process.env } });
+  const data: ((d: string) => void)[] = [];
+  const exit: ((e: { exitCode: number }) => void)[] = [];
+  const emit = (d: string) => d && data.forEach((cb) => cb(d));
+  const fmtOut = createStreamFormatter();
+  const fmtErr = createStreamFormatter();
+  child.stdout?.setEncoding("utf8").on("data", (d: string) => emit(fmtOut(d)));
+  child.stderr?.setEncoding("utf8").on("data", (d: string) => emit(fmtErr(d)));
+  let done = false;
+  const finish = (code: number) => {
+    if (done) return;
+    done = true;
+    emit(fmtOut("\n") + fmtErr("\n"));
+    exit.forEach((cb) => cb({ exitCode: code }));
+  };
+  child.on("error", (e) => (emit(`\x1b[31m${e.message}\x1b[0m\r\n`), finish(127)));
+  child.on("close", (code) => finish(code ?? 1));
+  child.stdin?.on("error", () => {});
+  child.stdin?.end(text);
+  return {
+    onData: (cb) => void data.push(cb),
+    onExit: (cb) => void exit.push(cb),
+    write: () => {},
+    resize: () => {},
+    kill: () => {
+      if (process.platform === "win32" && child.pid) execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], () => {});
+      else child.kill();
+    },
+    pid: child.pid ?? 0,
+  };
+}
+
+/**
+ * Última resposta de texto do agente principal na conversa `id` (a memória do workflow): lê o `.jsonl` da conversa e pega a
+ * última mensagem do assistente que tem texto, ignorando as dos subagentes (`isSidechain`) e as que só chamam ferramentas.
+ * undefined se a conversa não existe ou ainda não tem resposta.
+ */
+export function lastAssistantText(id: string, configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude")): string | undefined {
+  if (!UUID_RE.test(id)) return undefined;
+  try {
+    const root = join(configDir, "projects");
+    const dir = readdirSync(root).find((d) => existsSync(join(root, d, `${id}.jsonl`)));
+    if (!dir) return undefined;
+    const lines = readFileSync(join(root, dir, `${id}.jsonl`), "utf8").split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].startsWith("{")) continue;
+      let ev: { type?: string; isSidechain?: boolean; message?: { content?: unknown } };
+      try {
+        ev = JSON.parse(lines[i]);
+      } catch {
+        continue;
+      }
+      if (ev.type !== "assistant" || ev.isSidechain) continue;
+      const c = ev.message?.content;
+      const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((b: { type?: string; text?: string }) => (b?.type === "text" && typeof b.text === "string" ? b.text : "")).join("\n") : "";
+      if (text.trim()) return text.trim();
+    }
+  } catch {
+    /* sem conversa legível */
+  }
+  return undefined;
+}
+
 const clampDim = (n: unknown, d: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.floor(Number(n)) || d));
 
 const EXITED_TTL = 30 * 60_000;
@@ -260,19 +374,26 @@ export async function startSession(o: StartOpts): Promise<TermSession> {
   const program = o.program === "shell" ? "shell" : "claude";
   // o node-pty não falha quando o executável não existe (o erro ocorre no helper e a sessão sai na hora): confere antes
   if (program === "claude" && !(await detectClaude()).found) throw new TermError(424, "não encontrei o `claude` no PATH. Ele está instalado e no PATH?");
-  const file = program === "claude" ? (win ? "claude.cmd" : "claude") : win ? (process.env.COMSPEC ?? "cmd.exe") : (process.env.SHELL ?? "/bin/zsh");
+  const file = program === "claude" ? resolveClaudeCommand() : win ? (process.env.COMSPEC ?? "cmd.exe") : (process.env.SHELL ?? "/bin/zsh");
   const args = program === "claude" ? sanitizeClaudeArgs(o.args) : win ? [] : ["-l"];
+  // passo automático (`claude -p`): pede os eventos em JSON e os traduz para texto, senão a aba fica muda até o fim
+  const streaming = program === "claude" && args[0] === "-p";
   const cols = clampDim(o.cols, 100, 20, 400);
   const rows = clampDim(o.rows, 28, 5, 200);
   let p: Pty;
   try {
-    p = pty.spawn(file, args, {
-      name: "xterm-256color",
-      cols,
-      rows,
-      cwd: o.cwd,
-      env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
-    });
+    if (streaming) {
+      const w = withStreamFlags(args);
+      p = spawnPiped(file, w.args, w.text, o.cwd);
+    } else {
+      p = pty.spawn(file, args, {
+        name: "xterm-256color",
+        cols,
+        rows,
+        cwd: o.cwd,
+        env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor" },
+      });
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     throw new TermError(program === "claude" ? 424 : 500, program === "claude" ? `não consegui iniciar o \`claude\` (${msg}). Ele está instalado e no PATH?` : msg);

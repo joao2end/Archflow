@@ -161,6 +161,11 @@ export function TerminalPanel() {
       return !v;
     });
   const request = useStore((s) => s.termRequest);
+  // «Executar» do inspetor de um prompt/workflow: abre a barra lateral, que mostra o formulário do nó
+  const runNodeReq = useStore((s) => s.runNodeRequest);
+  useEffect(() => {
+    if (runNodeReq) setPromptsOpen(true);
+  }, [runNodeReq]);
   const booted = useRef(false);
   const projectId = useStore((s) => s.workspace?.project.id);
   // outro projeto: as sessões são da pasta anterior (continuam vivas no bridge); recomeça pela lista do novo projeto
@@ -357,7 +362,7 @@ export function TerminalPanel() {
           </div>
         </div>
         {live >= max - 1 && <small className="term-count" title="Sessões abertas / máximo (somando todos os projetos)">{live}/{max}</small>}
-        <button className={`btn ghost sm${promptsOpen ? " active" : ""}`} aria-pressed={promptsOpen} onClick={togglePrompts} title="Prompts e workflows do projeto">Prompts</button>
+        <button className={`btn ghost sm${promptsOpen ? " active" : ""}`} aria-pressed={promptsOpen} onClick={togglePrompts} title="Prompts e workflows do diagrama">Prompts</button>
         <button className="btn ghost icon sm" aria-label="Recolher o terminal" title="Recolher (as sessões continuam rodando)" onClick={() => setStore({ termOpen: false })}>⌄</button>
       </div>
       {notice && (

@@ -185,7 +185,7 @@ export const CONNECTION_TYPE_KEYS = Object.keys(CONNECTION_TYPES) as ConnectionT
 
 /* ───────── modo agents (times de agentes de IA) ───────── */
 
-export type AgentRole = "agent" | "skill" | "tool";
+export type AgentRole = "agent" | "skill" | "tool" | "prompt" | "workflow";
 
 /** `native` = tool do próprio Claude Code (Read, Bash…) · `mcp` = servidor MCP, com as tools que ele expõe. */
 export type AgentToolType = "native" | "mcp";
@@ -252,6 +252,8 @@ export interface AgentNodeSpec {
   mcpTools?: string[];
   /** tool MCP: de onde veio (catálogo curado, registro oficial ou colado); ausente = escrito à mão */
   mcpSource?: { catalog: "curated" | "registry" | "pasted"; id: string; version?: string };
+  /** prompt: texto executado no Claude Code; aceita variáveis `{{nome}}` */
+  text?: string;
 }
 export type AgentField = Exclude<keyof AgentNodeSpec, "role">;
 
@@ -277,13 +279,29 @@ export const AGENT_ROLES: Record<AgentRole, { label: string; hint: string; color
     badge: "TOOL",
     fields: ["description", "toolType", "toolName", "transport", "command", "args", "url", "env", "headers", "mcpTools", "mcpSource"],
   },
+  prompt: {
+    label: "Prompt",
+    hint: "Prompt reutilizável, executado no terminal do Claude Code. O texto aceita variáveis {{nome}}. Uma seta runs-on para um agent faz o texto sair como «Use o subagente <agent> para: …». Entra em workflows por uma seta step.",
+    color: "#c2559b",
+    badge: "PROMPT",
+    fields: ["description", "text"],
+  },
+  workflow: {
+    label: "Workflow",
+    hint: "Sequência de prompts executada numa só conversa do Claude Code. Cada prompt é ligado por uma seta step (ordem e modo manual/auto ficam na seta).",
+    color: "#8a6fd1",
+    badge: "FLOW",
+    fields: ["description"],
+  },
 };
 export const AGENT_ROLE_KEYS = Object.keys(AGENT_ROLES) as AgentRole[];
 
-export type AgentRel = "uses-skill" | "delegates" | "uses-tool";
+export type AgentRel = "uses-skill" | "delegates" | "uses-tool" | "runs-on" | "step";
 export const AGENT_RELS: Record<AgentRel, { label: string; semantics: string; type: ConnectionType; usageHint: string }> = {
   "uses-skill": { usageHint: "Como este agente usa a skill: em que momento a puxa e para quê. Ex.: «ao escrever títulos e CTAs, para manter o tom da marca».", label: "uses-skill", semantics: "agent → skill: a skill é plugada neste agente. No Claude Code vira o campo `skills` do subagente (pré-carrega o conteúdo); no Cursor não há campo nativo — fica documentado no corpo do agente.", type: "dependency" },
   "uses-tool": { usageHint: "Como este agente usa a ferramenta: quando a aciona e com que cuidado. Ex.: «Bash só para rodar o linter; nunca comandos destrutivos».", label: "uses-tool", semantics: "agent → tool: a ferramenta fica disponível a este agente. No Claude Code vira entrada em `tools` (nativa) ou `mcpServers` + `mcp__servidor` (MCP); no Cursor o servidor MCP vale para o projeto todo (`.cursor/mcp.json`).", type: "dependency" },
+  "runs-on": { usageHint: "Opcional. Ex.: «sempre com o orquestrador para manter o contexto curto».", label: "runs-on", semantics: "prompt → agent: o prompt é executado por este subagente (o texto sai prefixado por «Use o subagente <agent> para: »).", type: "dependency" },
+  step: { usageHint: "Opcional: o que este passo entrega ao próximo.", label: "step", semantics: "workflow → prompt: um passo do workflow. `order` (1, 2, 3…) define a posição e `mode` (manual | auto) como roda; todos os passos compartilham a mesma conversa do Claude Code.", type: "sync" },
   delegates: { usageHint: "Como este agente usa o outro: o que delega, o que entrega a ele e o que espera de volta. Ex.: «passa docs/copy.md aprovado e recebe docs/design.md».", label: "delegates", semantics: "agent → agent: o primeiro pode acionar o segundo como subagente (handoff/delegação).", type: "sync" },
 };
 export const AGENT_REL_KEYS = Object.keys(AGENT_RELS) as AgentRel[];
@@ -294,6 +312,8 @@ export const AGENT_REL_PAIRS: Record<AgentRel, { from: AgentRelEnd[]; to: AgentR
   "uses-skill": [{ from: ["agent"], to: ["skill"] }],
   delegates: [{ from: ["agent"], to: ["agent"] }],
   "uses-tool": [{ from: ["agent"], to: ["tool"] }],
+  "runs-on": [{ from: ["prompt"], to: ["agent"] }],
+  step: [{ from: ["workflow"], to: ["prompt"] }],
 };
 
 /** Campos próprios de uma conexão do modo agents. */
@@ -306,6 +326,10 @@ export interface AgentConnSpec {
   usage?: string;
   /** uses-tool para um servidor MCP: só estas tools do servidor (vazio = todas) */
   allow?: string[];
+  /** step: posição do passo no workflow (1, 2, 3…); sem `order`, vale a ordem das setas */
+  order?: number;
+  /** step: manual (padrão, o usuário confirma no terminal) ou auto (`claude -p`) */
+  mode?: "manual" | "auto";
 }
 
 /* ───────── modo domínio (DDD) ───────── */

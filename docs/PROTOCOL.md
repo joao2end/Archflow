@@ -202,7 +202,7 @@ O bridge abre sessões PTY (`node-pty`) do `claude` — ou do shell do usuário 
 | GET | `/api/term/conversation?id=<uuid>` | → `{ exists }`: a conversa do Claude Code já foi gravada em `<config>/projects/*/<id>.jsonl`? (só depois da 1ª mensagem; o workflow usa `--session-id` quando não existe e `--resume` quando existe) |
 | POST | `/api/term/kill` | `{ id }` → `{ ok }` |
 | GET | `/api/harness/status?target=claude` | → `{ applicable, stale[], owner?, current?, foreign? }` (só leitura; `stale` = arquivos ou `.mcp.json#servidor` diferentes do que o diagrama geraria) |
-| GET/PUT | `/api/prompts` | `{ library }` → `{ library, dropped[] }`: prompts e workflows do projeto em `.archflow/prompts.json` (`archflow-prompts/1`: `prompts[{id,name,text,agent?,notes?}]`, `workflows[{id,name,steps[{promptId,mode:manual｜auto}]}]`; normalizado ao gravar) |
+| GET/PUT | `/api/prompts` | `{ library }` → `{ library, dropped[] }`: biblioteca LEGADA de prompts e workflows (`.archflow/prompts.json`); hoje prompts e workflows são nós `prompt`/`workflow` do diagrama e a UI só lê isto para oferecer a importação (`archflow-prompts/1`: `prompts[{id,name,text,agent?,notes?}]`, `workflows[{id,name,steps[{promptId,mode:manual｜auto}]}]`; normalizado ao gravar) |
 | WS | `/api/term?session=<id>&token=<token>` | terminal interativo |
 
 Os `POST` exigem o header `x-archflow-term: <token>` (o token do boot, vindo de `/api/term/info`). Erros: `403` token inválido · `404` terminal desabilitado · `409` sem projeto aberto · `424` `claude` fora do PATH · `429` limite de sessões (`ARCHFLOW_TERM_MAX`, padrão 4, somando todos os projetos) · `501` `node-pty` não carregou.

@@ -111,10 +111,17 @@ export function normalizeLibrary(raw: unknown): { library: PromptLibrary; droppe
   return { library: lib, dropped };
 }
 
-/** Nomes das variáveis `{{nome}}` do texto, na ordem em que aparecem, sem repetir. */
+/**
+ * Variáveis «de memória», preenchidas pelo workflow com o que os agentes responderam nos passos anteriores (não são pedidas
+ * ao usuário): `{{anterior}}` = resposta do passo imediatamente anterior que teve resposta; `{{resultado.<id-do-prompt>}}` =
+ * resposta do passo desse prompt (a mais recente).
+ */
+export const isMemoryVar = (name: string): boolean => name === "anterior" || name.startsWith("resultado.");
+
+/** Nomes das variáveis `{{nome}}` do texto que o usuário preenche, na ordem em que aparecem, sem repetir (as de memória ficam de fora). */
 export function promptVars(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.matchAll(/\{\{\s*([\p{L}_][\p{L}\p{N}_-]{0,39})\s*\}\}/gu)) if (!out.includes(m[1]) && out.length < LIMITS.vars) out.push(m[1]);
+  for (const m of text.matchAll(/\{\{\s*([\p{L}_][\p{L}\p{N}_-]{0,39}(?:\.[a-z0-9][a-z0-9-]{0,61})?)\s*\}\}/gu)) if (!isMemoryVar(m[1]) && !out.includes(m[1]) && out.length < LIMITS.vars) out.push(m[1]);
   return out;
 }
 
@@ -128,10 +135,10 @@ export interface Rendered {
 /** Preenche `{{var}}` com `values` e acrescenta o prefixo do subagente. Variável sem valor vira vazio e entra em `missing`. */
 export function renderPrompt(p: Pick<SavedPrompt, "text" | "agent">, values: Record<string, string> = {}): Rendered {
   const missing: string[] = [];
-  const body = p.text.replace(/\{\{\s*([\p{L}_][\p{L}\p{N}_-]{0,39})\s*\}\}/gu, (_, name: string) => {
+  const body = p.text.replace(/\{\{\s*([\p{L}_][\p{L}\p{N}_-]{0,39}(?:\.[a-z0-9][a-z0-9-]{0,61})?)\s*\}\}/gu, (_, name: string) => {
     const v = values[name];
     if (v === undefined || v === "") {
-      if (!missing.includes(name)) missing.push(name);
+      if (!isMemoryVar(name) && !missing.includes(name)) missing.push(name);
       return "";
     }
     return v;

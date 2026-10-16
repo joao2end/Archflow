@@ -45,6 +45,10 @@ export interface AgentTemplate {
   agents: TemplateAgent[];
   /** quem aciona quem, com o «como usa» */
   delegations?: { from: string; to: string; usage: string; label?: string }[];
+  /** prompts executáveis no terminal; `agent` é a chave de um agente do modelo (seta runs-on) */
+  prompts?: { key: string; label: string; text: string; agent?: string }[];
+  /** workflows: passos são chaves de `prompts`, na ordem; `auto` roda sozinho (claude -p) */
+  workflows?: { label: string; description?: string; steps: { prompt: string; auto?: boolean }[] }[];
 }
 
 /* ───────────────────────── skills de catálogo usadas pelos modelos ───────────────────────── */
@@ -204,6 +208,12 @@ const prReview: AgentTemplate = {
     { from: "orquestrador", to: "revisor", usage: "Etapa 1. Passa o diff e o objetivo da mudança e recebe a lista de problemas (bloqueantes e sugestões) com APROVADO ou REPROVADO.", label: "1. código" },
     { from: "orquestrador", to: "qa-interface", usage: "Etapa 2, só se a mudança afetar interface. Passa o que mudou e como abrir a página e recebe o resultado dos testes no navegador.", label: "2. interface" },
   ],
+  prompts: [
+    { key: "resumo", label: "Resumir a mudança", text: "Rode git diff {{base}}...HEAD e resuma em 5 linhas o que mudou e por quê." },
+    { key: "revisar", label: "Revisar a mudança", text: "Revise a mudança resumida acima e liste os problemas, separando bloqueantes de sugestões. Termine com APROVADO ou REPROVADO.", agent: "orquestrador" },
+    { key: "testes", label: "Sugerir testes", text: "Para os problemas e riscos apontados, proponha os testes que faltam, sem escrevê-los ainda." },
+  ],
+  workflows: [{ label: "Revisar um PR", description: "Resume o diff, revisa com o time de agentes e sugere testes, tudo na mesma conversa.", steps: [{ prompt: "resumo", auto: true }, { prompt: "revisar" }, { prompt: "testes" }] }],
 };
 
 const research: AgentTemplate = {
@@ -219,7 +229,154 @@ const research: AgentTemplate = {
   ],
 };
 
-export const AGENT_TEMPLATES: AgentTemplate[] = [...roles, landing, prReview, research];
+/* ───────────────────────── landing page com Vue 3, assets e motion ───────────────────────── */
+
+const VUE_SKILLS = {
+  vue: { name: "vue", repo: "antfu/skills", skillPath: "skills/vue/SKILL.md", description: "Boas práticas de Vue 3: script setup, reatividade, composables e SFCs. Use ao escrever ou revisar componentes Vue." },
+  vite: { name: "vite", repo: "antfu/skills", skillPath: "skills/vite/SKILL.md", description: "Configuração e uso do Vite: plugins, aliases, build e otimização de assets. Use ao montar ou ajustar o projeto." },
+  vueBest: { name: "vue-best-practices", repo: "hyf0/vue-skills", skillPath: "skills/vue-best-practices/SKILL.md", description: "Padrões e armadilhas do Vue 3 com Composition API e TypeScript. Use ao estruturar componentes e estado." },
+  gsapCore: { name: "gsap-core", repo: "greensock/gsap-skills", skillPath: "skills/gsap-core/SKILL.md", description: "Fundamentos do GSAP: tweens, easing, from/to e boas práticas de performance. Use ao criar qualquer animação." },
+  gsapTimeline: { name: "gsap-timeline", repo: "greensock/gsap-skills", skillPath: "skills/gsap-timeline/SKILL.md", description: "Sequências de animação com timelines do GSAP: ordem, sobreposição e controle. Use ao coreografar várias animações." },
+  gsapScroll: { name: "gsap-scrolltrigger", repo: "greensock/gsap-skills", skillPath: "skills/gsap-scrolltrigger/SKILL.md", description: "Animações ligadas ao scroll com ScrollTrigger: pin, scrub e snap. Use em seções que animam ao rolar a página." },
+  gsapFrameworks: { name: "gsap-frameworks", repo: "greensock/gsap-skills", skillPath: "skills/gsap-frameworks/SKILL.md", description: "Usar o GSAP dentro de Vue, Svelte e outros frameworks: ciclo de vida, limpeza e contexto. Use ao integrar animações em componentes." },
+  canvasDesign: { name: "canvas-design", repo: "anthropics/skills", skillPath: "skills/canvas-design/SKILL.md", description: "Cria arte visual estática (pôsteres e peças gráficas) com filosofia de design. Use ao produzir imagens e ilustrações originais para a página." },
+  remotion: { name: "remotion-best-practices", repo: "remotion-dev/skills", skillPath: "skills/remotion-best-practices/SKILL.md", description: "Motion graphics e vídeo em código com Remotion: composições, sequências e animações. Use ao produzir loops e vídeos curtos para a página." },
+  remotionRender: { name: "remotion-render", repo: "remotion-dev/skills", skillPath: "skills/remotion-render/SKILL.md", description: "Renderiza composições Remotion em MP4, WebM ou GIF com as opções certas de qualidade e tamanho. Use ao exportar o asset final." },
+} satisfies Record<string, SkillRef>;
+
+const vueTeam: TemplateAgent[] = [
+  orchestrator("Delegue nesta ordem: pesquisador → estrategista de conteúdo → diretor de assets → motion designer → desenvolvedor Vue → especialista em SEO → QA. O pesquisador, o diretor de assets e o motion designer escrevem em docs/; o desenvolvedor Vue lê tudo isso e implementa em site/."),
+  {
+    ...researcher,
+    key: "pesquisador",
+    description: "Pesquisa o produto, o público e 3 a 5 landing pages concorrentes ou de referência, e devolve fatos com fonte. Use primeiro, antes de escrever a copy.",
+    prompt: "Você pesquisa o produto e o mercado e entrega docs/pesquisa.md.\n\nInclua: o que o produto faz e para quem, objeções e dores do público, e para cada referência a URL, a headline, o CTA, a prova social e o que ela faz bem. Separe confirmado de inferência e não invente números.",
+    tools: [...(researcher.tools ?? []), { name: "Write", usage: "Para gravar docs/pesquisa.md." }],
+  },
+  {
+    key: "conteudo",
+    label: "Estrategista de conteúdo",
+    description: "Escreve a copy da página a partir da pesquisa: proposta de valor, seções, headlines, CTAs e FAQ. Use depois da pesquisa e antes dos assets e do motion.",
+    prompt: "Você é estrategista de conteúdo.\n\nA partir de docs/pesquisa.md entregue docs/copy.md com proposta de valor, seções (hero, dores, solução, recursos, prova social, como funciona, FAQ, CTA final), headlines e microcopy. Marque como PENDENTE o que não tiver fonte e indique em cada seção o que pede um asset visual.",
+    tools: [{ name: "Read", usage: "Para ler docs/pesquisa.md." }, { name: "Write", usage: "Para gravar docs/copy.md." }],
+    skills: [{ ref: SKILLS.copywriting, usage: "Puxe ao estruturar as seções e escrever headlines, CTAs e FAQ; use as fórmulas para a proposta de valor, não para inflar promessas." }],
+  },
+  {
+    key: "assets",
+    label: "Diretor de assets",
+    description: "Pesquisa e reúne imagens, ícones, ilustrações e fotos livres de licença para a página, e cria as peças que faltam. Use depois da copy e antes do motion.",
+    prompt: "Você é diretor de arte e cuida dos assets visuais.\n\nPara cada seção de docs/copy.md que pede um asset, pesquise opções (bancos livres como Unsplash, Pexels e Iconify), confira a licença e registre em docs/assets.md: seção, URL de origem, licença, autor, dimensões e o arquivo de destino em site/public/assets/. Quando não houver opção boa, crie a peça (SVG ou arte original). Nunca use um asset sem licença clara.",
+    tools: [
+      { name: "WebSearch", usage: "Para achar bancos e opções de assets para cada seção." },
+      { name: "WebFetch", usage: "Para abrir a página do asset e confirmar licença, autor e tamanho antes de usar." },
+      { name: "Read", usage: "Para ler docs/copy.md e saber o que cada seção pede." },
+      { name: "Write", usage: "Para gravar docs/assets.md e peças em SVG." },
+      { name: "Bash", usage: "Só para baixar e otimizar arquivos em site/public/assets/ (curl, svgo); nunca comandos destrutivos." },
+    ],
+    skills: [
+      { ref: VUE_SKILLS.canvasDesign, usage: "Use ao criar uma ilustração ou peça gráfica original quando os bancos livres não tiverem uma boa opção." },
+      { ref: SKILLS.frontendDesign, usage: "Consulte para manter os assets coerentes com a direção estética (paleta, estilo, densidade)." },
+    ],
+  },
+  {
+    key: "motion",
+    label: "Motion designer",
+    description: "Define a coreografia de animações da página (entradas, scroll, microinterações) e produz os motion graphics em vídeo ou loop. Use depois dos assets e antes da implementação.",
+    prompt: "Você é motion designer.\n\nEntregue docs/motion.md com, por seção: o que anima, gatilho (carregar, rolar, hover), duração, easing e ordem, usando GSAP (timelines e ScrollTrigger). Para hero e peças de destaque, crie composições Remotion em motion/ e renderize loops leves (WebM/MP4, poucos MB) em site/public/assets/. Respeite prefers-reduced-motion e nunca anime layout em loop.",
+    tools: [
+      { name: "Read", usage: "Para ler docs/copy.md e docs/assets.md." },
+      { name: "Write", usage: "Para gravar docs/motion.md e as composições em motion/." },
+      { name: "Bash", usage: "Só para rodar a renderização do Remotion; nunca comandos destrutivos." },
+    ],
+    skills: [
+      { ref: VUE_SKILLS.gsapCore, usage: "Consulte ao definir tweens, easing e duração de cada animação." },
+      { ref: VUE_SKILLS.gsapTimeline, usage: "Use ao coreografar a ordem e a sobreposição das animações de uma seção." },
+      { ref: VUE_SKILLS.remotion, usage: "Siga ao criar composições de motion graphics para o hero e peças de destaque." },
+      { ref: VUE_SKILLS.remotionRender, usage: "Use ao exportar o loop final, escolhendo formato e qualidade com poucos MB." },
+    ],
+    mcps: [{ id: "context7", usage: "Para consultar a documentação atual de GSAP e Remotion em vez de confiar na memória." }],
+  },
+  {
+    key: "vue",
+    label: "Desenvolvedor Vue 3",
+    description: "Implementa a página em Vue 3 + Vite (script setup, TypeScript) com os assets e as animações GSAP definidas, responsiva e acessível. Use quando copy, assets e motion estiverem prontos.",
+    prompt: "Você é desenvolvedor front-end especialista em Vue 3.\n\nCrie o projeto em site/ com Vite, Vue 3 (script setup + TypeScript) e GSAP. Um componente por seção em src/components/, tokens de design em variáveis CSS, assets de site/public/assets/ com width/height e loading lazy, e animações em composables que limpam o contexto GSAP ao desmontar. Siga docs/copy.md, docs/assets.md e docs/motion.md; respeite prefers-reduced-motion; rode o lint e o build antes de entregar.",
+    tools: [
+      { name: "Read", usage: "Para ler copy, assets e motion." },
+      { name: "Write", usage: "Para criar os arquivos de site/." },
+      { name: "Edit", usage: "Para ajustar o código depois da revisão." },
+      { name: "Bash", usage: "Só para instalar dependências, rodar lint, build e testes; nunca comandos destrutivos." },
+    ],
+    skills: [
+      { ref: VUE_SKILLS.vue, usage: "Siga ao escrever componentes: script setup, reatividade e composables." },
+      { ref: VUE_SKILLS.vueBest, usage: "Consulte para evitar armadilhas de reatividade e estruturar estado e props." },
+      { ref: VUE_SKILLS.vite, usage: "Use ao montar o projeto e configurar o build e os assets." },
+      { ref: VUE_SKILLS.gsapFrameworks, usage: "Aplique ao integrar o GSAP nos componentes: criar o contexto no onMounted e reverter no onBeforeUnmount." },
+      { ref: VUE_SKILLS.gsapScroll, usage: "Use nas seções que animam ao rolar: pin, scrub e refresh depois do layout." },
+      { ref: SKILLS.accessibility, usage: "Aplique durante a implementação: HTML semântico, foco visível, rótulos, contraste AA e reduced motion." },
+    ],
+    mcps: [{ id: "context7", usage: "Para consultar a documentação atual de Vue, Vite e GSAP antes de usar uma API." }],
+  },
+  {
+    key: "seo",
+    label: "Especialista em SEO",
+    description: "Otimiza a página Vue para busca e compartilhamento: title, meta, headings, dados estruturados, Open Graph e sitemap. Use depois da implementação.",
+    prompt: "Você é especialista em SEO técnico e on-page.\n\nRevise site/: title e description únicos, hierarquia de headings, alt de imagens, schema.org, Open Graph, canonical, robots e sitemap. Em SPA Vue confirme que o conteúdo principal está no HTML inicial (pré-render) e aplique as correções direto no código. Liste o que mudou.",
+    tools: [{ name: "Read", usage: "Para ler o código do site." }, { name: "Edit", usage: "Para aplicar as correções de SEO." }, { name: "Grep", usage: "Para achar metadados e headings em todo o site." }],
+    skills: [{ ref: SKILLS.seo, usage: "Siga como roteiro da otimização: title, description, headings, JSON-LD, Open Graph, canonical, robots e sitemap." }],
+  },
+  {
+    ...uiQa,
+    description: "Audita a página pronta num navegador real: acessibilidade, responsividade, animações, peso dos assets, formulário e conversão. Aprova ou devolve apontamentos. Use como última etapa.",
+    skills: [
+      { ref: SKILLS.accessibility, usage: "Use como critério de auditoria WCAG: reprove o que violar contraste, teclado, rótulos, semântica ou reduced motion." },
+      { ref: SKILLS.conversionAudit, usage: "Rode no fim da revisão para listar vazamentos de conversão (CTA, formulário, prova social) por impacto." },
+    ],
+  },
+];
+
+const landingVue: AgentTemplate = {
+  id: "team-landing-vue-motion",
+  kind: "team",
+  name: "Landing page Vue 3 com assets e motion",
+  description: "Cria a landing page de um produto em Vue 3: pesquisa de mercado, copy, pesquisa de assets, motion graphics (GSAP e Remotion), implementação, SEO e QA. Traz prompts e dois workflows prontos.",
+  tags: ["landing page", "vue", "vue 3", "vite", "gsap", "remotion", "motion", "animação", "assets", "produto", "marketing", "seo"],
+  agents: vueTeam,
+  delegations: [
+    { from: "orquestrador", to: "pesquisador", usage: "Etapa 1. Passa o produto, o público e o objetivo e recebe docs/pesquisa.md com fatos, referências e a fonte de cada um.", label: "1. pesquisa" },
+    { from: "orquestrador", to: "conteudo", usage: "Etapa 2. Passa docs/pesquisa.md e recebe docs/copy.md com seções, headlines e a marcação do que pede asset; só avança com a copy aprovada.", label: "2. copy" },
+    { from: "orquestrador", to: "assets", usage: "Etapa 3. Passa docs/copy.md e recebe docs/assets.md (origem, licença e destino de cada asset) com os arquivos em site/public/assets/.", label: "3. assets" },
+    { from: "orquestrador", to: "motion", usage: "Etapa 4. Passa copy e assets e recebe docs/motion.md (coreografia por seção) e os loops renderizados.", label: "4. motion" },
+    { from: "orquestrador", to: "vue", usage: "Etapa 5. Passa copy, assets e motion e recebe a página em site/ com lint e build limpos antes de seguir.", label: "5. código" },
+    { from: "orquestrador", to: "seo", usage: "Etapa 6. Passa site/ pronto e recebe o código otimizado com a lista do que mudou.", label: "6. SEO" },
+    { from: "orquestrador", to: "qa-interface", usage: "Etapa 7, última. Passa site/ e os docs e recebe APROVADO ou REPROVADO com problemas por agente responsável; se reprovar, devolve ao responsável (máx. 3 ciclos).", label: "7. QA" },
+  ],
+  prompts: [
+    { key: "pesquisa", label: "Pesquisar produto e referências", text: "Pesquise o produto {{produto}} para o público {{publico}} e 3 a 5 landing pages de referência. Entregue docs/pesquisa.md com dores, objeções e, por referência, a headline, o CTA, a prova social e o que ela faz bem.", agent: "pesquisador" },
+    { key: "copy", label: "Escrever a copy", text: "Com base em docs/pesquisa.md, escreva docs/copy.md para a landing page de {{produto}} com tom {{tom}}: proposta de valor, seções, headlines, CTAs e FAQ, marcando onde cada seção pede um asset visual.", agent: "conteudo" },
+    { key: "assets", label: "Pesquisar e reunir assets", text: "Para cada seção de docs/copy.md que pede um asset, pesquise opções livres de licença, baixe as escolhidas para site/public/assets/ e registre origem, licença e autor em docs/assets.md. Crie em SVG o que não achar.", agent: "assets" },
+    { key: "motion", label: "Planejar o motion", text: "Defina em docs/motion.md a coreografia de animações de cada seção (entrada, scroll, microinterações) com GSAP e crie o motion graphic do hero em Remotion, renderizando um loop leve para site/public/assets/.", agent: "motion" },
+    { key: "scaffold", label: "Criar o projeto Vue", text: "Crie em site/ o projeto Vue 3 com Vite, TypeScript e GSAP, com os tokens de design em variáveis CSS e um componente vazio por seção de docs/copy.md. Rode o build para confirmar.", agent: "vue" },
+    { key: "implementar", label: "Implementar as seções", text: "Implemente cada seção em site/src/components/ seguindo docs/copy.md e docs/assets.md, responsivo e acessível, sem animações ainda. Rode lint e build.", agent: "vue" },
+    { key: "animar", label: "Aplicar as animações", text: "Aplique em site/ a coreografia de docs/motion.md com GSAP e ScrollTrigger em composables que limpam o contexto ao desmontar, respeitando prefers-reduced-motion. Rode lint e build.", agent: "vue" },
+    { key: "seo", label: "Otimizar para busca", text: "Otimize site/ para busca e compartilhamento (title, description, headings, schema.org, Open Graph, sitemap) e confirme que o conteúdo principal está no HTML inicial.", agent: "seo" },
+    { key: "qa", label: "Auditar com QA", text: "Suba site/ e audite no navegador em 360, 768 e 1280px: acessibilidade, animações e reduced motion, peso dos assets, links e conversão. Termine com APROVADO ou REPROVADO e os problemas por responsável.", agent: "qa-interface" },
+  ],
+  workflows: [
+    {
+      label: "Landing page completa",
+      description: "Da pesquisa ao QA, na mesma conversa. As pesquisas rodam sozinhas (libere WebSearch e WebFetch em Permissões); copy, código e QA você confirma.",
+      steps: [{ prompt: "pesquisa", auto: true }, { prompt: "copy" }, { prompt: "assets", auto: true }, { prompt: "motion" }, { prompt: "scaffold" }, { prompt: "implementar" }, { prompt: "animar" }, { prompt: "seo" }, { prompt: "qa" }],
+    },
+    {
+      label: "Só assets e motion",
+      description: "Atalho para refazer os assets e as animações de uma página que já tem copy.",
+      steps: [{ prompt: "assets", auto: true }, { prompt: "motion" }, { prompt: "animar" }],
+    },
+  ],
+};
+
+export const AGENT_TEMPLATES: AgentTemplate[] = [...roles, landing, landingVue, prReview, research];
 
 export const findAgentTemplate = (id: string): AgentTemplate | undefined => AGENT_TEMPLATES.find((t) => t.id === id);
 
@@ -235,6 +392,9 @@ export function searchAgentTemplates(query: string, kind?: AgentTemplate["kind"]
 
 const GAP_X = 248;
 const ROW_Y = 264;
+/** prompts por linha abaixo do time, e a altura de cada linha */
+const PER_ROW = 5;
+const PROMPT_ROW_Y = 128;
 
 export interface ApplyResult {
   ops: Op[];
@@ -334,5 +494,24 @@ export function applyTemplate(doc: Doc, tpl: AgentTemplate, at: { x: number; y: 
       connect(agentId, n.id, "uses-tool", m.usage, { allow: m.allow });
     }
   }
+  // 4) prompts (runs-on para o agente) e workflows (um step por prompt, em ordem), abaixo do time
+  const base = occupied(work);
+  const belowY = Math.round((Math.max(at.y, ...base.map((r) => r.y + r.h)) + 96) / 8) * 8;
+  const promptIds = new Map<string, string>();
+  (tpl.prompts ?? []).forEach((p, i) => {
+    const id = run({ op: "add_node", id: uniqueId(work, p.label), label: p.label, asset: "agent-prompt", agent: { role: "prompt", text: p.text }, x: Math.round((at.x + (i % PER_ROW) * GAP_X) / 8) * 8, y: belowY + Math.floor(i / PER_ROW) * PROMPT_ROW_Y });
+    promptIds.set(p.key, id);
+    const host = p.agent ? idOf.get(p.agent) : undefined;
+    if (host) run({ op: "add_connection", from: id, to: host, type: AGENT_RELS["runs-on"].type, agent: { rel: "runs-on" } });
+  });
+  const wfY = belowY + Math.ceil((tpl.prompts?.length ?? 0) / PER_ROW) * PROMPT_ROW_Y + 64;
+  (tpl.workflows ?? []).forEach((w, i) => {
+    const id = run({ op: "add_node", id: uniqueId(work, w.label), label: w.label, asset: "agent-workflow", agent: { role: "workflow", ...(w.description ? { description: w.description } : {}) }, x: Math.round((at.x + i * GAP_X) / 8) * 8, y: Math.round(wfY / 8) * 8 });
+    w.steps.forEach((s, k) => {
+      const to = promptIds.get(s.prompt);
+      if (!to) throw new Error(`modelo «${tpl.id}»: workflow «${w.label}» cita o prompt «${s.prompt}», que não existe`);
+      run({ op: "add_connection", from: id, to, type: AGENT_RELS.step.type, agent: { rel: "step", order: k + 1, ...(s.auto ? { mode: "auto" as const } : {}) } });
+    });
+  });
   return { ops, agentIds: tpl.agents.map((a) => idOf.get(a.key)!), reused };
 }

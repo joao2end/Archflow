@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { normalizeLibrary, type PromptLibrary } from "./prompts";
-import { available, progress, reduce, startRun, workflowVars, type RunEffect, type WorkflowRun } from "./workflow";
+import { available, canGoto, progress, reduce, startRun, workflowVars, type RunEffect, type WorkflowRun } from "./workflow";
 
 const lib = (): PromptLibrary =>
   normalizeLibrary({
@@ -153,4 +153,68 @@ test("conversa compartilhada: `first` só até o primeiro passo concluído (manu
   const f = reduce(sk.run, { type: "autoDone", code: 2 });
   const f2 = reduce(f.run, { type: "skip" });
   assert.deepEqual(f2.effect, { type: "type", stepIndex: 2, text: "c", sessionId: "S", first: false });
+});
+
+/* ───────── voltar a passos anteriores e memória das respostas ───────── */
+
+const memLib = (): PromptLibrary =>
+  normalizeLibrary({
+    prompts: [
+      { id: "pesquisa", name: "Pesquisa", text: "Pesquise {{tema}}" },
+      { id: "copy", name: "Copy", text: "Escreva com base em:\n{{anterior}}", agent: "redator" },
+      { id: "revisao", name: "Revisão", text: "Revise a copy ({{resultado.copy}}) usando a pesquisa ({{resultado.pesquisa}})" },
+    ],
+    workflows: [{ id: "w", name: "W", steps: [{ promptId: "pesquisa", mode: "auto" }, { promptId: "copy", mode: "manual" }, { promptId: "revisao", mode: "auto" }] }],
+  }).library;
+const startMem = () => {
+  const r = startRun(memLib(), "w", { tema: "vue" }, "S");
+  assert.ok(r.ok);
+  return r.ok ? r : (undefined as never);
+};
+
+test("memória: {{anterior}} e {{resultado.id}} não são pedidos ao usuário e entram com a resposta dos passos anteriores", () => {
+  assert.deepEqual(workflowVars(memLib(), "w"), ["tema"]);
+  let { run } = startMem();
+  assert.equal(run.steps[1].text.startsWith("Use o subagente redator para: Escreva com base em:\n"), true, "ainda sem resposta: vazio");
+  run = reduce(run, { type: "result", stepIndex: 0, text: "  fatos da pesquisa  " }).run;
+  assert.equal(run.steps[0].result, "fatos da pesquisa");
+  const a = reduce(run, { type: "autoDone", code: 0 });
+  assert.equal(a.effect.type, "type");
+  assert.equal((a.effect as { text: string }).text, "Use o subagente redator para: Escreva com base em:\nfatos da pesquisa");
+  const b = reduce(reduce(a.run, { type: "result", stepIndex: 1, text: "copy final" }).run, { type: "next" });
+  assert.equal((b.effect as { text: string }).text, "Revise a copy (copy final) usando a pesquisa (fatos da pesquisa)");
+});
+
+test("goto: volta a um passo anterior, zera dele em diante e retoma a mesma conversa", () => {
+  let { run } = startMem();
+  run = reduce(reduce(run, { type: "result", stepIndex: 0, text: "P" }).run, { type: "autoDone", code: 0 }).run;
+  run = reduce(reduce(run, { type: "result", stepIndex: 1, text: "C" }).run, { type: "next" }).run; // passo 3 (auto) rodando
+  assert.equal(run.steps[2].status, "running");
+  const g = reduce(run, { type: "goto", index: 1 });
+  assert.deepEqual(g.effect.type, "seq", "auto rodando: aborta e entra no passo");
+  const fx = (g.effect as { effects: RunEffect[] }).effects;
+  assert.deepEqual(fx[0], { type: "abort", stepIndex: 2 });
+  assert.equal(fx[1].type, "type");
+  assert.equal((fx[1] as { first: boolean }).first, false, "a conversa já existe: retoma, não recria");
+  assert.deepEqual(g.run.steps.map((s) => s.status), ["done", "waiting", "pending"]);
+  assert.equal(g.run.steps[1].result, undefined, "a resposta dos passos refeitos é descartada");
+  assert.equal(g.run.steps[0].result, "P", "a dos anteriores fica");
+  assert.equal(g.run.sessionId, "S");
+  assert.equal(g.run.state, "waiting");
+});
+
+test("goto: depois de concluído, a partir do primeiro passo, e recusa passo que nunca começou", () => {
+  let { run } = startMem();
+  assert.equal(reduce(run, { type: "goto", index: 2 }).run, run, "passo pendente não é alvo");
+  assert.equal(canGoto(run, 0), true);
+  assert.equal(canGoto(run, 2), false);
+  run = reduce(run, { type: "autoDone", code: 0 }).run;
+  run = reduce(run, { type: "next" }).run;
+  run = reduce(run, { type: "autoDone", code: 0 }).run;
+  assert.equal(run.state, "done");
+  const g = reduce(run, { type: "goto", index: 0 });
+  assert.equal(g.effect.type, "exec");
+  assert.equal((g.effect as { first: boolean }).first, false, "refazer o primeiro passo continua a conversa que já existe");
+  assert.deepEqual(g.run.steps.map((s) => s.status), ["running", "pending", "pending"]);
+  assert.equal(reduce(run, { type: "goto", index: 9 }).run, run);
 });

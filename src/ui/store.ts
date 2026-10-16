@@ -8,6 +8,7 @@ import { generateHarness, type HarnessTarget } from "../shared/agentgen";
 import { zip } from "../shared/zip";
 import { mcpEntryToSpec, type McpCatalogEntry } from "../shared/mcpcatalog";
 import { freeSpotBelow } from "../shared/placement";
+import { workflowSteps } from "../shared/agents";
 import { AGENT_RELS, NATIVE_TOOL_NAMES, emptyDoc, type AgentToolType, type Asset, type ConnectionType, type Doc, type DocMode, type GroupKind, type LogicNodeSpec, type NodeKind, type NoteFont, type Routing } from "../shared/schema";
 /** Estilos padrão dos próximos elementos (padrão Excalidraw), persistidos em prefs. */
 export interface ElementDefaults {
@@ -202,6 +203,8 @@ export interface State {
   termAvail?: boolean;
   /** pedido de «rodar no terminal»: o painel abre uma sessão do claude com o texto já digitado (sem Enter) */
   termRequest: { n: number; prefill: string; title: string; target: "new" | "active" } | null;
+  /** pedido para executar um nó prompt/workflow do diagrama: o painel do terminal abre o formulário dele */
+  runNodeRequest: { n: number; id: string } | null;
 }
 
 const LS_DOC = "archflow.doc.v1";
@@ -327,6 +330,7 @@ function init(): State {
     present: false,
     termOpen: false,
     termRequest: null,
+    runNodeRequest: null,
   };
 }
 
@@ -1106,6 +1110,32 @@ export const importLocalProject = (file: File) =>
 /** Abre o terminal e digita `prefill` (o usuário confirma com Enter): numa sessão nova do Claude Code ou, com `target: "active"`, na aba ativa. */
 let termReqN = 0;
 export const runInTerminal = (prefill: string, title: string, target: "new" | "active" = "new") => set({ termOpen: true, termRequest: { n: ++termReqN, prefill, title, target } });
+
+/** «Executar» de um nó prompt/workflow: abre o terminal e o formulário de execução desse nó. */
+let runNodeN = 0;
+export const runNodeInTerminal = (id: string) => set({ termOpen: true, runNodeRequest: { n: ++runNodeN, id } });
+
+/** Liga o prompt a um agente (seta runs-on), trocando o anterior; `agentId` vazio só desliga. */
+export function setPromptAgent(promptId: string, agentId: string) {
+  const ops: Op[] = getState().doc.connections.filter((c) => c.from === promptId && c.agent?.rel === "runs-on").map((c) => ({ op: "remove", id: c.id }));
+  if (agentId) ops.push({ op: "add_connection", from: promptId, to: agentId, type: AGENT_RELS["runs-on"].type, agent: { rel: "runs-on" } });
+  if (ops.length) run(ops);
+}
+
+/** Acrescenta um prompt como último passo do workflow (seta step com order). */
+export function addWorkflowStep(workflowId: string, promptId: string) {
+  const n = workflowSteps(getState().doc, workflowId).length;
+  run([{ op: "add_connection", from: workflowId, to: promptId, type: AGENT_RELS.step.type, agent: { rel: "step", order: n + 1 } }]);
+}
+
+/** Reescreve a ordem (1..n) dos passos do workflow segundo `connIds`. */
+export function reorderWorkflowSteps(workflowId: string, connIds: string[]) {
+  const doc = getState().doc;
+  run(connIds.flatMap((id, i): Op[] => {
+    const c = doc.connections.find((x) => x.id === id);
+    return c?.agent && c.from === workflowId ? [{ op: "update", id, patch: { agent: { ...c.agent, order: i + 1 } } }] : [];
+  }));
+}
 
 /* ───────── modo Agents: exportar o harness ───────── */
 

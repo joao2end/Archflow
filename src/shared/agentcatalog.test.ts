@@ -92,7 +92,7 @@ test("é determinístico e as ops reproduzem o plano (mesmas ids ao reaplicar no
 });
 
 test("busca por nome, tag e filtro de tipo, sem acento", () => {
-  assert.deepEqual(searchAgentTemplates("landing").map((t) => t.id), ["team-landing-page"]);
+  assert.deepEqual(searchAgentTemplates("landing").map((t) => t.id).sort(), ["team-landing-page", "team-landing-vue-motion"]);
   assert.deepEqual(searchAgentTemplates("revisao").map((t) => t.id).sort(), ["role-revisor-codigo", "team-revisao-codigo"]);
   assert.deepEqual(searchAgentTemplates("revisao", "role").map((t) => t.id), ["role-revisor-codigo"]);
   assert.equal(searchAgentTemplates("").length, AGENT_TEMPLATES.length);
@@ -103,4 +103,30 @@ test("rules: nada de segredo, e o doc aplicado passa no guia de describe", () =>
   const { doc } = apply(empty(), "team-pesquisa-relatorio");
   assert.ok(!rules(doc).includes("A011"));
   assert.match(JSON.stringify(doc), /context7/);
+});
+
+test("modelo «Revisão de código» traz prompts e um workflow executável", async () => {
+  const { libraryFromDoc } = await import("./workflow");
+  const { doc } = apply(empty(), "team-revisao-codigo");
+  const lib = libraryFromDoc(doc);
+  assert.equal(lib.prompts.length, 3);
+  assert.deepEqual(lib.workflows[0].steps.map((s) => s.mode), ["auto", "manual", "manual"]);
+  assert.equal(lib.prompts.find((p) => p.name === "Revisar a mudança")?.agent, "orquestrador");
+  assert.equal(rules(doc).filter((r) => r === "A020" || r === "A022").length, 0);
+});
+
+test("time «Landing page Vue 3»: 8 agentes, 7 etapas, skills de Vue, assets e motion, e dois workflows", async () => {
+  const { libraryFromDoc } = await import("./workflow");
+  const { doc } = apply(empty(), "team-landing-vue-motion");
+  assert.equal(doc.nodes.filter((n) => n.agent?.role === "agent").length, 8);
+  const dels = doc.connections.filter((c) => c.agent?.rel === "delegates");
+  assert.deepEqual(dels.map((c) => c.label), ["1. pesquisa", "2. copy", "3. assets", "4. motion", "5. código", "6. SEO", "7. QA"]);
+  const skillPaths = doc.nodes.filter((n) => n.agent?.role === "skill").map((n) => n.agent!.source!.skillPath);
+  for (const p of ["skills/vue/SKILL.md", "skills/gsap-scrolltrigger/SKILL.md", "skills/canvas-design/SKILL.md", "skills/remotion-best-practices/SKILL.md"]) assert.ok(skillPaths.includes(p), p);
+  const lib = libraryFromDoc(doc);
+  assert.equal(lib.prompts.length, 9);
+  assert.deepEqual(lib.workflows.map((w) => w.steps.length), [9, 3]);
+  assert.equal(lib.workflows[0].steps.filter((s) => s.mode === "auto").length, 2);
+  assert.ok(lib.prompts.every((p) => p.agent), "todo prompt roda num agente");
+  assert.ok(new Set(lib.prompts.map((p) => p.id)).size === 9);
 });
