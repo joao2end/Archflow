@@ -56,23 +56,45 @@ md.renderer.rules.link_open = (tokens, idx, opts, env, self) => {
   return defaultLink(tokens, idx, opts, env, self);
 };
 
-/** Trechos `{@c=#hex;f=serif;w=700}texto{/}` (cor/fonte/peso) do formato anterior continuam valendo. */
+/** `{@…}` abertos em cada trecho inline. O par precisa fechar no mesmo parágrafo/item: um `{/}` de outro bloco
+ * desequilibrava a pilha do markdown-it e derrubava a renderização. */
+const richDepth = new WeakMap<StateInline, number>();
+
+/** O `{@…}` aberto antes de `from` fecha (com `{/}`) antes de `max`? */
+function closesBefore(src: string, from: number, max: number): boolean {
+  let depth = 1;
+  for (let i = from; i < max; ) {
+    if (src.startsWith("{/}", i)) {
+      if (--depth === 0) return i + 3 <= max;
+      i += 3;
+    } else if (src.startsWith("{@", i)) {
+      const end = src.indexOf("}", i + 2);
+      if (end < 0 || end >= max) return false;
+      depth++;
+      i = end + 1;
+    } else i++;
+  }
+  return false;
+}
+
+/** Trechos `{@c=#hex;f=serif;w=700}texto{/}` (cor/fonte/peso) do formato anterior continuam valendo;
+ * marcas sem par no mesmo bloco aparecem como texto. */
 function styledSpan(state: StateInline, silent: boolean): boolean {
   const src = state.src;
   const pos = state.pos;
   if (src.charCodeAt(pos) !== 0x7b /* { */) return false;
-  const env = state.env as { richDepth?: number };
+  const depth = richDepth.get(state) ?? 0;
   if (src.startsWith("{/}", pos)) {
-    if (!env.richDepth) return false;
+    if (!depth) return false;
     if (!silent) {
       state.push("rich_close", "span", -1);
-      env.richDepth--;
+      richDepth.set(state, depth - 1);
     }
     state.pos += 3;
     return true;
   }
-  const m = /^\{@([^}\n]*)\}/.exec(src.slice(pos));
-  if (!m) return false;
+  const m = /^\{@([^}\n]*)\}/.exec(src.slice(pos, state.posMax));
+  if (!m || !closesBefore(src, pos + m[0].length, state.posMax)) return false;
   if (!silent) {
     const st = parseAttrs(m[1]);
     const css: string[] = [];
@@ -81,7 +103,7 @@ function styledSpan(state: StateInline, silent: boolean): boolean {
     if (st.weight) css.push(`font-weight:${st.weight}`);
     const tok = state.push("rich_open", "span", 1);
     if (css.length) tok.attrSet("style", css.join(";"));
-    env.richDepth = (env.richDepth ?? 0) + 1;
+    richDepth.set(state, depth + 1);
   }
   state.pos += m[0].length;
   return true;

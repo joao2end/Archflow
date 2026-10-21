@@ -29,6 +29,15 @@ test("trechos {@…} viram span com estilo", () => {
   assert.match(html, /<span style="color:#ff0000;font-weight:700">b<\/span>/);
 });
 
+test("{@…} sem par no mesmo bloco não derruba a renderização", () => {
+  for (const s of ["{@c=#ff0000}a\n\nb{/}", "- {@c=#ff0000}a\n- b{/}", "{@c=#f00}a\n\n{/}x", "{/} solto", "{@c=#f00}sem fim"]) {
+    const html = renderMarkdown(s);
+    assert.doesNotMatch(html, /<span style/, s);
+  }
+  assert.match(renderMarkdown("{@c=#f00}**a{/}**"), /<span style="color:#f00">/);
+  assert.match(renderMarkdown("- {@c=#f00}a{/}\n- b"), /<li><span style="color:#f00">a<\/span><\/li>/);
+});
+
 test("escapes do formato antigo continuam valendo", () => {
   assert.match(renderMarkdown("\\*não itálico\\*"), /\*não itálico\*/);
 });

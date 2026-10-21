@@ -3,13 +3,13 @@ import { EraseModes, InkOptions } from "./drawbar";
 import { Glyph } from "./icons";
 import { fitView } from "./keys";
 import { INK_COLORS, inkPath as pathOf, strokeAttrs } from "./ink";
-import { RichEditor, RichToolbar, richToHtml } from "./richeditor";
+import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./richeditor";
 import { getState, set, useStore } from "./store";
 import type { Pt } from "./geometry";
 import { RecordControls, recordingGrace } from "./record";
 import { StoryPanel } from "./story";
 import { TourPanel } from "./tour";
-import { parseRich, plainText, type BlockKind } from "../shared/richtext";
+import { FONT_CSS, parseRich, plainText, type BlockKind, type RichFont } from "../shared/richtext";
 import { docMode } from "../shared/schema";
 
 /* ───────── modo apresentação: tela limpa + caneta, marca-texto, laser e cronômetro ───────── */
@@ -31,7 +31,9 @@ interface Stroke {
 interface PNote {
   id: number;
   kind: "text" | "list";
-  color: string;
+  /** sem valor: cor padrão do texto */
+  color?: string;
+  font?: RichFont;
   x: number;
   y: number;
   /** tamanho da fonte em unidades do quadro (≈22px na tela no momento da criação) */
@@ -86,7 +88,7 @@ function PresentNoteEditor({
   fs: number;
   toolbarTop: number;
   onChange: (text: string) => void;
-  onCard: (patch: { fontSize?: number; fill?: string }) => void;
+  onCard: (patch: NoteCardStyle) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -97,7 +99,7 @@ function PresentNoteEditor({
         className="floating present-rich-bar"
         style={{ left: Math.min(Math.max(8, left), window.innerWidth - 320), top: toolbarTop }}
         compact
-        noteCard={{ fontSize: Math.round(n.fs) }}
+        noteCard={{ fontSize: Math.round(n.fs), color: n.color, font: n.font }}
         onNoteCard={onCard}
         showFill={false}
       />
@@ -116,6 +118,7 @@ function PresentNoteEditor({
           fontSize: fs,
           lineHeight: LINE_H,
           color: n.color,
+          fontFamily: n.font ? FONT_CSS[n.font] : undefined,
           minWidth: 160,
           maxWidth: "70vw",
         }}
@@ -139,7 +142,7 @@ function PresentNoteShape({ n, onEdit }: { n: PNote; onEdit?: () => void }) {
             lineHeight: LINE_H,
             color: n.color,
             fontWeight: 600,
-            fontFamily: "var(--sans)",
+            fontFamily: FONT_CSS[n.font ?? "sans"],
             pointerEvents: onEdit ? "auto" : "none",
             cursor: onEdit ? "text" : undefined,
             width: "max-content",
@@ -470,8 +473,11 @@ export function PresentMode() {
               setNotes((all) =>
                 all.map((x) => {
                   if (x.id !== n.id) return x;
-                  if ("fontSize" in patch && patch.fontSize != null) return { ...x, fs: patch.fontSize };
-                  return x;
+                  const next = { ...x };
+                  if ("fontSize" in patch && patch.fontSize != null) next.fs = patch.fontSize;
+                  if ("color" in patch) next.color = patch.color;
+                  if ("font" in patch) next.font = patch.font;
+                  return next;
                 }),
               )
             }

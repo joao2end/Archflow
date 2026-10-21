@@ -633,7 +633,7 @@ const PlainNote = memo(function PlainNote({
           {/* a barra quebra em mais linhas em cards estreitos: ancorada pela base, cresce para cima */}
           <foreignObject x={0} y={-(NOTE_BAR_H + 6)} width={Math.max(n.w, 340)} height={NOTE_BAR_H} className="note-rich-bar-fo" style={{ overflow: "visible" }}>
             <div {...{ xmlns: "http://www.w3.org/1999/xhtml" }} className="note-rich-bar-host" onPointerDown={(e) => e.stopPropagation()}>
-              <RichToolbar root={editRef} className="in-card" compact noteCard={{ fontSize: n.fontSize ?? Math.round(st.fs), fill: n.fill }} onNoteCard={onNoteCard} />
+              <RichToolbar root={editRef} className="in-card" compact noteCard={{ fontSize: n.fontSize ?? Math.round(st.fs), fill: n.fill, color: n.color, font: n.font }} onNoteCard={onNoteCard} />
             </div>
           </foreignObject>
           <foreignObject x={0} y={0} width={n.w} height={n.h} className="note-rich-fo">
@@ -1925,13 +1925,10 @@ export function Canvas() {
                     const d = structuredClone(getState().doc);
                     const note = d.notes.find((x) => x.id === n.id);
                     if (!note) return;
-                    if ("fontSize" in patch) {
-                      if (patch.fontSize == null) delete note.fontSize;
-                      else note.fontSize = patch.fontSize;
-                    }
-                    if ("fill" in patch) {
-                      if (patch.fill == null) delete note.fill;
-                      else note.fill = patch.fill;
+                    for (const k of ["fontSize", "fill", "color", "font"] as const) {
+                      if (!(k in patch)) continue;
+                      if (patch[k] == null) delete note[k];
+                      else Object.assign(note, { [k]: patch[k] });
                     }
                     live(d);
                   }

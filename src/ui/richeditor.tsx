@@ -1,11 +1,12 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { nearestRichSize, NOTE_FILLS, RICH_FONTS, RICH_SIZES, RICH_WEIGHTS } from "../shared/richtext";
+import { nearestRichSize, NOTE_FILLS, RICH_FONTS, RICH_SIZES, type RichFont } from "../shared/richtext";
 import { ColorPicker } from "./colorpicker";
 import { INK_COLORS } from "./ink";
 import { renderMarkdown } from "./markdown";
 import { beginTyping, endTyping } from "./store";
 
-export type NoteCardStyle = { fontSize?: number; fill?: string };
+/** Estilo do card inteiro: guardado no elemento, nunca como marcação dentro do markdown. */
+export type NoteCardStyle = { fontSize?: number; fill?: string; color?: string; font?: RichFont };
 
 /** Mesmo pipeline das notas: markdown cru → HTML com realce de código. */
 export const richToHtml = renderMarkdown;
@@ -91,24 +92,11 @@ function link(el: Ta) {
   replaceRange(el, s, e, text, s + label.length + 3, s + text.length - 1);
 }
 
-/** Tira `{@…}` / `{/}` da seleção (volta à cor/fonte/peso padrão da nota). */
-function clearStyle(el: Ta) {
-  const { selectionStart: s, selectionEnd: e, value: v } = el;
-  if (s === e) return;
-  const out = v.slice(s, e).replace(/\{@[^}\n]*\}|\{\/\}/g, "");
-  replaceRange(el, s, e, out, s, s + out.length);
-}
-
-/** Aplica `k=v` (cor/fonte/peso) à seleção; se ela já está num `{@…}…{/}`, só mescla o atributo. */
-function styled(el: Ta, attr: string) {
-  const { selectionStart: s, selectionEnd: e, value: v } = el;
-  const open = /\{@([^}\n]*)\}$/.exec(v.slice(0, s));
-  if (!open || !v.startsWith("{/}", e)) return wrap(el, `{@${attr}}`, "{/}");
-  const map = new Map(open[1].split(";").filter(Boolean).map((p) => [p.split("=")[0], p] as const));
-  map.set(attr.split("=")[0], attr);
-  const tag = `{@${[...map.values()].join(";")}}`;
-  const start = s - open[0].length;
-  replaceRange(el, start, s, tag, start + tag.length, start + tag.length + (e - s));
+/** Tira do texto as marcas `{@…}` / `{/}` do formato antigo (cor/fonte/peso por trecho). */
+function clearLegacyStyle(el: Ta) {
+  const v = el.value;
+  const out = v.replace(/\{@[^}\n]*\}|\{\/\}/g, "");
+  if (out !== v) replaceRange(el, 0, v.length, out, 0, 0);
 }
 
 const HEADING = /^#{1,6}\s+/;
@@ -147,9 +135,9 @@ export function RichToolbar({
   style?: CSSProperties;
   /** menos botões — cabe acima do card */
   compact?: boolean;
-  /** só markdown padrão: sem cor/fonte/peso, que viram a sintaxe `{@…}` própria das notas (ex.: SKILL.md) */
+  /** só markdown padrão, sem os controles do card (ex.: SKILL.md) */
   plain?: boolean;
-  /** tamanho e fundo do card da nota (fora do texto) */
+  /** tamanho, fonte, cor do texto e fundo do card da nota: ficam no elemento, fora do markdown */
   noteCard?: NoteCardStyle;
   onNoteCard?: (patch: NoteCardStyle) => void;
   /** cor de fundo do card (desligado na apresentação, onde não há card) */
@@ -158,6 +146,8 @@ export function RichToolbar({
   const tools = compact ? TOOLS.filter((t) => t.compact) : TOOLS;
   const sizePx = nearestRichSize(noteCard?.fontSize ?? 16).px;
   const fill = noteCard?.fill;
+  const color = noteCard?.color;
+  const card = !plain && onNoteCard;
   const run = (fn: (el: Ta) => void) => {
     const el = root.current;
     if (el) fn(el);
@@ -183,147 +173,132 @@ export function RichToolbar({
             {t.label}
           </button>
         ))}
-        {!plain && (
-        <>
-        <span className="rt-sep" aria-hidden />
-        <select
-          className="rt-select"
-          aria-label="Fonte do trecho"
-          data-tip="Fonte do trecho selecionado"
-          data-tip-pos="top"
-          value=""
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v) run((el) => styled(el, `f=${v}`));
-          }}
-        >
-          <option value="">Fonte</option>
-          {RICH_FONTS.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="rt-select"
-          aria-label="Peso do trecho"
-          data-tip="Peso do trecho selecionado"
-          data-tip-pos="top"
-          value=""
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v) run((el) => styled(el, `w=${v}`));
-          }}
-        >
-          <option value="">Peso</option>
-          {RICH_WEIGHTS.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-        {onNoteCard && (
-          <select
-            className="rt-select rt-size"
-            aria-label="Tamanho"
-            data-tip="Tamanho da fonte"
-            data-tip-pos="top"
-            value={sizePx}
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              onNoteCard({ fontSize: e.target.value ? Number(e.target.value) : undefined });
-              root.current?.focus();
-            }}
-          >
-            {RICH_SIZES.map((s) => (
-              <option key={s.id} value={s.px}>
-                {s.id}
-              </option>
-            ))}
-          </select>
-        )}
-        </>
-        )}
-      </div>
-      {!plain && (
-      <div className="rt-row">
-        <span className="rt-ico" aria-hidden data-tip="Cor do trecho" data-tip-pos="top">
-          <RtTextIco />
-        </span>
-        <div className="rt-colors" role="group" aria-label="Cor do trecho">
-          <button
-            type="button"
-            className="rt-swatch auto"
-            aria-label="Tirar cor/fonte/peso do trecho"
-            data-tip="Estilo padrão"
-            data-tip-pos="top"
-            onMouseDown={(e) => {
-              keep(e);
-              run(clearStyle);
-            }}
-          />
-          {INK_COLORS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className="rt-swatch"
-              style={{ background: c.id }}
-              aria-label={c.name}
-              data-tip={c.name}
-              data-tip-pos="top"
-              onMouseDown={(e) => {
-                keep(e);
-                run((el) => styled(el, `c=${c.id}`));
-              }}
-            />
-          ))}
-          <ColorPicker value="#706fd3" label="Cor do trecho" onChange={(hex) => run((el) => styled(el, `c=${hex.toLowerCase()}`))} />
-        </div>
-        {onNoteCard && showFill && (
+        {card && (
           <>
             <span className="rt-sep" aria-hidden />
-            <span className="rt-ico" aria-hidden data-tip="Fundo do card" data-tip-pos="top">
-              <RtFillIco />
-            </span>
-            <div className="rt-colors rt-fills" role="group" aria-label="Cor de fundo do card">
-              <button
-                type="button"
-                className={`rt-swatch fill-auto${!fill ? " on" : ""}`}
-                aria-label="Fundo padrão"
-                data-tip="Fundo do card"
-                data-tip-pos="top"
-                onMouseDown={(e) => {
-                  keep(e);
-                  onNoteCard({ fill: undefined });
-                }}
-              />
-              {NOTE_FILLS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`rt-swatch${fill === c.id ? " on" : ""}`}
-                  style={{ background: c.id }}
-                  aria-label={`Fundo ${c.name}`}
-                  data-tip={`Fundo · ${c.name}`}
-                  data-tip-pos="top"
-                  onMouseDown={(e) => {
-                    keep(e);
-                    onNoteCard({ fill: c.id });
-                  }}
-                />
+            <select
+              className="rt-select"
+              aria-label="Fonte do card"
+              data-tip="Fonte do card"
+              data-tip-pos="top"
+              value={noteCard?.font ?? "sans"}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                const v = e.target.value as RichFont;
+                card({ font: v === "sans" ? undefined : v });
+                root.current?.focus();
+              }}
+            >
+              {RICH_FONTS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
               ))}
-              <ColorPicker
-                value={fill ?? "#ffeeba"}
-                swatchColor={fill && !NOTE_FILLS.some((c) => c.id === fill) ? fill : undefined}
-                label="Fundo do card"
-                onChange={(hex) => onNoteCard({ fill: hex })}
-              />
-            </div>
+            </select>
+            <select
+              className="rt-select rt-size"
+              aria-label="Tamanho"
+              data-tip="Tamanho da fonte"
+              data-tip-pos="top"
+              value={sizePx}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                card({ fontSize: e.target.value ? Number(e.target.value) : undefined });
+                root.current?.focus();
+              }}
+            >
+              {RICH_SIZES.map((s) => (
+                <option key={s.id} value={s.px}>
+                  {s.id}
+                </option>
+              ))}
+            </select>
           </>
         )}
       </div>
+      {card && (
+        <div className="rt-row">
+          <span className="rt-ico" aria-hidden data-tip="Cor do texto" data-tip-pos="top">
+            <RtTextIco />
+          </span>
+          <div className="rt-colors" role="group" aria-label="Cor do texto">
+            <button
+              type="button"
+              className={`rt-swatch auto${!color ? " on" : ""}`}
+              aria-label="Cor padrão do texto"
+              data-tip="Cor padrão"
+              data-tip-pos="top"
+              onMouseDown={(e) => {
+                keep(e);
+                card({ color: undefined });
+                run(clearLegacyStyle);
+              }}
+            />
+            {INK_COLORS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`rt-swatch${color === c.id ? " on" : ""}`}
+                style={{ background: c.id }}
+                aria-label={c.name}
+                data-tip={c.name}
+                data-tip-pos="top"
+                onMouseDown={(e) => {
+                  keep(e);
+                  card({ color: c.id });
+                }}
+              />
+            ))}
+            <ColorPicker
+              value={color ?? "#706fd3"}
+              swatchColor={color && !INK_COLORS.some((c) => c.id === color) ? color : undefined}
+              label="Cor do texto"
+              onChange={(hex) => card({ color: hex.toLowerCase() })}
+            />
+          </div>
+          {showFill && (
+            <>
+              <span className="rt-sep" aria-hidden />
+              <span className="rt-ico" aria-hidden data-tip="Fundo do card" data-tip-pos="top">
+                <RtFillIco />
+              </span>
+              <div className="rt-colors rt-fills" role="group" aria-label="Cor de fundo do card">
+                <button
+                  type="button"
+                  className={`rt-swatch fill-auto${!fill ? " on" : ""}`}
+                  aria-label="Fundo padrão"
+                  data-tip="Fundo do card"
+                  data-tip-pos="top"
+                  onMouseDown={(e) => {
+                    keep(e);
+                    card({ fill: undefined });
+                  }}
+                />
+                {NOTE_FILLS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`rt-swatch${fill === c.id ? " on" : ""}`}
+                    style={{ background: c.id }}
+                    aria-label={`Fundo ${c.name}`}
+                    data-tip={`Fundo · ${c.name}`}
+                    data-tip-pos="top"
+                    onMouseDown={(e) => {
+                      keep(e);
+                      card({ fill: c.id });
+                    }}
+                  />
+                ))}
+                <ColorPicker
+                  value={fill ?? "#ffeeba"}
+                  swatchColor={fill && !NOTE_FILLS.some((c) => c.id === fill) ? fill : undefined}
+                  label="Fundo do card"
+                  onChange={(hex) => card({ fill: hex })}
+                />
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
