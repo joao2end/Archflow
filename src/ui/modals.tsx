@@ -13,7 +13,7 @@ import { ToolModal } from "./mcpcatalog";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
-import { HARNESS_TARGETS, allKnownAssets, exportHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore } from "./store";
+import { HARNESS_TARGETS, allKnownAssets, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore } from "./store";
 import type { HarnessTarget } from "../shared/agentgen";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
@@ -537,8 +537,9 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
   const [tab, setTab] = useState<"issues" | "text" | "harness">(initial ?? "issues");
   const [target, setTarget] = useState<HarnessTarget>("claude");
   const [auto, setAuto] = useState<HarnessTarget[] | undefined>();
+  const [configured, setConfigured] = useState(true);
   useEffect(() => {
-    if (tab === "harness" && storage === "server" && !auto) loadHarnessSync().then(setAuto, () => setAuto([]));
+    if (tab === "harness" && storage === "server" && !auto) loadHarnessSyncState().then((r) => { setAuto(r.targets); setConfigured(r.configured ?? true); }, () => setAuto([]));
   }, [tab, storage, auto]);
   const toggleAuto = (t: HarnessTarget) => {
     const next = auto?.includes(t) ? auto.filter((x) => x !== t) : [...(auto ?? []), t];
@@ -560,6 +561,11 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
           {tab === "harness" && (
             <button className="btn primary" style={{ marginRight: "auto" }} disabled={!files.length} onClick={() => void exportHarness(target)} data-tip={onDisk ? `Grava ${root}/ dentro da pasta do projeto aberto` : "Baixa um .zip com a árvore pronta"} data-tip-pos="top">
               <Glyph name="download" size={16} /> {onDisk ? "Gravar no projeto" : "Baixar .zip"}
+            </button>
+          )}
+          {tab === "harness" && onDisk && (
+            <button className="btn ghost" onClick={() => void importHarness()} data-tip="Lê .claude/ do projeto e recria agentes e skills neste diagrama (desfazível)">
+              Importar do projeto
             </button>
           )}
           <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
@@ -616,9 +622,10 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
               <strong>Sincronizar automaticamente</strong> a cada edição deste diagrama:{" "}
               {HARNESS_TARGETS.map((t) => (
                 <label key={t.id} style={{ marginRight: 14, whiteSpace: "nowrap" }}>
-                  <input type="checkbox" checked={!!auto?.includes(t.id)} disabled={!auto} onChange={() => toggleAuto(t.id)} /> {t.label} <code>{t.root}/</code>
+                  <input type="checkbox" checked={!!auto?.includes(t.id)} disabled={!auto || !configured} onChange={() => toggleAuto(t.id)} /> {t.label} <code>{t.root}/</code>
                 </label>
               ))}
+              {!configured && <div className="callout warn" style={{ marginTop: 6 }}>O projeto ainda não foi configurado: a sincronização só funciona depois de criar ou abrir o projeto na tela de boas-vindas.</div>}
               <div style={{ opacity: 0.8, marginTop: 4 }}>Arquivos que saem do diagrama são apagados; arquivos que você editou à mão não são sobrescritos (o botão ⬇ força). O controle fica em <code>archflow.agents.json</code>.</div>
             </div>
           )}

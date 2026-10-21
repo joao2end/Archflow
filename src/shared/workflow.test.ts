@@ -67,7 +67,7 @@ test("passo auto que falha para a execução; retry roda de novo e skip segue", 
   let r = reduce(reduce(start().run, { type: "next" }).run, { type: "autoDone", code: 2 });
   assert.equal(r.run.state, "failed");
   assert.equal(r.run.steps[1].code, 2);
-  assert.deepEqual(available(r.run), { next: false, skip: true, stop: true, retry: true, restart: true });
+  assert.deepEqual(available(r.run), { next: false, run: false, skip: true, stop: true, retry: true, restart: true });
   const retry = reduce(r.run, { type: "retry" });
   assert.equal(retry.effect.type, "exec");
   assert.equal((retry.effect as Extract<RunEffect, { type: "exec" }>).first, false, "o manual anterior já criou a conversa: a nova tentativa retoma");
@@ -117,10 +117,10 @@ test("eventos fora de hora são ignorados e a execução é imutável", () => {
 
 test("available e progress acompanham o estado", () => {
   const { run } = start();
-  assert.deepEqual(available(run), { next: true, skip: true, stop: true, retry: false, restart: true });
+  assert.deepEqual(available(run), { next: true, run: false, skip: true, stop: true, retry: false, restart: true });
   assert.deepEqual(progress(run), { done: 0, skipped: 0, total: 3, fraction: 0 });
   const auto = reduce(run, { type: "next" }).run;
-  assert.deepEqual(available(auto), { next: false, skip: false, stop: true, retry: false, restart: true });
+  assert.deepEqual(available(auto), { next: false, run: false, skip: false, stop: true, retry: false, restart: true });
   assert.ok(Math.abs(progress(auto).fraction - 1 / 3) < 1e-9);
 });
 
@@ -217,4 +217,30 @@ test("goto: depois de concluído, a partir do primeiro passo, e recusa passo que
   assert.equal((g.effect as { first: boolean }).first, false, "refazer o primeiro passo continua a conversa que já existe");
   assert.deepEqual(g.run.steps.map((s) => s.status), ["running", "pending", "pending"]);
   assert.equal(reduce(run, { type: "goto", index: 9 }).run, run);
+});
+
+test("voltar/rodar de novo: a resposta anterior vai para o histórico (não some) e não entra na memória", () => {
+  let { run } = startMem();
+  run = reduce(reduce(run, { type: "result", stepIndex: 0, text: "P1" }).run, { type: "autoDone", code: 0 }).run;
+  run = reduce(reduce(run, { type: "result", stepIndex: 1, text: "C1" }).run, { type: "next" }).run; // passo 3 rodando
+  const back = reduce(run, { type: "goto", index: 0 }).run;
+  assert.equal(back.steps[0].result, undefined, "memória do passo refeito fica vazia");
+  assert.deepEqual(back.steps[0].history, ["P1"]);
+  assert.deepEqual(back.steps[1].history, ["C1"]);
+  assert.equal(back.steps[2].history, undefined, "passo sem resposta não ganha histórico");
+  const again = reduce(reduce(back, { type: "result", stepIndex: 0, text: "NOVA" }).run, { type: "autoDone", code: 0 });
+  const typed = (again.effect as { text: string }).text;
+  assert.ok(typed.includes("NOVA") && !typed.includes("P1"), "o passo seguinte usa a resposta nova, nunca o histórico");
+  // refazendo de novo, o histórico acumula (mais antigo primeiro) e respeita o limite
+  let r = back;
+  for (let i = 0; i < 7; i++) {
+    r = reduce(r, { type: "result", stepIndex: 0, text: `P${i + 2}` }).run;
+    r = reduce(r, { type: "goto", index: 0 }).run;
+  }
+  assert.equal(r.steps[0].history?.length, 5);
+  assert.deepEqual(r.steps[0].history?.slice(-2), ["P7", "P8"]);
+  // «Rodar de novo» também preserva
+  const done = reduce(reduce(reduce(reduce(startMem().run, { type: "result", stepIndex: 0, text: "X" }).run, { type: "autoDone", code: 0 }).run, { type: "stop" }).run, { type: "restart" }).run;
+  assert.deepEqual(done.steps[0].history, ["X"]);
+  assert.equal(done.steps[0].result, undefined);
 });

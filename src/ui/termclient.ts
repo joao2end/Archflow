@@ -93,6 +93,25 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 /** A conversa do Claude Code já foi gravada? (um `--resume` de conversa inexistente falha) */
 export const conversationExists = (id: string) => fetch(`/api/term/conversation?id=${encodeURIComponent(id)}`).then((r) => r.json()).then((j) => !!j.exists, () => false);
 
+/**
+ * Ferramentas negadas por permissão na conversa desde `since` (ms), contando os subagentes: `denials` deixaram trabalho por
+ * fazer (o passo falha); `warnings` o agente contornou. Vazio se não der para ler.
+ */
+export const conversationDenials = (id: string, since: number): Promise<{ denials: string[]; warnings: string[] }> => {
+  const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  return post<{ denials?: unknown; warnings?: unknown }>("/api/term/conversation/denials", { id, since }).then(
+    (j) => ({ denials: strs(j.denials), warnings: strs(j.warnings) }),
+    () => ({ denials: [], warnings: [] }),
+  );
+};
+/**
+ * Saídas esperadas (`expects`) sem arquivo modificado desde `since` (ms), lidas do projeto aberto.
+ * undefined se não deu para conferir (bridge antigo, projeto fechado, erro).
+ */
+export const missingOutputs = (patterns: string[], since: number): Promise<string[] | undefined> =>
+  fetch("/api/project/outputs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patterns, since }) })
+    .then((r) => (r.ok ? r.json() : undefined))
+    .then((j: { missing?: unknown } | undefined) => (Array.isArray(j?.missing) ? j.missing.filter((x): x is string => typeof x === "string") : undefined), () => undefined);
 /** Última resposta do agente principal na conversa (a memória do workflow); undefined se não houver. */
 export const lastConversationText = (id: string) =>
   post<{ text: string | null }>("/api/term/conversation/last", { id }).then((j) => (typeof j.text === "string" ? j.text : undefined), () => undefined);

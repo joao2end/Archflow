@@ -57,7 +57,8 @@ class Writer {
 export interface ZipEntry {
   /** caminho dentro do zip, com "/" (ex.: ".claude/agents/revisor.md") */
   path: string;
-  content: string;
+  /** texto (UTF-8) ou bytes já prontos, como os de um arquivo binário */
+  content: string | Uint8Array;
 }
 
 /** Monta o zip. `at` fixa a data dos arquivos (útil em teste). */
@@ -68,7 +69,7 @@ export function zip(entries: ZipEntry[], at = new Date()): Uint8Array {
   const dir = new Writer();
   for (const e of entries) {
     const name = enc.encode(e.path);
-    const data = enc.encode(e.content);
+    const data = typeof e.content === "string" ? enc.encode(e.content) : e.content;
     const sum = crc32(data);
     const offset = body.length;
     for (const w of [body, dir]) {

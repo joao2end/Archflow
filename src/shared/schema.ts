@@ -185,7 +185,22 @@ export const CONNECTION_TYPE_KEYS = Object.keys(CONNECTION_TYPES) as ConnectionT
 
 /* ───────── modo agents (times de agentes de IA) ───────── */
 
-export type AgentRole = "agent" | "skill" | "tool" | "prompt" | "workflow";
+export type AgentRole = "agent" | "skill" | "tool" | "prompt" | "workflow" | "entrypoint" | "file" | "output";
+
+/** Formato de um arquivo anexado a um nó `file` (referência) ou `output` (entrega ou modelo). `image` cobre PNG, JPG, GIF, WEBP, SVG e BMP. */
+export type AgentFileKind = "json" | "csv" | "xlsx" | "md" | "html" | "image";
+/** `binary` = o conteúdo é base64 (planilha e imagem); os demais são texto UTF-8 gravado como está. */
+export const AGENT_FILE_KINDS: Record<AgentFileKind, { label: string; ext: string; binary: boolean; accept: string }> = {
+  json: { label: "JSON", ext: "json", binary: false, accept: ".json,application/json" },
+  csv: { label: "CSV", ext: "csv", binary: false, accept: ".csv,text/csv" },
+  xlsx: { label: "Excel (XLSX)", ext: "xlsx", binary: true, accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  md: { label: "Markdown", ext: "md", binary: false, accept: ".md,.markdown,text/markdown" },
+  html: { label: "HTML", ext: "html", binary: false, accept: ".html,.htm,text/html" },
+  image: { label: "Imagem", ext: "png", binary: true, accept: "image/*" },
+};
+export const AGENT_FILE_KIND_KEYS = Object.keys(AGENT_FILE_KINDS) as AgentFileKind[];
+/** Teto do conteúdo de um arquivo no diagrama (caracteres; em base64 ≈ 2,2 MB de arquivo). Acima disso o diagrama fica pesado demais para salvar. */
+export const AGENT_FILE_MAX_CHARS = 3_000_000;
 
 /** `native` = tool do próprio Claude Code (Read, Bash…) · `mcp` = servidor MCP, com as tools que ele expõe. */
 export type AgentToolType = "native" | "mcp";
@@ -254,6 +269,12 @@ export interface AgentNodeSpec {
   mcpSource?: { catalog: "curated" | "registry" | "pasted"; id: string; version?: string };
   /** prompt: texto executado no Claude Code; aceita variáveis `{{nome}}` */
   text?: string;
+  /** file/output: formato do arquivo (JSON, CSV, Excel, Markdown, HTML, imagem) */
+  fileKind?: AgentFileKind;
+  /** file: nome original do arquivo; output: caminho de saída relativo à raiz do projeto (ex.: `relatorio.md`) */
+  fileName?: string;
+  /** file: conteúdo do arquivo (texto, ou base64 em planilha e imagem); output: arquivo modelo opcional, a especificação da saída */
+  fileContent?: string;
 }
 export type AgentField = Exclude<keyof AgentNodeSpec, "role">;
 
@@ -286,6 +307,20 @@ export const AGENT_ROLES: Record<AgentRole, { label: string; hint: string; color
     badge: "PROMPT",
     fields: ["description", "text"],
   },
+  file: {
+    label: "Arquivo",
+    hint: "Arquivo de referência para os agentes: JSON, CSV, Excel, Markdown, HTML ou imagem. Ligado a um agent por uses-file; o agente o lê para alterar algo ou se basear nele. No harness vai para `.claude/files/`.",
+    color: "#3f8fd2",
+    badge: "FILE",
+    fields: ["description", "fileKind", "fileName", "fileContent"],
+  },
+  output: {
+    label: "Saída",
+    hint: "Componente de output, como o nó de response do n8n: define o formato e o arquivo que um agent entrega. Pode trazer um arquivo modelo, que é a especificação da saída. Ligado a um agent por uma seta produces.",
+    color: "#1f9d55",
+    badge: "OUTPUT",
+    fields: ["description", "fileKind", "fileName", "fileContent"],
+  },
   workflow: {
     label: "Workflow",
     hint: "Sequência de prompts executada numa só conversa do Claude Code. Cada prompt é ligado por uma seta step (ordem e modo manual/auto ficam na seta).",
@@ -293,15 +328,25 @@ export const AGENT_ROLES: Record<AgentRole, { label: string; hint: string; color
     badge: "FLOW",
     fields: ["description"],
   },
+  entrypoint: {
+    label: "Entrypoint",
+    hint: "Ponto de entrada de um workflow: no canvas, o campo de entrada deste nó vira {{entrada}} no primeiro passo. Ligue-o ao workflow por uma seta start.",
+    color: "#e0a02a",
+    badge: "ENTRY",
+    fields: ["description"],
+  },
 };
 export const AGENT_ROLE_KEYS = Object.keys(AGENT_ROLES) as AgentRole[];
 
-export type AgentRel = "uses-skill" | "delegates" | "uses-tool" | "runs-on" | "step";
+export type AgentRel = "uses-skill" | "delegates" | "uses-tool" | "uses-file" | "produces" | "runs-on" | "step" | "start";
 export const AGENT_RELS: Record<AgentRel, { label: string; semantics: string; type: ConnectionType; usageHint: string }> = {
   "uses-skill": { usageHint: "Como este agente usa a skill: em que momento a puxa e para quê. Ex.: «ao escrever títulos e CTAs, para manter o tom da marca».", label: "uses-skill", semantics: "agent → skill: a skill é plugada neste agente. No Claude Code vira o campo `skills` do subagente (pré-carrega o conteúdo); no Cursor não há campo nativo — fica documentado no corpo do agente.", type: "dependency" },
   "uses-tool": { usageHint: "Como este agente usa a ferramenta: quando a aciona e com que cuidado. Ex.: «Bash só para rodar o linter; nunca comandos destrutivos».", label: "uses-tool", semantics: "agent → tool: a ferramenta fica disponível a este agente. No Claude Code vira entrada em `tools` (nativa) ou `mcpServers` + `mcp__servidor` (MCP); no Cursor o servidor MCP vale para o projeto todo (`.cursor/mcp.json`).", type: "dependency" },
   "runs-on": { usageHint: "Opcional. Ex.: «sempre com o orquestrador para manter o contexto curto».", label: "runs-on", semantics: "prompt → agent: o prompt é executado por este subagente (o texto sai prefixado por «Use o subagente <agent> para: »).", type: "dependency" },
-  step: { usageHint: "Opcional: o que este passo entrega ao próximo.", label: "step", semantics: "workflow → prompt: um passo do workflow. `order` (1, 2, 3…) define a posição e `mode` (manual | auto) como roda; todos os passos compartilham a mesma conversa do Claude Code.", type: "sync" },
+  step: { usageHint: "Opcional: o que este passo entrega ao próximo.", label: "step", semantics: "workflow → prompt: um passo do workflow. `order` (1, 2, 3…) define a posição, `mode` (manual | auto) como roda e `expects` (opcional) os arquivos que o passo precisa gerar; todos os passos compartilham a mesma conversa do Claude Code.", type: "sync" },
+  start: { usageHint: "Opcional.", label: "start", semantics: "entrypoint → workflow: o ponto de entrada que dispara o workflow no canvas, com a entrada digitada no nó. Um entrypoint por workflow.", type: "sync" },
+  "uses-file": { usageHint: "Como este agente usa o arquivo: o que lê nele e o que muda com base nele. Ex.: «usa o schema como referência para validar os dados gerados».", label: "uses-file", semantics: "agent → file: o arquivo é uma referência do agente (JSON, CSV, planilha, Markdown, HTML ou imagem). O caminho entra no corpo do agente, que o lê com a tool Read (imagens são vistas direto; planilha Excel exige uma tool que a leia, como Bash com Python).", type: "dependency" },
+  produces: { usageHint: "Opcional. Ex.: «sempre em JSON seguindo o modelo; sem campos extras».", label: "produces", semantics: "agent → output: o agente entrega o resultado neste formato e neste arquivo. O corpo do agente recebe o caminho de saída e, se houver, o modelo a seguir.", type: "dependency" },
   delegates: { usageHint: "Como este agente usa o outro: o que delega, o que entrega a ele e o que espera de volta. Ex.: «passa docs/copy.md aprovado e recebe docs/design.md».", label: "delegates", semantics: "agent → agent: o primeiro pode acionar o segundo como subagente (handoff/delegação).", type: "sync" },
 };
 export const AGENT_REL_KEYS = Object.keys(AGENT_RELS) as AgentRel[];
@@ -312,8 +357,11 @@ export const AGENT_REL_PAIRS: Record<AgentRel, { from: AgentRelEnd[]; to: AgentR
   "uses-skill": [{ from: ["agent"], to: ["skill"] }],
   delegates: [{ from: ["agent"], to: ["agent"] }],
   "uses-tool": [{ from: ["agent"], to: ["tool"] }],
+  "uses-file": [{ from: ["agent"], to: ["file"] }],
+  produces: [{ from: ["agent"], to: ["output"] }],
   "runs-on": [{ from: ["prompt"], to: ["agent"] }],
   step: [{ from: ["workflow"], to: ["prompt"] }],
+  start: [{ from: ["entrypoint"], to: ["workflow"] }],
 };
 
 /** Campos próprios de uma conexão do modo agents. */
@@ -330,6 +378,11 @@ export interface AgentConnSpec {
   order?: number;
   /** step: manual (padrão, o usuário confirma no terminal) ou auto (`claude -p`) */
   mode?: "manual" | "auto";
+  /**
+   * step: arquivos que o passo precisa gerar, relativos à raiz do projeto, com glob simples (`*`, `?`). Ex.: ["post/copy.md", "post/slides/*.png"].
+   * Na execução do canvas, cada padrão precisa casar com um arquivo modificado durante o passo; senão o passo falha («não gerou: …»).
+   */
+  expects?: string[];
 }
 
 /* ───────── modo domínio (DDD) ───────── */
@@ -917,6 +970,8 @@ export interface Doc {
   customAssets: Asset[];
   /** roteiro de apresentação (modo architecture); ausente = o app monta um roteiro automático */
   tour?: TourStep[];
+  /** modo logic: cartões de dados e cenários mostram a descrição completa (botão «Visualizar descrições»); ausente = uma linha */
+  showDescriptions?: boolean;
 }
 
 export const ENDPOINT_W = 200;

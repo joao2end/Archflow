@@ -23,7 +23,14 @@
  *   POST /api/skills/install { repo, skillPath }  `npx skills add` no projeto aberto + conteúdo do SKILL.md
  *   GET  /api/term/info                         { token, max, sessions[], cwd } (token só legível na mesma origem)
  *   POST /api/term/start { program?, args?, title?, cols?, rows?, prefill? }  PTY do `claude` na pasta do projeto (header x-archflow-term)
+ *   POST /api/project/outputs { patterns[], since } { missing[] } saídas esperadas de um passo sem arquivo modificado desde `since` (ms; só leitura)
+ *   GET  /api/runs?workflow=<id>          { runs[] } histórico de execuções de workflow do projeto (.archflow/runs/), do mais novo ao mais antigo
+ *   GET  /api/runs/get?id=<id>            registro completo de uma execução
+ *   POST /api/runs { record }             grava/atualiza uma execução (guarda as últimas 50)
+ *   POST /api/runs/snapshot { id, step, patterns, since }  guarda os arquivos que o passo gerou (saídas esperadas)
+ *   POST /api/runs/resume-files { from, to, upto, restore }  retomar: copia os arquivos dos passos anteriores e, com restore, devolve ao projeto
  *   POST /api/term/conversation/last { id }      { text|null } última resposta do agente na conversa (memória dos workflows)
+ *   POST /api/term/conversation/denials { id, since } { denials[] } ferramentas negadas por permissão desde `since` (ms), com subagentes
  *   GET  /api/term/conversation?id=<uuid>       { exists } a conversa do Claude Code já foi gravada? (base do --resume dos workflows)
  *   POST /api/term/kill { id }
  *   WS   /api/term?session=&token=              terminal interativo (mesma origem + token; ver server/terminal.ts)
@@ -45,8 +52,11 @@ import { fileURLToPath } from "node:url";
 import { generateHarness, type HarnessTarget } from "../src/shared/agentgen";
 import { parseProbeBody, probeMcp, ProbeError } from "./mcpprobe";
 import { searchMcpRegistry } from "./mcpregistry";
-import { assertToken, conversationExists, lastAssistantText, detectClaude, handleUpgrade, killAll, killSession, startSession, terminalEnabled, termInfo, TermError } from "./terminal";
+import { assertToken, conversationExists, lastAssistantText, permissionDenials, detectClaude, handleUpgrade, killAll, killSession, startSession, terminalEnabled, termInfo, TermError } from "./terminal";
 import { harnessDiff, syncHarness, type HarnessSyncResult, readManifest } from "./harnesssync";
+import { harnessToOps } from "../src/shared/agentimport";
+import { checkExpects, missingOutputs, type FsEntry } from "../src/shared/expects";
+import { getRun, listRuns, resumeFiles, RunStoreError, saveRun, snapshotStep } from "./runstore";
 import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { normalizeLibrary } from "../src/shared/prompts";
 import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
@@ -128,6 +138,29 @@ function segments(rel: string, allowEmpty = false): string[] {
   return parts;
 }
 const pathIn = (rel: string, allowEmpty = false) => join(dir, ...segments(rel, allowEmpty));
+
+/** Saídas esperadas de um passo de workflow (`expects`) sem nenhum arquivo modificado desde `since`: só lê nomes e datas. */
+function projectOutputs(b: { patterns?: unknown; since?: unknown }): { missing: string[] } {
+  if (!dir) throw new HttpError(409, "abra um projeto antes");
+  const err = checkExpects(b.patterns);
+  if (err) throw new HttpError(400, err);
+  const list = (rel: string): FsEntry[] => {
+    const abs = rel ? join(dir, ...rel.split("/")) : dir;
+    try {
+      return readdirSync(abs).flatMap((name) => {
+        try {
+          const st = statSync(join(abs, name));
+          return [{ name, dir: st.isDirectory(), mtime: st.mtimeMs }];
+        } catch {
+          return [];
+        }
+      });
+    } catch {
+      return [];
+    }
+  };
+  return { missing: missingOutputs(b.patterns as string[], list, Number(b.since) || 0) };
+}
 function diagramPath(rel: string): string {
   const parts = segments(rel);
   if (!parts[parts.length - 1].endsWith(EXT)) throw new HttpError(400, "arquivo deve terminar em .archflow.json");
@@ -770,6 +803,28 @@ function installSkill() {
  * Grava o harness do diagrama `agents` aberto na pasta do projeto (`.claude/` ou `.cursor/`), que é onde o
  * Claude Code e o Cursor procuram subagentes e skills. Sobrescreve os arquivos gerados antes.
  */
+/**
+ * Lê o harness Claude de `.claude/` na pasta do projeto e devolve as ops que o recriariam no diagrama aberto.
+ * Só leitura: quem aplica é o `/api/ops` (assim o desfazer e a validação continuam os de sempre).
+ */
+function readHarnessForImport() {
+  if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
+  if (docMode(doc) !== "agents") throw new HttpError(422, `o diagrama aberto está em modo "${docMode(doc)}"; o harness importa para um diagrama modo agents`);
+  const files: { path: string; content: string }[] = [];
+  const walk = (rel: string, pick: (name: string) => boolean) => {
+    const abs = join(dir!, ...rel.split("/"));
+    if (!existsSync(abs)) return;
+    for (const e of readdirSync(abs, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(`${rel}/${e.name}`, () => true);
+      else if (pick(e.name)) files.push({ path: `${rel}/${e.name}`, content: readFileSync(join(abs, e.name), "utf8") });
+    }
+  };
+  walk(".claude/agents", (n) => n.endsWith(".md"));
+  walk(".claude/skills", (n) => n === "SKILL.md");
+  const { ops, skipped } = harnessToOps(files);
+  return { ops, skipped, read: files.map((f) => f.path) };
+}
+
 function writeHarness(input: { target?: unknown; force?: unknown }) {
   const target = String(input.target ?? "claude");
   if (target !== "claude" && target !== "cursor") throw new HttpError(400, `target inválido "${target}". Válidos: claude, cursor`);
@@ -1451,6 +1506,16 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
       });
       return json(res, 200, { files });
     }
+    if (path === "/api/project/outputs" && m === "POST") return json(res, 200, projectOutputs(await body(req)));
+    if (path.startsWith("/api/runs")) {
+      // histórico de execuções de workflow do projeto aberto (.archflow/runs/)
+      if (!dir) throw new HttpError(409, "abra um projeto antes");
+      if (path === "/api/runs" && m === "GET") return json(res, 200, { runs: listRuns(dir, url.searchParams.get("workflow") ?? undefined) });
+      if (path === "/api/runs/get" && m === "GET") return json(res, 200, getRun(dir, url.searchParams.get("id")));
+      if (path === "/api/runs" && m === "POST") return json(res, 200, saveRun(dir, (await body(req)).record));
+      if (path === "/api/runs/snapshot" && m === "POST") return json(res, 200, snapshotStep(dir, await body(req)));
+      if (path === "/api/runs/resume-files" && m === "POST") return json(res, 200, resumeFiles(dir, await body(req)));
+    }
     if (path === "/api/describe") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       const paths = new Set(flatten(buildTree(dir, "", 0, { n: 3000 })).map((f) => f.path));
@@ -1502,6 +1567,11 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
         if (path === "/api/term/info" && m === "GET") return json(res, 200, { ...termInfo(dir), cwd: dir, claude: await detectClaude({ refresh: url.searchParams.get("refresh") === "1" }) });
         if (path === "/api/term/conversation" && m === "GET") return json(res, 200, { exists: conversationExists(url.searchParams.get("id") ?? "") });
         assertToken(req);
+        if (path === "/api/term/conversation/denials" && m === "POST") {
+          const b = await body(req);
+          const r = permissionDenials(String(b.id ?? ""), Number(b.since) || 0, dir);
+          return json(res, 200, { denials: r.blocking, warnings: r.warnings });
+        }
         if (path === "/api/term/conversation/last" && m === "POST") return json(res, 200, { text: lastAssistantText(String((await body(req)).id ?? "")) ?? null });
         if (path === "/api/term/start" && m === "POST") {
           if (!dir) throw new HttpError(409, "abra um projeto antes de iniciar o terminal");
@@ -1515,12 +1585,13 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
         throw e;
       }
     }
-    if (path === "/api/harness/settings" && m === "GET") return json(res, 200, { targets: dir ? harnessTargets() : [] });
+    if (path === "/api/harness/settings" && m === "GET") return json(res, 200, { targets: dir ? harnessTargets() : [], configured: !!configured });
     if (path === "/api/harness/settings" && m === "POST") return json(res, 200, setHarnessTargets(await body(req)));
     if (path === "/api/prompts" && m === "GET") return json(res, 200, readPrompts());
     if (path === "/api/prompts" && m === "PUT") return json(res, 200, writePrompts(await readBody(req, 6e6)));
     if (path === "/api/harness/status" && m === "GET") return json(res, 200, harnessStatus(url.searchParams.get("target")));
     if (path === "/api/harness" && m === "POST") return json(res, 200, writeHarness(await body(req)));
+    if (path === "/api/harness/import" && m === "POST") return json(res, 200, readHarnessForImport());
     if (path === "/api/export" && m === "POST") return json(res, 200, await exportImage(await body(req)));
     if (path === "/api/export/result" && m === "POST") {
       const b = await readBody(req, 120e6);
@@ -1553,7 +1624,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     }
     json(res, 404, { error: "not found" });
   } catch (e) {
-    const status = e instanceof HttpError ? e.status : e instanceof SyntaxError ? 400 : 500;
+    const status = e instanceof HttpError || e instanceof RunStoreError ? e.status : e instanceof SyntaxError ? 400 : 500;
     json(res, status, { error: e instanceof Error ? e.message : String(e) });
   }
 }

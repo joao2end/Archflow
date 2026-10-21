@@ -21,6 +21,8 @@ export interface WorkflowStep {
   promptId: string;
   /** manual (padrão): o texto é digitado e o usuário confirma; auto: roda `claude -p` e espera terminar */
   mode: StepMode;
+  /** arquivos que o passo precisa gerar (glob simples, relativos ao projeto); só vem do diagrama (`expects` da seta step) */
+  expects?: string[];
 }
 export interface Workflow {
   id: string;
@@ -116,7 +118,7 @@ export function normalizeLibrary(raw: unknown): { library: PromptLibrary; droppe
  * ao usuário): `{{anterior}}` = resposta do passo imediatamente anterior que teve resposta; `{{resultado.<id-do-prompt>}}` =
  * resposta do passo desse prompt (a mais recente).
  */
-export const isMemoryVar = (name: string): boolean => name === "anterior" || name.startsWith("resultado.");
+export const isMemoryVar = (name: string): boolean => name === "anterior" || name === "saida_anterior" || name.startsWith("resultado.");
 
 /** Nomes das variáveis `{{nome}}` do texto que o usuário preenche, na ordem em que aparecem, sem repetir (as de memória ficam de fora). */
 export function promptVars(text: string): string[] {

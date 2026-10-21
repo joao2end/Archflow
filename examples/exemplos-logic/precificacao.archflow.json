@@ -13,7 +13,7 @@
       "x": -408,
       "y": -10,
       "w": 306,
-      "h": 1172,
+      "h": 1514,
       "auto": true
     },
     {
@@ -24,7 +24,7 @@
       "x": 3302,
       "y": -10,
       "w": 306,
-      "h": 244,
+      "h": 298,
       "auto": true
     },
     {
@@ -33,9 +33,9 @@
       "kind": "layer",
       "tag": "Caminhos de sucesso",
       "x": 3302,
-      "y": 224,
+      "y": 278,
       "w": 376,
-      "h": 621,
+      "h": 765,
       "auto": true
     },
     {
@@ -44,9 +44,9 @@
       "kind": "layer",
       "tag": "Caminhos de falha",
       "x": 3302,
-      "y": 839,
+      "y": 1037,
       "w": 376,
-      "h": 383,
+      "h": 455,
       "auto": true
     }
   ],
@@ -65,7 +65,7 @@
       "x": -380,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "tipo-grupo",
@@ -79,9 +79,9 @@
         "text": "Estratégia do produto: \"lucro\", \"imagem\" ou \"trafego\"."
       },
       "x": -380,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "custo",
@@ -95,9 +95,9 @@
         "text": "Custo do produto."
       },
       "x": -380,
-      "y": 160,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "margem-objetivo",
@@ -111,9 +111,9 @@
         "text": "Margem objetivo da categoria (herdada da árvore divisão → departamento → categoria)."
       },
       "x": -380,
-      "y": 218,
+      "y": 272,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "preco-concorrente",
@@ -127,9 +127,9 @@
         "text": "Preço de referência do concorrente (mínimo, médio ou máximo, conforme a configuração)."
       },
       "x": -380,
-      "y": 276,
+      "y": 348,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "indice-notabilidade",
@@ -143,9 +143,9 @@
         "text": "Multiplica o preço do concorrente em imagem e tráfego."
       },
       "x": -380,
-      "y": 334,
+      "y": 424,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "margem-minima",
@@ -159,9 +159,9 @@
         "text": "Margem mínima da notabilidade (piso de imagem e tráfego)."
       },
       "x": -380,
-      "y": 392,
+      "y": 500,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "preco-atual",
@@ -175,9 +175,9 @@
         "text": "Preço praticado hoje."
       },
       "x": -380,
-      "y": 450,
+      "y": 576,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "variacao-minima",
@@ -192,9 +192,9 @@
         "value": 0.02
       },
       "x": -380,
-      "y": 508,
+      "y": 652,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "aumento-maximo",
@@ -209,9 +209,9 @@
         "value": 0.2
       },
       "x": -380,
-      "y": 566,
+      "y": 728,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "reducao-maxima",
@@ -226,9 +226,9 @@
         "value": 0.2
       },
       "x": -380,
-      "y": 624,
+      "y": 804,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "grupo-remarcacao",
@@ -242,9 +242,9 @@
         "text": "O produto está num grupo de remarcação (vale o menor PMC)."
       },
       "x": -380,
-      "y": 682,
+      "y": 880,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "pmc",
@@ -258,9 +258,9 @@
         "text": "Menor preço máximo ao consumidor do grupo de remarcação (0 = sem PMC)."
       },
       "x": -380,
-      "y": 740,
+      "y": 956,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ancora",
@@ -274,9 +274,9 @@
         "text": "PBM, farmácia popular ou marca própria."
       },
       "x": -380,
-      "y": 798,
+      "y": 1032,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "eh-referencia",
@@ -290,9 +290,9 @@
         "text": "Primeiro do grupo no cluster."
       },
       "x": -380,
-      "y": 856,
+      "y": 1108,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "preco-referencia-grupo",
@@ -306,9 +306,9 @@
         "text": "Preço final já calculado da referência do grupo."
       },
       "x": -380,
-      "y": 914,
+      "y": 1184,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "preco-fixo",
@@ -322,9 +322,9 @@
         "text": "Preço fixo cadastrado; vale quando maior que zero."
       },
       "x": -380,
-      "y": 972,
+      "y": 1260,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "reaplicar",
@@ -339,9 +339,9 @@
         "value": false
       },
       "x": -380,
-      "y": 1030,
+      "y": 1336,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "preco-digitado",
@@ -356,9 +356,9 @@
         "value": 0
       },
       "x": -380,
-      "y": 1088,
+      "y": 1412,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "preco",
@@ -374,7 +374,7 @@
       "x": 3330,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "recomendacao",
@@ -388,9 +388,9 @@
         "text": "Resultado: \"keep\", \"raise\" ou \"reduce\"."
       },
       "x": 3330,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "alerta",
@@ -404,9 +404,9 @@
         "text": "Há alerta pendente quando o preço muda."
       },
       "x": 3330,
-      "y": 160,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -2005,9 +2005,9 @@
         ]
       },
       "x": 3330,
-      "y": 278,
+      "y": 332,
       "w": 320,
-      "h": 70
+      "h": 88
     },
     {
       "id": "caso-ancora",
@@ -2118,9 +2118,9 @@
         ]
       },
       "x": 3330,
-      "y": 360,
+      "y": 432,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-fixo",
@@ -2232,9 +2232,9 @@
         ]
       },
       "x": 3330,
-      "y": 427,
+      "y": 517,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-imagem",
@@ -2345,9 +2345,9 @@
         ]
       },
       "x": 3330,
-      "y": 494,
+      "y": 602,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-variacao-minima",
@@ -2414,9 +2414,9 @@
         ]
       },
       "x": 3330,
-      "y": 561,
+      "y": 687,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-teto",
@@ -2486,9 +2486,9 @@
         ]
       },
       "x": 3330,
-      "y": 628,
+      "y": 772,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-pmc",
@@ -2558,9 +2558,9 @@
         ]
       },
       "x": 3330,
-      "y": 695,
+      "y": 857,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-erro",
@@ -2607,9 +2607,9 @@
         ]
       },
       "x": 3330,
-      "y": 893,
+      "y": 1091,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-custo-invalido",
@@ -2654,9 +2654,9 @@
         ]
       },
       "x": 3330,
-      "y": 960,
+      "y": 1176,
       "w": 320,
-      "h": 70
+      "h": 88
     },
     {
       "id": "caso-margem-invalida",
@@ -2702,9 +2702,9 @@
         ]
       },
       "x": 3330,
-      "y": 1042,
+      "y": 1276,
       "w": 320,
-      "h": 70
+      "h": 88
     },
     {
       "id": "caso-falha-no-meio",
@@ -2790,9 +2790,9 @@
         ]
       },
       "x": 3330,
-      "y": 1124,
+      "y": 1376,
       "w": 320,
-      "h": 70
+      "h": 88
     },
     {
       "id": "caso-grupo-vazio",
@@ -2820,9 +2820,9 @@
         ]
       },
       "x": 3330,
-      "y": 762,
+      "y": 942,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],

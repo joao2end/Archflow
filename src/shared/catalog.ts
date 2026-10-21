@@ -340,6 +340,9 @@ const AGENT_TAGS: Record<AgentRole, string> = {
   tool: "ferramenta tool mcp servidor bash read write edit grep claude cursor",
   prompt: "prompt comando texto variável executar terminal claude code",
   workflow: "workflow fluxo passos sequência prompts conversa terminal claude code",
+  entrypoint: "entrypoint entrada ponto de partida gatilho executar canvas n8n",
+  file: "arquivo referência anexo json csv excel xlsx planilha markdown md html imagem entrada agente lê",
+  output: "saída output resposta response n8n formato entrega arquivo modelo especificação json csv excel markdown html imagem",
 };
 const agentAssets: Asset[] = AGENT_ROLE_KEYS.map((role) => ({
   id: `agent-${role}`,

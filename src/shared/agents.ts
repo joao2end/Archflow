@@ -2,10 +2,13 @@
  * Modo agents (times de agentes de IA): validação de entrada das ops, regras (A001+), descrição
  * para LLMs e o guia do modo.
  *
- * Só depende de `schema.ts` (`ops.ts` importa este módulo, nunca o contrário). Determinístico:
+ * Só depende de `schema.ts` e `expects.ts` (`ops.ts` importa este módulo, nunca o contrário). Determinístico:
  * a mesma entrada produz sempre a mesma saída.
  */
+import { checkExpects } from "./expects";
 import {
+  AGENT_FILE_KIND_KEYS,
+  AGENT_FILE_MAX_CHARS,
   AGENT_REL_KEYS,
   AGENT_REL_PAIRS,
   AGENT_RELS,
@@ -24,6 +27,7 @@ import {
   type NodeEl,
 } from "./schema";
 import type { Issue } from "./domain";
+import { extOf, fileExt, kindOfFileName, outputPathError } from "./agentfiles";
 
 /* ───────────────────────── validação de entrada das ops ───────────────────────── */
 
@@ -61,6 +65,16 @@ export function checkAgentNode(agent: unknown): string | undefined {
     const m = a[f];
     if (m !== undefined && (!m || typeof m !== "object" || Array.isArray(m) || Object.values(m as object).some((v) => typeof v !== "string"))) return `agent.${f} deve ser um objeto { NOME: "valor ou \${VAR}" }`;
   }
+  if (a.fileKind !== undefined && !AGENT_FILE_KIND_KEYS.includes(a.fileKind as never)) return `agent.fileKind inválido "${a.fileKind}". Válidos: ${AGENT_FILE_KIND_KEYS.join(", ")}`;
+  if (a.fileName !== undefined && typeof a.fileName !== "string") return "agent.fileName deve ser texto";
+  if (a.fileContent !== undefined) {
+    if (typeof a.fileContent !== "string") return "agent.fileContent deve ser texto (base64, em planilha e imagem)";
+    if (a.fileContent.length > AGENT_FILE_MAX_CHARS) return `agent.fileContent passa de ${AGENT_FILE_MAX_CHARS} caracteres: reduza o arquivo`;
+  }
+  if (role === "output" && a.fileName !== undefined) {
+    const bad = outputPathError(a.fileName as string);
+    if (bad) return bad;
+  }
   if (a.source !== undefined) {
     if (!a.source || typeof a.source !== "object" || Array.isArray(a.source)) return "agent.source deve ser um objeto { repo, skillPath, hash? }";
     const s = a.source as Record<string, unknown>;
@@ -85,15 +99,16 @@ export function reshapeAgent(old: AgentNodeSpec | undefined, role: AgentNodeSpec
 /** Valida o objeto `agent` (`AgentConnSpec`) de uma conexão. */
 export function checkAgentConn(agent: unknown): string | undefined {
   if (!agent || typeof agent !== "object") return "agent deve ser um objeto { rel, usage? }";
-  const a = agent as { rel?: string; usage?: unknown; allow?: unknown; order?: unknown; mode?: unknown };
-  for (const k of Object.keys(a)) if (!["rel", "usage", "allow", "order", "mode"].includes(k)) return `conexão do modo agents não tem o campo "${k}". Campos: rel, usage, allow, order, mode`;
+  const a = agent as { rel?: string; usage?: unknown; allow?: unknown; order?: unknown; mode?: unknown; expects?: unknown };
+  for (const k of Object.keys(a)) if (!["rel", "usage", "allow", "order", "mode", "expects"].includes(k)) return `conexão do modo agents não tem o campo "${k}". Campos: rel, usage, allow, order, mode, expects`;
   if (!AGENT_REL_KEYS.includes(a.rel as never)) return `agent.rel inválido "${a.rel}". Válidos: ${AGENT_REL_KEYS.join(", ")}`;
   if (a.usage !== undefined && typeof a.usage !== "string") return "agent.usage deve ser um texto: como o agente de origem usa o destino";
   if (a.allow !== undefined && (!Array.isArray(a.allow) || a.allow.some((x) => typeof x !== "string"))) return "agent.allow deve ser uma lista com os nomes das tools do servidor MCP que o agente pode chamar";
   if (a.allow !== undefined && a.rel !== "uses-tool") return `agent.allow só vale em uses-tool (esta conexão é ${a.rel})`;
-  for (const f of ["order", "mode"] as const) if (a[f] !== undefined && a.rel !== "step") return `agent.${f} só vale em step (esta conexão é ${a.rel})`;
+  for (const f of ["order", "mode", "expects"] as const) if (a[f] !== undefined && a.rel !== "step") return `agent.${f} só vale em step (esta conexão é ${a.rel})`;
   if (a.order !== undefined && (typeof a.order !== "number" || !Number.isInteger(a.order) || a.order < 1)) return "agent.order deve ser um inteiro a partir de 1";
   if (a.mode !== undefined && a.mode !== "manual" && a.mode !== "auto") return 'agent.mode deve ser "manual" ou "auto"';
+  if (a.expects !== undefined) return checkExpects(a.expects);
   return undefined;
 }
 
@@ -125,14 +140,20 @@ export function agentConnectionTypeError(rel: AgentRel | undefined, type: Connec
 }
 
 /** Passos de um workflow na ordem de execução: `order` da seta (quando houver), senão a ordem das setas. Só prompts existentes. */
-export function workflowSteps(doc: Doc, workflowId: string): { prompt: NodeEl; mode: "manual" | "auto"; conn: string }[] {
-  const out: { prompt: NodeEl; mode: "manual" | "auto"; conn: string; order: number; i: number }[] = [];
+/** Ponto de entrada ligado a um workflow por uma seta start (o primeiro, se houver mais de um). */
+export function entrypointOf(doc: Doc, workflowId: string): NodeEl | undefined {
+  const c = doc.connections.find((x) => x.to === workflowId && x.agent?.rel === "start" && doc.nodes.some((n) => n.id === x.from && n.agent?.role === "entrypoint"));
+  return c ? doc.nodes.find((n) => n.id === c.from) : undefined;
+}
+
+export function workflowSteps(doc: Doc, workflowId: string): { prompt: NodeEl; mode: "manual" | "auto"; conn: string; expects?: string[] }[] {
+  const out: { prompt: NodeEl; mode: "manual" | "auto"; conn: string; expects?: string[]; order: number; i: number }[] = [];
   doc.connections.forEach((c, i) => {
     if (c.from !== workflowId || c.agent?.rel !== "step") return;
     const prompt = doc.nodes.find((n) => n.id === c.to && n.agent?.role === "prompt");
-    if (prompt) out.push({ prompt, mode: c.agent.mode ?? "manual", conn: c.id, order: c.agent.order ?? Number.MAX_SAFE_INTEGER, i });
+    if (prompt) out.push({ prompt, mode: c.agent.mode ?? "manual", conn: c.id, ...(c.agent.expects?.length ? { expects: c.agent.expects } : {}), order: c.agent.order ?? Number.MAX_SAFE_INTEGER, i });
   });
-  return out.sort((a, b) => a.order - b.order || a.i - b.i).map(({ prompt, mode, conn }) => ({ prompt, mode, conn }));
+  return out.sort((a, b) => a.order - b.order || a.i - b.i).map(({ order: _o, i: _i, ...s }) => s);
 }
 
 /** true quando o id (nó ou grupo) está dentro de um grupo kind "global", em qualquer profundidade. */
@@ -223,10 +244,35 @@ export function agentIssues(doc: Doc): Issue[] {
       const hosts = doc.connections.filter((c) => c.from === n.id && c.agent?.rel === "runs-on");
       if (hosts.length > 1) add("A021", "aviso", `${quote(n)}: runs-on para ${hosts.length} agentes; só o primeiro é usado no prefixo «Use o subagente…»`, n.id);
     }
+    if (spec.role === "entrypoint" && !doc.connections.some((c) => c.from === n.id && c.agent?.rel === "start")) add("A024", "aviso", `${quote(n)}: entrypoint sem seta start — ligue-o ao workflow que ele dispara`, n.id);
     if (spec.role === "workflow") {
       const steps = workflowSteps(doc, n.id);
       if (!steps.length) add("A022", "aviso", `${quote(n)}: workflow sem passos — ligue prompts com setas step`, n.id);
     }
+  }
+
+  // A025–A030 arquivos (nós file e output): conteúdo, quem os lê ou entrega, nome de saída e extensão coerente com o formato
+  const readFiles = new Set(doc.connections.filter((c) => c.agent?.rel === "uses-file").map((c) => c.to));
+  const deliveredBy = new Set(doc.connections.filter((c) => c.agent?.rel === "produces").map((c) => c.to));
+  const outPaths = new Map<string, string[]>();
+  for (const n of nodes.filter((n) => n.agent?.role === "output" && n.agent.fileName?.trim())) outPaths.set(n.agent!.fileName!.trim(), [...(outPaths.get(n.agent!.fileName!.trim()) ?? []), n.id]);
+  for (const n of nodes.filter((n) => n.agent?.role === "file" || n.agent?.role === "output")) {
+    const spec = n.agent as AgentNodeSpec;
+    const kind = spec.fileKind ?? (spec.role === "output" ? "json" : undefined);
+    const fromName = spec.fileName ? kindOfFileName(spec.fileName) : undefined;
+    if (spec.role === "file") {
+      if (!spec.fileContent) add("A025", "aviso", `${quote(n)}: arquivo sem conteúdo — ele não vai para o harness; anexe o arquivo`, n.id);
+      if (!readFiles.has(n.id)) add("A026", "aviso", `${quote(n)}: arquivo que nenhum agent lê (sem seta uses-file) — não entra no harness de nenhum agente`, n.id);
+    } else {
+      if (!deliveredBy.has(n.id)) add("A027", "aviso", `${quote(n)}: saída que nenhum agent entrega (sem seta produces)`, n.id);
+      const path = spec.fileName?.trim();
+      if (path && outPaths.get(path)!.length > 1) add("A028", "aviso", `${quote(n)}: ${outPaths.get(path)!.length} saídas gravam em "${path}"; cada uma precisa de um arquivo próprio`, n.id);
+      const bad = path ? outputPathError(path) : undefined;
+      if (bad) add("A030", "erro", `${quote(n)}: ${bad}`, n.id);
+    }
+    if (spec.fileName?.trim() && fromName && kind && fromName !== kind) add("A029", "aviso", `${quote(n)}: o nome "${spec.fileName}" tem extensão de ${fromName}, mas o formato é ${kind}`, n.id);
+    if (spec.role === "output" && spec.fileName?.trim() && !extOf(spec.fileName)) add("A029", "aviso", `${quote(n)}: fileName "${spec.fileName}" sem extensão; a saída sai sem formato reconhecível`, n.id);
+    if (spec.role === "output" && !spec.fileName?.trim()) add("A029", "aviso", `${quote(n)}: saída sem fileName; ela será gravada como ${n.id}.${fileExt(spec)}`, n.id);
   }
 
   // A003 skill órfã: nem uses-skill de algum agent, nem dentro do grupo Global
@@ -262,12 +308,13 @@ export function agentIssues(doc: Doc): Issue[] {
 
   // A018 relação sem «como usa»: o destino só tem a própria description, que não diz como ESTE agente o usa
   for (const c of doc.connections) {
-    if (!c.agent?.rel || c.agent.rel === "runs-on" || c.agent.rel === "step" || !agentRelAllows(c.agent.rel, agentRelEnd(doc, c.from), agentRelEnd(doc, c.to))) continue;
+    if (!c.agent?.rel || c.agent.rel === "runs-on" || c.agent.rel === "step" || c.agent.rel === "start" || c.agent.rel === "produces" || !agentRelAllows(c.agent.rel, agentRelEnd(doc, c.from), agentRelEnd(doc, c.to))) continue;
     const usage = c.agent.usage?.trim() ?? "";
     const from = byId.get(c.from);
     const to = byId.get(c.to);
     const where = `${from ? quote(from) : c.from} —${c.agent.rel}→ ${to ? quote(to) : c.to}`;
-    if (!usage) add("A018", "aviso", `${where}: sem «usage» — descreva como o agente usa ${c.agent.rel === "delegates" ? "o outro agente (o que delega e o que espera de volta)" : "a skill (quando a puxa e para quê)"}; isso vai para o corpo do agente no harness`, c.id);
+    const what = c.agent.rel === "delegates" ? "o outro agente (o que delega e o que espera de volta)" : c.agent.rel === "uses-file" ? "o arquivo (o que lê nele e para quê)" : "a skill (quando a puxa e para quê)";
+    if (!usage) add("A018", "aviso", `${where}: sem «usage» — descreva como o agente usa ${what}; isso vai para o corpo do agente no harness`, c.id);
     else if (usage.length < 15) add("A018", "aviso", `${where}: «usage» curto demais para orientar o agente; diga o quando e o para quê`, c.id);
   }
 
@@ -376,7 +423,10 @@ export function schemaGuideAgents(): string {
     '`toolType: "native"` + `toolName` (Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch, NotebookEdit, TodoWrite, Agent) ou `toolType: "mcp"` com `transport` (stdio: `command` + `args`; http/sse: `url`), `env`/`headers` (segredos SEMPRE como `${VAR}`, aviso/erro A011 se vier em texto puro) e `mcpTools` (tools que o servidor expõe, opcional). O id do nó MCP é o nome do servidor (`mcp__<id>__<tool>`): use um slug estável. Claude Code: nativa vira `tools:` do agente; MCP ligado a UM agente vira `mcpServers` inline (isolado, não gasta contexto da sessão principal); MCP no Global ou usado por 2+ agentes vai para `.mcp.json` (o agente o referencia por nome). Se o agente não tem nenhuma tool nativa, `tools:` é omitido (herda todas, inclusive MCP). Cursor: `.cursor/mcp.json` vale para o projeto todo (sem isolamento por agente).',
     "",
     "## Prompts e workflows (`agent.role: \"prompt\"` / `\"workflow\"`)",
-    "Não entram no harness exportado: são executados no terminal do Claude Code do app. `prompt` leva `text` (aceita `{{variável}}`); `runs-on` (prompt → agent) faz o texto sair como «Use o subagente <agent> para: …». `workflow` junta prompts por setas `step` (workflow → prompt) com `order` (1, 2, 3…) e `mode` (`manual` | `auto`); todos os passos compartilham uma conversa. Regras A020 (prompt sem text), A021 (runs-on para vários agentes), A022 (workflow sem passos).",
+    "Não entram no harness exportado: são executados no terminal do Claude Code do app. `prompt` leva `text` (aceita `{{variável}}`); `runs-on` (prompt → agent) faz o texto sair como «Use o subagente <agent> para: …». `workflow` junta prompts por setas `step` (workflow → prompt) com `order` (1, 2, 3…), `mode` (`manual` | `auto`) e `expects` opcional (arquivos que o passo precisa gerar, relativos à raiz do projeto, com `*`/`?` dentro de uma pasta, ex.: `[\"post/copy.md\", \"post/slides/slide-*.png\"]`: na execução do canvas, o passo que sai com 0 sem ter gravado algum deles falha com «não gerou: …»); todos os passos compartilham uma conversa. Regras A020 (prompt sem text), A021 (runs-on para vários agentes), A022 (workflow sem passos).",
+    "",
+    "## Arquivos (`agent.role`: \"file\" e \"output\")",
+    "`file` é uma referência que o agente lê: `fileKind` (json | csv | xlsx | md | html | image), `fileName` (nome original) e `fileContent` (texto; base64 em xlsx e image). Ligado por `uses-file` (agent → file), com `usage` dizendo o que o agente lê nele e o que muda com base nele. `output` é o componente de saída, como o nó de response do n8n: `fileKind` do que o agente entrega, `fileName` (caminho de saída relativo à raiz do projeto, ex.: `relatorio.md`) e `fileContent` opcional (arquivo modelo, a especificação da saída). Ligado por `produces` (agent → output). No harness os arquivos vão para `.claude/files/` (ou `.cursor/files/`). Regras A025–A030; teto de ${AGENT_FILE_MAX_CHARS} caracteres por arquivo.",
     "",
     "## Escopo global",
     'Uma skill DENTRO de um grupo `kind: "global"` vale para TODOS os agentes do harness, sem precisar de seta `uses-skill`. Uma skill fora do Global só é usada pelo(s) agente(s) ligados a ela por essa seta; sem seta e fora do Global, a skill não entra em nenhum harness exportado (aviso A003).',

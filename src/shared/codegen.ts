@@ -15,7 +15,9 @@ import { docMode, type Doc, type DddRole, type GroupEl, type NodeEl, type Proper
 
 export interface GeneratedFile {
   path: string;
+  /** texto UTF-8, ou base64 quando `encoding` é "base64" (planilha e imagem) */
   content: string;
+  encoding?: "base64";
 }
 
 /** Linguagens suportadas. Hoje só TypeScript; a lista existe para o MCP/UI recusarem o resto com uma mensagem clara. */
@@ -389,5 +391,5 @@ export function generateCode(doc: Doc, language: CodegenLanguage = "typescript")
 
 /** Formato para ler/copiar: um bloco por arquivo, com o caminho no título. */
 export function filesToMarkdown(files: GeneratedFile[]): string {
-  return files.map((f) => `### ${f.path}\n\`\`\`${f.path.endsWith(".md") ? "md" : "ts"}\n${f.content.trimEnd()}\n\`\`\``).join("\n\n");
+  return files.map((f) => (f.encoding === "base64" ? `### ${f.path}\n_Arquivo binário (${Math.round((f.content.length * 3) / 4 / 1024)} KB), não exibido aqui._` : `### ${f.path}\n\`\`\`${f.path.endsWith(".md") ? "md" : "ts"}\n${f.content.trimEnd()}\n\`\`\``)).join("\n\n");
 }

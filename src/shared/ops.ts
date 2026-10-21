@@ -76,7 +76,7 @@ export type Op =
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
   | { op: "layout"; style?: "flow" | "timeline" | "pipeline" | "grouped"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
-  | { op: "set_meta"; title?: string; description?: string; mode?: DocMode }
+  | { op: "set_meta"; title?: string; description?: string; mode?: DocMode; showDescriptions?: boolean }
   | { op: "set_tour"; steps: TourStep[] }
   | { op: "clear" };
 
@@ -162,6 +162,29 @@ export function restack(doc: Doc, owner: NodeEl) {
     e.x = owner.x + EP_INDENT;
     e.y = owner.y + owner.h + 10 + i * (ENDPOINT_H + EP_GAP);
   });
+}
+
+const isSideRole = (role: string | undefined) => isDataRole(role) || role === "scenario";
+
+/**
+ * Recalcula o tamanho dos elementos de lógica pelo conteúdo. Dados e cenários ficam empilhados em colunas nas laterais do
+ * fluxo: quando um deles cresce ou encolhe (a descrição abre ou fecha), quem está abaixo na mesma coluna acompanha,
+ * para os cartões não se sobreporem.
+ */
+export function resizeLogic(doc: Doc, nodes: NodeEl[]) {
+  const names = dataNames(doc);
+  const changed: { x1: number; x2: number; bottom: number; delta: number }[] = [];
+  for (const n of nodes) {
+    const s = logicSize(n, names, doc.showDescriptions);
+    if (!s) continue;
+    if (isSideRole(n.logic?.role) && s.h !== n.h) changed.push({ x1: n.x, x2: n.x + n.w, bottom: n.y + n.h, delta: s.h - n.h });
+    Object.assign(n, s);
+  }
+  if (!changed.length) return;
+  const side = doc.nodes.filter((n) => isSideRole(n.logic?.role));
+  const shifts = side.map((m) => changed.reduce((a, c) => (m.x < c.x2 && m.x + m.w > c.x1 && m.y >= c.bottom - 1 ? a + c.delta : a), 0));
+  side.forEach((m, i) => (m.y += shifts[i]));
+  for (const p of new Set(side.map((m) => m.parent))) fitGroup(doc, p);
 }
 
 /** Recalcula o retângulo de um grupo `auto` para conter os filhos (e propaga para os ancestrais). */
@@ -258,7 +281,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const allowed = MODE_KINDS[docMode(doc)];
       if (allowed && !allowed.includes(kind)) return { ok: false, error: `componente "${kind}"${asset ? ` (asset "${asset.id}")` : ""} não existe no modo ${docMode(doc)}. Neste modo só entram: ${allowed.join(", ")}. Crie um diagrama de arquitetura para componentes de infraestrutura.` };
       const isEp = kind === "endpoint";
-      const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic } as NodeEl, dataNames(doc)) : undefined;
+      const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic, description: op.description } as NodeEl, dataNames(doc), doc.showDescriptions) : undefined;
       const w = lsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
       const h = lsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
       let pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : undefined;
@@ -272,7 +295,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         label,
         kind,
         asset: asset?.id,
-        technology: op.technology ?? (!isEp && asset && asset.name !== label && asset.category !== "Genéricos" ? asset.name : undefined),
+        technology: op.technology ?? (agent ? AGENT_ROLES[agent.role].label : !isEp && asset && asset.name !== label && asset.category !== "Genéricos" ? asset.name : undefined),
         description: op.description,
         parent,
         props: op.props,
@@ -468,7 +491,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if ("ddd" in patch && patch.ddd == null) delete el.ddd;
       if ("logic" in patch && patch.logic == null) delete el.logic;
       if ("agent" in patch && patch.agent == null) delete el.agent;
-      if (isNode && "logic" in patch && el.logic) Object.assign(el, logicSize(el, dataNames(doc))); // o cartão acompanha o texto
+      if (isNode && ("logic" in patch || "label" in patch || "description" in patch) && el.logic) resizeLogic(doc, [el as NodeEl]); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("parent" in patch) {
         if (el.parent && (!doc.groups.some((g) => g.id === el.parent) || el.parent === el.id || isContainerOf(doc, el.id, el.parent))) {
@@ -576,6 +599,11 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (op.mode !== "architecture" && op.mode !== "domain" && op.mode !== "logic" && op.mode !== "agents") return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain, logic, agents` };
         if (op.mode === "domain" || op.mode === "logic" || op.mode === "agents") doc.mode = op.mode;
         else delete doc.mode;
+      }
+      if (op.showDescriptions != null) {
+        if (op.showDescriptions) doc.showDescriptions = true;
+        else delete doc.showDescriptions;
+        resizeLogic(doc, doc.nodes.filter((n) => n.logic));
       }
       return { ok: true };
     case "set_tour": {
@@ -1180,12 +1208,6 @@ export function normalizeDoc(raw: any): Doc {
   // modo Logic: o antigo `fact` virou Input, Output ou Variable (pelo uso no fluxo)
   if (out.mode === "logic") out.nodes = migrateFacts(out.nodes, out.connections);
   // modo Logic: o tamanho dos elementos vem do conteúdo; arquivos gravados por versões anteriores são ajustados ao abrir
-  if (out.mode === "logic" && out.nodes.some((n: NodeEl) => n.logic)) {
-    const names = dataNames(out);
-    for (const n of out.nodes as NodeEl[]) {
-      const s = n.logic ? logicSize(n, names) : undefined;
-      if (s) Object.assign(n, s);
-    }
-  }
+  if (out.mode === "logic" && out.nodes.some((n: NodeEl) => n.logic)) resizeLogic(out, (out.nodes as NodeEl[]).filter((n) => n.logic));
   return out;
 }

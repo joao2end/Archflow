@@ -221,6 +221,8 @@ export function useHotkeys() {
       const mod = e.ctrlKey || e.metaKey;
       const s = getState();
       if (e.code === "Space") {
+        // Espaço em botão, summary, radio… é do próprio controle (ativar); só o quadro usa o Espaço para mover a tela
+        if (e.target instanceof HTMLElement && e.target.closest("button, summary, a[href], select, [role=button], [role=radio], [role=checkbox], [role=tab], [role=menuitem]")) return;
         space = true;
         e.preventDefault();
         return;

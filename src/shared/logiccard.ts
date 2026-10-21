@@ -305,8 +305,29 @@ export const scenarioTitle = (n: NodeEl): string[] => wrapLabel(n.label, 31, 2);
 /** Cenário de falha: algum exemplo espera que o fluxo termine em erro. */
 export const isFailureScenario = (n: NodeEl): boolean => n.logic?.role === "scenario" && (n.logic.examples ?? []).some((e) => e.expect.desfecho === "erro");
 
-/** Tamanho que um componente de lógica deve ter no quadro. */
-export function logicSize(n: NodeEl, names: Record<string, string> = {}): { w: number; h: number } | undefined {
+/** Altura de cada linha da descrição nos cartões de dado e de cenário. */
+export const DESC_LINE_H = 14;
+/** Até quantas linhas a descrição completa ocupa (o resto vai no tooltip e no inspetor). */
+const DESC_MAX = 12;
+
+/**
+ * Descrição de um dado (Input/Output/Variable) ou de um cenário, quebrada para caber no cartão. Fechada, é uma linha só
+ * (com reticências); com `full` (botão «Visualizar descrições»), o texto inteiro.
+ */
+export function descLines(n: NodeEl, full = false): string[] {
+  const l = n.logic;
+  if (!l || !(isDescRole(l.role))) return [];
+  const text = (l.text ?? n.description ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return [];
+  const chars = l.role === "scenario" ? Math.floor((SCENARIO_W - 58 - 14) / 6.3) : Math.floor((FACT_W - 32 - 12) / 6.3);
+  if (!full) return [truncate(text, chars)];
+  return wrapLabel(text, chars, DESC_MAX);
+}
+const isDescRole = (role: string) => role === "input" || role === "output" || role === "variable" || role === "scenario";
+const descH = (lines: string[]) => (lines.length ? lines.length * DESC_LINE_H + 4 : 0);
+
+/** Tamanho que um componente de lógica deve ter no quadro. `fullDesc`: descrições completas (Doc.showDescriptions). */
+export function logicSize(n: NodeEl, names: Record<string, string> = {}, fullDesc = false): { w: number; h: number } | undefined {
   const l = n.logic;
   if (!l) return undefined;
   switch (l.role) {
@@ -317,9 +338,9 @@ export function logicSize(n: NodeEl, names: Record<string, string> = {}): { w: n
     case "input":
     case "output":
     case "variable":
-      return { w: FACT_W, h: FACT_H };
+      return { w: FACT_W, h: FACT_H + descH(descLines(n, fullDesc)) };
     case "scenario":
-      return { w: SCENARIO_W, h: 40 + scenarioTitle(n).length * 15 };
+      return { w: SCENARIO_W, h: 40 + scenarioTitle(n).length * 15 + descH(descLines(n, fullDesc)) };
     case "decision":
     case "switch":
     case "loop":

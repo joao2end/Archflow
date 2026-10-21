@@ -6,7 +6,7 @@
  * e chegam por um carregador, para o app buscá-los só quando a pessoa instalar (não entram no pacote principal).
  */
 import { ARCH_EXAMPLES } from "./arch.examples";
-import { DDD_EXAMPLES, EXAMPLES_DIR, buildExample, examplePath } from "./examples";
+import { DDD_EXAMPLES, EXAMPLES_DIR, buildExampleFile, examplePath } from "./examples";
 import { pricingDoc } from "./logic.example";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
@@ -83,7 +83,11 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
   });
 
   const domain: CatalogExample[] = byLevel(DDD_EXAMPLES).map((ex) => {
-    const docs = buildExample(ex);
+    // os caminhos vêm do exemplo; os diagramas só são montados (e guardados) quando alguém os abre — montar todos na carga do app custava ~9 s
+    const docs = ex.files.map((f) => {
+      let built: Doc | undefined;
+      return { path: examplePath(ex, f.file), doc: () => (built ??= buildExampleFile(ex, f)) };
+    });
     return {
       key: `domain:${ex.id}`,
       mode: "domain",
@@ -91,7 +95,7 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
       level: ex.level,
       summary: ex.summary,
       teaches: ex.teaches,
-      files: ex.files.map((f, i) => ({ title: f.title, path: docs[i].path, mode: f.mode, load: () => docs[i].doc })),
+      files: ex.files.map((f, i) => ({ title: f.title, path: docs[i].path, mode: f.mode, load: () => docs[i].doc() })),
       open: examplePath(ex, "visao-geral"),
       linked: true,
     };

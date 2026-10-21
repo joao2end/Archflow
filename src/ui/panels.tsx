@@ -342,6 +342,8 @@ export function ZoomBar() {
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const hasSel = useStore((s) => s.sel.length > 0);
+  const isLogic = useStore((s) => docMode(s.doc) === "logic");
+  const showDesc = useStore((s) => !!s.doc.showDescriptions);
   const zoomBy = zoomTo;
   return (
     <div className="hud glass zoombar">
@@ -362,6 +364,22 @@ export function ZoomBar() {
       <button className="btn ghost icon" onClick={() => (hasSel ? fitSelection() : fitView())} aria-label={hasSel ? "Ajustar à seleção" : "Ajustar à tela"} aria-keyshortcuts={hasSel ? "Shift+F" : "F"} data-tip={hasSel ? "Ajustar à seleção (Shift+F)\nF enquadra o diagrama inteiro." : "Ajustar à tela (F)"} data-tip-pos="top">
         <Glyph name="fit" size={17} />
       </button>
+      {isLogic && (
+        <>
+          <div className="sep" style={{ margin: "6px 4px" }} />
+          <button
+            className={`btn ghost icon${showDesc ? " active" : ""}`}
+            onClick={() => run([{ op: "set_meta", showDescriptions: !showDesc }])}
+            aria-pressed={showDesc}
+            aria-label="Visualizar descrições"
+            data-tip={`Visualizar descrições: ${showDesc ? "completas" : "uma linha"}
+Entradas, resultados, variáveis e cenários. Clique para ${showDesc ? "resumir" : "ver o texto inteiro"}.`}
+            data-tip-pos="top"
+          >
+            <Glyph name="desc" size={17} />
+          </button>
+        </>
+      )}
     </div>
   );
 }

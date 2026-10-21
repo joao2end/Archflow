@@ -45,7 +45,10 @@ function stable(v: unknown): string {
   return JSON.stringify(v);
 }
 
-const sha = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+const sha = (s: string | Buffer) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+
+/** Bytes que o harness grava: UTF-8 para texto, o binário decodificado para planilha e imagem. */
+const bytesOf = (f: GeneratedFile) => Buffer.from(f.content, f.encoding === "base64" ? "base64" : "utf8");
 
 export function readManifest(dir: string): Manifest {
   try {
@@ -57,7 +60,7 @@ export function readManifest(dir: string): Manifest {
   return { schema: "archflow-agents/1", files: {} };
 }
 
-function write(path: string, data: string) {
+function write(path: string, data: string | Buffer) {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.tmp-${process.pid}`;
   writeFileSync(tmp, data);
@@ -146,13 +149,14 @@ export function syncHarness(dir: string, files: GeneratedFile[], roots: string[]
 
   for (const f of files.filter((f) => !isMerge(f.path))) {
     const abs = join(dir, ...f.path.split("/"));
-    const hash = sha(f.content);
-    const disk = existsSync(abs) ? readFileSync(abs, "utf8") : undefined;
-    if (disk === f.content) {
+    const bytes = bytesOf(f);
+    const hash = sha(bytes);
+    const disk = existsSync(abs) ? readFileSync(abs) : undefined;
+    if (disk?.equals(bytes)) {
       out.unchanged.push(f.path);
       next[f.path] = hash;
     } else if (disk === undefined || force || (manifest.files[f.path] && manifest.files[f.path] === sha(disk))) {
-      write(abs, f.content);
+      write(abs, bytes);
       out.written.push(f.path);
       next[f.path] = hash;
     } else out.conflicts.push(f.path);
@@ -162,7 +166,7 @@ export function syncHarness(dir: string, files: GeneratedFile[], roots: string[]
   for (const path of Object.keys(manifest.files).filter((p) => inRoots(p) && !isMerge(p) && !keep.has(p))) {
     const abs = join(dir, ...path.split("/"));
     if (!existsSync(abs)) delete next[path];
-    else if (force || sha(readFileSync(abs, "utf8")) === manifest.files[path]) {
+    else if (force || sha(readFileSync(abs)) === manifest.files[path]) {
       unlinkSync(abs);
       pruneEmpty(dir, path);
       out.removed.push(path);
@@ -194,7 +198,7 @@ export function harnessDiff(dir: string, files: GeneratedFile[], roots: string[]
   }
   for (const f of files.filter((f) => !isMerge(f.path))) {
     const abs = join(dir, ...f.path.split("/"));
-    if (!existsSync(abs) || readFileSync(abs, "utf8") !== f.content) stale.push(f.path);
+    if (!existsSync(abs) || !readFileSync(abs).equals(bytesOf(f))) stale.push(f.path);
   }
   const keep = new Set(files.map((f) => f.path));
   for (const path of Object.keys(manifest.files).filter((p) => inRoots(p) && !isMerge(p) && !keep.has(p))) if (existsSync(join(dir, ...path.split("/")))) stale.push(path);

@@ -70,6 +70,7 @@ const GLYPHS: Record<string, string[]> = {
   "file-plus": ["M6 3h8l4 4v14H6z", "M14 3v4h4", "M12 11v6", "M9 14h6"],
   eraser: ["M7 21h13", "M5.5 13.5l7-7a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L11 20H8l-2.5-2.5a2 2 0 0 1 0-2.8z", "M9 9l6 6"],
   text: ["M5 6V4h14v2", "M12 4v16", "M9 20h6"],
+  desc: ["M4 6h16", "M4 10h16", "M4 14h12", "M4 18h7"],
   list: ["M9 6h11", "M9 12h11", "M9 18h11", "M4 6h.01", "M4 12h.01", "M4 18h.01"],
   pen: ["M4 20l1-4L16 5l3 3L8 19z", "M14 7l3 3"],
   highlighter: ["M9 11l4 4", "M5 19l4-1 9-9-3-3-9 9z", "M3 21h8"],

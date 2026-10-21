@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AGENT_RELS, AGENT_REL_KEYS, AGENT_ROLES, AGENT_ROLE_KEYS, MCP_TRANSPORTS, NATIVE_TOOLS, NATIVE_TOOL_NAMES, type McpTransport, type AgentNodeSpec, type AgentRel, type AgentRole, type ConnectionEl, type NodeEl } from "../shared/schema";
+import { AGENT_FILE_KINDS, AGENT_FILE_KIND_KEYS, AGENT_FILE_MAX_CHARS, AGENT_RELS, AGENT_REL_KEYS, AGENT_ROLES, AGENT_ROLE_KEYS, MCP_TRANSPORTS, NATIVE_TOOLS, NATIVE_TOOL_NAMES, type AgentFileKind, type McpTransport, type AgentNodeSpec, type AgentRel, type AgentRole, type ConnectionEl, type NodeEl } from "../shared/schema";
+import { imageMime, kindOfFileName } from "../shared/agentfiles";
 import { mcpVars } from "../shared/mcpcatalog";
 import { isOrchestrator, testPrompt } from "../shared/agentprompt";
 import { inGlobalGroup, looksLikeSecret, reshapeAgent, suggestAgentRels, workflowSteps } from "../shared/agents";
+import { checkExpects } from "../shared/expects";
 import { promptVars } from "../shared/prompts";
 import { SKILL_CATALOG, catalogEntryToSource, mergeSkillCatalog, parseSkillGithubUrl, resolveSkillSource, searchSkillCatalog, skillInstallSlug, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { renderMarkdown } from "./markdown";
@@ -49,6 +51,98 @@ export function AgentFields({ node, patch }: { node: NodeEl; patch: Patch }) {
       {agent.role === "tool" && <ToolRoleFields node={node} agent={agent} upd={upd} patch={patch} />}
       {agent.role === "prompt" && <PromptRoleFields node={node} agent={agent} upd={upd} />}
       {agent.role === "workflow" && <WorkflowRoleFields node={node} agent={agent} upd={upd} />}
+      {(agent.role === "file" || agent.role === "output") && <FileRoleFields agent={agent} upd={upd} />}
+    </>
+  );
+}
+
+/* ───────── nó file / output ───────── */
+
+/** Lê o arquivo escolhido: texto como está (UTF-8); planilha e imagem em base64, sem o prefixo do data URL. */
+function readUpload(file: File, binary: boolean): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result);
+      resolve(binary ? s.slice(s.indexOf(",") + 1) : s);
+    };
+    r.onerror = () => reject(r.error);
+    if (binary) r.readAsDataURL(file);
+    else r.readAsText(file, "utf-8");
+  });
+}
+
+const ALL_FILE_ACCEPT = AGENT_FILE_KIND_KEYS.map((k) => AGENT_FILE_KINDS[k].accept).join(",");
+
+/**
+ * Nó `file` (referência que o agente lê) e `output` (componente de saída, como o nó de response do n8n).
+ * Em `output` o arquivo anexado é o modelo da saída (a especificação); o nome é o caminho que o agente grava.
+ */
+function FileRoleFields({ agent, upd }: { agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
+  const isOutput = agent.role === "output";
+  const kind: AgentFileKind = agent.fileKind ?? "json";
+  const hasContent = !!agent.fileContent;
+  const sizeKb = hasContent ? Math.max(1, Math.round(((agent.fileContent!.length * (AGENT_FILE_KINDS[kind].binary ? 3 : 4)) / 4) / 1024)) : 0;
+
+  const changeKind = (next: AgentFileKind) => {
+    if (next === agent.fileKind) return;
+    // trocar entre texto e binário invalida o conteúdo já anexado (a codificação muda)
+    const crossed = AGENT_FILE_KINDS[next].binary !== AGENT_FILE_KINDS[kind].binary;
+    upd({ fileKind: next, ...(crossed && hasContent ? { fileContent: undefined } : {}) });
+  };
+
+  const attach = async (file: File | undefined) => {
+    if (!file) return;
+    const fromName = kindOfFileName(file.name);
+    if (!fromName) return toastError(`Formato sem suporte: ${file.name}. Aceitos: JSON, CSV, Excel (.xlsx), Markdown, HTML e imagens.`);
+    const binary = AGENT_FILE_KINDS[fromName].binary;
+    const content = await readUpload(file, binary).catch(() => undefined);
+    if (content === undefined) return toastError(`Não consegui ler ${file.name}.`);
+    if (content.length > AGENT_FILE_MAX_CHARS) return toastError(`${file.name} é grande demais para o diagrama (teto de ${AGENT_FILE_MAX_CHARS.toLocaleString("pt-BR")} caracteres depois de codificado).`);
+    // no output o nome é o caminho de saída: anexar o modelo não o troca
+    upd(isOutput ? { fileKind: fromName, fileContent: content } : { fileKind: fromName, fileName: file.name, fileContent: content });
+  };
+
+  return (
+    <>
+      <label className="field">
+        <span>{isOutput ? "Formato entregue" : "Formato do arquivo"}</span>
+        <select className="input" value={agent.fileKind ?? ""} onChange={(e) => changeKind(e.target.value as AgentFileKind)}>
+          {!agent.fileKind && <option value="">{isOutput ? "JSON (padrão)" : "Escolha o formato…"}</option>}
+          {AGENT_FILE_KIND_KEYS.map((k) => (
+            <option key={k} value={k}>
+              {AGENT_FILE_KINDS[k].label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {isOutput && (
+        <label className="field">
+          <span>Arquivo de saída <small className="opt">caminho relativo à raiz do projeto</small></span>
+          <TextField value={agent.fileName ?? ""} placeholder="relatorio.md" onCommit={(v) => upd({ fileName: v.trim() || undefined })} />
+        </label>
+      )}
+      <div className="field">
+        <span>{isOutput ? "Modelo da saída" : "Arquivo"} <small className="opt">{isOutput ? "opcional: a especificação que o agente segue" : "JSON, CSV, Excel, Markdown, HTML ou imagem"}</small></span>
+        {hasContent && (
+          <>
+            {kind === "image" && <img alt={agent.fileName ?? "imagem"} src={`data:${imageMime(agent.fileName)};base64,${agent.fileContent}`} style={{ maxWidth: "100%", maxHeight: 160, borderRadius: 8, alignSelf: "flex-start" }} />}
+            <div className="callout" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {agent.fileName ?? (isOutput ? "modelo" : "arquivo")} · {AGENT_FILE_KINDS[kind].label} · ~{sizeKb} KB
+              </span>
+              <button className="btn ghost sm" onClick={() => upd(isOutput ? { fileContent: undefined } : { fileContent: undefined, fileName: undefined })}>Remover</button>
+            </div>
+          </>
+        )}
+        <input className="input" type="file" accept={ALL_FILE_ACCEPT} aria-label={isOutput ? "Anexar modelo da saída" : "Anexar arquivo"} onChange={(e) => { void attach(e.target.files?.[0]); e.target.value = ""; }} />
+      </div>
+      {kind === "xlsx" && hasContent && <div className="callout">Planilhas vão como estão: a tool Read do Claude Code não abre .xlsx, então o agente precisa de uma tool que a leia (ex.: Bash com Python).</div>}
+      {!isOutput && !hasContent && <div className="callout warn">Sem arquivo anexado ele não entra no harness (aviso A025).</div>}
+      <label className="field">
+        <span>{isOutput ? "O que entrega" : "Quando usar"} <small className="opt">opcional</small></span>
+        <TextField multiline value={agent.description ?? ""} placeholder={isOutput ? "Relatório de riscos, um item por linha" : "Schema de validação dos dados de entrada"} onCommit={(v) => upd({ description: v.trim() || undefined })} />
+      </label>
     </>
   );
 }
@@ -121,7 +215,7 @@ function WorkflowRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNo
         <span>Passos <small className="opt">(setas step)</small></span>
         {!steps.length && <div className="callout">Sem passos. Adicione prompts abaixo ou ligue o workflow a um prompt no canvas (A022).</div>}
         {steps.map((s, i) => (
-          <div key={s.conn} className="wf-step">
+          <div key={s.conn} className="wf-step wf-step-edit">
             <span className="wf-n">{i + 1}</span>
             <span className="wf-name" title={s.prompt.agent?.text}>{s.prompt.label}</span>
             <div className="tseg sm" role="radiogroup" aria-label={`Modo do passo ${i + 1}`}>
@@ -1056,7 +1150,9 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
   const doc = useStore((s) => s.doc);
   const a = conn.agent;
   const valid = suggestAgentRels(doc, conn.from, conn.to);
-  /** Regrava o `agent` da conexão mantendo o que já tinha (usage, allow, order, mode) e descartando vazios. */
+  /** erro do campo «Saídas esperadas» (o valor inválido não é gravado) */
+  const [expectsErr, setExpectsErr] = useState<string>();
+  /** Regrava o `agent` da conexão mantendo o que já tinha (usage, allow, order, mode, expects) e descartando vazios. */
   const upd = (p: Record<string, unknown>) => {
     const next: Record<string, unknown> = { ...a, ...p };
     for (const k of Object.keys(next)) {
@@ -1067,9 +1163,9 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
   };
   const setRel = (rel: AgentRel | "") => {
     if (!rel) return patch({ agent: null });
-    patch({ agent: { rel, ...(a?.usage ? { usage: a.usage } : {}), ...(rel === "uses-tool" && a?.allow?.length ? { allow: a.allow } : {}), ...(rel === "step" && a?.order ? { order: a.order } : {}), ...(rel === "step" && a?.mode ? { mode: a.mode } : {}) }, type: AGENT_RELS[rel].type });
+    patch({ agent: { rel, ...(a?.usage ? { usage: a.usage } : {}), ...(rel === "uses-tool" && a?.allow?.length ? { allow: a.allow } : {}), ...(rel === "step" && a?.order ? { order: a.order } : {}), ...(rel === "step" && a?.mode ? { mode: a.mode } : {}), ...(rel === "step" && a?.expects?.length ? { expects: a.expects } : {}) }, type: AGENT_RELS[rel].type });
   };
-  const needsUsage = a?.rel === "uses-skill" || a?.rel === "delegates" || a?.rel === "uses-tool";
+  const needsUsage = a?.rel === "uses-skill" || a?.rel === "delegates" || a?.rel === "uses-tool" || a?.rel === "uses-file";
   return (
     <>
       <label className="field">
@@ -1103,6 +1199,25 @@ export function AgentConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
               <button role="radio" aria-checked={a.mode === "auto"} className={a.mode === "auto" ? "on" : ""} title="Roda sozinho (claude -p) e segue ao terminar" onClick={() => upd({ mode: "auto" })}>Auto</button>
             </div>
           </div>
+          <label className="field">
+            <span>Saídas esperadas <small style={{ opacity: 0.7 }}>(uma por linha, relativas ao projeto; * e ? valem dentro de uma pasta)</small></span>
+            <TextField
+              multiline
+              mono
+              deferred
+              value={(a.expects ?? []).join("\n")}
+              placeholder={"post/copy.md\npost/slides/slide-*.png"}
+              onDraft={() => setExpectsErr(undefined)}
+              onCommit={(v) => {
+                const list = v.split("\n").map((s) => s.trim()).filter(Boolean);
+                const err = checkExpects(list);
+                setExpectsErr(err);
+                if (!err) upd({ expects: list });
+              }}
+            />
+            <small className="hint">Na execução do canvas, o passo que terminar sem ter gravado um destes arquivos falha com «não gerou: …».</small>
+          </label>
+          {expectsErr && <div className="callout warn" role="alert">{expectsErr} (não gravado)</div>}
         </>
       )}
       {a?.rel === "uses-tool" && doc.nodes.find((n) => n.id === conn.to)?.agent?.toolType === "mcp" && (

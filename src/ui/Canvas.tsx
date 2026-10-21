@@ -5,7 +5,7 @@ import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, docMode, isDataRole } from "../shar
 import { explain, parseExpr } from "../shared/expr";
 import { edgeIdsOf, dataNames, logicStatus, nextExit, relatedTo } from "../shared/logic";
 import { coverageGaps } from "../shared/logiceval";
-import { HEAD_H, LOGIC_ICON, figureText, isFailureScenario, ruleCard, scenarioTitle } from "../shared/logiccard";
+import { DESC_LINE_H, FACT_H, HEAD_H, LOGIC_ICON, descLines, figureText, isFailureScenario, logicSize, ruleCard, scenarioTitle } from "../shared/logiccard";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { truncate, wrapLabel } from "../shared/text";
 import { FONT_CSS, parseInline, parseRich, plainText, type BlockKind, type Span } from "../shared/richtext";
@@ -21,6 +21,7 @@ import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
 import { inkPath, strokeAttrs } from "./ink";
+import { useEdgeRunMark, useNodeRunMark } from "./agentrun";
 
 const GROUP_COLORS: Record<string, string> = {
   boundary: "#706fd3",
@@ -187,6 +188,8 @@ function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: nu
  */
 const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status, gap, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names: Record<string, string>; viz?: Viz; badge?: number }) {
   const l = n.logic!;
+  // descrição completa quando o cartão tem a altura dela (Doc.showDescriptions); vale também no visualizador e na exportação
+  const fullDesc = (isDataRole(l.role) || l.role === "scenario") && n.h >= (logicSize(n, NO_NAMES, true)?.h ?? Infinity);
   const role = LOGIC_ROLES[l.role];
   const color = (l.role === "end" && l.outcome === "erro") || isFailureScenario(n) ? "#d6453d" : role.color;
   const icon = l.role === "end" ? (l.outcome === "erro" ? LOGIC_ICON["end-erro"] : LOGIC_ICON.end) : LOGIC_ICON[l.role];
@@ -263,18 +266,25 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
   /* dado: etiqueta compacta */
   if (isDataRole(l.role)) {
     const sub = l.key ?? n.id.replace(/-/g, "_");
+    const desc = descLines(n, fullDesc);
+    const mid = FACT_H / 2;
     return g(
       <>
-        <circle cx={18} cy={h / 2} r={5.5} fill={color} pointerEvents="none" />
-        <text x={32} y={h / 2 - 3} className="logic-title" style={{ fontSize: 12.5 }} pointerEvents="none">
+        <circle cx={18} cy={mid} r={5.5} fill={color} pointerEvents="none" />
+        <text x={32} y={mid - 3} className="logic-title" style={{ fontSize: 12.5 }} pointerEvents="none">
           {wrapLabel(n.label, Math.floor((w - 44) / 7), 1)[0]}
         </text>
-        <text x={32} y={h / 2 + 12} className="logic-mono" pointerEvents="none">
+        <text x={32} y={mid + 12} className="logic-mono" pointerEvents="none">
           {truncate(sub, Math.floor((w - 44) / 6) - 4)}
         </text>
-        <text x={w - 10} y={h / 2 + 12} textAnchor="end" className="logic-mono" style={{ fontWeight: 700, fill: color }} pointerEvents="none">
+        <text x={w - 10} y={mid + 12} textAnchor="end" className="logic-mono" style={{ fontWeight: 700, fill: color }} pointerEvents="none">
           {role.badge}
         </text>
+        {desc.map((t, k) => (
+          <text key={k} x={32} y={FACT_H + 6 + k * DESC_LINE_H} className="logic-desc" pointerEvents="none">
+            {t}
+          </text>
+        ))}
       </>,
     );
   }
@@ -282,17 +292,26 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
   /* cenário: botão de reproduzir + resumo */
   if (l.role === "scenario") {
     const canPlay = (l.examples?.length ?? 0) > 0;
+    const title = scenarioTitle(n);
+    const desc = descLines(n, fullDesc);
+    // o botão fica centrado no cabeçalho (título), não no cartão inteiro: a descrição aberta cresce para baixo
+    const head = 40 + title.length * 15;
     return g(
       <>
         <g className={canPlay ? "logic-play" : undefined} role={canPlay ? "button" : undefined} aria-label={canPlay ? `Reproduzir o cenário ${n.label}` : undefined} onPointerDown={canPlay ? (e) => e.stopPropagation() : undefined} onClick={canPlay ? (e) => (e.stopPropagation(), startPlay(n.id)) : undefined} style={canPlay ? { cursor: "pointer" } : undefined}>
           <title>{canPlay ? "Reproduzir: mostra o caminho percorrido no fluxo" : "Sem exemplo para reproduzir"}</title>
-          <circle className="logic-play-shadow" cx={30} cy={h / 2 + 3} r={18} fill="#000" fillOpacity={0.2} />
-          <circle className="logic-play-disc" cx={30} cy={h / 2} r={18} fill={color} />
-          <path d={`M${25},${h / 2 - 8} L${37},${h / 2} L${25},${h / 2 + 8} Z`} fill="#fff" />
+          <circle className="logic-play-shadow" cx={30} cy={head / 2 + 3} r={18} fill="#000" fillOpacity={0.2} />
+          <circle className="logic-play-disc" cx={30} cy={head / 2} r={18} fill={color} />
+          <path d={`M${25},${head / 2 - 8} L${37},${head / 2} L${25},${head / 2 + 8} Z`} fill="#fff" />
         </g>
         {cap(58, 20)}
-        {scenarioTitle(n).map((t, k) => (
+        {title.map((t, k) => (
           <text key={k} x={58} y={37 + k * 15} className="logic-title" style={{ fontSize: 12.5 }} pointerEvents="none">
+            {t}
+          </text>
+        ))}
+        {desc.map((t, k) => (
+          <text key={`d${k}`} x={58} y={head - 2 + k * DESC_LINE_H} className="logic-desc" pointerEvents="none">
             {t}
           </text>
         ))}
@@ -422,6 +441,7 @@ export const ViewerAssets = createContext<Asset[] | null>(null);
 
 export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, gap, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names?: Record<string, string>; viz?: Viz; badge?: number }) {
   const extra = useContext(ViewerAssets);
+  const runMark = useNodeRunMark(n.id);
   const asset = extra?.find((a) => a.id === n.asset) ?? lookupAsset(n.asset);
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
@@ -429,7 +449,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, st
   if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
-    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}${runMark ? ` run-${runMark}` : ""}`}>
       {n.ref && (
         <>
           <rect className="ref-page" x={14} y={-12} width={n.w - 28} height={n.h} rx={16} pointerEvents="none" opacity={0.45} />
@@ -928,6 +948,8 @@ function Marker({ type }: { type: ConnectionType }) {
 
 /** Pílula do rótulo de uma conexão: texto completo (a largura vem da medida real do texto) e marca de interface. */
 function LabelPill({ c, mid }: { c: ConnectionEl; mid: Pt }) {
+  // uses-tool: o nó da tool já diz o nome; o rótulo cobria os nós em times com várias tools (D-12). A relação segue no inspetor.
+  if (c.agent?.rel === "uses-tool") return null;
   const ls = labelSize(c);
   if (!ls) return null;
   const { text, sub, w, h } = ls;
@@ -967,8 +989,9 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
   const color = fl?.color ?? t.color;
   const pid = `p-${c.id}`;
   const motion = !fl && animate && c.animated !== false ? t.motion : "none";
+  const runFlow = useEdgeRunMark(c.id);
   return (
-    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}${fl ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: color }}>
+    <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}${fl ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}${runFlow ? " run-flow" : ""}`} style={{ ["--ec" as string]: color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke" />
       {selected && <path d={d} className="edge-glow" fill="none" stroke={color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
       <path
@@ -1749,7 +1772,9 @@ export function Canvas() {
 
   const onDoubleClick = (e: React.MouseEvent) => {
     if (getState().present) return;
-    const t = targetOf(e.target);
+    // o svg captura o ponteiro no mousedown (setPointerCapture), então o dblclick chega com target = svg: vale o elemento sob o ponto
+    const hit = (e.target as Element).closest?.("[data-role]") ? e.target : (document.elementFromPoint(e.clientX, e.clientY) ?? e.target);
+    const t = targetOf(hit);
     if (t?.role === "wp" && t.id) {
       // duplo clique num ponto de passagem o remove
       const idx = Number(((e.target as Element).closest("[data-role]") as SVGElement).dataset.idx);

@@ -118,15 +118,9 @@ type AgentRel = "uses-skill" | "delegates";
       Nesta fase também entrou a renomeação «cofre» → «projeto» em todo o app (rotas
       `/api/projects/*`, `/api/project/docs`, `src/ui/localProject.ts`, `.archflow/project.json`),
       com migração do `config.json` e das chaves do IndexedDB.
-- [ ] Fase 7 — manifesto `archflow.agents.json`, `import_harness`, detecção de hash/drift
-- [ ] Fase 8 — testes (`agents.test.ts`, `agentgen.test.ts`, `zip.test.ts`, golden, e2e)
+- [x] Fase 7 — manifesto `archflow.agents.json` e drift (`server/harnesssync.ts`, 11 testes); `import_harness` (`src/shared/agentimport.ts`, rota `POST /api/harness/import`, tool MCP e botão «Importar do projeto»)
+- [x] Fase 8 — testes: unitários em `agents.scenarios.test.ts`, `agents.test.ts`, `agentgen.test.ts`, `zip.test.ts`, golden; E2E por roteiros em `docs/agents-scenarios.md` (matriz de cenários)
 
 ## Instrução para o próximo tick do loop
 
-Leia este arquivo. Pegue a primeira fase não marcada em "Progresso". Trabalhe nela até terminar ou
-até um ponto seguro de parar (build verde). Marque o checkbox com o que foi feito e o que falta,
-rode `npx tsc --noEmit` e `npm test`, comite (mensagem curta em inglês, estilo do `git log`), e só
-depois **rearme o próximo tick** (mesmo mecanismo: shell em background com `sleep` + `echo` do
-sentinel `AGENT_LOOP_WAKE_agents_mode`, `notify_on_output` com o mesmo padrão) antes de terminar o
-turno. Não reabra as "Decisões fechadas" sem perguntar ao usuário. Se travar numa decisão que não
-está nas "Decisões fechadas", pare o loop (não rearme) e pergunte.
+O loop atual é o de testes: `docs/AGENTS_E2E_LOOP_PROMPT.md`, agendado com `ScheduleWakeup` (300 s). Este arquivo não guia mais o loop; o estado das fases está acima. (O mecanismo antigo, sentinela `AGENT_LOOP_WAKE_agents_mode` com `notify_on_output`, foi descontinuado.)

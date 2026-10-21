@@ -16,7 +16,8 @@
  */
 import { inGlobalGroup } from "./agents";
 import type { GeneratedFile } from "./codegen";
-import { NATIVE_TOOLS, docMode, type Doc, type NodeEl } from "./schema";
+import { AGENT_FILE_KINDS, NATIVE_TOOLS, docMode, type Doc, type NodeEl } from "./schema";
+import { fileExt } from "./agentfiles";
 
 export type HarnessTarget = "claude" | "cursor";
 
@@ -190,7 +191,11 @@ function agentFile(doc: Doc, node: NodeEl, target: HarnessTarget): string {
   const delegates = delegatesOf(doc, node.id);
   const links = toolsOf(doc, node.id).filter((l) => !isMcp(l.node) || mcpReady(l.node));
   // `tools:` é lista de permissão: sem nenhuma tool nativa ela é omitida (herda tudo, inclusive MCP)
-  const natives = [...new Set([...(spec.tools ?? []), ...links.filter((l) => !isMcp(l.node) && l.node.agent?.toolName).map((l) => l.node.agent!.toolName!).sort()])];
+  const refs = filesOf(doc, node.id, "uses-file").filter((x) => x.node.agent?.role === "file" && x.node.agent.fileContent);
+  const outs = filesOf(doc, node.id, "produces").filter((x) => x.node.agent?.role === "output");
+  // com lista de tools, Read (para ler a referência) e Write (para entregar a saída) entram junto; sem lista, herda todas
+  const base = [...new Set([...(spec.tools ?? []), ...links.filter((l) => !isMcp(l.node) && l.node.agent?.toolName).map((l) => l.node.agent!.toolName!).sort()])];
+  const natives = base.length ? [...new Set([...base, ...(refs.length ? ["Read"] : []), ...(outs.length ? ["Write"] : [])])] : base;
   const mcp = links.filter((l) => isMcp(l.node));
   const mcpNames = mcp.flatMap((l) => (l.allow.length ? l.allow.map((a) => `mcp__${l.node.id}__${a}`) : [`mcp__${l.node.id}`]));
   const toolList = natives.length ? (target === "claude" ? [...natives, ...mcpNames] : natives) : undefined;
@@ -228,11 +233,50 @@ function agentFile(doc: Doc, node: NodeEl, target: HarnessTarget): string {
     const how = links.filter((l) => l.usage);
     if (how.length) parts.push(["## Como usar as ferramentas", "", ...how.map((l) => bullet(toolLabel(l), toolWhat(l), l.usage))].join("\n"));
   }
+  const root = rootOf(target);
+  if (refs.length) {
+    const lines = refs.map(({ node: f, usage }) => `- \`${root}/files/${f.id}.${fileExt(f.agent!)}\` (${kindLabel(f)}${f.agent!.fileName ? `, ${f.agent!.fileName}` : ""}): ${usage || "referência para esta tarefa"}${f.agent!.description ? ` _(${brief(f.agent!.description)})_` : ""}`);
+    parts.push(["## Arquivos de referência", "", "Leia estes arquivos antes de agir: são a fonte do que você altera ou do formato que segue.", "", ...lines].join("\n"));
+  }
+  if (outs.length) {
+    const lines = outs.map(({ node: o, usage }) => {
+      const spec = o.agent!;
+      const model = spec.fileContent ? ` Siga o modelo em \`${root}/files/${o.id}.${fileExt(spec)}\`.` : "";
+      return `- Grave em \`${spec.fileName?.trim() || `${o.id}.${fileExt(spec)}`}\` no formato ${kindLabel(o)}.${model}${usage ? ` ${usage}` : ""}${spec.description ? ` _(${brief(spec.description)})_` : ""}`;
+    });
+    parts.push(["## Saída", "", "Entregue o resultado exatamente neste arquivo e formato:", "", ...lines].join("\n"));
+  }
   if (delegates.length) {
     const lines = delegates.map((d) => bullet(d.id, d.agent?.description ?? d.label, usageOf(doc, node.id, d.id, "delegates")));
     parts.push(["## Delegação", "", "Você pode delegar para:", "", ...lines].join("\n"));
   }
   return head + (parts.length ? `${parts.join("\n\n")}\n` : "");
+}
+
+/* ───────── arquivos (nós file e output) ───────── */
+
+const kindLabel = (n: NodeEl) => AGENT_FILE_KINDS[n.agent?.fileKind ?? "json"].label;
+
+/** Arquivos ligados a `from` por `rel` (uses-file ou produces), com o «como usa» da seta. */
+function filesOf(doc: Doc, from: string, rel: "uses-file" | "produces"): { node: NodeEl; usage: string }[] {
+  return doc.connections
+    .filter((c) => c.from === from && c.agent?.rel === rel)
+    .map((c) => ({ node: doc.nodes.find((n) => n.id === c.to), usage: (c.agent?.usage ?? "").replace(/\s*\n\s*/g, " ").trim() }))
+    .filter((x): x is { node: NodeEl; usage: string } => !!x.node?.agent)
+    .sort((a, b) => byId(a.node, b.node));
+}
+
+/** Conteúdo dos arquivos que entram no harness: referências (uses-file) e modelos de saída (produces), só os que têm conteúdo. */
+function linkedFiles(doc: Doc, root: string): GeneratedFile[] {
+  const linked = new Set(doc.connections.filter((c) => c.agent?.rel === "uses-file" || c.agent?.rel === "produces").map((c) => c.to));
+  return doc.nodes
+    .filter((n) => (n.agent?.role === "file" || n.agent?.role === "output") && n.agent.fileContent && linked.has(n.id))
+    .sort(byId)
+    .map((n) => ({
+      path: `${root}/files/${n.id}.${fileExt(n.agent!)}`,
+      content: n.agent!.fileContent!,
+      ...(AGENT_FILE_KINDS[n.agent!.fileKind ?? "json"].binary ? { encoding: "base64" as const } : {}),
+    }));
 }
 
 /** Arquivos do harness para um alvo. Ordem estável por caminho. */
@@ -243,6 +287,7 @@ export function generateHarness(doc: Doc, target: HarnessTarget): GeneratedFile[
     ...agents(doc).map((n) => ({ path: `${root}/agents/${n.id}.md`, content: agentFile(doc, n, target) })),
     ...exportedSkills(doc).map((n) => ({ path: `${root}/skills/${n.id}/SKILL.md`, content: skillFile(n) })),
     ...(mcpFile(doc, target) ? [mcpFile(doc, target)!] : []),
+    ...linkedFiles(doc, rootOf(target)),
   ];
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }

@@ -44,6 +44,8 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
   const execRef = useRef<{ id: string; stepIndex: number } | undefined>(undefined);
   /** a aba interativa da conversa (passos manuais); fica aberta entre manuais e é fechada antes de um passo automático */
   const chatRef = useRef<{ id: string; sessionId: string } | undefined>(undefined);
+  /** quantas vezes cada passo já abriu uma aba nesta execução (para titular a repetição) */
+  const tries = useRef<Record<number, number>>({});
   const permRef = useRef(perm);
   permRef.current = perm;
   // ferramentas liberadas sem perguntar (--allowedTools): escolhidas entre as do diagrama, lembradas por projeto
@@ -83,14 +85,23 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
     setMsg(undefined);
     setView("form");
   }, []);
-  // «Executar» do inspetor: abre o formulário do workflow pedido
-  const lastFocus = useRef(0);
+  // «Executar» do inspetor: abre o formulário do workflow pedido. Só depende do pedido (`focus`), não da biblioteca: no StrictMode
+  // (dev) os efeitos rodam duas vezes e o efeito de «outro projeto» acima fecharia o formulário; rodar de novo o reabre.
+  const libRef = useRef(lib);
+  libRef.current = lib;
   useEffect(() => {
-    if (!focus || focus.n === lastFocus.current) return;
-    lastFocus.current = focus.n;
-    const w = lib.workflows.find((x) => x.id === focus.id);
-    if (w) open(w);
-  }, [focus, lib, open]);
+    if (!focus) return;
+    const w = libRef.current.workflows.find((x) => x.id === focus.id);
+    if (!w) return;
+    open(w);
+    // o foco vai para o primeiro campo do formulário (quem usa o teclado segue digitando); sem campos, fica onde estava
+    const t = setTimeout(() => {
+      // só se o usuário ainda não foi para outro campo do formulário (digitar rápido não pode ser interrompido)
+      if (document.activeElement?.closest(".prompts-side .pane-body")) return;
+      document.querySelector<HTMLInputElement>(".prompts-side .pane-body input.input")?.focus();
+    }, 60);
+    return () => clearTimeout(t);
+  }, [focus, open]);
 
   const doEffect = useCallback(
     async function exec(effect: RunEffect): Promise<void> {
@@ -100,7 +111,9 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
         for (const e of effect.effects) await exec(e);
         return;
       }
-      const title = effect.type === "abort" ? r.workflowName : `${r.workflowName} · ${effect.stepIndex + 1}/${r.steps.length}`;
+      // «Voltar» refaz passos: a aba da repetição leva «(2ª vez)» para não haver duas abas com o mesmo título
+      const times = effect.type === "abort" ? 0 : (tries.current[effect.stepIndex] = (tries.current[effect.stepIndex] ?? 0) + 1);
+      const title = effect.type === "abort" ? r.workflowName : `${r.workflowName} · ${effect.stepIndex + 1}/${r.steps.length}${times > 1 ? ` (${times}ª vez)` : ""}`;
       const perm = [...(permRef.current ? ["--permission-mode", permRef.current] : []), ...(allowedRef.current.length ? ["--allowedTools", allowedRef.current.join(",")] : [])];
       if (effect.type === "abort") {
         const e = execRef.current;
@@ -122,6 +135,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
         if (effect.first) setRun({ ...r, sessionId });
         const s = await term.startInteractive([fresh ? "--session-id" : "--resume", sessionId, ...perm], asBracketedPaste(effect.text), title);
         if (!s) return dispatchRef.current({ type: "stop" }); // não abriu (limite, claude ausente…): o erro aparece no painel
+        if (runRef.current?.steps[effect.stepIndex]?.status !== "waiting") return void (await term.closeSession(s.id)); // parou enquanto abria
         chatRef.current = { id: s.id, sessionId };
         return;
       }
@@ -138,6 +152,8 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
       const args = ["-p", fresh ? "--session-id" : "--resume", sessionId, ...perm, "--", effect.text];
       const s = await term.startExec(args, title);
       if (!s) return dispatchRef.current({ type: "autoDone", code: -2 }); // não abriu (limite, claude ausente…): o passo falha
+      // «Parar» (ou «Voltar») durante a abertura da sessão: o aborto não achou nada para fechar; fecha a que acabou de nascer
+      if (runRef.current?.steps[effect.stepIndex]?.status !== "running") return void (await term.closeSession(s.id));
       execRef.current = { id: s.id, stepIndex: effect.stepIndex };
     },
     [term, setRun],
@@ -188,6 +204,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
   const begin = (l: PromptLibrary, id: string, vals: Record<string, string>) => {
     const r = startRun(l, id, vals, crypto.randomUUID());
     if (!r.ok) return setMsg(r.error);
+    tries.current = {};
     setMsg(undefined);
     setRun(r.run);
     void doEffect(r.effect);
@@ -208,7 +225,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
 
   // ── execução: o cartão ocupa a lateral inteira ──
   if (run && pr && av) {
-    const chip = { done: "Concluído", failed: "Falhou", stopped: "Parado", waiting: "Aguardando você", running: "Rodando" }[run.state];
+    const chip = { done: "Concluído", failed: "Falhou", stopped: "Parado", waiting: "Aguardando você", running: "Rodando", paused: "Pausado" }[run.state];
     return (
       <>
         <PaneHead title={run.workflowName} onBack={closeRun}>
@@ -220,7 +237,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
             {run.steps.map((s, i) => (
               <li key={i} className={`wf-s ${s.status}${i === run.current ? " cur" : ""}`}>
                 <span className="wf-ico" aria-hidden>{ICON[s.status]}</span>
-                <span className="wf-sname">{s.name}</span>
+                <span className="wf-sname" title={s.name}>{s.name}</span>
                 <small>{s.mode === "auto" ? "auto" : "manual"}{s.code !== undefined && s.code !== 0 ? ` · código ${s.code}` : ""}{s.status === "skipped" ? " · pulado" : ""}</small>
                 {canGoto(run, i) && (
                   <button className="btn ghost icon sm" aria-label={`Voltar para o passo ${i + 1}: ${s.name}`} title="Voltar para este passo: ele e os seguintes são refeitos, na mesma conversa" onClick={() => dispatch({ type: "goto", index: i })}>↺</button>
@@ -231,6 +248,18 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
                     <pre>{s.result}</pre>
                     <small className="hint">Nos passos seguintes: <code>{"{{anterior}}"}</code> ou <code>{`{{resultado.${s.promptId}}}`}</code></small>
                     <button className="btn ghost sm" onClick={() => void navigator.clipboard?.writeText(s.result!)}>Copiar</button>
+                  </details>
+                )}
+                {!!s.history?.length && (
+                  <details className="wf-res">
+                    <summary title="Respostas deste passo antes de você voltar a ele. Ficam só como consulta: não entram em {{anterior}} nem em {{resultado.…}}.">respostas anteriores · {s.history.length}</summary>
+                    {[...s.history].reverse().map((h, k) => (
+                      <div key={k}>
+                        <small className="hint">{k === 0 ? "tentativa anterior" : `${k + 1} tentativas atrás`} · {h.length.toLocaleString("pt-BR")} caracteres</small>
+                        <pre>{h}</pre>
+                        <button className="btn ghost sm" onClick={() => void navigator.clipboard?.writeText(h)}>Copiar</button>
+                      </div>
+                    ))}
                   </details>
                 )}
               </li>

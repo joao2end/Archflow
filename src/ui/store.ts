@@ -1146,6 +1146,8 @@ export const HARNESS_TARGETS: { id: HarnessTarget; label: string; root: string }
 
 /** Alvos que o projeto regrava sozinho a cada edição do diagrama (`.archflow/project.json`). */
 export const loadHarnessSync = () => call<{ targets: HarnessTarget[] }>("/api/harness/settings").then((r) => r.targets);
+/** Igual a `loadHarnessSync`, mais se o projeto foi configurado (sem isso o bridge não regrava sozinho). */
+export const loadHarnessSyncState = () => call<{ targets: HarnessTarget[]; configured: boolean }>("/api/harness/settings");
 export const saveHarnessSync = (targets: HarnessTarget[]) =>
   guard(async () => {
     const r = await call<{ targets: HarnessTarget[] }>("/api/harness/settings", { targets });
@@ -1174,6 +1176,20 @@ function download(name: string, blob: Blob) {
  * Com um projeto em disco aberto, grava o harness dentro dele (`.claude/` ou `.cursor/`), que é onde o
  * Claude Code e o Cursor procuram. Sem servidor local (modo navegador), baixa a mesma árvore em um .zip.
  */
+/** Lê o harness de .claude/ do projeto aberto e aplica as ops no diagrama (preview do bridge + run; desfazível). */
+export const importHarness = () =>
+  guard(async () => {
+    if (!(state.storage === "server" && state.online)) return void toastError("Importar do projeto precisa do projeto aberto em disco (npm run dev).");
+    const r = await call<{ ops: Op[]; skipped: string[]; read: string[] }>("/api/harness/import", {}).catch((e: Error) => {
+      if (/rota não encontrada/.test(e.message)) throw new Error("O servidor local é de uma versão anterior: reinicie o npm run dev e tente de novo.");
+      throw e;
+    });
+    if (!r.ops.length) return void toast("Nada para importar: não há agentes nem skills em .claude/");
+    const results = run(r.ops);
+    const failed = results.filter((x) => !x.ok).length;
+    toast(`Importado de .claude/: ${results.length - failed} de ${results.length} operações aplicadas${failed ? `; ${failed} recusadas` : ""}${r.skipped.length ? `. Não volta: ${r.skipped[0]}${r.skipped.length > 1 ? ` (+${r.skipped.length - 1})` : ""}` : ""}`);
+  });
+
 export const exportHarness = (target: HarnessTarget) =>
   guard(async () => {
     const label = HARNESS_TARGETS.find((t) => t.id === target)!;
@@ -1185,7 +1201,8 @@ export const exportHarness = (target: HarnessTarget) =>
     const files = harnessFiles(target);
     if (!files.length) return void toastError("Nada a gerar: o diagrama precisa ter agentes ou skills exportáveis (modo agents).");
     const base = (state.doc.title || "harness").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "harness";
-    download(`${base}-${target}.zip`, new Blob([zip(files) as unknown as BlobPart], { type: "application/zip" }));
+    const entries = files.map((f) => ({ path: f.path, content: f.encoding === "base64" ? Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0)) : f.content }));
+    download(`${base}-${target}.zip`, new Blob([zip(entries) as unknown as BlobPart], { type: "application/zip" }));
     toast(`Harness ${label.label} baixado (${files.length} arquivo(s))`);
     return true;
   });

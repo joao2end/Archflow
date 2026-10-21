@@ -6,12 +6,13 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchHarnessStatus, fetchTermInfo, killTermSession, syncHarnessNow, type ClaudeStatus, type HarnessStatus, startTermSession, TermApiError, TermConnection, type StartOptions, type TermSessionInfo } from "./termclient";
 import { Glyph } from "./icons";
 import { MoreMenu } from "./panekit";
 import { PromptsSidebar, type RunTarget } from "./prompts";
 import { emitTermExit } from "./termevents";
+import type { TermApi } from "./workflow";
 import { getState, runInTerminal, set as setStore, useStore } from "./store";
 
 const HEIGHT_KEY = "archflow.term.height";
@@ -94,7 +95,10 @@ function TermView({ session, active, onExit }: { session: string; active: boolea
       } catch {
         /* sem layout */
       }
-      term.current?.focus();
+      // não rouba o foco de quem está digitando num formulário (ex.: as variáveis do workflow): o texto iria parar no Claude
+      const a = document.activeElement;
+      const typing = a instanceof HTMLElement && a.matches("input, textarea, select, summary") && !a.closest(".term-view");
+      if (!typing) term.current?.focus();
     });
   }, [active]);
 
@@ -114,7 +118,8 @@ const explain = (e: unknown): string => {
   return e instanceof Error ? e.message : String(e);
 };
 
-export function TerminalPanel() {
+/** `onApi`: entrega uma API estável do terminal a quem roda workflows fora deste painel (a execução no canvas). */
+export function TerminalPanel({ onApi }: { onApi?: (api: TermApi) => void } = {}) {
   const open = useStore((s) => s.termOpen);
   const [sessions, setSessions] = useState<(TermSessionInfo & { code?: number })[]>([]);
   const [activeId, setActiveId] = useState<string>();
@@ -144,6 +149,16 @@ export function TerminalPanel() {
   };
   /** sessões abertas com texto a digitar: só nelas a dica do «trust» faz sentido */
   const [prefillIds, setPrefillIds] = useState<ReadonlySet<string>>(new Set());
+  /** a dica do «trust» só serve no começo da sessão: some sozinha 20 s depois (sem gravar «não mostrar mais») */
+  const [hintGone, setHintGone] = useState<ReadonlySet<string>>(new Set());
+  const hintTimers = useRef(new Set<string>());
+  useEffect(() => {
+    for (const id of prefillIds) {
+      if (hintTimers.current.has(id)) continue;
+      hintTimers.current.add(id);
+      setTimeout(() => setHintGone((g) => new Set(g).add(id)), 20_000);
+    }
+  }, [prefillIds]);
   const [promptsOpen, setPromptsOpen] = useState(() => {
     try {
       return localStorage.getItem("archflow.term.prompts") === "1";
@@ -329,8 +344,23 @@ export function TerminalPanel() {
     activate: (id: string) => setActiveId(id),
     closeSession: (id: string) => close(id),
   };
+  // o objeto acima nasce a cada render; quem está fora do painel recebe um que sempre delega para o mais recente
+  const apiRef = useRef(termApi);
+  apiRef.current = termApi;
+  const stableApi = useMemo<TermApi>(
+    () => ({
+      startExec: (args, title) => apiRef.current.startExec(args, title),
+      startInteractive: (args, prefill, title) => apiRef.current.startInteractive(args, prefill, title),
+      isAlive: (id) => apiRef.current.isAlive(id),
+      sendText: (id, text) => apiRef.current.sendText(id, text),
+      activate: (id) => apiRef.current.activate(id),
+      closeSession: (id) => apiRef.current.closeSession(id),
+    }),
+    [],
+  );
+  useEffect(() => onApi?.(stableApi), [onApi, stableApi]);
   // um aviso por vez, pelo que mais atrapalha: erro > claude ausente > harness velho > resultado da sincronização > dica do trust
-  const trustHint = !hintOff && sessions.some((s) => prefillIds.has(s.id) && s.code === undefined);
+  const trustHint = !hintOff && sessions.some((s) => prefillIds.has(s.id) && !hintGone.has(s.id) && s.code === undefined);
   const staleHarness = harness?.applicable && (harness.stale.length > 0 || harness.foreign);
   const notice: Notice | undefined = error
     ? { tone: "error", text: error, dismiss: () => setError(undefined) }

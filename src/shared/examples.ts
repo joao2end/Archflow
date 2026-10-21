@@ -923,13 +923,16 @@ export function buildExampleDoc(f: ExampleFile, description?: string): Doc {
   return doc;
 }
 
+/** Um diagrama de um exemplo (aplica as ops e o layout: é a parte cara, ~1–2 s por arquivo; por isso o catálogo só chama isto quando o exemplo é aberto). */
+export function buildExampleFile(ex: DddExample, f: ExampleFile): Doc {
+  const doc = buildExampleDoc(f, f.file === "visao-geral" ? `${ex.title}: mapa de contextos. ${ex.summary}` : undefined);
+  doc.id = `ddd-${ex.id}-${f.file}`; // estável: o mesmo exemplo gera sempre o mesmo arquivo
+  return doc;
+}
+
 /** Todos os diagramas de um exemplo, com o caminho que terão no projeto. */
 export function buildExample(ex: DddExample): { path: string; doc: Doc }[] {
-  return ex.files.map((f) => {
-    const doc = buildExampleDoc(f, f.file === "visao-geral" ? `${ex.title}: mapa de contextos. ${ex.summary}` : undefined);
-    doc.id = `ddd-${ex.id}-${f.file}`; // estável: o mesmo exemplo gera sempre o mesmo arquivo
-    return { path: examplePath(ex, f.file), doc };
-  });
+  return ex.files.map((f) => ({ path: examplePath(ex, f.file), doc: buildExampleFile(ex, f) }));
 }
 
 /** Slug do título de um arquivo: o app cria o arquivo a partir do título, então precisa coincidir com `file`. */

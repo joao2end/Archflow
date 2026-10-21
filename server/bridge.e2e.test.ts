@@ -114,6 +114,37 @@ test("harness: target inválido e diagrama que não é modo agents voltam com er
   assert.match(wrong.json.error, /modo "architecture"/);
 });
 
+test("import: o harness gravado volta como ops de preview; só o /api/ops altera o diagrama", async () => {
+  assert.equal((await put({ doc: agentDoc(), source: "test" })).status, 200);
+  const before = await api<{ doc: Doc }>("/api/doc");
+  const imp = await api<{ ops: Op[]; skipped: string[]; read: string[] }>("/api/harness/import", {});
+  assert.equal(imp.status, 200);
+  assert.deepEqual(imp.json.read.sort(), [".claude/agents/revisor.md", ".claude/skills/checklist/SKILL.md"]);
+  const kinds = imp.json.ops.map((o) => o.op);
+  assert.ok(kinds.filter((k) => k === "add_node").length === 2, "dois nós: agente e skill");
+  assert.ok(imp.json.ops.some((o) => o.op === "add_connection"), "uses-skill vindo do skills:");
+  const after = await api<{ doc: Doc }>("/api/doc");
+  assert.deepEqual(after.json.doc.nodes, before.json.doc.nodes, "o preview não mexe no diagrama");
+
+  const applied = await api<{ results: { ok: boolean }[] }>("/api/ops", { ops: imp.json.ops, source: "test" });
+  assert.equal(applied.json.results.length, imp.json.ops.length);
+});
+
+test("settings: o harness informa se o projeto está configurado (sem isso a sincronização automática não grava)", async () => {
+  const r = await fetch(`${BASE}/api/harness/settings`);
+  const j = (await r.json()) as { targets: string[]; configured: boolean };
+  assert.equal(typeof j.configured, "boolean");
+  assert.ok(Array.isArray(j.targets));
+});
+
+test("import: fora do modo agents ou sem projeto em disco, erro explicativo", async () => {
+  assert.equal((await put({ doc: emptyDoc("Arquitetura"), source: "test" })).status, 200);
+  const wrong = await api<{ error: string }>("/api/harness/import", {});
+  assert.equal(wrong.status, 422);
+  assert.match(wrong.json.error, /modo "architecture"/);
+  assert.equal((await put({ doc: agentDoc(), source: "test" })).status, 200);
+});
+
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const until = async (cond: () => boolean, ms = 4000) => {
   for (let t = 0; t < ms && !cond(); t += 100) await sleep(100);
@@ -175,7 +206,8 @@ test("probe: exige confirmação explícita e devolve as tools do servidor", asy
   assert.equal(ok.json.server.name, "fake-mcp");
   const quebrado = await api<{ error: string }>("/api/mcp/probe", { transport: "stdio", command: "comando-que-nao-existe-archflow", confirm: true });
   assert.equal(quebrado.status, 502);
-  assert.match(quebrado.json.error, /não deu para executar/);
+  // Windows: o cmd responde "não é reconhecido…" e o servidor sai com código ≠ 0; POSIX: spawn falha (ENOENT)
+  assert.match(quebrado.json.error, /não deu para executar|encerrou antes de responder/);
   assert.equal((await api("/api/mcp/probe", { command: 5, confirm: true })).status, 400);
 });
 
@@ -261,4 +293,22 @@ test("prompts: biblioteca por projeto, normalizada, em .archflow/prompts.json", 
   // arquivo corrompido não derruba: volta vazio
   writeFileSync(join(root, ".archflow", "prompts.json"), "{ nao e json");
   assert.deepEqual((await api<Lib>("/api/prompts")).json.library.prompts, []);
+});
+
+test("saídas esperadas: /api/project/outputs diz quais padrões não têm arquivo modificado desde `since`", async () => {
+  const created = await api<{ project: { path: string } }>("/api/projects/create", { name: "ComSaidas", parent: tmp });
+  const root = created.json.project.path;
+  mkdirSync(join(root, "post", "slides"), { recursive: true });
+  writeFileSync(join(root, "post", "index.html"), "<p>antigo</p>");
+  const since = Date.now() + 50;
+  await new Promise((r) => setTimeout(r, 80));
+  writeFileSync(join(root, "post", "copy.md"), "# copy");
+  const patterns = ["post/copy.md", "post/index.html", "post/slides/slide-*.png"];
+  const r = await api<{ missing: string[] }>("/api/project/outputs", { patterns, since });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.missing, ["post/index.html", "post/slides/slide-*.png"], "index.html é anterior ao passo; nenhum PNG");
+  writeFileSync(join(root, "post", "slides", "slide-1.png"), "png");
+  assert.deepEqual((await api<{ missing: string[] }>("/api/project/outputs", { patterns, since })).json.missing, ["post/index.html"]);
+  // padrão fora do projeto é recusado
+  assert.equal((await api("/api/project/outputs", { patterns: ["../fora.md"], since })).status, 400);
 });

@@ -15,10 +15,11 @@ import { chmodSync, existsSync, readdirSync, readFileSync, statSync } from "node
 import { homedir } from "node:os";
 import type { IncomingMessage } from "node:http";
 import { createRequire } from "node:module";
-import { delimiter, dirname, join } from "node:path";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
 import { createStreamFormatter } from "./streamfmt";
+import { permissionReport, type PermissionReport } from "../src/shared/agentrun";
 
 /** Subconjunto de `node-pty` que usamos (o módulo é nativo e carregado sob demanda). */
 interface Pty {
@@ -126,7 +127,7 @@ export const parseClaudeVersion = (out: string): string | undefined => /\b(\d+\.
 const runClaudeVersion: RunVersion = () =>
   new Promise((ok) => {
     // fixo, sem entrada do usuário; no Windows o `claude` é um .cmd e precisa de shell
-    execFile("claude", ["--version"], { timeout: 8000, shell: process.platform === "win32", windowsHide: true }, (err, stdout) =>
+    execFile(claudeOverride() ?? "claude", ["--version"], { timeout: 8000, shell: process.platform === "win32", windowsHide: true }, (err, stdout) =>
       ok(err ? { error: err.message.split("\n")[0] } : { stdout: String(stdout) }),
     );
   });
@@ -135,12 +136,25 @@ let claudeCache: { at: number; status: ClaudeStatus } | undefined;
 const CLAUDE_TTL = 30_000;
 
 /**
+ * `ARCHFLOW_CLAUDE_BIN`: caminho absoluto de um executável que substitui o `claude` do PATH (testes e o loop de revisão usam um
+ * `claude` de mentira, scripts/fake-claude.mjs). Vem do ambiente de quem sobe o bridge, nunca do cliente.
+ */
+const claudeOverride = (): string | undefined => {
+  const v = process.env.ARCHFLOW_CLAUDE_BIN?.trim();
+  return v && isAbsolute(v) && existsSync(v) ? v : undefined;
+};
+
+/**
  * Comando que o PTY deve spawnar. No Windows o node-pty não aplica PATHEXT, então `claude`
  * não resolve: o instalador nativo publica `claude.exe` e o npm publica `claude.cmd`.
  * A ordem segue o PATH e, em cada pasta, o PATHEXT (.exe, .bat, .cmd).
  */
 export function resolveClaudeCommand(opts?: { platform?: NodeJS.Platform; path?: string; exists?: (file: string) => boolean }): string {
   const platform = opts?.platform ?? process.platform;
+  if (!opts) {
+    const o = claudeOverride();
+    if (o) return o;
+  }
   if (platform !== "win32") return "claude";
   const path = opts?.path ?? process.env.PATH ?? process.env.Path ?? "";
   const exists = opts?.exists ?? existsSync;
@@ -326,10 +340,38 @@ export function spawnPiped(file: string, args: string[], text: string, cwd: stri
 }
 
 /**
+ * Ferramentas negadas por permissão na conversa `id` desde `since` (ms), contando os subagentes (`<id>/subagents/*.jsonl`).
+ * Base do «bloqueado por permissão» dos passos automáticos: o `claude -p` sai com 0 mesmo quando não pôde gravar nada.
+ * Cada arquivo é avaliado por si: quem teve a ferramenta negada é quem precisa ter contornado (ver `permissionReport`).
+ */
+export function permissionDenials(id: string, since = 0, base = "", configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude")): PermissionReport {
+  const out: PermissionReport = { blocking: [], warnings: [] };
+  if (!UUID_RE.test(id)) return out;
+  try {
+    const root = join(configDir, "projects");
+    const dir = readdirSync(root).find((d) => existsSync(join(root, d, `${id}.jsonl`)));
+    if (!dir) return out;
+    const files = [join(root, dir, `${id}.jsonl`)];
+    const subs = join(root, dir, id, "subagents");
+    if (existsSync(subs)) for (const f of readdirSync(subs)) if (f.endsWith(".jsonl")) files.push(join(subs, f));
+    for (const f of files) {
+      const r = permissionReport(readFileSync(f, "utf8"), since, base);
+      for (const d of r.blocking) if (!out.blocking.includes(d)) out.blocking.push(d);
+      for (const d of r.warnings) if (!out.warnings.includes(d)) out.warnings.push(d);
+    }
+    out.warnings = out.warnings.filter((w) => !out.blocking.includes(w));
+    return out;
+  } catch {
+    return out;
+  }
+}
+
+/**
  * Última resposta de texto do agente principal na conversa `id` (a memória do workflow): lê o `.jsonl` da conversa e pega a
  * última mensagem do assistente que tem texto, ignorando as dos subagentes (`isSidechain`) e as que só chamam ferramentas.
  * undefined se a conversa não existe ou ainda não tem resposta.
  */
+
 export function lastAssistantText(id: string, configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude")): string | undefined {
   if (!UUID_RE.test(id)) return undefined;
   try {

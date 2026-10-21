@@ -11,7 +11,7 @@ import { asBracketedPaste, normalizeLibrary, promptVars, renderPrompt, slugId, u
 import { libraryFromDoc } from "../shared/workflow";
 import { AGENT_RELS } from "../shared/schema";
 import type { Op } from "../shared/ops";
-import { run, select, toast, useStore } from "./store";
+import { run, select, set, toast, useStore } from "./store";
 import { PaneHead } from "./panekit";
 import { WorkflowsPane, type TermApi } from "./workflow";
 
@@ -96,21 +96,27 @@ export function PromptsSidebar({ projectId, canRunActive, onRun, term }: { proje
     setMsg(undefined);
   };
 
-  // «Executar» do inspetor de um nó prompt/workflow
-  const lastReq = useRef(0);
+  // «Executar» do inspetor de um nó prompt/workflow. Só depende do pedido: no StrictMode (dev) os efeitos rodam duas vezes e o
+  // efeito de «outro projeto» fecharia o formulário aberto; rodar de novo o reabre (por isso não há guarda de «pedido já tratado»).
+  const docRef = useRef(doc);
+  docRef.current = doc;
   useEffect(() => {
-    if (!request || request.n === lastReq.current) return;
-    lastReq.current = request.n;
-    const node = doc.nodes.find((n) => n.id === request.id);
+    if (!request) return;
+    const d = docRef.current;
+    const node = d.nodes.find((n) => n.id === request.id);
     if (node?.agent?.role === "prompt") {
-      const x = lib.prompts.find((q) => q.id === node.id);
+      const x = libraryFromDoc(d).prompts.find((q) => q.id === node.id);
       setTab("prompts");
       if (x) open(x);
     } else if (node?.agent?.role === "workflow") {
       setTab("workflows");
       setWfFocus({ n: request.n, id: node.id });
     }
-  }, [request, doc, lib]);
+    // tratado: limpa depois (não já, para o segundo disparo do StrictMode ainda enxergar o pedido), senão reabrir a barra o repetiria
+    const t = setTimeout(() => set({ runNodeRequest: null }), 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request]);
 
   const send = (x: Pick<SavedPrompt, "text" | "agent" | "name">, vals: Record<string, string>) => {
     const r = renderPrompt(x, vals);

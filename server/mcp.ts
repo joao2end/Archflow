@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
+import { AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -143,7 +143,7 @@ const logicNodeSchema = z
   .describe("modo logic: papel e campos (ver get_schema_guide)");
 const agentNodeSchema = z
   .object({
-    role: z.enum(AGENT_ROLE_KEYS as [string, ...string[]]).describe("agent = subagente · skill = conhecimento reutilizável · tool = ferramenta (nativa ou servidor MCP)"),
+    role: z.enum(AGENT_ROLE_KEYS as [string, ...string[]]).describe("agent = subagente · skill = conhecimento reutilizável · tool = ferramenta (nativa ou servidor MCP) · file = arquivo de referência (uses-file) · output = saída do agente, como o response do n8n (produces)"),
     description: z.string().optional().describe("agent: QUANDO o orquestrador deve delegar · skill: QUANDO o agente deve puxá-la"),
     model: z.string().optional().describe("agent: inherit | alias | id completo"),
     tools: z.array(z.string()).optional().describe("agent: tools permitidas; ausente = herda todas"),
@@ -160,6 +160,9 @@ const agentNodeSchema = z
     headers: z.record(z.string(), z.string()).optional().describe("tool mcp remoto: cabeçalhos; segredos como ${VAR}"),
     mcpTools: z.array(z.string()).optional().describe("tool mcp: tools que o servidor expõe (opcional)"),
     mcpSource: z.object({ catalog: z.enum(["curated", "registry", "pasted"]), id: z.string(), version: z.string().optional() }).optional().describe("tool mcp: origem no catálogo; ausente = escrito à mão"),
+    fileKind: z.enum(AGENT_FILE_KIND_KEYS as [string, ...string[]]).optional().describe("file/output: formato (json | csv | xlsx | md | html | image)"),
+    fileName: z.string().optional().describe("file: nome original · output: caminho de saída relativo à raiz do projeto (ex.: relatorio.md)"),
+    fileContent: z.string().optional().describe("file: conteúdo (texto; base64 em xlsx e image) · output: arquivo modelo opcional, a especificação da saída"),
   })
   .describe("modo agents (kind vira \"agent\")");
 
@@ -581,6 +584,27 @@ server.registerTool(
     return text(files.length ? `${files.length} arquivo(s)
 
 ${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem elementos de domínio (ou, no modo logic, passos do fluxo)");
+  },
+);
+
+server.registerTool(
+  "import_harness",
+  {
+    description:
+      "Modo agents: lê o harness Claude do projeto aberto (`.claude/agents/*.md` e `.claude/skills/<nome>/SKILL.md`) e devolve as ops que recriam agentes, skills, descriptions, model, o corpo do agente (prompt) e as ligações uses-skill. Por padrão só PREVIEW (não muda o diagrama). Com `apply: true` aplica as ops no diagrama aberto. Não volta: a «como usa» das setas, delegates, tools e mcpServers (vêm listados em `skipped`, para completar à mão).",
+    inputSchema: {
+      apply: z.boolean().optional().describe("true aplica as ops no diagrama aberto; padrão false (só preview)"),
+    },
+  },
+  async ({ apply }) => {
+    const r = (await post("/api/harness/import", {})) as { ops: Op[]; skipped: string[]; read: string[] };
+    const head = `lidos: ${r.read.length} arquivo(s) · ops: ${r.ops.length} · não importado: ${r.skipped.length}`;
+    const notes = r.skipped.length ? `\n\nNão importado (completar à mão):\n${r.skipped.map((s) => `- ${s}`).join("\n")}` : "";
+    if (!apply) return text(`${head}${notes}\n\nPreview: rode de novo com apply: true para aplicar.`);
+    if (!r.ops.length) return text(`${head}${notes}\n\nnada aplicado`);
+    const out = (await post("/api/ops", { ops: r.ops, source: "mcp" })) as { results: { ok: boolean; error?: string }[] };
+    const failed = out.results.map((x, i) => ({ x, i })).filter((p) => !p.x.ok);
+    return text(`${head}\naplicadas: ${out.results.length - failed.length} · recusadas: ${failed.length}${failed.map((p) => `\n- op ${p.i + 1}: ${p.x.error}`).join("")}${notes}`);
   },
 );
 

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { test } from "node:test";
 import { createStreamFormatter, formatEvent, summarizeInput } from "./streamfmt";
 import { spawnPiped, withStreamFlags } from "./terminal";
@@ -75,4 +76,20 @@ test("lastAssistantText: última resposta de texto do agente principal, sem suba
   assert.equal(lastAssistantText("nao-uuid", cfg), undefined);
   assert.equal(lastAssistantText("00000000-0000-4000-8000-000000000000", cfg), undefined);
   rmSync(cfg, { recursive: true, force: true });
+});
+
+test("ARCHFLOW_CLAUDE_BIN: um caminho absoluto existente substitui o claude do PATH; caminho inválido é ignorado", async () => {
+  const { resolveClaudeCommand } = await import("./terminal");
+  const prev = process.env.ARCHFLOW_CLAUDE_BIN;
+  try {
+    process.env.ARCHFLOW_CLAUDE_BIN = process.execPath;
+    assert.equal(resolveClaudeCommand(), process.execPath);
+    process.env.ARCHFLOW_CLAUDE_BIN = "relativo/claude";
+    assert.notEqual(resolveClaudeCommand(), "relativo/claude");
+    process.env.ARCHFLOW_CLAUDE_BIN = join(process.cwd(), "nao-existe", "claude");
+    assert.notEqual(resolveClaudeCommand(), process.env.ARCHFLOW_CLAUDE_BIN);
+  } finally {
+    if (prev === undefined) delete process.env.ARCHFLOW_CLAUDE_BIN;
+    else process.env.ARCHFLOW_CLAUDE_BIN = prev;
+  }
 });

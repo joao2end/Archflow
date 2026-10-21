@@ -31,7 +31,7 @@ export function logicLayout(doc: Doc): LogicPlan {
   const size = new Map<string, { w: number; h: number }>();
   const waypoints = new Map<string, { x: number; y: number }[]>();
   const dim = (n: NodeEl) => {
-    const s = logicSize(n, names) ?? { w: n.w, h: n.h };
+    const s = logicSize(n, names, doc.showDescriptions) ?? { w: n.w, h: n.h };
     size.set(n.id, s);
     return s;
   };
