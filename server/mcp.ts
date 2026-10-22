@@ -102,7 +102,7 @@ const modeEnum = z.enum(["architecture", "domain", "logic"]);
 const logicValue: z.ZodType = z.lazy(() => z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(logicValue), z.record(z.string(), logicValue)]));
 const logicNodeSchema = z
   .object({
-    role: z.enum(["start", "end", "action", "rule", "decision", "switch", "loop", "fork", "join", "call", "code", "input", "output", "variable", "scenario"]),
+    role: z.enum(["start", "end", "action", "rule", "table", "decision", "switch", "loop", "fork", "join", "call", "code", "input", "output", "variable", "scenario"]),
     on: z.string().optional().describe("switch: expressão que escolhe o caminho"),
     until: z.string().optional().describe("loop: condição de parada"),
     max: z.number().int().min(1).max(1000).optional().describe("loop: no máximo N voltas"),
@@ -135,7 +135,12 @@ const logicNodeSchema = z
     text: z.string().optional().describe("action/scenario/input/output/variable: a frase do negócio"),
     when: z.string().optional().describe("decision: a condição (vale = seta sim), ex.: tipo em [\"imagem\", \"trafego\"] e preco < 10. A action não tem condição: ponha uma decision antes dela"),
     then: z.array(z.string()).optional().describe("action: efeitos, ex.: [\"preco := max(preco, piso)\", \"travar preco\"]"),
-    examples: z.array(z.object({ name: z.string(), given: z.record(z.string(), logicValue), expect: z.record(z.string(), logicValue) })).optional().describe("action/decision/switch: exemplos do passo sozinho · scenario: exemplos da fila inteira"),
+    rows: z
+      .array(z.object({ when: z.string().describe("condição da linha"), then: z.array(z.string()).describe("efeitos quando a linha vale"), label: z.string().optional().describe("rótulo curto para o quadro (ex.: Até R$ 10)") }))
+      .optional()
+      .describe("table (tabela de decisão): linhas em ordem; vale a primeira verdadeira. Use no lugar de um switch cujos caminhos só atribuem valores: as faixas viram uma grade num cartão só"),
+    otherwise: z.array(z.string()).optional().describe("table: efeitos quando nenhuma linha vale (sem isso, é erro)"),
+    examples: z.array(z.object({ name: z.string(), given: z.record(z.string(), logicValue), expect: z.record(z.string(), logicValue) })).optional().describe("action/table/decision/switch: exemplos do passo sozinho · scenario: exemplos da fila inteira"),
     key: z.string().optional().describe("input/output/variable: nome nas expressões (preco_atual, categoria.margem)"),
     type: z.string().optional().describe("input/output/variable: tipo na sintaxe do TypeScript (number, int, float, boolean, string, string[], { preco: number; cupom?: string }[], \"a\" | \"b\"). O app confere o valor fixo e os exemplos e avisa (L026)"),
     value: logicValue.optional().describe("input/variable: valor fixo (na variável, o valor inicial)"),
@@ -287,6 +292,7 @@ server.registerTool(
           technology: z.string().optional().describe("stack/versão: 'Laravel 11 / PHP 8.3'"),
           description: z.string().optional().describe("responsabilidade do componente"),
           parent: z.string().optional(),
+          source: z.string().optional().describe("modo logic: de onde no código o passo veio, «arquivo:linha» ou «arquivo:inicio-fim» (ex.: src/pricing.ts:120-134)"),
           props: z.record(z.string(), z.string()).optional(),
           ref: z
             .object({ diagram: z.string().describe("caminho do diagrama relativo ao projeto (de list_diagrams)"), node: z.string().optional().describe("id de um componente dentro desse diagrama") })
@@ -326,7 +332,7 @@ server.registerTool(
 server.registerTool(
   "add_groups",
   {
-    description: "Cria grupos/fronteiras (cloud, network, layer, context, cluster, boundary, team). Podem ser aninhados via parent.",
+    description: "Cria grupos/fronteiras (cloud, network, layer, context, cluster, boundary, team). Podem ser aninhados via parent. No modo logic, um grupo com `stage` é uma ETAPA do fluxo (os passos entram nela com parent); recolhida, vira um cartão-resumo e as etapas recolhidas formam a visão geral.",
     inputSchema: {
       groups: z.array(
         z.object({
@@ -337,6 +343,10 @@ server.registerTool(
           description: z.string().optional(),
           parent: z.string().optional(),
           color: z.string().optional(),
+          stage: z
+            .object({ text: z.string().optional().describe("o que a etapa faz, em uma frase de negócio (aparece no cartão recolhido)"), collapsed: z.boolean().optional().describe("recolhida: o quadro mostra só o cartão-resumo") })
+            .optional()
+            .describe("modo logic: o grupo é uma etapa do fluxo (validar, calcular, arredondar…). Ponha os passos dentro com parent e rode auto_layout"),
         }),
       ),
     },

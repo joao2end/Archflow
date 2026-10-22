@@ -13,7 +13,8 @@ import { ToolModal } from "./mcpcatalog";
 import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
-import { HARNESS_TARGETS, allKnownAssets, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore } from "./store";
+import { OverviewTab, ScenarioMatrixTab } from "./logicoverview";
+import { HARNESS_TARGETS, allKnownAssets, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore, type LogicTab } from "./store";
 import type { HarnessTarget } from "../shared/agentgen";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
@@ -466,12 +467,12 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
 
 /* ───────── lógica: validação (com os exemplos rodando) e descrição ───────── */
 
-function LogicModal({ tab: initial }: { tab?: "issues" | "text" | "code" }) {
+function LogicModal({ tab: initial }: { tab?: LogicTab }) {
   const doc = useStore((s) => s.doc);
-  const [tab, setTab] = useState<"issues" | "text" | "code">(initial ?? "issues");
+  const [tab, setTab] = useState<LogicTab>(initial ?? "issues");
   const code = useMemo(() => (tab === "code" ? generateCode(doc) : []), [tab, doc]);
   const issues = useMemo(() => (docMode(doc) === "logic" ? validateDetailed(doc).sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]) : []), [doc]);
-  const text = tab === "text" ? describe(doc) : tab === "code" ? filesToMarkdown(code) : issues.map(issueText).join("\n");
+  const text = tab === "text" || tab === "overview" || tab === "scenarios" ? describe(doc) : tab === "code" ? filesToMarkdown(code) : issues.map(issueText).join("\n");
   const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
   return (
     <Modal
@@ -486,6 +487,12 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" | "code" }) {
     >
       <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Validação: cada exemplo é executado de verdade e comparado com o esperado. A aba Texto é o que uma IA lê (o fluxo com a explicação em português).</p>
       <div className="tabs seg" role="tablist">
+        <button role="tab" aria-selected={tab === "overview"} className={tab === "overview" ? "active" : ""} onClick={() => setTab("overview")}>
+          Visão geral
+        </button>
+        <button role="tab" aria-selected={tab === "scenarios"} className={tab === "scenarios" ? "active" : ""} onClick={() => setTab("scenarios")}>
+          Cenários
+        </button>
         <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
           Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
         </button>
@@ -512,6 +519,8 @@ function LogicModal({ tab: initial }: { tab?: "issues" | "text" | "code" }) {
         ) : (
           <div className="callout">Nenhum problema: todas as ações têm exemplos e todos os exemplos batem.</div>
         ))}
+      {tab === "overview" && <OverviewTab />}
+      {tab === "scenarios" && <ScenarioMatrixTab />}
       {tab === "text" && <pre className="code">{text}</pre>}
       {tab === "code" &&
         (code.length ? (

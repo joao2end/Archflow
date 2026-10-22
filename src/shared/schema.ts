@@ -499,7 +499,17 @@ export const DDD_BADGES: Record<DddRole, string> = {
 
 /* ───────── modo lógica (regras de negócio) ───────── */
 
-export type LogicRole = "rule" | "input" | "output" | "variable" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call" | "code";
+export type LogicRole = "rule" | "table" | "input" | "output" | "variable" | "scenario" | "start" | "end" | "decision" | "switch" | "loop" | "fork" | "join" | "call" | "code";
+
+/** Uma linha da tabela de decisão: quando a condição vale, aplica os efeitos (e as linhas de baixo não são olhadas). */
+export interface LogicTableRow {
+  /** condição da linha (expressão verdadeiro/falso), ex.: "preco < 10" */
+  when: string;
+  /** efeitos da linha, como os da Ação: ["preco := piso(preco * 10) / 10 - 0.01"] */
+  then: string[];
+  /** rótulo curto da linha para o quadro (ex.: "Até R$ 10"); sem ele, a condição em português */
+  label?: string;
+}
 
 /** Papéis de dado: Input (entra e só é lido), Output (resultado que o fluxo devolve) e Variable (dado intermediário do fluxo). Substituem o antigo `fact`. */
 export const DATA_ROLES = ["input", "output", "variable"] as const;
@@ -561,6 +571,10 @@ export interface LogicNodeSpec {
   when?: string;
   /** rule: efeitos em ordem: "preco := ..." , "travar preco" e "destravar preco" */
   then?: string[];
+  /** table: as linhas, em ordem; vale a primeira cuja condição for verdadeira */
+  rows?: LogicTableRow[];
+  /** table: efeitos quando nenhuma linha vale. Sem `otherwise`, nenhuma linha valer é erro de execução */
+  otherwise?: string[];
   /** switch: expressão cujo valor escolhe o caminho (cada seta leva o valor do caso). Sem `on`, cada seta leva uma CONDIÇÃO (faixa) e vale a primeira verdadeira, na ordem das setas */
   on?: string;
   /** loop: condição de parada, conferida antes de cada volta (se já vale ao chegar, não há volta nenhuma) */
@@ -600,6 +614,7 @@ export const LOGIC_ROLES: Record<LogicRole, { label: string; hint: string; color
   start: { label: "Start", hint: "Início do fluxo: o que entra e quando a lógica começa (um por diagrama). O `trigger` diz o que o dispara: manual, webhook (caminho e método) ou agenda (cron); o código gerado traz o `handler` ou o `onSchedule` pronto.", color: "#3aa76d", badge: "START", fields: ["text", "trigger"] },
   end: { label: "End", hint: "Fim do fluxo: o que a lógica devolve. O desfecho (`outcome`) é ok ou erro e, se você não informar, é ok; pode haver vários fins.", color: "#8a6fd0", badge: "END", fields: ["text", "outcome"] },
   rule: { label: "Ação", hint: "Ação: muda dados (ex.: frete := 0), com exemplos que provam. Roda sempre que o fluxo chega nela. Não tem condição, nem «se … entao … senao» dentro dos efeitos: quem escolhe o caminho ou o valor é a Decisão, colocada antes dela (sim → uma ação com um valor, não → outra com o outro).", color: "#706fd3", badge: "AÇÃO", fields: ["order", "text", "then", "examples"] },
+  table: { label: "Tabela", hint: "Tabela de decisão: linhas em ordem, cada uma com uma condição (`when`) e os efeitos (`then`) que valem quando ela é a primeira verdadeira; `otherwise` são os efeitos quando nenhuma vale (sem ele, é erro). Use no lugar de uma Escolha cujos caminhos só atribuem valores (faixas de preço, tabelas de frete, classificações): a regra inteira cabe num cartão em forma de grade. Uma seta de saída.", color: "#2a8f87", badge: "TAB", fields: ["text", "rows", "otherwise", "examples"] },
   decision: { label: "Decisão", hint: "Decisão sim/não: só pergunta e escolhe por qual das duas setas o fluxo sai, \"sim\" ou \"não\" (quem muda dados é a Ação).", color: "#0e9aa7", badge: "IF", fields: ["text", "when", "examples"] },
   switch: { label: "Switch", hint: "Escolha entre vários caminhos. Com `on`, pelo valor de uma expressão (uma seta por valor). Sem `on`, por condições, como faixas: cada seta leva a sua condição (no `case` da seta) e vale a primeira verdadeira, na ordem em que as setas foram criadas (faixas que se sobrepõem: ganha a mais antiga). Sempre com uma seta \"outros\" para o resto.", color: "#0e9aa7", badge: "SWITCH", fields: ["text", "on", "examples"] },
   loop: { label: "Loop", hint: "Repetição: confere a parada antes de cada volta (pode dar zero voltas) e sai pela seta \"segue\" assim que vale a primeira: a condição `until` ficou verdadeira, já foram `max` voltas ou acabaram os itens do `foreach`; senão volta pela seta \"repete\". Precisa de pelo menos um dos três.", color: "#c2548b", badge: "LOOP", fields: ["text", "until", "max", "foreach", "as"] },
@@ -854,6 +869,8 @@ export interface NodeEl extends Base, Box {
   ddd?: DddNodeSpec;
   /** lógica de negócio (kind "logic"): papel e campos do papel */
   logic?: LogicNodeSpec;
+  /** modo logic: de onde no código este passo veio («src/pricing.ts:120» ou «src/pricing.ts:120-134»), para ir do desenho ao código */
+  source?: string;
   /** agente de IA / skill (kind "agent"): papel e campos do papel */
   agent?: AgentNodeSpec;
 }
@@ -868,6 +885,16 @@ export interface GroupEl extends Base, Box {
   subdomain?: Subdomain;
   /** legenda curta no topo do grupo, no lugar do tipo (ex.: DADOS) */
   tag?: string;
+  /** modo logic: o grupo é uma etapa do fluxo (os passos com `parent` nele), que pode ser recolhida num cartão-resumo */
+  stage?: LogicStageSpec;
+}
+
+/** Etapa do modo Logic: um trecho do fluxo com nome. Recolhida, vira um cartão com o que faz, o que lê e o que escreve. */
+export interface LogicStageSpec {
+  /** o que a etapa faz, em uma frase de negócio (aparece no cartão recolhido) */
+  text?: string;
+  /** recolhida: o quadro mostra só o cartão-resumo no lugar dos passos */
+  collapsed?: boolean;
 }
 
 export type NoteVariant = "note" | "text" | "list";

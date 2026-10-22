@@ -10,10 +10,10 @@
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -608,
       "y": -10,
       "w": 306,
-      "h": 140,
+      "h": 146,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 1012,
+      "x": 1212,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 1012,
-      "y": 166,
+      "x": 1212,
+      "y": 202,
       "w": 306,
-      "h": 418,
+      "h": 526,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 1012,
-      "y": 574,
+      "x": 1212,
+      "y": 718,
       "w": 376,
-      "h": 204,
+      "h": 240,
       "auto": true
     },
     {
@@ -54,10 +54,10 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 1012,
-      "y": 772,
+      "x": 1212,
+      "y": 952,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -73,10 +73,10 @@
         "type": "inteiro",
         "text": "O tabuleiro tem n linhas e n colunas, numeradas a partir de 0. Vai de 1 a 5: o motor do app executa no máximo 5000 passos, e n = 6 já passa disso (o algoritmo vale para qualquer n)."
       },
-      "x": -380,
+      "x": -580,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "rainhas",
@@ -90,10 +90,10 @@
         "text": "Pares [linha, coluna] das rainhas já postas, da linha 0 para baixo. A última é a da linha mais funda.",
         "value": []
       },
-      "x": 1040,
-      "y": 220,
+      "x": 1240,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "linha",
@@ -106,10 +106,10 @@
         "type": "inteiro",
         "text": "A linha onde se tenta pôr a próxima rainha: quantas rainhas já estão postas."
       },
-      "x": 1040,
-      "y": 278,
+      "x": 1240,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "tentar",
@@ -123,10 +123,10 @@
         "text": "A coluna que será testada na linha atual. Começa em 0.",
         "value": 0
       },
-      "x": 1040,
-      "y": 336,
+      "x": 1240,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ataques",
@@ -139,10 +139,10 @@
         "type": "lista",
         "text": "As rainhas postas que atacam a casa (linha atual, tentar): mesma coluna ou mesma diagonal."
       },
-      "x": 1040,
-      "y": 394,
+      "x": 1240,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "topo",
@@ -155,10 +155,10 @@
         "type": "lista",
         "text": "O par [linha, coluna] da última rainha, que está sendo tirada ao voltar."
       },
-      "x": 1040,
-      "y": 452,
+      "x": 1240,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "acabou",
@@ -172,10 +172,10 @@
         "text": "Verdadeiro quando não há mais para onde voltar.",
         "value": false
       },
-      "x": 1040,
-      "y": 510,
+      "x": 1240,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "total",
@@ -189,10 +189,10 @@
         "text": "Resposta: quantas disposições completas foram achadas.",
         "value": 0
       },
-      "x": 1040,
+      "x": 1240,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "primeira",
@@ -206,10 +206,10 @@
         "text": "Resposta: a coluna da rainha de cada linha, de cima para baixo, na primeira disposição achada. Vazia se não existe.",
         "value": []
       },
-      "x": 1040,
-      "y": 102,
+      "x": 1240,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -288,7 +288,7 @@
           }
         ]
       },
-      "x": 80,
+      "x": 255,
       "y": 303,
       "w": 330,
       "h": 205
@@ -338,7 +338,7 @@
           }
         ]
       },
-      "x": 80,
+      "x": 255,
       "y": 723,
       "w": 330,
       "h": 101
@@ -377,7 +377,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": -200,
       "y": 901,
       "w": 330,
       "h": 115
@@ -404,7 +404,7 @@
           }
         ]
       },
-      "x": 55,
+      "x": -145,
       "y": 1093,
       "w": 330,
       "h": 93
@@ -508,7 +508,7 @@
           }
         ]
       },
-      "x": 400,
+      "x": 200,
       "y": 888,
       "w": 440,
       "h": 141
@@ -547,7 +547,7 @@
           }
         ]
       },
-      "x": 455,
+      "x": 255,
       "y": 1096,
       "w": 330,
       "h": 87
@@ -574,7 +574,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 710,
       "y": 1257,
       "w": 330,
       "h": 93
@@ -617,7 +617,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 200,
       "y": 1250,
       "w": 440,
       "h": 107
@@ -702,7 +702,7 @@
           }
         ]
       },
-      "x": 455,
+      "x": 655,
       "y": 1590.5,
       "w": 330,
       "h": 93
@@ -736,7 +736,7 @@
           }
         ]
       },
-      "x": 55,
+      "x": 255,
       "y": 1586,
       "w": 330,
       "h": 102
@@ -826,7 +826,7 @@
         "outcome": "ok",
         "text": "Devolve total e primeira."
       },
-      "x": 480,
+      "x": 655,
       "y": 743.5,
       "w": 280,
       "h": 60
@@ -840,7 +840,7 @@
         "outcome": "erro",
         "text": "n não está entre 1 e 5: não há o que contar."
       },
-      "x": 480,
+      "x": 655,
       "y": 375.5,
       "w": 280,
       "h": 60
@@ -872,10 +872,10 @@
           }
         ]
       },
-      "x": 1040,
-      "y": 628,
+      "x": 1240,
+      "y": 772,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-fora",
@@ -897,10 +897,10 @@
           }
         ]
       },
-      "x": 1040,
-      "y": 826,
+      "x": 1240,
+      "y": 1006,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-3",
@@ -924,10 +924,10 @@
           }
         ]
       },
-      "x": 1040,
-      "y": 695,
+      "x": 1240,
+      "y": 857,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -965,7 +965,7 @@
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.54
     },
     {
       "id": "prepara-to-busca",
@@ -1041,11 +1041,11 @@
       },
       "waypoints": [
         {
-          "x": 886,
+          "x": 1086,
           "y": 958.5
         },
         {
-          "x": 886,
+          "x": 1086,
           "y": 2034
         }
       ],
@@ -1061,11 +1061,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": -264,
           "y": 1139.5
         },
         {
-          "x": -64,
+          "x": -264,
           "y": 615.5
         }
       ]
@@ -1080,11 +1080,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -82,
+          "x": -282,
           "y": 2140.5
         },
         {
-          "x": -82,
+          "x": -282,
           "y": 615.5
         }
       ]
@@ -1134,11 +1134,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -46,
+          "x": -246,
           "y": 1303.5
         },
         {
-          "x": -46,
+          "x": -246,
           "y": 615.5
         }
       ]
@@ -1188,11 +1188,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": -264,
           "y": 1637
         },
         {
-          "x": -64,
+          "x": -264,
           "y": 615.5
         }
       ]
@@ -1223,11 +1223,11 @@
       },
       "waypoints": [
         {
-          "x": 867,
+          "x": 1067,
           "y": 1637
         },
         {
-          "x": 867,
+          "x": 1067,
           "y": 1877
         }
       ],

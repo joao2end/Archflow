@@ -67,18 +67,9 @@ Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do gru
 - **Ação** `manter-por-variacao` — Manter o preço atual: A diferença é pequena demais para valer a troca.
   - → segue: O preço mudou? (`preco-mudou`)
 - **Decisão** `preco-mudou` — O preço mudou?: O arredondamento só vale quando o preço mudou. preço é diferente de preço atual
-  - → sim: Em que faixa está o preço? (`faixa-do-preco`)
+  - → sim: Arredondar pela faixa do preço (`faixa-do-preco`)
   - → não: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Switch** `faixa-do-preco` — Em que faixa está o preço?: Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo. (a primeira condição que valer)
-  - → = preco < 0.1: Abaixo de R$ 0,10 (`faixa-minima`)
-  - → = preco > 202.01: Acima de R$ 202,01 (`faixa-alta`)
-  - → = entre(preco, 200, 202): De R$ 200 a R$ 202 (`faixa-200`)
-  - → = entre(preco, 100, 101): De R$ 100 a R$ 101 (`faixa-100`)
-  - → = preco < 10: Até R$ 10 (`faixa-ate-10`)
-  - → = preco < 50 e preco - piso(preco) >= 0.5: Até R$ 50, com 50 centavos ou mais (`faixa-ate-50-cima`)
-  - → = preco < 50: Até R$ 50, com menos de 50 centavos (`faixa-ate-50-baixo`)
-  - → outros: Acima disso (`faixa-resto`)
-- **Ação** `faixa-minima` — Abaixo de R$ 0,10: Vira R$ 0,09.
+- **Tabela** `faixa-do-preco` — Arredondar pela faixa do preço: Arredondamento por faixa: vale a primeira linha que se encaixar, de cima para baixo. (tabela: 7 linhas, vale a primeira; senão, a linha «senão»)
   - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
 - **Decisão** `passou-do-pmc` — Passou do PMC do grupo?: No grupo de remarcação vale o menor PMC. grupo de remarcação e menor pmc do grupo é maior que 0 e preço é maior que menor pmc do grupo
   - → sim: Descer para o PMC (`descer-ao-pmc`)
@@ -129,20 +120,6 @@ Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do gru
   - → segue: Marcar o alerta pendente (`recomendar-alerta`)
 - **Ação** `recomendar-reduce` — Recomendar reduzir: Recomendação "reduce".
   - → segue: Marcar o alerta pendente (`recomendar-alerta`)
-- **Ação** `faixa-alta` — Acima de R$ 202,01: Vai ao inteiro anterior menos um centavo.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Ação** `faixa-200` — De R$ 200 a R$ 202: Vira R$ 199,99.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Ação** `faixa-100` — De R$ 100 a R$ 101: Vira R$ 99,99.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Ação** `faixa-ate-10` — Até R$ 10: Termina em 9.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Ação** `faixa-ate-50-cima` — Até R$ 50, com 50 centavos ou mais: Termina em 49.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Ação** `faixa-ate-50-baixo` — Até R$ 50, com menos de 50 centavos: Termina em 99, do real anterior.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
-- **Ação** `faixa-resto` — Acima disso: Termina em 99.
-  - → segue: Passou do PMC do grupo? (`passou-do-pmc`)
 - **Decisão** `tem-preco-atual` — Já existe preço atual?: Sem preço atual não há o que comparar nem cortar. preço atual é maior que 0
   - → sim: Cortar no teto e no piso (`cortar-variacao`)
   - → não: O preço mudou? (`preco-mudou`)
@@ -205,46 +182,6 @@ Aumento ou redução acima do máximo é cortado no teto ou no piso.
 - ✔ exemplo "aumento cortado"
 - ✔ exemplo "redução cortada"
 
-### Abaixo de R$ 0,10 (faixa-minima)
-Vira R$ 0,09.
-- **Efeitos:** `preco := 0.09` — preço passa a ser 0,09
-- ✔ exemplo "0,05"
-
-### Acima de R$ 202,01 (faixa-alta)
-Vai ao inteiro anterior menos um centavo.
-- **Efeitos:** `preco := piso(preco) - 0.01` — preço passa a ser preço arredondado para baixo menos 0,01
-- ✔ exemplo "250,40"
-
-### De R$ 200 a R$ 202 (faixa-200)
-Vira R$ 199,99.
-- **Efeitos:** `preco := 199.99` — preço passa a ser 199,99
-- ✔ exemplo "201"
-
-### De R$ 100 a R$ 101 (faixa-100)
-Vira R$ 99,99.
-- **Efeitos:** `preco := 99.99` — preço passa a ser 99,99
-- ✔ exemplo "100"
-
-### Até R$ 10 (faixa-ate-10)
-Termina em 9.
-- **Efeitos:** `preco := piso(preco * 10) / 10 - 0.01` — preço passa a ser preço vezes 10 arredondado para baixo dividido por 10 menos 0,01
-- ✔ exemplo "7,34"
-
-### Até R$ 50, com 50 centavos ou mais (faixa-ate-50-cima)
-Termina em 49.
-- **Efeitos:** `preco := piso(preco) + 0.49` — preço passa a ser preço arredondado para baixo mais 0,49
-- ✔ exemplo "23,70"
-
-### Até R$ 50, com menos de 50 centavos (faixa-ate-50-baixo)
-Termina em 99, do real anterior.
-- **Efeitos:** `preco := piso(preco) - 0.01` — preço passa a ser preço arredondado para baixo menos 0,01
-- ✔ exemplo "23,20"
-
-### Acima disso (faixa-resto)
-Termina em 99.
-- **Efeitos:** `preco := piso(preco) + 0.99` — preço passa a ser preço arredondado para baixo mais 0,99
-- ✔ exemplo "84"
-
 ### Descer para o PMC (descer-ao-pmc)
 Desce um centavo além do último dígito de centavo do PMC.
 A confirmar: "desce um centavo além do último dígito de centavo do PMC" foi entendido como PMC menos R$ 0,01.
@@ -305,6 +242,31 @@ Os próximos produtos do grupo usam este preço.
 - **Efeitos:** `preco_referencia_grupo := preco` — preço da referência do grupo passa a ser preço
 - ✔ exemplo "guarda"
 
+## Tabelas de decisão (vale a primeira linha verdadeira, de cima para baixo)
+
+### Arredondar pela faixa do preço (faixa-do-preco)
+Arredondamento por faixa: vale a primeira linha que se encaixar, de cima para baixo.
+
+| # | Quando | Então |
+|---|---|---|
+| 1 | Abaixo de R$ 0,10: `preco < 0.1` | `preco := 0.09` |
+| 2 | Acima de R$ 202,01: `preco > 202.01` | `preco := piso(preco) - 0.01` |
+| 3 | De R$ 200 a R$ 202: `entre(preco, 200, 202)` | `preco := 199.99` |
+| 4 | De R$ 100 a R$ 101: `entre(preco, 100, 101)` | `preco := 99.99` |
+| 5 | Até R$ 10: termina em 9: `preco < 10` | `preco := piso(preco * 10) / 10 - 0.01` |
+| 6 | Até R$ 50, 50 centavos ou mais: termina em 49: `preco < 50 e preco - piso(preco) >= 0.5` | `preco := piso(preco) + 0.49` |
+| 7 | Até R$ 50, menos de 50 centavos: 99 do real anterior: `preco < 50` | `preco := piso(preco) - 0.01` |
+| senão | (nenhuma linha valeu) | `preco := piso(preco) + 0.99` |
+
+- ✔ exemplo "0,05"
+- ✔ exemplo "250,40"
+- ✔ exemplo "201"
+- ✔ exemplo "100"
+- ✔ exemplo "7,34"
+- ✔ exemplo "23,70"
+- ✔ exemplo "23,20"
+- ✔ exemplo "84 (senão)"
+
 ## Decisões e escolhas
 
 - **O custo é válido?** (`custo-valido`): Sem um custo positivo não há como calcular o preço. custo é maior que 0
@@ -332,10 +294,6 @@ Os próximos produtos do grupo usam este preço.
 - **O preço mudou?** (`preco-mudou`): O arredondamento só vale quando o preço mudou. preço é diferente de preço atual
   - ✔ exemplo "mudou"
   - ✔ exemplo "igual"
-- **Em que faixa está o preço?** (`faixa-do-preco`): Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo. (a primeira condição que valer)
-  - ✔ exemplo "faixa de 100"
-  - ✔ exemplo "acima de 202"
-  - ✔ exemplo "de 50 a 100"
 - **Passou do PMC do grupo?** (`passou-do-pmc`): No grupo de remarcação vale o menor PMC. grupo de remarcação e menor pmc do grupo é maior que 0 e preço é maior que menor pmc do grupo
   - ✔ exemplo "passou"
   - ✔ exemplo "sem PMC"
@@ -381,8 +339,7 @@ A referência (custo 60) sai em 99,99; o seguidor, que sozinho iria a 64,99, igu
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 100, preco 100 → 100
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "entre(preco, 100, 101)"
-  - Ação De R$ 100 a R$ 101: preco 100 → 99.99
+  - Tabela Arredondar pela faixa do preço: preco 100 → 99.99 · saiu por "linha 4"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -407,8 +364,7 @@ A referência (custo 60) sai em 99,99; o seguidor, que sozinho iria a 64,99, igu
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 50 → 50, preco 50 → 64
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "outros"
-  - Ação Acima disso: preco 64 → 64.99
+  - Tabela Arredondar pela faixa do preço: preco 64 → 64.99 · saiu por "senão"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -439,8 +395,7 @@ O seguidor é marca própria: volta ao preço atual e a igualação à referênc
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 100, preco 100 → 100
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "entre(preco, 100, 101)"
-  - Ação De R$ 100 a R$ 101: preco 100 → 99.99
+  - Tabela Arredondar pela faixa do preço: preco 100 → 99.99 · saiu por "linha 4"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -465,8 +420,7 @@ O seguidor é marca própria: volta ao preço atual e a igualação à referênc
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 100, preco 100 → 100
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "entre(preco, 100, 101)"
-  - Ação De R$ 100 a R$ 101: preco 100 → 99.99
+  - Tabela Arredondar pela faixa do preço: preco 100 → 99.99 · saiu por "linha 4"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "sim"
@@ -497,8 +451,7 @@ A âncora travou o preço, mas o preço fixo destrava e vence.
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 100, preco 100 → 100
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "entre(preco, 100, 101)"
-  - Ação De R$ 100 a R$ 101: preco 100 → 99.99
+  - Tabela Arredondar pela faixa do preço: preco 100 → 99.99 · saiu por "linha 4"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -523,8 +476,7 @@ A âncora travou o preço, mas o preço fixo destrava e vence.
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 100, preco 100 → 100
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "entre(preco, 100, 101)"
-  - Ação De R$ 100 a R$ 101: preco 100 → 99.99
+  - Tabela Arredondar pela faixa do preço: preco 100 → 99.99 · saiu por "linha 4"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "sim"
@@ -557,8 +509,7 @@ Em imagem, a referência parte do concorrente (76,99); o seguidor iria a 85,99 e
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 76 → 76, preco 76 → 76
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "outros"
-  - Ação Acima disso: preco 76 → 76.99
+  - Tabela Arredondar pela faixa do preço: preco 76 → 76.99 · saiu por "senão"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -583,8 +534,7 @@ Em imagem, a referência parte do concorrente (76,99); o seguidor iria a 85,99 e
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 85.5 → 85.5, preco 85.5 → 85.5
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "outros"
-  - Ação Acima disso: preco 85.5 → 85.99
+  - Tabela Arredondar pela faixa do preço: preco 85.5 → 85.99 · saiu por "senão"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "sim"
   - Ação Igualar à referência: preco 85.99 → 76.99
@@ -643,8 +593,7 @@ A partida pede +43%, mas o teto é +20%: sobe até 84 e arredonda para 84,99.
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 84, preco 84 → 84
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "outros"
-  - Ação Acima disso: preco 84 → 84.99
+  - Tabela Arredondar pela faixa do preço: preco 84 → 84.99 · saiu por "senão"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -675,8 +624,7 @@ Calculou 12,50, arredondou para 12,49 e o PMC de 12,34 puxa para 12,33.
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 12.5 → 12.5, preco 12.5 → 12.5
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "preco < 50 e preco - piso(preco) >= 0.5"
-  - Ação Até R$ 50, com 50 centavos ou mais: preco 12.5 → 12.49
+  - Tabela Arredondar pela faixa do preço: preco 12.5 → 12.49 · saiu por "linha 6"
   - Decisão Passou do PMC do grupo?: saiu por "sim"
   - Ação Descer para o PMC: preco 12.49 → 12.33
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
@@ -735,8 +683,7 @@ A referência já foi calculada (99,99); o segundo produto tem custo negativo e 
   - Decisão Já existe preço atual?: saiu por "sim"
   - Ação Cortar no teto e no piso: preco 100 → 100, preco 100 → 100
   - Decisão O preço mudou?: saiu por "sim"
-  - Switch Em que faixa está o preço?: saiu por "entre(preco, 100, 101)"
-  - Ação De R$ 100 a R$ 101: preco 100 → 99.99
+  - Tabela Arredondar pela faixa do preço: preco 100 → 99.99 · saiu por "linha 4"
   - Decisão Passou do PMC do grupo?: saiu por "nao"
   - Decisão Imagem ou tráfego que segue a referência?: saiu por "nao"
   - Decisão É PBM, popular ou marca própria?: saiu por "nao"
@@ -764,10 +711,72 @@ Sem produtos, o laço não repete nenhuma vez e o fluxo termina bem, sem calcula
 
 Nenhum.
 
+## Etapas (visão geral, na ordem do fluxo)
+
+| # | Etapa | O que faz | Passos | Lê de antes | Escreve | Exemplos | Recolhida |
+|---|---|---|---|---|---|---|---|
+| 1 | Validar o produto (`etapa-validar`) | Carrega o produto e confere se custo e margem permitem calcular um preço. | `carregar`, `custo-valido`, `margem-valida` | produto.ancora, produto.custo, produto.eh_referencia, produto.grupo_remarcacao, produto.indice_notabilidade, produto.margem_minima, produto.margem_objetivo, produto.pmc, produto.preco_atual, produto.preco_concorrente, produto.preco_fixo, produto.tipo_grupo | ancora, custo, eh_referencia, grupo_remarcacao, indice_notabilidade, margem_minima, margem_objetivo, pmc, preco_atual, preco_concorrente, preco_fixo, tipo_grupo | ✔ | sim |
+| 2 | Preço de partida (`etapa-partida`) | Lucro parte do custo e da margem; imagem e tráfego, do concorrente vezes o índice. | `tipo-do-grupo`, `partida-lucro`, `partida-concorrente`, `partida-zerou`, `manter-atual` | custo, indice_notabilidade, margem_objetivo, preco_atual, preco_concorrente, tipo_grupo | preco | ✔ | sim |
+| 3 | Piso e variação (`etapa-limites`) | Sobe ao piso de margem, mantém diferenças pequenas e corta aumentos e quedas fora do teto. | `abaixo-do-piso`, `subir-ao-piso`, `diferenca-pequena`, `manter-por-variacao`, `tem-preco-atual`, `cortar-variacao` | aumento_maximo, custo, margem_minima, preco_atual, reducao_maxima, tipo_grupo, variacao_minima | preco | ✔ | sim |
+| 4 | Arredondamento (`etapa-arredondar`) | Se o preço mudou, arredonda pela faixa de valor (centavos 9, 49 ou 99). | `preco-mudou`, `faixa-do-preco` | preco_atual | preco | ✔ | sim |
+| 5 | Regras do grupo (`etapa-grupo`) | PMC, referência do grupo, âncora (PBM, popular, marca própria) e preço fixo, nesta ordem. | `passou-do-pmc`, `descer-ao-pmc`, `segue-a-referencia`, `igualar-referencia`, `e-ancora`, `ancorar`, `tem-preco-fixo`, `aplicar-preco-fixo`, `segue-referencia-lucro`, `igualar-referencia-lucro` | ancora, eh_referencia, grupo_remarcacao, pmc, preco_atual, preco_fixo, preco_referencia_grupo, tipo_grupo | preco | ✔ | sim |
+| 6 | Recomendação (`etapa-recomendar`) | Compara com o preço atual: manter, subir ou reduzir, e marca o alerta pendente. | `recomendar`, `recomendar-keep`, `recomendar-subiu`, `recomendar-raise`, `recomendar-reduce`, `recomendar-alerta` | preco, preco_atual | alerta_pendente, recomendacao | ✔ | sim |
+| 7 | Ajustes e referência (`etapa-fechar`) | Reaplica o preço digitado, se pedido, e guarda o preço da referência para os seguidores. | `reaplicar-ajustes`, `restaurar-digitado`, `e-a-referencia`, `guardar-referencia` | eh_referencia, preco_digitado, reaplicar_ajustes | preco, preco_referencia_grupo | ✔ | sim |
+
 ## Mermaid
 ```mermaid
 flowchart LR
   %% Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze ações em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada ação e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.
+  subgraph n_etapa_validar["Validar o produto"]
+    n_carregar["Carregar o produto<br/>destravar preco<br/>tipo_grupo := produto.tipo_grupo<br/>custo := produto.custo<br/>margem_objetivo := produto.margem_objetivo<br/>preco_concorrente := produto.preco_concorrente<br/>indice_notabilidade := produto.indice_notabilidade<br/>margem_minima := produto.margem_minima<br/>preco_atual := produto.preco_atual<br/>grupo_remarcacao := produto.grupo_remarcacao<br/>pmc := produto.pmc<br/>ancora := produto.ancora<br/>eh_referencia := produto.eh_referencia<br/>preco_fixo := produto.preco_fixo"]
+    n_custo_valido{"O custo é válido?<br/>se custo > 0"}
+    n_margem_valida{"A margem objetivo é válida?<br/>se margem_objetivo >= 0 e margem_objetivo < 1"}
+  end
+  subgraph n_etapa_partida["Preço de partida"]
+    n_tipo_do_grupo{"Qual o tipo do grupo?<br/>conforme tipo_grupo"}
+    n_partida_lucro["Partida: custo e margem<br/>preco := custo / (1 - margem_objetivo)"]
+    n_partida_concorrente["Partida: concorrente × índice<br/>preco := preco_concorrente * indice_notabilidade"]
+    n_partida_zerou{"O preço de partida deu zero?<br/>se preco <= 0"}
+    n_manter_atual["Manter o preço atual<br/>preco := preco_atual"]
+  end
+  subgraph n_etapa_limites["Piso e variação"]
+    n_abaixo_do_piso{"Imagem ou tráfego abaixo do piso?<br/>se tipo_grupo em ['imagem', 'trafego'] e preco < custo / (1 - margem_minima)"}
+    n_subir_ao_piso["Subir até o piso<br/>preco := custo / (1 - margem_minima)"]
+    n_diferenca_pequena{"A diferença é menor que a mínima?<br/>se preco_atual > 0 e abs(preco / preco_atual - 1) < variacao_minima"}
+    n_manter_por_variacao["Manter o preço atual<br/>preco := preco_atual"]
+    n_tem_preco_atual{"Já existe preço atual?<br/>se preco_atual > 0"}
+    n_cortar_variacao["Cortar no teto e no piso<br/>preco := min(preco, preco_atual * (1 + aumento_maximo))<br/>preco := max(preco, preco_atual * (1 - reducao_maxima))"]
+  end
+  subgraph n_etapa_arredondar["Arredondamento"]
+    n_preco_mudou{"O preço mudou?<br/>se preco != preco_atual"}
+    n_faixa_do_preco["Arredondar pela faixa do preço"]
+  end
+  subgraph n_etapa_grupo["Regras do grupo"]
+    n_passou_do_pmc{"Passou do PMC do grupo?<br/>se grupo_remarcacao e pmc > 0 e preco > pmc"}
+    n_descer_ao_pmc["Descer para o PMC<br/>preco := pmc - 0.01"]
+    n_segue_a_referencia{"Imagem ou tráfego que segue a referência?<br/>se tipo_grupo em ['imagem', 'trafego'] e nao eh_referencia e nao ancora"}
+    n_igualar_referencia["Igualar à referência<br/>preco := preco_referencia_grupo"]
+    n_e_ancora{"É PBM, popular ou marca própria?<br/>se ancora"}
+    n_ancorar["Voltar ao preço atual e travar<br/>preco := preco_atual<br/>travar preco"]
+    n_tem_preco_fixo{"Existe preço fixo?<br/>se preco_fixo > 0"}
+    n_aplicar_preco_fixo["Aplicar o preço fixo<br/>destravar preco<br/>preco := preco_fixo<br/>travar preco"]
+    n_segue_referencia_lucro{"Lucro que não é a referência?<br/>se tipo_grupo = 'lucro' e nao eh_referencia"}
+    n_igualar_referencia_lucro["Igualar à referência<br/>preco := preco_referencia_grupo"]
+  end
+  subgraph n_etapa_recomendar["Recomendação"]
+    n_recomendar{"Os preços coincidem nos centavos?<br/>se arredondar(preco, 2) = arredondar(preco_atual, 2)"}
+    n_recomendar_keep["Recomendar manter<br/>recomendacao := 'keep'"]
+    n_recomendar_subiu{"O preço novo é maior que o atual?<br/>se preco > preco_atual"}
+    n_recomendar_raise["Recomendar subir<br/>recomendacao := 'raise'"]
+    n_recomendar_reduce["Recomendar reduzir<br/>recomendacao := 'reduce'"]
+    n_recomendar_alerta["Marcar o alerta pendente<br/>alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"]
+  end
+  subgraph n_etapa_fechar["Ajustes e referência"]
+    n_reaplicar_ajustes{"Reaplicar ajustes gravados?<br/>se reaplicar_ajustes e preco_digitado > 0"}
+    n_restaurar_digitado["Restaurar o preço digitado<br/>preco := preco_digitado"]
+    n_e_a_referencia{"É a referência do grupo?<br/>se eh_referencia"}
+    n_guardar_referencia["Guardar o preço da referência<br/>preco_referencia_grupo := preco"]
+  end
   subgraph n_entradas["Entradas"]
     n_grupo["Produtos do grupo<br/>Input grupo: lista<br/><i>Os produtos do grupo, da maior receita de 1 mês para a menor (empate: maior custo). O primeiro é a referência.</i>"]
     n_tipo_grupo["Tipo do grupo<br/>Input tipo_grupo: texto<br/><i>Estratégia do produto: 'lucro', 'imagem' ou 'trafego'.</i>"]
@@ -812,52 +821,8 @@ flowchart LR
   end
   n_inicio(["Calcular preços do grupo"])
   n_para_cada_produto{{"Para cada produto do grupo<br/>para cada produto em grupo"}}
-  n_carregar["Carregar o produto<br/>destravar preco<br/>tipo_grupo := produto.tipo_grupo<br/>custo := produto.custo<br/>margem_objetivo := produto.margem_objetivo<br/>preco_concorrente := produto.preco_concorrente<br/>indice_notabilidade := produto.indice_notabilidade<br/>margem_minima := produto.margem_minima<br/>preco_atual := produto.preco_atual<br/>grupo_remarcacao := produto.grupo_remarcacao<br/>pmc := produto.pmc<br/>ancora := produto.ancora<br/>eh_referencia := produto.eh_referencia<br/>preco_fixo := produto.preco_fixo"]
-  n_custo_valido{"O custo é válido?<br/>se custo > 0"}
-  n_margem_valida{"A margem objetivo é válida?<br/>se margem_objetivo >= 0 e margem_objetivo < 1"}
   n_dados_invalidos(["Dados do produto inválidos<br/>desfecho: erro<br/>O produto tem um dado que impede o cálculo: o fluxo para e avisa."])
-  n_tipo_do_grupo{"Qual o tipo do grupo?<br/>conforme tipo_grupo"}
-  n_partida_lucro["Partida: custo e margem<br/>preco := custo / (1 - margem_objetivo)"]
-  n_partida_concorrente["Partida: concorrente × índice<br/>preco := preco_concorrente * indice_notabilidade"]
   n_grupo_desconhecido(["Tipo de grupo desconhecido<br/>desfecho: erro<br/>Não há como partir o preço: a engine para e avisa."])
-  n_partida_zerou{"O preço de partida deu zero?<br/>se preco <= 0"}
-  n_manter_atual["Manter o preço atual<br/>preco := preco_atual"]
-  n_abaixo_do_piso{"Imagem ou tráfego abaixo do piso?<br/>se tipo_grupo em ['imagem', 'trafego'] e preco < custo / (1 - margem_minima)"}
-  n_subir_ao_piso["Subir até o piso<br/>preco := custo / (1 - margem_minima)"]
-  n_diferenca_pequena{"A diferença é menor que a mínima?<br/>se preco_atual > 0 e abs(preco / preco_atual - 1) < variacao_minima"}
-  n_manter_por_variacao["Manter o preço atual<br/>preco := preco_atual"]
-  n_tem_preco_atual{"Já existe preço atual?<br/>se preco_atual > 0"}
-  n_cortar_variacao["Cortar no teto e no piso<br/>preco := min(preco, preco_atual * (1 + aumento_maximo))<br/>preco := max(preco, preco_atual * (1 - reducao_maxima))"]
-  n_preco_mudou{"O preço mudou?<br/>se preco != preco_atual"}
-  n_faixa_do_preco{"Em que faixa está o preço?"}
-  n_faixa_minima["Abaixo de R$ 0,10<br/>preco := 0.09"]
-  n_faixa_alta["Acima de R$ 202,01<br/>preco := piso(preco) - 0.01"]
-  n_faixa_200["De R$ 200 a R$ 202<br/>preco := 199.99"]
-  n_faixa_100["De R$ 100 a R$ 101<br/>preco := 99.99"]
-  n_faixa_ate_10["Até R$ 10<br/>preco := piso(preco * 10) / 10 - 0.01"]
-  n_faixa_ate_50_cima["Até R$ 50, com 50 centavos ou mais<br/>preco := piso(preco) + 0.49"]
-  n_faixa_ate_50_baixo["Até R$ 50, com menos de 50 centavos<br/>preco := piso(preco) - 0.01"]
-  n_faixa_resto["Acima disso<br/>preco := piso(preco) + 0.99"]
-  n_passou_do_pmc{"Passou do PMC do grupo?<br/>se grupo_remarcacao e pmc > 0 e preco > pmc"}
-  n_descer_ao_pmc["Descer para o PMC<br/>preco := pmc - 0.01"]
-  n_segue_a_referencia{"Imagem ou tráfego que segue a referência?<br/>se tipo_grupo em ['imagem', 'trafego'] e nao eh_referencia e nao ancora"}
-  n_igualar_referencia["Igualar à referência<br/>preco := preco_referencia_grupo"]
-  n_e_ancora{"É PBM, popular ou marca própria?<br/>se ancora"}
-  n_ancorar["Voltar ao preço atual e travar<br/>preco := preco_atual<br/>travar preco"]
-  n_tem_preco_fixo{"Existe preço fixo?<br/>se preco_fixo > 0"}
-  n_aplicar_preco_fixo["Aplicar o preço fixo<br/>destravar preco<br/>preco := preco_fixo<br/>travar preco"]
-  n_segue_referencia_lucro{"Lucro que não é a referência?<br/>se tipo_grupo = 'lucro' e nao eh_referencia"}
-  n_igualar_referencia_lucro["Igualar à referência<br/>preco := preco_referencia_grupo"]
-  n_recomendar{"Os preços coincidem nos centavos?<br/>se arredondar(preco, 2) = arredondar(preco_atual, 2)"}
-  n_recomendar_keep["Recomendar manter<br/>recomendacao := 'keep'"]
-  n_recomendar_subiu{"O preço novo é maior que o atual?<br/>se preco > preco_atual"}
-  n_recomendar_raise["Recomendar subir<br/>recomendacao := 'raise'"]
-  n_recomendar_reduce["Recomendar reduzir<br/>recomendacao := 'reduce'"]
-  n_recomendar_alerta["Marcar o alerta pendente<br/>alerta_pendente := arredondar(preco, 2) != arredondar(preco_atual, 2)"]
-  n_reaplicar_ajustes{"Reaplicar ajustes gravados?<br/>se reaplicar_ajustes e preco_digitado > 0"}
-  n_restaurar_digitado["Restaurar o preço digitado<br/>preco := preco_digitado"]
-  n_e_a_referencia{"É a referência do grupo?<br/>se eh_referencia"}
-  n_guardar_referencia["Guardar o preço da referência<br/>preco_referencia_grupo := preco"]
   n_fim(["Decisão de preço pronta<br/>desfecho: ok<br/>Cada produto sai com preço, recomendação (keep, raise, reduce) e alerta."])
   n_inicio --> n_para_cada_produto
   n_para_cada_produto -->|"repete"| n_carregar
@@ -885,23 +850,8 @@ flowchart LR
   n_tem_preco_atual -->|"não"| n_preco_mudou
   n_cortar_variacao --> n_preco_mudou
   n_preco_mudou -->|"sim"| n_faixa_do_preco
+  n_faixa_do_preco --> n_passou_do_pmc
   n_preco_mudou -->|"não"| n_passou_do_pmc
-  n_faixa_do_preco -->|"preço < 0,1"| n_faixa_minima
-  n_faixa_do_preco -->|"preço > 202,01"| n_faixa_alta
-  n_faixa_do_preco -->|"preço está entre 200 e 202"| n_faixa_200
-  n_faixa_do_preco -->|"preço está entre 100 e 101"| n_faixa_100
-  n_faixa_do_preco -->|"preço < 10"| n_faixa_ate_10
-  n_faixa_do_preco -->|"preço < 50 e preço − piso(preço) …"| n_faixa_ate_50_cima
-  n_faixa_do_preco -->|"preço < 50"| n_faixa_ate_50_baixo
-  n_faixa_do_preco -->|"outros"| n_faixa_resto
-  n_faixa_minima --> n_passou_do_pmc
-  n_faixa_alta --> n_passou_do_pmc
-  n_faixa_200 --> n_passou_do_pmc
-  n_faixa_100 --> n_passou_do_pmc
-  n_faixa_ate_10 --> n_passou_do_pmc
-  n_faixa_ate_50_cima --> n_passou_do_pmc
-  n_faixa_ate_50_baixo --> n_passou_do_pmc
-  n_faixa_resto --> n_passou_do_pmc
   n_passou_do_pmc -->|"sim"| n_descer_ao_pmc
   n_passou_do_pmc -->|"não"| n_segue_a_referencia
   n_descer_ao_pmc --> n_segue_a_referencia

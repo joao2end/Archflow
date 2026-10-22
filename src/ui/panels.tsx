@@ -5,13 +5,14 @@ import { assetsForMode, searchAssets } from "../shared/catalog";
 import { ASSET_CATEGORIES } from "../shared/catalog";
 import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KINDS, LOGIC_ROLES, AGENT_ROLES, INFRA_CONNECTION_TYPES, NODE_KINDS, docMode, type ConnectionType, type GroupKind, type NodeKind, type Routing } from "../shared/schema";
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
-import { LogicConnFields, LogicFields } from "./logic";
+import { LogicConnFields, LogicFields, StageFields } from "./logic";
 import { AgentConnFields, AgentFields } from "./agents";
 import { CatalogAgents } from "./agentcatalog";
 import { CatalogMcp } from "./mcpcatalog";
 import { TerminalButton } from "./terminal";
 import { mergeSkillCatalog, searchSkillCatalog, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { exportHtml, exportJson, exportPng, exportSvg, importJson } from "./export";
+import { exportSectionsPdf, exportSectionsZip } from "./sectionexport";
 import { Glyph, AssetBadge } from "./icons";
 import { EndpointFields, EndpointsSection, RefPicker } from "./inspectorExtras";
 import { TechPicker } from "./typepicker";
@@ -23,7 +24,8 @@ import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoo
 import { RichField } from "./richeditor";
 import { IS_DESKTOP } from "./platform";
 import type { Asset } from "../shared/schema";
-import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, plugSkill, plugTool, toast, toastError, cycleTheme, redo, run, set, setPrefs, setTitle, undo, useStore, type Tool } from "./store";
+import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, plugSkill, plugTool, toast, toastError, cycleTheme, redo, run, set, setAllStages, setPrefs, stageFromSelection, setTitle, undo, useStore, type Tool } from "./store";
+import { isFlowNode } from "../shared/logic";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
 
@@ -218,6 +220,16 @@ export function TopBar() {
                 <button onClick={() => (exportPng(), setMenu(false))}>
                   <Glyph name="grid" size={17} /> Exportar PNG (2×)
                 </button>
+                {docMode(getState().doc) === "logic" && (
+                  <>
+                    <button onClick={() => (void exportSectionsPdf(), setMenu(false))} data-tip="Um PDF que se lê em ordem: resumo, visão geral, uma página por etapa (só ela aberta), cenários e dados" data-tip-pos="left">
+                      <Glyph name="file" size={17} /> Exportar em seções (PDF)
+                    </button>
+                    <button onClick={() => (void exportSectionsZip(), setMenu(false))} data-tip="Uma imagem por seção (visão geral e cada etapa em tamanho cheio) e um README.md com cenários e dados" data-tip-pos="left">
+                      <Glyph name="folder" size={17} /> Exportar em seções (ZIP de imagens)
+                    </button>
+                  </>
+                )}
               </div>
             )}
             <input
@@ -344,6 +356,10 @@ export function ZoomBar() {
   const hasSel = useStore((s) => s.sel.length > 0);
   const isLogic = useStore((s) => docMode(s.doc) === "logic");
   const showDesc = useStore((s) => !!s.doc.showDescriptions);
+  // etapas: «visão geral» recolhe todas; com passos selecionados, dá para juntá-los numa etapa
+  const stageCount = useStore((s) => (docMode(s.doc) === "logic" ? s.doc.groups.filter((g) => g.stage).length : 0));
+  const allCollapsed = useStore((s) => s.doc.groups.some((g) => g.stage) && s.doc.groups.filter((g) => g.stage).every((g) => g.stage!.collapsed));
+  const selSteps = useStore((s) => (docMode(s.doc) === "logic" ? s.doc.nodes.filter((n) => s.sel.includes(n.id) && isFlowNode(n)).length : 0));
   const zoomBy = zoomTo;
   return (
     <div className="hud glass zoombar">
@@ -378,6 +394,29 @@ Entradas, resultados, variáveis e cenários. Clique para ${showDesc ? "resumir"
           >
             <Glyph name="desc" size={17} />
           </button>
+          {stageCount > 0 && (
+            <button
+              className={`btn ghost icon${allCollapsed ? " active" : ""}`}
+              onClick={() => setAllStages(!allCollapsed)}
+              aria-pressed={allCollapsed}
+              aria-label="Visão geral"
+              data-tip={allCollapsed ? `Mostrar todos os passos
+Abre as etapas.` : `Visão geral
+Recolhe as etapas em cartões-resumo: o que cada uma faz, lê e escreve.`}
+              data-tip-pos="top"
+            >
+              <Glyph name="layers" size={17} />
+            </button>
+          )}
+          <button className="btn ghost icon" onClick={() => set({ modal: { type: "logic", tab: "scenarios" } })} aria-label="Cenários e visão geral" data-tip="Cenários e visão geral: cada cenário numa linha (o que entra, o que sai, por onde passa), o resumo e os dados" data-tip-pos="top">
+            <Glyph name="list" size={17} />
+          </button>
+          {selSteps > 0 && (
+            <button className="btn ghost icon" onClick={stageFromSelection} aria-label="Criar etapa com a seleção" data-tip={`Criar etapa com ${selSteps} ${selSteps === 1 ? "passo" : "passos"}
+Uma etapa dá nome a um trecho do fluxo e pode ser recolhida.`} data-tip-pos="top">
+              <Glyph name="group" size={17} />
+            </button>
+          )}
         </>
       )}
     </div>
@@ -945,7 +984,7 @@ export function Inspector() {
         <InspectorGrip />
         <div className="insp-head">
           <div>
-            <div className="kicker">Grupo · {group.kind}</div>
+            <div className="kicker">{group.stage ? "Etapa do fluxo" : `Grupo · ${group.kind}`}</div>
             <div className="ttl" role="heading" aria-level={2}>{group.label}</div>
           </div>
         </div>
@@ -953,17 +992,20 @@ export function Inspector() {
           <span>Nome</span>
           <TextField id="insp-first" value={group.label} onCommit={(v) => patch({ label: v || group.label })} />
         </label>
-        <label className="field">
-          <span>Tipo de fronteira</span>
-          <select className="input" value={group.kind} onChange={(e) => patch({ kind: e.target.value as GroupKind }, "group")}>
-            {Object.entries(GROUP_KINDS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!group.stage && (
+          <label className="field">
+            <span>Tipo de fronteira</span>
+            <select className="input" value={group.kind} onChange={(e) => patch({ kind: e.target.value as GroupKind }, "group")}>
+              {Object.entries(GROUP_KINDS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {group.kind === "context" && <SubdomainField group={group} patch={patch} />}
+        {docMode(doc) === "logic" && <StageFields group={group} patch={patch} />}
         <span className="lbl-s">Cor</span>
         <div className="swatches">
           {PALETTE.map((c) => (

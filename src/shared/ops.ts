@@ -41,6 +41,7 @@ import {
   type GroupEl,
   type GroupKind,
   type InterfaceSpec,
+  type LogicStageSpec,
   type NodeEl,
   type NodeKind,
   type NoteFont,
@@ -51,6 +52,7 @@ import { layeredLayout, shelfPack } from "./layout";
 import { stormLayout } from "./storm";
 import { groupedLayout, TYPE_GROUP_PREFIX } from "./grouped";
 import { logicLayout } from "./logiclayout";
+import { describeStages, stageGroups, stageIssues } from "./logicstages";
 import { migrateFacts, migrateRuleGuards, normalizeLogicRole, pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, dataNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
 import { logicSize } from "./logiccard";
 import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLabelVia, describeDomain, domainIssues, issueText, migrateDddDecisions, schemaGuideDomain, suggestRels, type Issue } from "./domain";
@@ -67,9 +69,9 @@ export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; fill?: string; fillOpacity?: number; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; source?: string; fill?: string; fillOpacity?: number; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
-  | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; x?: number; y?: number; w?: number; h?: number }
+  | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; stage?: LogicStageSpec; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
   | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
@@ -198,7 +200,8 @@ export function fitGroup(doc: Doc, id: string | undefined) {
     ];
     if (g.auto && kids.length) {
       const x1 = Math.min(...kids.map((k) => k.x)) - PAD;
-      const y1 = Math.min(...kids.map((k) => k.y)) - TOP;
+      // etapa do modo Logic com frase: a frase fica abaixo do nome, então a moldura precisa de mais espaço em cima
+      const y1 = Math.min(...kids.map((k) => k.y)) - TOP - (g.stage?.text ? 26 : 0);
       const x2 = Math.max(...kids.map((k) => k.x + k.w)) + PAD;
       const y2 = Math.max(...kids.map((k) => k.y + k.h)) + PAD;
       g.x = x1;
@@ -208,6 +211,18 @@ export function fitGroup(doc: Doc, id: string | undefined) {
     }
     id = g.parent;
   }
+}
+
+/** Etapa do modo Logic: só existe em diagramas logic; `text` é texto e `collapsed`, sim/não. */
+function checkStage(doc: Doc, st: unknown): string | undefined {
+  if (docMode(doc) !== "logic") return `stage só existe em diagramas de modo "logic"`;
+  if (typeof st !== "object" || st === null || Array.isArray(st)) return "stage precisa ser um objeto { text?, collapsed? }";
+  const o = st as Record<string, unknown>;
+  const extra = Object.keys(o).filter((k) => k !== "text" && k !== "collapsed");
+  if (extra.length) return `stage não tem o campo ${extra.map((k) => `"${k}"`).join(", ")}; use text e collapsed`;
+  if (o.text != null && typeof o.text !== "string") return "stage.text precisa ser texto";
+  if (o.collapsed != null && typeof o.collapsed !== "boolean") return "stage.collapsed precisa ser verdadeiro ou falso";
+  return undefined;
 }
 
 export function isContainerOf(doc: Doc, ancestor: string, id: string): boolean {
@@ -305,6 +320,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ...(ddd ? { ddd } : {}),
         ...(logic ? { logic } : {}),
         ...(agent ? { agent } : {}),
+        ...(op.source?.trim() ? { source: op.source.trim() } : {}),
         ...(op.fill ? { fill: op.fill } : {}),
         ...(op.fillOpacity != null && op.fillOpacity !== 1 ? { fillOpacity: op.fillOpacity } : {}),
         x: pos.x,
@@ -322,6 +338,10 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
     }
     case "add_group": {
       if (op.parent && !doc.groups.some((g) => g.id === op.parent)) return { ok: false, error: `parent "${op.parent}" não é um grupo existente` };
+      if (op.stage != null) {
+        const bad = checkStage(doc, op.stage);
+        if (bad) return { ok: false, error: bad };
+      }
       if (op.subdomain !== undefined) {
         if (op.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
         if (!(op.subdomain in SUBDOMAINS)) return { ok: false, error: `subdomain inválido "${op.subdomain}". Válidos: ${Object.keys(SUBDOMAINS).join(", ")}` };
@@ -339,6 +359,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ...(op.fill ? { fill: op.fill } : {}),
         ...(op.fillOpacity != null && op.fillOpacity !== 1 ? { fillOpacity: op.fillOpacity } : {}),
         ...(op.subdomain ? { subdomain: op.subdomain } : {}),
+        ...(op.stage ? { stage: op.stage, kind: op.kind ?? "layer", tag: "ETAPA" } : {}),
         x: pos.x,
         y: pos.y,
         w: op.w ?? 320,
@@ -478,6 +499,12 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (isNode && patch.kind === "logic" && !(patch.logic ?? el.logic)) return { ok: false, error: `kind "logic" exige logic.role` };
       if (isNode && patch.kind === "domain" && !(patch.ddd ?? el.ddd)) return { ok: false, error: `kind "domain" exige ddd.role` };
       if (isNode && patch.kind === "agent" && !(patch.agent ?? el.agent)) return { ok: false, error: `kind "agent" exige agent.role` };
+      if ("stage" in patch && patch.stage != null) {
+        if (!doc.groups.includes(el)) return { ok: false, error: "stage só vale em grupos (a etapa é o grupo; os passos entram nela com parent)" };
+        const bad = checkStage(doc, patch.stage);
+        if (bad) return { ok: false, error: bad };
+        if (patch.tag === undefined && !el.tag) patch.tag = "ETAPA";
+      }
       if ("subdomain" in patch && patch.subdomain != null) {
         if (!doc.groups.includes(el) || el.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
         if (!(patch.subdomain as string in SUBDOMAINS)) return { ok: false, error: `subdomain inválido "${patch.subdomain}". Válidos: ${Object.keys(SUBDOMAINS).join(", ")}` };
@@ -493,6 +520,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if ("agent" in patch && patch.agent == null) delete el.agent;
       if (isNode && ("logic" in patch || "label" in patch || "description" in patch) && el.logic) resizeLogic(doc, [el as NodeEl]); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
+      if ("stage" in patch && patch.stage == null) delete el.stage;
       if ("parent" in patch) {
         if (el.parent && (!doc.groups.some((g) => g.id === el.parent) || el.parent === el.id || isContainerOf(doc, el.id, el.parent))) {
           el.parent = before;
@@ -552,6 +580,20 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         for (const n of doc.nodes) {
           const p = plan.pos.get(n.id);
           if (p) Object.assign(n, p, plan.size.get(n.id) ?? {});
+        }
+        // etapas: a recolhida ocupa o lugar que o layout deu ao cartão; a aberta volta a envolver os passos
+        for (const g of doc.groups) {
+          if (!g.stage) continue;
+          const p = plan.pos.get(g.id);
+          if (g.stage.collapsed && p) {
+            Object.assign(g, p, plan.size.get(g.id) ?? {}, { auto: false });
+            // os passos escondidos ficam sob o cartão: enquadrar, minimapa e exportação não enxergam posições antigas
+            for (const n of doc.nodes) if (n.parent === g.id) Object.assign(n, { x: g.x + (g.w - n.w) / 2, y: g.y + (g.h - n.h) / 2 });
+          }
+          else if (!g.stage.collapsed) {
+            g.auto = true;
+            fitGroup(doc, g.id);
+          }
         }
         // dados e cenários ficam agrupados (um grupo por tipo), em vez de soltos
         for (const g of plan.groups) {
@@ -1012,7 +1054,7 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
     if (!domain && !logicMode && !agentsMode && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
   }
   if (domain) issues.push(...domainIssues(doc, opts));
-  if (logicMode) issues.push(...logicIssues(doc));
+  if (logicMode) issues.push(...logicIssues(doc), ...stageIssues(doc));
   if (agentsMode) issues.push(...agentIssues(doc));
   for (const message of tourIssues(doc)) base(message);
   return issues;
@@ -1080,7 +1122,7 @@ export function toMermaid(doc: Doc): string {
 
 /** Descrição textual determinística do diagrama — o formato que um LLM deve ler. */
 export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): string {
-  if (docMode(doc) === "logic") return describeLogic(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
+  if (docMode(doc) === "logic") return describeLogic(doc, validateDetailed(doc, opts)) + (stageGroups(doc).length ? "\n\n" + describeStages(doc) : "") + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "domain") return describeDomain(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "agents") return describeAgents(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   const L: string[] = [];

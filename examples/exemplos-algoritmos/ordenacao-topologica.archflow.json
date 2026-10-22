@@ -13,7 +13,7 @@
       "x": -408,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 962,
+      "x": 1137,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 962,
-      "y": 166,
+      "x": 1137,
+      "y": 202,
       "w": 306,
-      "h": 302,
+      "h": 374,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 962,
-      "y": 458,
+      "x": 1137,
+      "y": 566,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     },
     {
@@ -54,10 +54,10 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 962,
-      "y": 589,
+      "x": 1137,
+      "y": 715,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -76,7 +76,7 @@
       "x": -380,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "arestas",
@@ -90,9 +90,9 @@
         "text": "Pares [de, para]: «de» vem antes de «para». Todo número citado está em nos. Pode estar vazia."
       },
       "x": -380,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "pendentes",
@@ -105,10 +105,10 @@
         "type": "lista",
         "text": "Os nós que ainda não entraram na ordem. Começa igual a nos."
       },
-      "x": 990,
-      "y": 220,
+      "x": 1165,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "restam",
@@ -121,10 +121,10 @@
         "type": "lista",
         "text": "As dependências cujo «de» ainda não entrou na ordem. Começa igual a arestas."
       },
-      "x": 990,
-      "y": 278,
+      "x": 1165,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "alvos",
@@ -137,10 +137,10 @@
         "type": "lista",
         "text": "O «para» de cada dependência restante."
       },
-      "x": 990,
+      "x": 1165,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "livres",
@@ -153,10 +153,10 @@
         "type": "lista",
         "text": "Os pendentes que nenhuma dependência restante aponta."
       },
-      "x": 990,
-      "y": 336,
+      "x": 1165,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "escolhido",
@@ -169,10 +169,10 @@
         "type": "número",
         "text": "O menor dos livres."
       },
-      "x": 990,
-      "y": 394,
+      "x": 1165,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ordem",
@@ -186,10 +186,10 @@
         "text": "Resposta: os nós na ordem topológica. Começa vazia.",
         "value": []
       },
-      "x": 990,
-      "y": 102,
+      "x": 1165,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -303,7 +303,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 175,
       "y": 453,
       "w": 440,
       "h": 142
@@ -392,7 +392,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 175,
       "y": 824,
       "w": 440,
       "h": 184
@@ -406,7 +406,7 @@
         "outcome": "ok",
         "text": "Devolve ordem: todos os nós, cada um depois de quem ele depende."
       },
-      "x": 510,
+      "x": 685,
       "y": 494,
       "w": 280,
       "h": 60
@@ -420,7 +420,7 @@
         "outcome": "erro",
         "text": "Sobraram nós e todos dependem de alguém: não existe ordem."
       },
-      "x": 510,
+      "x": 685,
       "y": 886,
       "w": 280,
       "h": 60
@@ -486,10 +486,10 @@
           }
         ]
       },
-      "x": 990,
-      "y": 512,
+      "x": 1165,
+      "y": 620,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-ciclo",
@@ -529,10 +529,10 @@
           }
         ]
       },
-      "x": 990,
-      "y": 643,
+      "x": 1165,
+      "y": 769,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -601,7 +601,7 @@
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.58
     },
     {
       "id": "coloca-to-cada",
@@ -613,11 +613,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -46,
+          "x": 129,
           "y": 916
         },
         {
-          "x": -46,
+          "x": 129,
           "y": 345.5
         }
       ]
@@ -633,7 +633,7 @@
       "logic": {
         "branch": "segue"
       },
-      "labelT": 0.5
+      "labelT": 0.42
     }
   ],
   "customAssets": []

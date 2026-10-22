@@ -10,10 +10,10 @@
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -918,
       "y": -10,
       "w": 306,
-      "h": 244,
+      "h": 298,
       "auto": true
     },
     {
@@ -24,7 +24,7 @@
       "x": 1632,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -33,9 +33,9 @@
       "kind": "layer",
       "tag": "Variable",
       "x": 1632,
-      "y": 166,
+      "y": 202,
       "w": 306,
-      "h": 766,
+      "h": 982,
       "auto": true
     },
     {
@@ -44,9 +44,9 @@
       "kind": "layer",
       "tag": "Caminhos de sucesso",
       "x": 1632,
-      "y": 922,
+      "y": 1174,
       "w": 376,
-      "h": 219,
+      "h": 255,
       "auto": true
     },
     {
@@ -55,9 +55,9 @@
       "kind": "layer",
       "tag": "Caminhos de falha",
       "x": 1632,
-      "y": 1135,
+      "y": 1423,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -73,10 +73,10 @@
         "type": "lista",
         "text": "Números distintos, em qualquer ordem. Pode estar vazia."
       },
-      "x": -380,
+      "x": -890,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "arestas",
@@ -89,10 +89,10 @@
         "type": "lista",
         "text": "Pares [de, para]: seta de «de» para «para». Os dois números têm de estar em nos."
       },
-      "x": -380,
-      "y": 102,
+      "x": -890,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "contador",
@@ -106,9 +106,9 @@
         "text": "O próximo número de descoberta. Começa em 0."
       },
       "x": 1660,
-      "y": 220,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ind",
@@ -122,9 +122,9 @@
         "text": "Pares [nó, número]: a ordem em que o nó foi descoberto. Um nó sem par ainda não foi visitado."
       },
       "x": 1660,
-      "y": 278,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "low",
@@ -138,9 +138,9 @@
         "text": "Pares [nó, número]: o menor número de descoberta que o nó alcança pela busca. Começa igual a ind e só diminui."
       },
       "x": 1660,
-      "y": 336,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "prox",
@@ -154,9 +154,9 @@
         "text": "Pares [nó, posição]: quantas das setas que saem do nó já foram examinadas."
       },
       "x": 1660,
-      "y": 394,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "pilha",
@@ -170,9 +170,9 @@
         "text": "Nós descobertos que ainda não foram atribuídos a um componente, do mais antigo ao mais novo."
       },
       "x": 1660,
-      "y": 452,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "chamadas",
@@ -186,9 +186,9 @@
         "text": "Os nós da busca em andamento, do início da busca até o nó de agora (o último)."
       },
       "x": 1660,
-      "y": 510,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "componentes",
@@ -204,7 +204,7 @@
       "x": 1660,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "quantidade",
@@ -218,9 +218,9 @@
         "text": "Resposta: quantos componentes existem."
       },
       "x": 1660,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "v",
@@ -234,9 +234,9 @@
         "text": "O último da pilha de chamadas: o nó que a busca está examinando."
       },
       "x": 1660,
-      "y": 568,
+      "y": 712,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "viz",
@@ -250,9 +250,9 @@
         "text": "Os «para» das setas que saem de v, na ordem de arestas."
       },
       "x": 1660,
-      "y": 626,
+      "y": 788,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "k",
@@ -266,9 +266,9 @@
         "text": "Quantas setas de v já foram examinadas."
       },
       "x": 1660,
-      "y": 684,
+      "y": 864,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "w",
@@ -281,10 +281,10 @@
         "type": "número",
         "text": "O vizinho de v que está sendo examinado."
       },
-      "x": -380,
-      "y": 160,
+      "x": -890,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "u",
@@ -298,9 +298,9 @@
         "text": "O nó logo abaixo de v na pilha de chamadas."
       },
       "x": 1660,
-      "y": 742,
+      "y": 940,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "comp",
@@ -314,9 +314,9 @@
         "text": "Os nós que saem da pilha de componente até a raiz."
       },
       "x": 1660,
-      "y": 800,
+      "y": 1016,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "topo",
@@ -330,9 +330,9 @@
         "text": "O último nó da pilha de componente."
       },
       "x": 1660,
-      "y": 858,
+      "y": 1092,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -431,7 +431,7 @@
           }
         ]
       },
-      "x": 390,
+      "x": 565,
       "y": 289,
       "w": 330,
       "h": 275
@@ -487,7 +487,7 @@
           }
         ]
       },
-      "x": 310,
+      "x": 565,
       "y": 779,
       "w": 330,
       "h": 101
@@ -549,7 +549,7 @@
           }
         ]
       },
-      "x": 335,
+      "x": 510,
       "y": 944,
       "w": 440,
       "h": 266
@@ -644,7 +644,7 @@
           }
         ]
       },
-      "x": 105,
+      "x": -350,
       "y": 2189,
       "w": 440,
       "h": 266
@@ -795,7 +795,7 @@
           }
         ]
       },
-      "x": 310,
+      "x": 55,
       "y": 1817,
       "w": 440,
       "h": 128
@@ -841,7 +841,7 @@
           }
         ]
       },
-      "x": 365,
+      "x": 165,
       "y": 2009,
       "w": 330,
       "h": 116
@@ -882,7 +882,7 @@
           }
         ]
       },
-      "x": 615,
+      "x": 160,
       "y": 2257,
       "w": 330,
       "h": 130
@@ -927,7 +927,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": -510,
       "y": 2526.5,
       "w": 440,
       "h": 120
@@ -985,7 +985,7 @@
           }
         ]
       },
-      "x": 820,
+      "x": 565,
       "y": 1823,
       "w": 330,
       "h": 116
@@ -1010,7 +1010,7 @@
           }
         ]
       },
-      "x": 765,
+      "x": 565,
       "y": 2013.5,
       "w": 330,
       "h": 107
@@ -1024,7 +1024,7 @@
         "until": "contem(comp, v)",
         "text": "Para quando o nó de agora já está no componente."
       },
-      "x": 1015,
+      "x": 560,
       "y": 2271.5,
       "w": 340,
       "h": 101
@@ -1065,7 +1065,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 0,
       "y": 2519,
       "w": 440,
       "h": 135
@@ -1103,7 +1103,7 @@
           }
         ]
       },
-      "x": 1020,
+      "x": 510,
       "y": 2540,
       "w": 440,
       "h": 93
@@ -1258,7 +1258,7 @@
           }
         ]
       },
-      "x": 710,
+      "x": 965,
       "y": 783,
       "w": 440,
       "h": 93
@@ -1272,7 +1272,7 @@
         "outcome": "ok",
         "text": "Devolve quantidade e componentes."
       },
-      "x": 845,
+      "x": 1020,
       "y": 1047,
       "w": 280,
       "h": 60
@@ -1286,7 +1286,7 @@
         "outcome": "erro",
         "text": "Alguma aresta cita um número que não está em nos: nada a calcular."
       },
-      "x": 790,
+      "x": 965,
       "y": 396.5,
       "w": 280,
       "h": 60
@@ -1380,9 +1380,9 @@
         ]
       },
       "x": 1660,
-      "y": 976,
+      "y": 1228,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-cruzada",
@@ -1431,9 +1431,9 @@
         ]
       },
       "x": 1660,
-      "y": 1043,
+      "y": 1313,
       "w": 320,
-      "h": 70
+      "h": 88
     },
     {
       "id": "caso-invalido",
@@ -1465,9 +1465,9 @@
         ]
       },
       "x": 1660,
-      "y": 1189,
+      "y": 1477,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -1505,7 +1505,7 @@
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.54
     },
     {
       "id": "prepara-to-l-nos",
@@ -1555,11 +1555,11 @@
       },
       "waypoints": [
         {
-          "x": 264,
+          "x": 514,
           "y": 829.5
         },
         {
-          "x": 264,
+          "x": 514,
           "y": 671.5
         }
       ],
@@ -1667,11 +1667,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 41,
+          "x": -414,
           "y": 2322
         },
         {
-          "x": 41,
+          "x": -414,
           "y": 1317.5
         }
       ]
@@ -1702,11 +1702,11 @@
       },
       "waypoints": [
         {
-          "x": 23,
+          "x": -432,
           "y": 2322
         },
         {
-          "x": 23,
+          "x": -432,
           "y": 1317.5
         }
       ],
@@ -1722,11 +1722,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -46,
+          "x": -556,
           "y": 2586.5
         },
         {
-          "x": -46,
+          "x": -556,
           "y": 1317.5
         }
       ]
@@ -1757,11 +1757,11 @@
       },
       "waypoints": [
         {
-          "x": 1524,
+          "x": 1014,
           "y": 1881
         },
         {
-          "x": 1524,
+          "x": 1014,
           "y": 2686
         }
       ],
@@ -1799,11 +1799,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -82,
+          "x": -592,
           "y": 2586.5
         },
         {
-          "x": -82,
+          "x": -592,
           "y": 2322
         }
       ]
@@ -1865,11 +1865,11 @@
       },
       "waypoints": [
         {
-          "x": -46,
+          "x": -556,
           "y": 2925.5
         },
         {
-          "x": -46,
+          "x": -556,
           "y": 1317.5
         }
       ],
@@ -1885,11 +1885,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": -574,
           "y": 3110.5
         },
         {
-          "x": -64,
+          "x": -574,
           "y": 1317.5
         }
       ]
@@ -1907,11 +1907,11 @@
       },
       "waypoints": [
         {
-          "x": 228,
+          "x": 428,
           "y": 1317.5
         },
         {
-          "x": 228,
+          "x": 428,
           "y": 671.5
         }
       ],

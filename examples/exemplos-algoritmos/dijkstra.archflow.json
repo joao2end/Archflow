@@ -13,7 +13,7 @@
       "x": -408,
       "y": -10,
       "w": 306,
-      "h": 476,
+      "h": 602,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 1122,
+      "x": 1377,
       "y": -10,
       "w": 306,
-      "h": 140,
+      "h": 146,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 1122,
-      "y": 108,
+      "x": 1377,
+      "y": 126,
       "w": 306,
-      "h": 534,
+      "h": 678,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 1122,
-      "y": 632,
+      "x": 1377,
+      "y": 794,
       "w": 376,
-      "h": 204,
+      "h": 240,
       "auto": true
     }
   ],
@@ -65,7 +65,7 @@
       "x": -380,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "arestas",
@@ -79,9 +79,9 @@
         "text": "Trios [de, para, peso]: seta dirigida de «de» para «para» com custo «peso» (≥ 0). Todo número citado está em nos."
       },
       "x": -380,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "origem",
@@ -95,9 +95,9 @@
         "text": "Nó de onde se parte. Está em nos."
       },
       "x": -380,
-      "y": 160,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "destino",
@@ -111,9 +111,9 @@
         "text": "Nó aonde se quer chegar. Está em nos."
       },
       "x": -380,
-      "y": 218,
+      "y": 272,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inf",
@@ -128,9 +128,9 @@
         "value": 1000000000
       },
       "x": -380,
-      "y": 276,
+      "y": 348,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "dist",
@@ -143,10 +143,10 @@
         "type": "lista",
         "text": "Pares [nó, distância] com a menor distância conhecida da origem até o nó (infinito se ainda não alcançado)."
       },
-      "x": 1150,
-      "y": 162,
+      "x": 1405,
+      "y": 180,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "feitos",
@@ -160,10 +160,10 @@
         "text": "Nós cuja distância já é definitiva. Começa vazia.",
         "value": []
       },
-      "x": 1150,
-      "y": 220,
+      "x": 1405,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "candidatos",
@@ -176,10 +176,10 @@
         "type": "lista",
         "text": "Os pares de dist cujo nó ainda não foi fechado e já foi alcançado (distância menor que infinito)."
       },
-      "x": 1150,
-      "y": 278,
+      "x": 1405,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "dmin",
@@ -192,10 +192,10 @@
         "type": "número",
         "text": "A menor distância entre os candidatos."
       },
-      "x": 1150,
-      "y": 336,
+      "x": 1405,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "u",
@@ -208,10 +208,10 @@
         "type": "número",
         "text": "O nó de um candidato com a menor distância."
       },
-      "x": 1150,
-      "y": 394,
+      "x": 1405,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "saindo",
@@ -224,10 +224,10 @@
         "type": "lista",
         "text": "Os trios cujo «de» é u."
       },
-      "x": 1150,
-      "y": 452,
+      "x": 1405,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "v",
@@ -241,9 +241,9 @@
         "text": "O «para» da aresta da vez."
       },
       "x": -380,
-      "y": 334,
+      "y": 424,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "novo",
@@ -256,10 +256,10 @@
         "type": "número",
         "text": "dmin + o peso da aresta da vez."
       },
-      "x": 1150,
-      "y": 510,
+      "x": 1405,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "antigo",
@@ -272,10 +272,10 @@
         "type": "número",
         "text": "A distância hoje guardada em dist para v."
       },
-      "x": 1150,
-      "y": 568,
+      "x": 1405,
+      "y": 712,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "buscado",
@@ -289,9 +289,9 @@
         "text": "Cópia de destino, usada na busca em dist."
       },
       "x": -380,
-      "y": 392,
+      "y": 500,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "custo",
@@ -304,10 +304,10 @@
         "type": "número",
         "text": "Resposta: custo do caminho mais barato, ou -1 se o destino não é alcançável."
       },
-      "x": 1150,
+      "x": 1405,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -455,7 +455,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 255,
       "y": 508,
       "w": 440,
       "h": 219
@@ -470,7 +470,7 @@
         "as": "aresta",
         "text": "Uma volta por aresta que sai do nó recém-fechado. aresta[1] é o vizinho e aresta[2] o peso."
       },
-      "x": 105,
+      "x": 305,
       "y": 798,
       "w": 340,
       "h": 87
@@ -512,7 +512,7 @@
           }
         ]
       },
-      "x": 55,
+      "x": 255,
       "y": 956,
       "w": 440,
       "h": 162
@@ -548,7 +548,7 @@
           }
         ]
       },
-      "x": 135,
+      "x": 310,
       "y": 1182,
       "w": 330,
       "h": 101
@@ -634,7 +634,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 765,
       "y": 553.5,
       "w": 440,
       "h": 128
@@ -670,7 +670,7 @@
           }
         ]
       },
-      "x": 515,
+      "x": 715,
       "y": 791,
       "w": 330,
       "h": 101
@@ -695,7 +695,7 @@
           }
         ]
       },
-      "x": 565,
+      "x": 765,
       "y": 990.5,
       "w": 330,
       "h": 93
@@ -709,7 +709,7 @@
         "outcome": "ok",
         "text": "Devolve custo: o valor do caminho mais barato, ou -1."
       },
-      "x": 535,
+      "x": 710,
       "y": 1202.5,
       "w": 280,
       "h": 60
@@ -791,10 +791,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 686,
+      "x": 1405,
+      "y": 848,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-sem-caminho",
@@ -830,10 +830,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 753,
+      "x": 1405,
+      "y": 933,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -926,11 +926,11 @@
       },
       "waypoints": [
         {
-          "x": 9,
+          "x": 209,
           "y": 1232.5
         },
         {
-          "x": 9,
+          "x": 209,
           "y": 841.5
         }
       ],
@@ -946,11 +946,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -9,
+          "x": 191,
           "y": 1407
         },
         {
-          "x": -9,
+          "x": 191,
           "y": 841.5
         }
       ]
@@ -968,11 +968,11 @@
       },
       "waypoints": [
         {
-          "x": -82,
+          "x": 173,
           "y": 841.5
         },
         {
-          "x": -82,
+          "x": 173,
           "y": 386.5
         }
       ],
@@ -1013,11 +1013,11 @@
       },
       "waypoints": [
         {
-          "x": 941,
+          "x": 1141,
           "y": 841.5
         },
         {
-          "x": 941,
+          "x": 1141,
           "y": 1170.5
         }
       ],

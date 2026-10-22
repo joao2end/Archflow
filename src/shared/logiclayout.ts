@@ -10,6 +10,7 @@ import type { Doc, NodeEl } from "./schema";
 import { parseStatement } from "./expr";
 import { exitsOf, dataKey, dataNames, flowEdges, isFlowNode, pipelineSequence } from "./logic";
 import { isFailureScenario, logicSize } from "./logiccard";
+import { STAGE_H, STAGE_W, layoutView } from "./logicstages";
 
 export const LOGIC_GAP_Y = 64;
 const GAP_X = 70;
@@ -25,13 +26,15 @@ export interface LogicPlan {
   groups: { id: string; label: string; tag: string; members: string[] }[];
 }
 
-export function logicLayout(doc: Doc): LogicPlan {
+export function logicLayout(input: Doc): LogicPlan {
+  // etapas recolhidas entram como um passo do tamanho do cartão-resumo; os passos delas ficam onde estão (escondidos)
+  const { doc, stageIds } = layoutView(input);
   const names = dataNames(doc);
   const pos = new Map<string, { x: number; y: number }>();
   const size = new Map<string, { w: number; h: number }>();
   const waypoints = new Map<string, { x: number; y: number }[]>();
   const dim = (n: NodeEl) => {
-    const s = logicSize(n, names, doc.showDescriptions) ?? { w: n.w, h: n.h };
+    const s = stageIds.has(n.id) ? { w: STAGE_W, h: STAGE_H } : (logicSize(n, names, doc.showDescriptions) ?? { w: n.w, h: n.h });
     size.set(n.id, s);
     return s;
   };
@@ -111,15 +114,47 @@ export function logicLayout(doc: Doc): LogicPlan {
   const flowLeft = 0;
   let y = 0;
   const rowY: number[] = [];
+  // espinha: o caminho principal (do início ao fim «ok», pelo trecho mais longo) fica numa coluna reta, e os desvios se
+  // abrem ao lado. Fins com erro vão para a ponta direita da linha: o olho desce pela espinha e vê as exceções saindo dela
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const isErrEnd = (id: string) => byId.get(id)?.logic?.role === "end" && byId.get(id)?.logic?.outcome === "erro";
+  const ahead = new Map<string, number>();
+  for (const n of [...nodes].sort((a, b) => (level.get(b.id) ?? 0) - (level.get(a.id) ?? 0)))
+    ahead.set(n.id, Math.max(0, ...succ(n.id).filter((t) => !isErrEnd(t) && (level.get(t) ?? 0) > (level.get(n.id) ?? 0)).map((t) => (ahead.get(t) ?? 0) + 1)));
+  const spine = new Set<string>();
+  for (let cur = start?.id; cur && !spine.has(cur); ) {
+    spine.add(cur);
+    const from: string = cur;
+    const next = forward
+      .filter((e) => e.from === from && !isErrEnd(e.to) && (level.get(e.to) ?? 0) > (level.get(from) ?? 0))
+      .sort((a, b) => (ahead.get(b.to) ?? 0) - (ahead.get(a.to) ?? 0) || rank(byId.get(a.to)!) - rank(byId.get(b.to)!))[0];
+    cur = next?.to;
+  }
+  // etapa aberta: a moldura tem nome (e frase) em cima; a linha onde ela começa ganha espaço para não encostar na de cima
+  const openStage = (n: NodeEl) => input.groups.find((g) => g.id === n.parent && g.stage && !g.stage.collapsed);
+  let prevStages = new Set<string>();
   rows.forEach((r, i) => {
     if (!r?.length) return;
+    const here = new Set(r.map((n) => openStage(n)?.id).filter((x): x is string => !!x));
+    const opens = [...here].filter((id) => !prevStages.has(id));
+    if (opens.length) y += Math.max(...opens.map((id) => (input.groups.find((g) => g.id === id)!.stage!.text ? 58 : 32)));
+    prevStages = here;
     rowY[i] = y;
     const h = Math.max(...r.map((n) => dim(n).h));
-    let x = cx - widths[i] / 2;
-    for (const n of r) {
-      const s = size.get(n.id)!;
-      pos.set(n.id, { x, y: y + (h - s.h) / 2 });
-      x += s.w + GAP_X;
+    const row = [...r.filter((n) => !isErrEnd(n.id)), ...r.filter((n) => isErrEnd(n.id))];
+    const si = row.findIndex((n) => spine.has(n.id));
+    const place = (n: NodeEl, x: number) => pos.set(n.id, { x, y: y + (h - size.get(n.id)!.h) / 2 });
+    if (si < 0) {
+      let x = cx - widths[i] / 2;
+      for (const n of row) (place(n, x), (x += size.get(n.id)!.w + GAP_X));
+    } else {
+      // a espinha no centro; o que vem antes dela na ordem vai à esquerda, o resto à direita
+      const sx = cx - size.get(row[si].id)!.w / 2;
+      place(row[si], sx);
+      let x = sx;
+      for (let k = si - 1; k >= 0; k--) (x -= size.get(row[k].id)!.w + GAP_X), place(row[k], x);
+      x = sx + size.get(row[si].id)!.w + GAP_X;
+      for (let k = si + 1; k < row.length; k++) (place(row[k], x), (x += size.get(row[k].id)!.w + GAP_X));
     }
     y += h + LOGIC_GAP_Y;
   });
@@ -197,4 +232,53 @@ export function logicLayout(doc: Doc): LogicPlan {
   ].filter((g) => g.members.length);
   void exitsOf;
   return { pos, size, waypoints, groups };
+}
+
+/**
+ * Moldura de cada laço: o próprio laço e os passos do corpo dele (o que se alcança pela seta «repete» e volta ao laço sem
+ * passar por ele de novo). Desenhada atrás dos cartões, deixa à vista o que se repete, em vez de só uma seta de volta.
+ */
+const isDataOrScenario = (n: NodeEl) => !isFlowNode(n);
+
+export function loopFrames(doc: Doc): { id: string; label: string; x: number; y: number; w: number; h: number }[] {
+  const PAD = 22;
+  const TOP = 30;
+  const out: { id: string; label: string; x: number; y: number; w: number; h: number }[] = [];
+  const byId = new Map(doc.nodes.map((n) => [n.id, n]));
+  const next = new Map<string, string[]>();
+  const prev = new Map<string, string[]>();
+  for (const c of doc.connections) {
+    if (!byId.has(c.from) || !byId.has(c.to)) continue;
+    (next.get(c.from) ?? next.set(c.from, []).get(c.from)!).push(c.to);
+    (prev.get(c.to) ?? prev.set(c.to, []).get(c.to)!).push(c.from);
+  }
+  const reach = (from: string[], links: Map<string, string[]>, stop: string) => {
+    const seen = new Set<string>();
+    const stack = [...from];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (id === stop || seen.has(id)) continue;
+      seen.add(id);
+      stack.push(...(links.get(id) ?? []));
+    }
+    return seen;
+  };
+  for (const l of doc.nodes.filter((n) => n.logic?.role === "loop")) {
+    const starts = doc.connections.filter((c) => c.from === l.id && c.logic?.branch === "repete" && byId.has(c.to)).map((c) => c.to);
+    if (!starts.length) continue;
+    const fwd = reach(starts, next, l.id);
+    const back = reach(prev.get(l.id) ?? [], prev, l.id);
+    const body = [...fwd].filter((id) => back.has(id)).map((id) => byId.get(id)!);
+    if (!body.length) continue;
+    const x1 = Math.min(...body.map((b) => b.x)) - PAD;
+    const y1 = Math.min(...body.map((b) => b.y)) - TOP;
+    const x2 = Math.max(...body.map((b) => b.x + b.w)) + PAD;
+    const y2 = Math.max(...body.map((b) => b.y + b.h)) + PAD;
+    // a moldura só vale se não cobrir passos de fora do corpo (o layout pode ter posto um vizinho no meio)
+    const inBody = new Set([l.id, ...body.map((b) => b.id)]);
+    const covers = doc.nodes.some((n) => n.logic && !inBody.has(n.id) && !isDataOrScenario(n) && n.x < x2 && n.x + n.w > x1 && n.y < y2 && n.y + n.h > y1);
+    if (!covers) out.push({ id: l.id, label: l.label, x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+  }
+  // a de fora primeiro: as de dentro ficam por cima
+  return out.sort((a, b) => b.w * b.h - a.w * a.h);
 }

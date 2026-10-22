@@ -4145,3 +4145,186 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .run-resume { margin: 0 10px 8px; font-size: 12px; }
 .run-files { margin: 0; padding-left: 18px; font: 12px/1.5 var(--mono, monospace); }
 .run-resumed { color: #b7791f; }
+
+/* ───────── modo Logic: depuração visual (porquê com valores, valores nos dados, saltos, voltas) ───────── */
+.node.logic .logic-visits { fill: #f2994a; stroke: #fff; stroke-width: 1.5; }
+.node.logic .logic-visits-t { font: 800 10px var(--sans); fill: #fff; }
+.node.logic .logic-live rect { fill: var(--glass-strong); stroke: var(--hairline); stroke-width: 1; }
+.node.logic .logic-live text { font: 600 11px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink); }
+.node.logic .logic-live.changed rect { fill: #f2994a; stroke: none; }
+.node.logic .logic-live.changed text { fill: #fff; }
+.node.logic-viz-dim .logic-live { opacity: 1; }
+.play-callout .pc-box { fill: var(--glass-fallback); stroke: #f2994a; stroke-width: 1.5; filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.18)); }
+.play-callout .pc-ans { font: 750 12.5px var(--sans); fill: var(--ink); }
+.play-callout .pc-ans.yes { fill: #2f9e6b; }
+.play-callout .pc-ans.no { fill: #d6453d; }
+.play-callout .pc-line { font: 500 11.5px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-2); white-space: pre; }
+.play-callout .pc-line.val { fill: var(--ink); font-weight: 650; }
+.play-callout .pc-line.chg { fill: #c46a14; font-weight: 650; }
+.play-callout .pc-line.err { fill: #d6453d; font-weight: 650; }
+.logic-play-panel .lp-now { height: auto; min-height: 64px; max-height: 168px; }
+.logic-play-panel .lp-now-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.logic-play-panel .lp-loopctx { font: 600 11.5px var(--sans); color: #c2548b; }
+.logic-play-panel .lp-why { display: flex; align-items: flex-start; gap: 10px; margin: 6px 0 4px; padding: 6px 10px; border-radius: 10px; background: rgba(112, 111, 211, 0.08); }
+.logic-play-panel .lp-why-l { flex: none; font: 700 10.5px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); line-height: 20px; }
+.logic-play-panel .lp-why-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.logic-play-panel .lp-why-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; color: var(--ink-3); }
+.logic-play-panel .lp-why-row code { font: 500 12px ui-monospace, "SF Mono", Consolas, monospace; color: var(--ink-2); overflow-wrap: anywhere; }
+.logic-play-panel .lp-why-row code.vals { color: var(--ink); font-weight: 650; }
+.logic-play-panel .lp-why .lp-ans { flex: none; align-self: center; font-size: 12px; padding: 2px 10px; }
+.logic-play-panel .lp-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 5px 10px; border-radius: 10px; }
+.logic-play-panel .lp-verdict.ok { background: rgba(47, 158, 107, 0.1); }
+.logic-play-panel .lp-verdict.fail { background: rgba(214, 69, 61, 0.1); }
+.logic-play-panel .lp-expect { display: inline-flex; align-items: center; gap: 6px; font: 500 12px ui-monospace, "SF Mono", Consolas, monospace; color: var(--ink); }
+.logic-play-panel .lp-jump { height: 26px; min-height: 26px; padding: 0 9px; gap: 4px; font: 600 11.5px var(--sans); display: inline-flex; align-items: center; }
+.logic-play-panel .lp-jump:disabled { opacity: 0.4; cursor: default; }
+.logic-play-panel .lp-jumps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 0 auto; }
+.logic-play-panel .lp-jsep { width: 1px; height: 18px; margin: 0 4px; background: var(--hairline); }
+.logic-play-panel .lp-jhint { margin-left: auto; font: 500 11px var(--sans); color: var(--ink-3); }
+.logic-play-panel .lp-turn { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 8px; color: var(--ink-2); cursor: pointer; font: 500 12px var(--sans); flex-shrink: 0; }
+.logic-play-panel .lp-turn:hover { background: rgba(194, 84, 139, 0.08); }
+.logic-play-panel .lp-turn b { color: #c2548b; font-weight: 700; white-space: nowrap; }
+.logic-play-panel .lp-turn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logic-play-panel .lp-turn > svg { transform: rotate(-90deg); transition: transform 0.15s; flex: none; }
+.logic-play-panel .lp-turn.open > svg { transform: none; }
+.logic-play-panel .lp-turn.cur { background: rgba(194, 84, 139, 0.1); color: var(--ink); }
+.logic-play-panel .lp-turn .lp-jump { height: 22px; min-height: 22px; }
+.logic-play-panel .lp-row { flex-shrink: 0; }
+.logic-play-panel .lp-bar.segs button.chg { height: 6px; box-shadow: inset 0 -2px 0 #f2994a; }
+.logic-play-panel.min .lp-jumps { display: none; }
+@media (max-width: 720px) {
+  .logic-play-panel .lp-jhint { display: none; }
+}
+/* o painel divide a tela com o quadro: o porquê agora também aparece ao lado do nó, então o painel pode ser mais baixo */
+.logic-play-panel { height: clamp(280px, 44vh, 500px); }
+
+/* ───────── modo Logic: etapas (moldura aberta e cartão-resumo recolhido) ───────── */
+.group.stage-frame .group-edge { stroke-dasharray: none; stroke-width: 1.8; stroke: color-mix(in srgb, var(--gc) 40%, transparent); }
+.group.stage-frame .group-body { fill: color-mix(in srgb, var(--gc) 5%, var(--group-tint)); }
+.group .group-stage-text { font: 450 12px var(--sans); fill: var(--ink-2); }
+.stage-toggle { cursor: pointer; }
+.stage-toggle circle { fill: var(--glass-strong); stroke: color-mix(in srgb, var(--gc, #706fd3) 50%, transparent); stroke-width: 1.4; }
+.stage-toggle path { stroke: var(--ink); }
+.stage-toggle:hover circle { fill: color-mix(in srgb, var(--gc, #706fd3) 18%, var(--glass-strong)); }
+.group.stage-card { cursor: grab; }
+.group.stage-card .stage-wash { fill: var(--gc); opacity: 0.09; }
+.group.stage-card .stage-stack { fill: color-mix(in srgb, var(--gc) 30%, transparent); }
+.group.stage-card .logic-cap { font: 800 9.5px var(--sans); letter-spacing: 0.1em; text-transform: uppercase; }
+.group.stage-card .stage-title { font: 650 15px var(--sans); fill: var(--ink); }
+.group.stage-card .logic-desc { font: 450 11.5px var(--sans); fill: var(--ink-2); }
+.group.stage-card .logic-mono { font: 500 10.5px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-2); }
+.group.stage-card .stage-io { fill: var(--ink); }
+.group.stage-card:hover .node-ring { stroke: rgba(112, 111, 211, 0.55); }
+.group.stage-card.sel .node-ring { stroke: var(--primary); stroke-width: 2.5; }
+.group.stage-card.logic-viz-dim { opacity: 0.3; }
+.group.stage-card.logic-viz-vis .node-ring { stroke: #706fd3; stroke-width: 3; }
+.group.stage-card.logic-viz-cur .node-ring { stroke: #f2994a; stroke-width: 4; animation: logic-pulse 1.1s ease-in-out infinite; }
+.group.stage-frame.logic-viz-cur .group-edge { stroke: #f2994a; }
+.node.logic .logic-src { font: 500 9.5px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-3); }
+
+/* ───────── modo Logic: tabela de decisão ───────── */
+.node.logic .logic-table .lt-box { fill: color-mix(in srgb, var(--node-fill) 70%, transparent); stroke: var(--hairline); }
+.node.logic .logic-table .lt-head { font: 800 9px var(--sans); letter-spacing: 0.1em; fill: var(--ink-3); }
+.node.logic .logic-table .lt-rule { stroke: var(--hairline); }
+.node.logic .logic-table .lt-bg { fill: transparent; }
+.node.logic .logic-table .lt-row + .lt-row .lt-bg { stroke: none; }
+.node.logic .logic-table .lt-when { font: 550 11.5px var(--sans); fill: var(--ink); }
+.node.logic .logic-table .lt-then { font: 500 11px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink-2); }
+.node.logic .logic-table .lt-row.else .lt-when { font-style: italic; fill: var(--ink-2); }
+.node.logic .logic-table .lt-row.on .lt-bg { fill: rgba(242, 153, 74, 0.22); }
+.node.logic .logic-table .lt-row.on .lt-when, .node.logic .logic-table .lt-row.on .lt-then { fill: var(--ink); font-weight: 700; }
+.node.logic .logic-table .lt-more { font: 500 10.5px var(--sans); fill: var(--ink-3); }
+
+/* ───────── modo Logic: visão geral e matriz de cenários ───────── */
+.lo { display: grid; gap: 16px; margin-top: 12px; }
+.lo-hero { padding: 14px 16px; border-radius: 14px; background: rgba(112, 111, 211, 0.08); }
+.lo-hero h3 { margin: 0 0 6px; font: 650 17px var(--sans); }
+.lo-hero p { margin: 0 0 10px; color: var(--ink-2); line-height: 1.5; }
+.lo-facts { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 500 12.5px var(--sans); color: var(--ink-2); }
+.lo-facts b { color: var(--ink); font-weight: 700; }
+.lo-facts .ok b { color: #2f9e6b; }
+.lo-facts .fail b { color: #d6453d; }
+.lo-section h3 { margin: 0 0 6px; font: 700 11px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.lo-stages { margin: 0; padding-left: 22px; display: grid; gap: 4px; font: 500 13px var(--sans); color: var(--ink-2); }
+.lo-stages b { color: var(--ink); }
+.lo-empty { margin: 0; color: var(--ink-3); font: 500 12.5px var(--sans); }
+.lo-table { width: 100%; border-collapse: collapse; font: 500 12.5px var(--sans); }
+.lo-table th { text-align: left; font: 700 10.5px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding: 6px 8px; border-bottom: 1px solid var(--hairline); }
+.lo-table td { padding: 7px 8px; border-bottom: 1px solid var(--hairline); vertical-align: top; color: var(--ink); }
+.lo-table code { font: 500 11.5px ui-monospace, "SF Mono", Consolas, monospace; overflow-wrap: anywhere; }
+.lo-table code.bad { color: #d6453d; }
+.lo-table small { color: var(--ink-3); }
+.lo-link { border: 0; background: none; padding: 0; color: var(--ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.lo-link:hover { color: var(--primary); text-decoration: underline; }
+.lo-matrix .lo-mark { font-weight: 800; width: 18px; }
+.lo-matrix tr.ok .lo-mark { color: #2f9e6b; }
+.lo-matrix tr.fail .lo-mark { color: #d6453d; }
+.lo-matrix tr.fail td { background: rgba(214, 69, 61, 0.05); }
+.lo-matrix .lo-tag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(214, 69, 61, 0.12); color: #c0392b; font-weight: 650; }
+.lo-matrix .lo-path { color: var(--ink-2); font-size: 12px; min-width: 160px; }
+@media (max-width: 720px) {
+  .lo-matrix .lo-path { display: none; }
+}
+.cover-chip rect { fill: rgba(47, 158, 107, 0.14); stroke: rgba(47, 158, 107, 0.45); stroke-width: 1; }
+.cover-chip text { font: 650 9.5px var(--sans); fill: #23805a; }
+.cover-chip.none rect { fill: rgba(201, 138, 20, 0.12); stroke: #c98a14; stroke-dasharray: 3 2.5; }
+.cover-chip.none text { fill: #9a6a0e; }
+:root[data-theme="dark"] .cover-chip text { fill: #7fd3a8; }
+:root[data-theme="dark"] .cover-chip.none text { fill: #f0c060; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cover-chip text { fill: #7fd3a8; }
+  :root:not([data-theme="light"]) .cover-chip.none text { fill: #f0c060; }
+}
+
+/* ───────── modo Logic: cartão de resumo no topo do quadro ───────── */
+.summary-card { cursor: pointer; }
+.summary-card .sc-body { fill: var(--glass-fallback); stroke: color-mix(in srgb, var(--primary) 28%, transparent); stroke-width: 1.2; filter: drop-shadow(0 10px 28px rgba(37, 36, 74, 0.1)); }
+.summary-card:hover .sc-body { stroke: color-mix(in srgb, var(--primary) 70%, transparent); }
+.summary-card .sc-accent { fill: var(--primary); opacity: 0.85; }
+.summary-card .sc-kicker { font: 800 10px var(--sans); letter-spacing: 0.14em; fill: var(--primary); }
+.summary-card .sc-title { font: 650 24px var(--sans); letter-spacing: -0.01em; fill: var(--ink); }
+.summary-card .sc-desc { font: 450 13.5px var(--sans); fill: var(--ink-2); }
+.summary-card .sc-rule { stroke: var(--hairline); stroke-width: 1; }
+.summary-card .sc-label { font: 800 9.5px var(--sans); letter-spacing: 0.12em; fill: var(--ink-3); }
+.summary-card .sc-val { font: 600 13px var(--sans); fill: var(--ink); }
+.summary-card .sc-val.mono { font: 500 12px ui-monospace, "SF Mono", Consolas, monospace; }
+.summary-card .sc-score rect { fill: color-mix(in srgb, var(--ink) 6%, transparent); }
+.summary-card .sc-score text { font: 700 11.5px var(--sans); fill: var(--ink-2); }
+.summary-card .sc-score.ok rect { fill: rgba(47, 158, 107, 0.13); }
+.summary-card .sc-score.ok text { fill: #23805a; }
+.summary-card .sc-score.fail rect { fill: rgba(214, 69, 61, 0.12); }
+.summary-card .sc-score.fail text { fill: #c0392b; }
+:root[data-theme="dark"] .summary-card .sc-score.ok text { fill: #7fd3a8; }
+:root[data-theme="dark"] .summary-card .sc-score.fail text { fill: #ff8a80; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .summary-card .sc-score.ok text { fill: #7fd3a8; }
+  :root:not([data-theme="light"]) .summary-card .sc-score.fail text { fill: #ff8a80; }
+}
+.lo-same { color: var(--ink-3); font-size: 12px; }
+.loop-frame rect { fill: rgba(194, 84, 139, 0.035); stroke: rgba(194, 84, 139, 0.4); stroke-width: 1.4; stroke-dasharray: 6 5; }
+.loop-frame text { font: 700 10.5px var(--sans); letter-spacing: 0.04em; fill: #b0477c; }
+:root[data-theme="dark"] .loop-frame text { fill: #e58bb8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .loop-frame text { fill: #e58bb8; }
+}
+
+/* ───────── modo Logic: reprodução Explicar | Depurar ───────── */
+.logic-play-panel .lp-mode { display: inline-flex; padding: 2px; border-radius: 999px; background: var(--hairline); }
+.logic-play-panel .lp-mode button { border: 0; background: transparent; color: var(--ink-2); font: 650 12px var(--sans); padding: 0 12px; height: 26px; border-radius: 999px; cursor: pointer; }
+.logic-play-panel .lp-mode button.on { background: var(--glass-strong); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.logic-play-panel .lp-tell .lp-say { margin: 4px 0 6px; font: 450 13.5px var(--sans); line-height: 1.5; color: var(--ink); }
+.logic-play-panel .lp-net { display: flex; flex-wrap: wrap; }
+.logic-play-panel .lp-why.compact { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.logic-play-panel .lp-why.compact code { font: 600 12px ui-monospace, "SF Mono", Consolas, monospace; }
+.logic-play-panel .lp-story { display: flex; gap: 8px; padding: 5px 6px; border-radius: 8px; color: var(--ink-2); cursor: pointer; flex-shrink: 0; }
+.logic-play-panel .lp-story i { font-style: normal; width: 22px; text-align: right; opacity: 0.6; }
+.logic-play-panel .lp-story b { font-weight: 650; color: inherit; }
+.logic-play-panel .lp-story small { color: var(--ink-3); }
+.logic-play-panel .lp-story.done { color: var(--ink); }
+.logic-play-panel .lp-story.on { background: rgba(242, 153, 74, 0.16); color: var(--ink); }
+.logic-play-panel .lp-story.stage b::before { content: "▣ "; color: #706fd3; }
+.logic-play-panel .lp-story.turn b::before { content: "↻ "; color: #c2548b; }
+.logic-play-panel .lp-story.decision b::before { content: "◆ "; color: #0e9aa7; }
+.logic-play-panel .lp-story.error { color: #d6453d; }
+.logic-play-panel [hidden] { display: none !important; }
+.field.check { display: flex; flex-direction: row; align-items: center; gap: 8px; cursor: pointer; }

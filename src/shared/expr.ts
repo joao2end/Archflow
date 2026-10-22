@@ -652,6 +652,67 @@ export function print(e: Expr): string {
   return go(e, 0);
 }
 
+/** Valor curto para aparecer dentro de uma expressão: listas longas e objetos resumidos, números sem ruído de ponto flutuante. */
+export function shortValue(v: unknown): string {
+  if (v === undefined) return "sem valor";
+  if (typeof v === "number") return String(Math.round(v * 1e6) / 1e6);
+  if (Array.isArray(v)) return v.length > 6 ? `[${v.slice(0, 5).map(shortValue).join(", ")}, … (${v.length} itens)]` : `[${v.map(shortValue).join(", ")}]`;
+  if (v !== null && typeof v === "object") return "{…}";
+  if (typeof v === "string") return JSON.stringify(v.length > 40 ? v.slice(0, 39) + "…" : v);
+  return v === null ? "nulo" : v ? "verdadeiro" : "falso";
+}
+
+/**
+ * A expressão com os dados trocados pelos valores do momento (`v[meio] < x` → `3 < 4`), na mesma sintaxe do `print`.
+ * Dentro de um E/OU, cada comparação ganha ✔ ou ✘, para ver qual parte decidiu. Partes que não dá para calcular ficam `?`.
+ */
+export function withValues(e: Expr, env: Env): string {
+  const root = (x: Expr): string | undefined => (x.t === "id" ? x.name : x.t === "field" || x.t === "idx" ? root(x.x) : undefined);
+  const val = (x: Expr) => {
+    try {
+      return shortValue(evaluate(x, env));
+    } catch {
+      const r = root(x);
+      return r !== undefined && !(r in env) ? "sem valor" : "?";
+    }
+  };
+  const truth = (x: Expr) => {
+    try {
+      const v = evaluate(x, env);
+      return v === true ? " ✔" : v === false ? " ✘" : "";
+    } catch {
+      return "";
+    }
+  };
+  const isAccess = (x: Expr): boolean => x.t === "id" || ((x.t === "field" || x.t === "idx") && isAccess(x.x));
+  const go = (x: Expr, parent: number, logical = false): string => {
+    switch (x.t) {
+      case "id":
+      case "field":
+      case "idx":
+        // o caminho inteiro (lista[i], pedido.total) vira um valor só; um índice calculado sobre outra coisa também
+        return isAccess(x) ? val(x) + (logical ? truth(x) : "") : val(x);
+      case "list": return `[${x.items.map((i) => go(i, 0)).join(", ")}]`;
+      case "call": return `${x.fn}(${x.args.map((i) => go(i, 0)).join(", ")})`;
+      case "un": return x.op === "-" ? `-${go(x.x, 7)}` : `nao ${go(x.x, 3)}${logical ? truth(x) : ""}`;
+      case "if": { const t = `se ${go(x.c, 0)} entao ${go(x.a, 0)} senao ${go(x.b, 0)}`; return parent > 0 ? `(${t})` : t; }
+      case "bin": {
+        const p = PREC[x.op] ?? 0;
+        if (x.op === "e" || x.op === "ou") {
+          const t = `${go(x.l, p, true)} ${OP_TEXT[x.op]} ${go(x.r, p + 1, true)}`;
+          return p < parent ? `(${t})` : t;
+        }
+        const cmp = p === 3;
+        const t = `${go(x.l, cmp ? p + 1 : p)} ${OP_TEXT[x.op]} ${go(x.r, p + 1)}`;
+        const s = p < parent ? `(${t})` : t;
+        return cmp && logical ? `${s}${truth(x)}` : s;
+      }
+      default: return print(x);
+    }
+  };
+  return go(e, 0);
+}
+
 /**
  * A mensagem de erro de sintaxe com o ONDE: no fim do texto («depois de «preco <»») ou no meio, com ▸ marcando o ponto
  * («em «a + ▸* b»»). Uma dica curta quando falta um valor.

@@ -11,7 +11,7 @@
  * O julgamento visual (o desenho "parece" claro?) fica com o loop em docs/DIAGRAM_LOOP_PROMPT.md; aqui só entra o que se conta.
  */
 import type { Doc, LogicExample, NodeEl } from "./schema";
-import { checkExamples, dataKey, dataNodes, flowEdges, hasFlow, isFlowNode, logicIssues, runFlow, runPipeline } from "./logic";
+import { TABLE_OTHERWISE, checkExamples, dataKey, dataNodes, flowEdges, hasFlow, isFlowNode, logicIssues, runFlow, runPipeline, tableRowName } from "./logic";
 import { logicLayout } from "./logiclayout";
 
 export const JEV_TARGETS = { maxQuestions: 2, minClarity: 8, minRepresentativeness: 8, longRuleLines: 8, fanOut: 4 } as const;
@@ -121,6 +121,14 @@ function uncoveredBy(doc: Doc): { uncovered: string[]; byNode: Map<string, strin
     };
     const role = n.logic!.role;
     if (role === "rule" && !seenStep.has(n.id)) gap(`Quando roda a ação "${n.label}"? Nenhum cenário passa por ela.`);
+    else if (role === "table") {
+      if (!seenStep.has(n.id)) gap(`Quando a tabela "${n.label}" é usada? Nenhum cenário passa por ela.`);
+      else {
+        const rows = (n.logic!.rows ?? []).map((r, i) => ({ k: tableRowName(i), name: r.label ?? r.when }));
+        if (n.logic!.otherwise) rows.push({ k: TABLE_OTHERWISE, name: "senão" });
+        for (const r of rows) if (!seenBranch.has(`${n.id}|${r.k}`)) gap(`Que caso cai na linha "${r.name}" da tabela "${n.label}"? Nenhum cenário mostra.`);
+      }
+    }
     else if (role === "end" && !seenStep.has(n.id)) gap(`Em que caso o fluxo termina em "${n.label}"? Nenhum cenário chega lá.`);
     else if (role === "decision") {
       for (const b of ["sim", "nao"] as const) if (!seenBranch.has(`${n.id}|${b}`)) gap(`O que acontece quando a resposta de "${n.label}" é "${b === "sim" ? "sim" : "não"}"? Nenhum cenário mostra.`);

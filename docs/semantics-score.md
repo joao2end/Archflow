@@ -32,6 +32,7 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `end` | CLARO | `text` rótulo; `outcome` ok/erro (padrão ok); vários fins (iteração 8) |
 | `decision` | CLARO | só existe no modo logic (sim/não); sem o papel no domain desde a iteração 15 |
 | `switch` | CLARO | dica + faixas (5) + L016 (`outros`) |
+| `table` | CLARO | tabela de decisão: linhas em ordem, vale a primeira; `otherwise` ou erro (L039); vazia é erro (L038); no lugar de `switch` cujos caminhos só atribuem (2026-10-22) |
 | `loop` | CLARO | dica + `until`/`max`/`foreach` (4) + bordas (24) |
 | `fork` | CLARO | ramos independentes, simulados na ordem das setas; L027 avisa conflito (iteração 6) |
 | `join` | CLARO | dica + só deixa passar sem fork; ramo em `end` termina o fluxo (25) |
@@ -83,6 +84,8 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `logic.text` | ABERTO | A2: na `decision` é a pergunta; confirmar se o cartão e o guia tratam igual (o `ddd.question` deixou de existir) |
 | `logic.when` | CLARO | só a `decision` tem condição; a guarda da `rule` foi removida (iteração 2); arquivo antigo é migrado ao abrir |
 | `logic.then` | CLARO | lista de efeitos, um por item; sem `se…entao…senao` (10, 14) |
+| `logic.rows` | CLARO | `table`: linhas `{ when, then, label? }`; condição e efeitos conferidos ao criar; sem «se…entao…senao» nos efeitos (a linha já é o «se») |
+| `logic.otherwise` | CLARO | `table`: efeitos quando nenhuma linha vale; sem ele, nenhuma valer é erro de execução |
 | `logic.on` | CLARO | valor da expressão escolhe a seta cujo `case` é igual; sem caso, `outros` (iteração 5) |
 | `logic.until` | CLARO | conferida antes de cada volta; vale junto com `max` e `foreach` (iteração 4) |
 | `logic.falha` | CLARO | ver ponto 6b (iteração 8) |

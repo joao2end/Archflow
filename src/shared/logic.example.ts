@@ -79,15 +79,36 @@ const OPS: Op[] = [
     [ex("aumento cortado", { preco: 100, preco_atual: 70 }, { preco: 84 }), ex("redução cortada", { preco: 40, preco_atual: 70 }, { preco: 56 })]),
 
   decision("preco-mudou", "O preço mudou?", "preco != preco_atual", "O arredondamento só vale quando o preço mudou.", [ex("mudou", { preco: 100, preco_atual: 90 }, { caminho: "sim" }), ex("igual", { preco: 90, preco_atual: 90 }, { caminho: "nao" })]),
-  { op: "add_node", id: "faixa-do-preco", label: "Em que faixa está o preço?", description: "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a ação de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.", logic: { role: "switch", text: "Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo.", examples: [ex("faixa de 100", { preco: 100 }, { caminho: "entre(preco, 100, 101)" }), ex("acima de 202", { preco: 250.4 }, { caminho: "preco > 202.01" }), ex("de 50 a 100", { preco: 84 }, { caminho: "outros" })] } },
-  rule("faixa-minima", "Abaixo de R$ 0,10", "Vira R$ 0,09.", ["preco := 0.09"], [ex("0,05", { preco: 0.05 }, { preco: 0.09 })]),
-  rule("faixa-alta", "Acima de R$ 202,01", "Vai ao inteiro anterior menos um centavo.", ["preco := piso(preco) - 0.01"], [ex("250,40", { preco: 250.4 }, { preco: 249.99 })]),
-  rule("faixa-200", "De R$ 200 a R$ 202", "Vira R$ 199,99.", ["preco := 199.99"], [ex("201", { preco: 201 }, { preco: 199.99 })]),
-  rule("faixa-100", "De R$ 100 a R$ 101", "Vira R$ 99,99.", ["preco := 99.99"], [ex("100", { preco: 100 }, { preco: 99.99 })]),
-  rule("faixa-ate-10", "Até R$ 10", "Termina em 9.", ["preco := piso(preco * 10) / 10 - 0.01"], [ex("7,34", { preco: 7.34 }, { preco: 7.29 })]),
-  rule("faixa-ate-50-cima", "Até R$ 50, com 50 centavos ou mais", "Termina em 49.", ["preco := piso(preco) + 0.49"], [ex("23,70", { preco: 23.7 }, { preco: 23.49 })]),
-  rule("faixa-ate-50-baixo", "Até R$ 50, com menos de 50 centavos", "Termina em 99, do real anterior.", ["preco := piso(preco) - 0.01"], [ex("23,20", { preco: 23.2 }, { preco: 22.99 })]),
-  rule("faixa-resto", "Acima disso", "Termina em 99.", ["preco := piso(preco) + 0.99"], [ex("84", { preco: 84 }, { preco: 84.99 })]),
+  {
+    op: "add_node",
+    id: "faixa-do-preco",
+    label: "Arredondar pela faixa do preço",
+    description: "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a ação de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.",
+    logic: {
+      role: "table",
+      text: "Arredondamento por faixa: vale a primeira linha que se encaixar, de cima para baixo.",
+      rows: [
+        { label: "Abaixo de R$ 0,10", when: "preco < 0.1", then: ["preco := 0.09"] },
+        { label: "Acima de R$ 202,01", when: "preco > 202.01", then: ["preco := piso(preco) - 0.01"] },
+        { label: "De R$ 200 a R$ 202", when: "entre(preco, 200, 202)", then: ["preco := 199.99"] },
+        { label: "De R$ 100 a R$ 101", when: "entre(preco, 100, 101)", then: ["preco := 99.99"] },
+        { label: "Até R$ 10: termina em 9", when: "preco < 10", then: ["preco := piso(preco * 10) / 10 - 0.01"] },
+        { label: "Até R$ 50, 50 centavos ou mais: termina em 49", when: "preco < 50 e preco - piso(preco) >= 0.5", then: ["preco := piso(preco) + 0.49"] },
+        { label: "Até R$ 50, menos de 50 centavos: 99 do real anterior", when: "preco < 50", then: ["preco := piso(preco) - 0.01"] },
+      ],
+      otherwise: ["preco := piso(preco) + 0.99"],
+      examples: [
+        ex("0,05", { preco: 0.05 }, { preco: 0.09 }),
+        ex("250,40", { preco: 250.4 }, { preco: 249.99 }),
+        ex("201", { preco: 201 }, { preco: 199.99 }),
+        ex("100", { preco: 100 }, { preco: 99.99 }),
+        ex("7,34", { preco: 7.34 }, { preco: 7.29 }),
+        ex("23,70", { preco: 23.7 }, { preco: 23.49 }),
+        ex("23,20", { preco: 23.2 }, { preco: 22.99 }),
+        ex("84 (senão)", { preco: 84 }, { preco: 84.99 }),
+      ],
+    },
+  },
 
   decision("passou-do-pmc", "Passou do PMC do grupo?", "grupo_remarcacao e pmc > 0 e preco > pmc", "No grupo de remarcação vale o menor PMC.", [ex("passou", { grupo_remarcacao: true, pmc: 12.34, preco: 12.49 }, { caminho: "sim" }), ex("sem PMC", { grupo_remarcacao: true, pmc: 0, preco: 12.49 }, { caminho: "nao" })]),
   rule("descer-ao-pmc", "Descer para o PMC", "Desce um centavo além do último dígito de centavo do PMC.", ["preco := pmc - 0.01"], [ex("12,34 → 12,33", { pmc: 12.34 }, { preco: 12.33 })], 'A confirmar: "desce um centavo além do último dígito de centavo do PMC" foi entendido como PMC menos R$ 0,01.'),
@@ -159,23 +180,8 @@ const OPS: Op[] = [
   edge("tem-preco-atual", "preco-mudou", "nao"),
   edge("cortar-variacao", "preco-mudou"),
   edge("preco-mudou", "faixa-do-preco", "sim"),
+  edge("faixa-do-preco", "passou-do-pmc"),
   edge("preco-mudou", "passou-do-pmc", "nao"),
-  edge("faixa-do-preco", "faixa-minima", undefined, "preco < 0.1"),
-  edge("faixa-do-preco", "faixa-alta", undefined, "preco > 202.01"),
-  edge("faixa-do-preco", "faixa-200", undefined, "entre(preco, 200, 202)"),
-  edge("faixa-do-preco", "faixa-100", undefined, "entre(preco, 100, 101)"),
-  edge("faixa-do-preco", "faixa-ate-10", undefined, "preco < 10"),
-  edge("faixa-do-preco", "faixa-ate-50-cima", undefined, "preco < 50 e preco - piso(preco) >= 0.5"),
-  edge("faixa-do-preco", "faixa-ate-50-baixo", undefined, "preco < 50"),
-  edge("faixa-do-preco", "faixa-resto", "outros"),
-  edge("faixa-minima", "passou-do-pmc"),
-  edge("faixa-alta", "passou-do-pmc"),
-  edge("faixa-200", "passou-do-pmc"),
-  edge("faixa-100", "passou-do-pmc"),
-  edge("faixa-ate-10", "passou-do-pmc"),
-  edge("faixa-ate-50-cima", "passou-do-pmc"),
-  edge("faixa-ate-50-baixo", "passou-do-pmc"),
-  edge("faixa-resto", "passou-do-pmc"),
   edge("passou-do-pmc", "descer-ao-pmc", "sim"),
   edge("passou-do-pmc", "segue-a-referencia", "nao"),
   edge("descer-ao-pmc", "segue-a-referencia"),
@@ -208,13 +214,28 @@ const OPS: Op[] = [
   edge("para-cada-produto", "fim", "segue"),
 ];
 
+/** As etapas da engine: abrem recolhidas (visão geral); cada uma abre nos passos dela. */
+const STAGES: { id: string; label: string; text: string; steps: string[] }[] = [
+  { id: "etapa-validar", label: "Validar o produto", text: "Carrega o produto e confere se custo e margem permitem calcular um preço.", steps: ["carregar", "custo-valido", "margem-valida"] },
+  { id: "etapa-partida", label: "Preço de partida", text: "Lucro parte do custo e da margem; imagem e tráfego, do concorrente vezes o índice.", steps: ["tipo-do-grupo", "partida-lucro", "partida-concorrente", "partida-zerou", "manter-atual"] },
+  { id: "etapa-limites", label: "Piso e variação", text: "Sobe ao piso de margem, mantém diferenças pequenas e corta aumentos e quedas fora do teto.", steps: ["abaixo-do-piso", "subir-ao-piso", "diferenca-pequena", "manter-por-variacao", "tem-preco-atual", "cortar-variacao"] },
+  { id: "etapa-arredondar", label: "Arredondamento", text: "Se o preço mudou, arredonda pela faixa de valor (centavos 9, 49 ou 99).", steps: ["preco-mudou", "faixa-do-preco"] },
+  { id: "etapa-grupo", label: "Regras do grupo", text: "PMC, referência do grupo, âncora (PBM, popular, marca própria) e preço fixo, nesta ordem.", steps: ["passou-do-pmc", "descer-ao-pmc", "segue-a-referencia", "igualar-referencia", "e-ancora", "ancorar", "tem-preco-fixo", "aplicar-preco-fixo", "segue-referencia-lucro", "igualar-referencia-lucro"] },
+  { id: "etapa-recomendar", label: "Recomendação", text: "Compara com o preço atual: manter, subir ou reduzir, e marca o alerta pendente.", steps: ["recomendar", "recomendar-keep", "recomendar-subiu", "recomendar-raise", "recomendar-reduce", "recomendar-alerta"] },
+  { id: "etapa-fechar", label: "Ajustes e referência", text: "Reaplica o preço digitado, se pedido, e guarda o preço da referência para os seguidores.", steps: ["reaplicar-ajustes", "restaurar-digitado", "e-a-referencia", "guardar-referencia"] },
+];
+const STAGE_OPS: Op[] = STAGES.flatMap((st): Op[] => [
+  { op: "add_group", id: st.id, label: st.label, stage: { text: st.text, collapsed: true } },
+  ...st.steps.map((id): Op => ({ op: "update", id, patch: { parent: st.id } })),
+]);
+
 export function pricingDoc(): Doc {
   const doc = emptyDoc("Engine de precificação", "logic");
   doc.id = "engine-de-precificacao";
   doc.description = "Para cada produto do grupo, o fluxo escolhe o preço de partida pelo tipo do grupo e passa por onze ações em ordem; cada uma pode reescrever o preço da anterior. Desvios são decisões sim/não, o grupo é um laço e um tipo desconhecido termina em erro. Cada ação e decisão tem exemplos que o app executa, e os cenários rodam o fluxo inteiro.";
   const built = applyOps(doc, OPS);
   built.doc.nodes = migrateFacts(built.doc.nodes, built.doc.connections, true); // papel de cada dado pelo uso: Input, Output ou Variable
-  const r = applyOps(built.doc, [{ op: "layout" }]);
+  const r = applyOps(built.doc, [...STAGE_OPS, { op: "layout" }]);
   const bad = [...built.results, ...r.results].filter((x) => !x.ok);
   if (bad.length) throw new Error("exemplo de precificação inválido: " + JSON.stringify(bad));
   return recordPaths(r.doc); // cada cenário guarda o caminho que o fluxo percorre; se o fluxo mudar, o exemplo avisa

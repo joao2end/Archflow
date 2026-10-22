@@ -10,10 +10,10 @@
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -918,
       "y": -10,
       "w": 306,
-      "h": 476,
+      "h": 602,
       "auto": true
     },
     {
@@ -24,7 +24,7 @@
       "x": 1522,
       "y": -10,
       "w": 306,
-      "h": 140,
+      "h": 146,
       "auto": true
     },
     {
@@ -33,9 +33,9 @@
       "kind": "layer",
       "tag": "Variable",
       "x": 1522,
-      "y": 108,
+      "y": 126,
       "w": 306,
-      "h": 650,
+      "h": 830,
       "auto": true
     },
     {
@@ -44,9 +44,9 @@
       "kind": "layer",
       "tag": "Caminhos de sucesso",
       "x": 1522,
-      "y": 748,
+      "y": 946,
       "w": 376,
-      "h": 271,
+      "h": 325,
       "auto": true
     },
     {
@@ -55,9 +55,9 @@
       "kind": "layer",
       "tag": "Caminhos de falha",
       "x": 1522,
-      "y": 1013,
+      "y": 1265,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -73,10 +73,10 @@
         "type": "lista",
         "text": "Números distintos."
       },
-      "x": -380,
+      "x": -890,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "arestas",
@@ -89,10 +89,10 @@
         "type": "lista",
         "text": "Trios [de, para, capacidade]: seta de «de» para «para» que aguenta no máximo «capacidade» (inteiro ≥ 0). Aceita paralelas e nos dois sentidos. Os números têm de estar em nos."
       },
-      "x": -380,
-      "y": 102,
+      "x": -890,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "fonte",
@@ -105,10 +105,10 @@
         "type": "número",
         "text": "De onde o fluxo sai. Está em nos."
       },
-      "x": -380,
-      "y": 160,
+      "x": -890,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "sumidouro",
@@ -121,10 +121,10 @@
         "type": "número",
         "text": "Para onde o fluxo vai. Está em nos e é diferente da fonte."
       },
-      "x": -380,
-      "y": 218,
+      "x": -890,
+      "y": 272,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inf",
@@ -138,10 +138,10 @@
         "text": "Maior que qualquer capacidade possível: valor inicial do gargalo.",
         "value": 1000000
       },
-      "x": -380,
-      "y": 276,
+      "x": -890,
+      "y": 348,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "res",
@@ -155,9 +155,9 @@
         "text": "Trios [de, para, restante]: quanto ainda passa de «de» para «para». Começa igual a arestas. A soma dos trios do mesmo par é a capacidade restante daquele par."
       },
       "x": 1550,
-      "y": 162,
+      "y": 180,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "fluxo",
@@ -173,7 +173,7 @@
       "x": 1550,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "terminou",
@@ -187,9 +187,9 @@
         "text": "Verdadeiro quando a busca não achou caminho até o sumidouro."
       },
       "x": 1550,
-      "y": 220,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "visitados",
@@ -203,9 +203,9 @@
         "text": "Os nós já alcançados na busca de agora."
       },
       "x": 1550,
-      "y": 278,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "fila",
@@ -219,9 +219,9 @@
         "text": "Os nós alcançados, na ordem em que foram achados. Só cresce; h marca o próximo a examinar."
       },
       "x": 1550,
-      "y": 336,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "h",
@@ -235,9 +235,9 @@
         "text": "Posição, em fila, do próximo nó a examinar."
       },
       "x": 1550,
-      "y": 394,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "pai",
@@ -251,9 +251,9 @@
         "text": "Pares [nó, anterior]: de que nó a busca chegou ao nó."
       },
       "x": 1550,
-      "y": 452,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "u",
@@ -266,10 +266,10 @@
         "type": "número",
         "text": "O nó que a busca está examinando agora."
       },
-      "x": -380,
-      "y": 334,
+      "x": -890,
+      "y": 424,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "cand",
@@ -283,9 +283,9 @@
         "text": "As setas que saem de u e ainda têm capacidade restante maior que zero."
       },
       "x": 1550,
-      "y": 510,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "x",
@@ -298,10 +298,10 @@
         "type": "número",
         "text": "Nó em que a volta do caminho está, do sumidouro para a fonte."
       },
-      "x": -380,
-      "y": 392,
+      "x": -890,
+      "y": 500,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "p",
@@ -315,9 +315,9 @@
         "text": "O nó de onde a busca chegou a x."
       },
       "x": 1550,
-      "y": 568,
+      "y": 712,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "c",
@@ -331,9 +331,9 @@
         "text": "A capacidade restante da seta de p para x."
       },
       "x": 1550,
-      "y": 626,
+      "y": 788,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "gargalo",
@@ -347,9 +347,9 @@
         "text": "A menor capacidade restante entre as setas do caminho achado."
       },
       "x": 1550,
-      "y": 684,
+      "y": 864,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -460,7 +460,7 @@
           }
         ]
       },
-      "x": 335,
+      "x": 510,
       "y": 303,
       "w": 330,
       "h": 135
@@ -511,7 +511,7 @@
           }
         ]
       },
-      "x": 335,
+      "x": 510,
       "y": 653,
       "w": 330,
       "h": 156
@@ -577,7 +577,7 @@
           }
         ]
       },
-      "x": 255,
+      "x": 0,
       "y": 1052,
       "w": 440,
       "h": 149
@@ -592,7 +592,7 @@
         "as": "seta",
         "text": "Cada seta que sai de u e ainda tem capacidade restante."
       },
-      "x": 105,
+      "x": 100,
       "y": 1278.5,
       "w": 340,
       "h": 87
@@ -641,7 +641,7 @@
           }
         ]
       },
-      "x": 305,
+      "x": 105,
       "y": 1443,
       "w": 330,
       "h": 116
@@ -695,7 +695,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": -510,
       "y": 1647.5,
       "w": 440,
       "h": 135
@@ -736,7 +736,7 @@
           }
         ]
       },
-      "x": 765,
+      "x": 510,
       "y": 1076,
       "w": 330,
       "h": 101
@@ -763,7 +763,7 @@
           }
         ]
       },
-      "x": 915,
+      "x": 910,
       "y": 1275.5,
       "w": 330,
       "h": 93
@@ -793,7 +793,7 @@
           }
         ]
       },
-      "x": 515,
+      "x": 510,
       "y": 1265,
       "w": 330,
       "h": 114
@@ -807,7 +807,7 @@
         "until": "x = fonte",
         "text": "Para quando x é a fonte."
       },
-      "x": 705,
+      "x": 505,
       "y": 1457.5,
       "w": 340,
       "h": 87
@@ -854,7 +854,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 0,
       "y": 1623,
       "w": 440,
       "h": 184
@@ -881,7 +881,7 @@
           }
         ]
       },
-      "x": 1020,
+      "x": 510,
       "y": 1668.5,
       "w": 330,
       "h": 93
@@ -952,7 +952,7 @@
           }
         ]
       },
-      "x": 255,
+      "x": 455,
       "y": 2022,
       "w": 440,
       "h": 224
@@ -980,7 +980,7 @@
           }
         ]
       },
-      "x": 765,
+      "x": 965,
       "y": 2087.5,
       "w": 330,
       "h": 93
@@ -994,7 +994,7 @@
         "outcome": "ok",
         "text": "Devolve fluxo: o maior fluxo da fonte ao sumidouro."
       },
-      "x": 735,
+      "x": 910,
       "y": 701,
       "w": 280,
       "h": 60
@@ -1008,7 +1008,7 @@
         "outcome": "erro",
         "text": "Fonte igual ao sumidouro, nó fora da lista ou capacidade fora de 0 a 999999: nada a calcular."
       },
-      "x": 735,
+      "x": 910,
       "y": 340.5,
       "w": 280,
       "h": 60
@@ -1096,9 +1096,9 @@
         ]
       },
       "x": 1550,
-      "y": 802,
+      "y": 1000,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-retorno",
@@ -1173,9 +1173,9 @@
         ]
       },
       "x": 1550,
-      "y": 869,
+      "y": 1085,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-sem-caminho",
@@ -1212,9 +1212,9 @@
         ]
       },
       "x": 1550,
-      "y": 936,
+      "y": 1170,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-invalido",
@@ -1249,9 +1249,9 @@
         ]
       },
       "x": 1550,
-      "y": 1067,
+      "y": 1319,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -1289,7 +1289,7 @@
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.46
     },
     {
       "id": "prepara-to-l-aumenta",
@@ -1383,11 +1383,11 @@
       },
       "waypoints": [
         {
-          "x": 59,
+          "x": 54,
           "y": 1501
         },
         {
-          "x": 59,
+          "x": 54,
           "y": 1322
         }
       ],
@@ -1403,11 +1403,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": -574,
           "y": 1715
         },
         {
-          "x": -64,
+          "x": -574,
           "y": 1322
         }
       ]
@@ -1425,11 +1425,11 @@
       },
       "waypoints": [
         {
-          "x": 23,
+          "x": -82,
           "y": 1322
         },
         {
-          "x": 23,
+          "x": -82,
           "y": 930.5
         }
       ],
@@ -1484,11 +1484,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 59,
+          "x": -46,
           "y": 1322
         },
         {
-          "x": 59,
+          "x": -46,
           "y": 545.5
         }
       ]
@@ -1525,11 +1525,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": -574,
           "y": 1715
         },
         {
-          "x": -64,
+          "x": -574,
           "y": 1501
         }
       ]
@@ -1579,11 +1579,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 173,
+          "x": 373,
           "y": 2134
         },
         {
-          "x": 173,
+          "x": 373,
           "y": 1914.5
         }
       ]
@@ -1599,7 +1599,7 @@
       "logic": {
         "branch": "segue"
       },
-      "labelT": 0.5
+      "labelT": 0.58
     },
     {
       "id": "soma-fluxo-to-l-aumenta",
@@ -1611,11 +1611,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -46,
+          "x": -556,
           "y": 2134
         },
         {
-          "x": -46,
+          "x": -556,
           "y": 545.5
         }
       ]
@@ -1631,7 +1631,7 @@
       "logic": {
         "branch": "segue"
       },
-      "labelT": 0.5
+      "labelT": 0.54
     }
   ],
   "customAssets": []

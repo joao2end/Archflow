@@ -10,10 +10,10 @@
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -413,
       "y": -10,
       "w": 306,
-      "h": 360,
+      "h": 450,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 1522,
+      "x": 1927,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 1522,
-      "y": 166,
+      "x": 1927,
+      "y": 202,
       "w": 306,
-      "h": 418,
+      "h": 526,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 1522,
-      "y": 574,
+      "x": 1927,
+      "y": 718,
       "w": 376,
-      "h": 204,
+      "h": 240,
       "auto": true
     },
     {
@@ -54,10 +54,10 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 1522,
-      "y": 772,
+      "x": 1927,
+      "y": 952,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -73,10 +73,10 @@
         "type": "inteiro",
         "text": "Os elementos são numerados de 0 a n − 1. É pelo menos 1."
       },
-      "x": -380,
+      "x": -385,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ops",
@@ -89,10 +89,10 @@
         "type": "lista",
         "text": "Lista de operações na ordem. Cada uma é [\"union\", a, b] ou [\"conectados\", a, b], com a e b entre 0 e n − 1."
       },
-      "x": -380,
-      "y": 102,
+      "x": -385,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "pais",
@@ -105,10 +105,10 @@
         "type": "lista",
         "text": "Pares [elemento, pai]. A raiz de um grupo é o elemento cujo pai é ele mesmo."
       },
-      "x": 1550,
-      "y": 220,
+      "x": 1955,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "i",
@@ -121,10 +121,10 @@
         "type": "inteiro",
         "text": "Usado só para criar a lista inicial de pais."
       },
-      "x": 1550,
-      "y": 278,
+      "x": 1955,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "grupos",
@@ -137,10 +137,10 @@
         "type": "inteiro",
         "text": "Resposta: quantos grupos separados existem agora. Começa em n e diminui de 1 a cada união que junta dois grupos diferentes."
       },
-      "x": 1550,
+      "x": 1955,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "saidas",
@@ -153,10 +153,10 @@
         "type": "lista",
         "text": "Resposta: verdadeiro ou falso para cada operação «conectados», na ordem."
       },
-      "x": 1550,
-      "y": 102,
+      "x": 1955,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "tipo",
@@ -169,10 +169,10 @@
         "type": "texto",
         "text": "\"union\" ou \"conectados\"."
       },
-      "x": -380,
-      "y": 160,
+      "x": -385,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "pares",
@@ -185,10 +185,10 @@
         "type": "lista",
         "text": "Os dois elementos da operação, [a, b]."
       },
-      "x": 1550,
-      "y": 336,
+      "x": 1955,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "raizes",
@@ -201,10 +201,10 @@
         "type": "lista",
         "text": "A raiz do grupo de cada um dos dois elementos, na mesma ordem."
       },
-      "x": 1550,
-      "y": 394,
+      "x": 1955,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "atual",
@@ -217,10 +217,10 @@
         "type": "inteiro",
         "text": "Elemento em que a subida até a raiz está."
       },
-      "x": 1550,
-      "y": 452,
+      "x": 1955,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "raiz",
@@ -233,10 +233,10 @@
         "type": "inteiro",
         "text": "A raiz do grupo do elemento que está sendo buscado."
       },
-      "x": -380,
-      "y": 218,
+      "x": -385,
+      "y": 272,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "percorrido",
@@ -249,10 +249,10 @@
         "type": "inteiro",
         "text": "Elemento que está sendo religado direto à raiz."
       },
-      "x": -380,
-      "y": 276,
+      "x": -385,
+      "y": 348,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "prox",
@@ -265,10 +265,10 @@
         "type": "inteiro",
         "text": "O pai antigo do elemento do caminho, guardado antes de religá-lo."
       },
-      "x": 1550,
-      "y": 510,
+      "x": 1955,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -360,7 +360,7 @@
           }
         ]
       },
-      "x": 250,
+      "x": -5,
       "y": 509,
       "w": 440,
       "h": 114
@@ -375,7 +375,7 @@
         "as": "op",
         "text": "Uma volta por operação, na ordem. op[0] é o tipo e op[1], op[2] são os dois elementos."
       },
-      "x": 760,
+      "x": 505,
       "y": 522.5,
       "w": 340,
       "h": 87
@@ -413,7 +413,7 @@
           }
         ]
       },
-      "x": 280,
+      "x": 455,
       "y": 687,
       "w": 440,
       "h": 135
@@ -489,7 +489,7 @@
         "as": "v",
         "text": "Uma volta para cada um dos dois elementos: acha a raiz do grupo dele e religa o caminho direto à raiz."
       },
-      "x": 330,
+      "x": 505,
       "y": 1051,
       "w": 340,
       "h": 87
@@ -516,7 +516,7 @@
           }
         ]
       },
-      "x": 310,
+      "x": 510,
       "y": 1202,
       "w": 330,
       "h": 93
@@ -530,7 +530,7 @@
         "until": "primeiro(mapear(filtrar(pais, item[0] = atual), item[1])) = atual",
         "text": "Para quando o pai do elemento é ele mesmo."
       },
-      "x": 50,
+      "x": 505,
       "y": 1359,
       "w": 340,
       "h": 115
@@ -670,7 +670,7 @@
           }
         ]
       },
-      "x": 200,
+      "x": 455,
       "y": 1908,
       "w": 440,
       "h": 176
@@ -700,7 +700,7 @@
           }
         ]
       },
-      "x": 710,
+      "x": 965,
       "y": 1949.5,
       "w": 440,
       "h": 93
@@ -734,7 +734,7 @@
           }
         ]
       },
-      "x": 710,
+      "x": 910,
       "y": 1205,
       "w": 330,
       "h": 87
@@ -774,7 +774,7 @@
           }
         ]
       },
-      "x": 460,
+      "x": 915,
       "y": 1365.5,
       "w": 330,
       "h": 102
@@ -874,7 +874,7 @@
           }
         ]
       },
-      "x": 860,
+      "x": 1315,
       "y": 1363,
       "w": 440,
       "h": 107
@@ -888,7 +888,7 @@
         "outcome": "ok",
         "text": "Devolve saidas (as respostas) e grupos (quantos grupos restam)."
       },
-      "x": 790,
+      "x": 965,
       "y": 724.5,
       "w": 280,
       "h": 60
@@ -902,7 +902,7 @@
         "outcome": "erro",
         "text": "O tipo não é union nem conectados, ou um elemento está fora de 0 a n − 1: para tudo, sem devolver respostas."
       },
-      "x": 740,
+      "x": 915,
       "y": 1064.5,
       "w": 280,
       "h": 60
@@ -954,10 +954,10 @@
           }
         ]
       },
-      "x": 1550,
-      "y": 628,
+      "x": 1955,
+      "y": 772,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-repetida",
@@ -993,10 +993,10 @@
           }
         ]
       },
-      "x": 1550,
-      "y": 695,
+      "x": 1955,
+      "y": 857,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-invalida",
@@ -1025,10 +1025,10 @@
           }
         ]
       },
-      "x": 1550,
-      "y": 826,
+      "x": 1955,
+      "y": 1006,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -1074,11 +1074,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 204,
+          "x": -51,
           "y": 566
         },
         {
-          "x": 204,
+          "x": -51,
           "y": 394.5
         }
       ]
@@ -1243,11 +1243,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 118,
+          "x": 373,
           "y": 1996
         },
         {
-          "x": 118,
+          "x": 373,
           "y": 1793.5
         }
       ]
@@ -1349,11 +1349,11 @@
       },
       "waypoints": [
         {
-          "x": -14,
+          "x": -69,
           "y": 1416.5
         },
         {
-          "x": -14,
+          "x": -69,
           "y": 566
         }
       ],
@@ -1369,11 +1369,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -82,
+          "x": -87,
           "y": 1608.5
         },
         {
-          "x": -82,
+          "x": -87,
           "y": 566
         }
       ]
@@ -1388,11 +1388,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 4,
+          "x": -51,
           "y": 1416.5
         },
         {
-          "x": 4,
+          "x": -51,
           "y": 566
         }
       ]

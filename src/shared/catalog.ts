@@ -304,6 +304,7 @@ const domainAssets: Asset[] = DDD_ROLE_KEYS.map((role) => ({
 export const LOGIC_CATEGORY = "Logic";
 const LOGIC_TAGS: Record<LogicRole, string> = {
   rule: "ação action regra lógica atribuir definir calcular efeito ordem fila negócio",
+  table: "tabela de decisão faixas grade dmn classificação linhas condição resultado frete preço",
   input: "input entrada dado dados parâmetro constante campo fato",
   output: "output saída resultado dado devolve retorno campo",
   variable: "variable variável intermediário temporário contador acumulador dado campo",

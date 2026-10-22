@@ -16,6 +16,8 @@ Cada capítulo abaixo segue o mesmo roteiro: **para que serve**, **quando usar**
 | 8 | Loop (LOOP) | Repetir: para cada item, até uma condição, no máximo N vezes | a escrever |
 | 9 | Fork / Join | Caminhos em paralelo e a junção | a escrever |
 | 10 | Call (CALL) | Chamada a algo de fora que pode falhar | a escrever |
+| 11 | **Tabela** (TAB) | Faixas e classificações: linhas «quando → então», vale a primeira | [Tabela](#tabela-de-decisão) ✅ |
+| 12 | **Etapa** | Dar nome a um trecho do fluxo e recolhê-lo num cartão-resumo | [Etapas](#etapas-e-visão-geral) ✅ |
 
 ## Ação × Decisão (a dúvida mais comum)
 
@@ -156,12 +158,30 @@ No painel do cenário, em **Reproduzir o caminho**, clique no botão com o nome 
 
 | Controle | O que faz |
 |---|---|
-| ▶ / ⏸ | reproduz sozinho, na velocidade escolhida (0,25x a 4x) |
+| ▶ / ⏸ | reproduz sozinho, na velocidade escolhida (0,5x a 8x) |
 | ← → (teclado) ou os botões de passo | volta e avança um passo |
+| Shift + ← → ou **‹ mudança / mudança ›** | pula para o passo anterior/seguinte que mudou algum dado |
+| **‹ volta / volta ›** e **sair do laço** | dentro de um laço: começo desta volta, próxima volta, ou direto para onde o laço termina |
 | clique numa linha da lista | pula até aquele passo |
+| clique num passo **no quadro** | pula para a próxima vez que o fluxo passa por ele |
 | **Gravar caminho** | grava os passos percorridos no exemplo |
 
-Em cada passo o painel diz o que aconteceu (*"Respondeu sim: o fluxo segue pela seta "sim""*) e mostra as variáveis que mudaram (`frete: sem valor → 0`).
+**Explicar ou Depurar.** O seletor no painel troca o modo. **Explicar** (o padrão) anda por **momentos**: com etapas, uma passagem por etapa; sem etapas, uma volta de laço ou uma decisão. Cada momento traz a frase de negócio e o saldo dos dados (`preco: 100 → 84`), e ← → andam de momento em momento. **Depurar** é o passo a passo descrito abaixo. O app lembra o último modo escolhido.
+
+**O veredito vem primeiro.** Logo abaixo dos controles, desde o 1º passo, o painel diz se o cenário bate (`✔ Bate com o esperado · frete = 0`) ou não (`✘ frete: esperava 0, deu 15 · ir ao passo 4`). O botão **ir ao passo N** leva ao último passo que escreveu o dado errado: é por ali que se investiga.
+
+**Por quê.** Em cada passo, o painel e um balão ao lado do nó no quadro mostram a conta com os valores do momento:
+
+| Passo | O que aparece |
+|---|---|
+| Decisão | `total >= 200 → 250 >= 200` e a resposta **sim** |
+| Condição com E/OU | cada parte marcada: `250 >= 200 ✔ e "VIP" = "comum" ✘` |
+| Ação | `frete := total * 0.1 → frete := 250 * 0.1` e o que mudou (`frete = 25 (era sem valor)`) |
+| Laço | a condição de parada com os valores, ou o item da volta (`item = 7`), e «volta 3 de 5» |
+
+**Os dados no quadro.** Durante a reprodução, cada Input, Output e Variable mostra no próprio cartão o valor depois do passo atual; o que acabou de mudar fica laranja. Nos passos visitados mais de uma vez (laços), um selo **×N** ao lado do número conta as passagens.
+
+**Laços longos.** A lista de passos agrupa cada volta numa linha (*↻ Volta 3 · 5 passos · muda inicio, meio*). Só a volta do passo atual fica aberta; clique numa volta para abri-la ou em **ir** para pular até ela. Um cenário de 400 passos vira algumas dezenas de linhas.
 
 **Aba Variáveis.** Ao lado de *Passos*, a aba **Variáveis** mostra, para cada variável, a **linha do tempo completa**: valor inicial, cada alteração (de quanto para quanto, em qual passo, por qual nó, em qual volta do laço) e o valor final, com um gráfico para números. Clicar numa alteração pula para o passo.
 
@@ -254,3 +274,27 @@ Depois `validate_diagram` **roda os exemplos de verdade**: cada um que não bate
 
 ## Próximos capítulos
 A ordem sugerida para ler e para montar um fluxo é: **Start → Input/Output/Variable → Ação → Decision → End**, depois **Switch**, **Loop**, **Fork/Join** e **Call**. O capítulo dos **dados** vem antes da Ação porque é nele que se declaram os **tipos** (`number`, `int`, `string[]`, `{ preco: number }[]`…) que o app confere nos exemplos do Scenario.
+
+---
+
+## Tabela de decisão
+
+Quando uma escolha só serve para atribuir valores (faixa de preço → arredondamento, região → frete), use uma **Tabela** em vez de uma Escolha com uma Ação por caminho. Cada linha tem **Quando** (a condição) e **Então** (os efeitos); o app confere as linhas **de cima para baixo** e aplica a **primeira** que valer. **Senão** é o que vale quando nenhuma linha vale; sem ele, nenhuma linha valer é erro (dica L039).
+
+No quadro, a tabela é uma grade num cartão só. Na reprodução, a linha que valeu acende, e o «Por quê» lista as linhas conferidas com os valores: `84 < 10 ✘`, `84 < 50 ✘`, … até a que valeu. Os exemplos são como os da Ação (`preco = 7.34` → `preco = 7.29`), e a cobertura avisa quando uma linha não tem cenário.
+
+## Etapas e visão geral
+
+Um fluxo grande se lê melhor em **etapas**: trechos com um objetivo (validar, calcular a partida, arredondar, recomendar). Selecione os passos e clique em **Criar etapa** (barra de baixo), ou crie um grupo e marque **Transformar em etapa** no inspetor. Dê um nome e a frase «o que a etapa faz».
+
+- A seta no canto da etapa **recolhe**: ela vira um cartão com o que lê, o que escreve, quantos passos tem e se os exemplos batem; as setas passam a ligar o cartão.
+- **Visão geral** (barra de baixo) recolhe todas: o algoritmo inteiro em poucos cartões. Abra só a etapa que interessa.
+- Recolher não muda a execução nem os exemplos.
+- Uma etapa deve ter **uma entrada** (aviso L035); fluxo com mais de 25 passos e nenhuma etapa recebe a dica L036.
+
+O **cartão de resumo** no topo do quadro (e a aba **Visão geral**) diz o que o fluxo faz, o que entra, o que sai e quantos cenários batem. A aba **Cenários** mostra cada cenário numa linha: o que entra, o que se espera, o que saiu e por quais etapas passou, com ▶ para reproduzir.
+
+## Exportar em seções
+
+**Arquivo → Exportar em seções** gera um **PDF** ou um **ZIP**. O PDF abre o diálogo de impressão: escolha **Salvar como PDF**. Os diagramas entram em **vetor** (nítidos em qualquer zoom, com texto selecionável) e as tabelas de cenários e dados continuam na página seguinte quando são longas. Para ficar 100% vetorial, as sombras dos cartões saem no PDF. O ZIP traz cada diagrama em **SVG** (vetor) e PNG, a capa, os cenários e os dados como imagens, e um `README.md`. As seções são: resumo, visão geral (etapas recolhidas), uma por etapa (só ela aberta, em tamanho legível), cenários e dados. Sem etapas, o fluxo inteiro vira uma seção só.
+

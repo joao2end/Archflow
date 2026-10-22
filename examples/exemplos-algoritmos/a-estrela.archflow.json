@@ -10,10 +10,10 @@
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -663,
       "y": -10,
       "w": 306,
-      "h": 302,
+      "h": 374,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 1122,
+      "x": 1217,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 1122,
-      "y": 166,
+      "x": 1217,
+      "y": 202,
       "w": 306,
-      "h": 940,
+      "h": 1210,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 1122,
-      "y": 1096,
+      "x": 1217,
+      "y": 1402,
       "w": 376,
-      "h": 271,
+      "h": 325,
       "auto": true
     },
     {
@@ -54,10 +54,10 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 1122,
-      "y": 1361,
+      "x": 1217,
+      "y": 1721,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -73,10 +73,10 @@
         "type": "lista",
         "text": "Lista de linhas de texto, todas do mesmo tamanho: \".\" é casa livre e \"#\" é obstáculo. Tem pelo menos uma linha e uma coluna."
       },
-      "x": -380,
+      "x": -635,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -89,10 +89,10 @@
         "type": "lista",
         "text": "[linha, coluna] a partir de 0. Dentro da grade e sem obstáculo."
       },
-      "x": -380,
-      "y": 102,
+      "x": -635,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "fim",
@@ -105,10 +105,10 @@
         "type": "lista",
         "text": "[linha, coluna] a partir de 0. Dentro da grade e sem obstáculo."
       },
-      "x": -380,
-      "y": 160,
+      "x": -635,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "dirs",
@@ -139,10 +139,10 @@
           ]
         ]
       },
-      "x": -380,
-      "y": 218,
+      "x": -635,
+      "y": 272,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "h",
@@ -155,10 +155,10 @@
         "type": "inteiro",
         "text": "Quantas linhas tem a grade."
       },
-      "x": 1150,
-      "y": 220,
+      "x": 1245,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "l",
@@ -171,10 +171,10 @@
         "type": "inteiro",
         "text": "Quantas colunas tem a grade (o tamanho da primeira linha)."
       },
-      "x": 1150,
-      "y": 278,
+      "x": 1245,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "aberta",
@@ -187,10 +187,10 @@
         "type": "lista",
         "text": "Pares [casa, estimativa total]: casas alcançadas ainda por visitar. A estimativa total é passos já dados mais a estimativa até o fim."
       },
-      "x": 1150,
-      "y": 336,
+      "x": 1245,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "gs",
@@ -203,10 +203,10 @@
         "type": "lista",
         "text": "Pares [casa, passos]: o menor número de passos até a casa que se conhece."
       },
-      "x": 1150,
-      "y": 394,
+      "x": 1245,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "fechados",
@@ -219,10 +219,10 @@
         "type": "lista",
         "text": "Casas já visitadas; o menor caminho até elas já é definitivo."
       },
-      "x": 1150,
-      "y": 452,
+      "x": 1245,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "achou",
@@ -235,10 +235,10 @@
         "type": "lógico",
         "text": "Verdadeiro quando a casa escolhida é a do fim."
       },
-      "x": 1150,
-      "y": 510,
+      "x": 1245,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "custo",
@@ -251,10 +251,10 @@
         "type": "número",
         "text": "Resposta: passos do início ao fim, ou -1 se não há caminho."
       },
-      "x": 1150,
+      "x": 1245,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "fmin",
@@ -267,10 +267,10 @@
         "type": "número",
         "text": "A menor estimativa total entre as casas abertas."
       },
-      "x": 1150,
-      "y": 102,
+      "x": 1245,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "atual",
@@ -283,10 +283,10 @@
         "type": "número",
         "text": "Casa aberta com a menor estimativa total (a primeira da lista, se há empate)."
       },
-      "x": 1150,
-      "y": 568,
+      "x": 1245,
+      "y": 712,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "r",
@@ -299,10 +299,10 @@
         "type": "número",
         "text": "Linha da casa escolhida."
       },
-      "x": 1150,
-      "y": 626,
+      "x": 1245,
+      "y": 788,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "c",
@@ -315,10 +315,10 @@
         "type": "número",
         "text": "Coluna da casa escolhida."
       },
-      "x": 1150,
-      "y": 684,
+      "x": 1245,
+      "y": 864,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "gatual",
@@ -331,10 +331,10 @@
         "type": "número",
         "text": "Passos já dados até a casa escolhida."
       },
-      "x": 1150,
-      "y": 742,
+      "x": 1245,
+      "y": 940,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "r2",
@@ -347,10 +347,10 @@
         "type": "número",
         "text": "Linha do vizinho em exame."
       },
-      "x": 1150,
-      "y": 800,
+      "x": 1245,
+      "y": 1016,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "c2",
@@ -363,10 +363,10 @@
         "type": "número",
         "text": "Coluna do vizinho em exame."
       },
-      "x": 1150,
-      "y": 858,
+      "x": 1245,
+      "y": 1092,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "id2",
@@ -379,10 +379,10 @@
         "type": "número",
         "text": "Linha × largura + coluna do vizinho."
       },
-      "x": 1150,
-      "y": 916,
+      "x": 1245,
+      "y": 1168,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "tent",
@@ -395,10 +395,10 @@
         "type": "número",
         "text": "Passos até o vizinho passando pela casa escolhida: gatual + 1."
       },
-      "x": 1150,
-      "y": 974,
+      "x": 1245,
+      "y": 1244,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "antigo",
@@ -411,10 +411,10 @@
         "type": "número",
         "text": "O menor número de passos já conhecido até o vizinho; vazio se ainda não foi alcançado."
       },
-      "x": 1150,
-      "y": 1032,
+      "x": 1245,
+      "y": 1320,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio-fluxo",
@@ -695,7 +695,7 @@
           }
         ]
       },
-      "x": 80,
+      "x": 255,
       "y": 993,
       "w": 440,
       "h": 231
@@ -771,7 +771,7 @@
           }
         ]
       },
-      "x": 80,
+      "x": 255,
       "y": 1453,
       "w": 440,
       "h": 253
@@ -844,7 +844,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": -255,
       "y": 1949,
       "w": 440,
       "h": 114
@@ -874,7 +874,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 255,
       "y": 1959.5,
       "w": 440,
       "h": 93
@@ -1202,7 +1202,7 @@
         "outcome": "ok",
         "text": "Devolve custo: o menor número de passos, ou -1 se não há caminho."
       },
-      "x": 590,
+      "x": 765,
       "y": 1549.5,
       "w": 280,
       "h": 60
@@ -1216,7 +1216,7 @@
         "outcome": "erro",
         "text": "Grade vazia, torta ou com letra inválida, ou início ou fim fora da grade ou sobre um obstáculo: nada a calcular."
       },
-      "x": 590,
+      "x": 765,
       "y": 1078.5,
       "w": 280,
       "h": 60
@@ -1254,10 +1254,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 1150,
+      "x": 1245,
+      "y": 1456,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-desvio",
@@ -1292,10 +1292,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 1217,
+      "x": 1245,
+      "y": 1541,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-bloqueado",
@@ -1330,10 +1330,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 1284,
+      "x": 1245,
+      "y": 1626,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-invalido",
@@ -1366,10 +1366,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 1415,
+      "x": 1245,
+      "y": 1775,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -1409,11 +1409,11 @@
       },
       "waypoints": [
         {
-          "x": 916,
+          "x": 1091,
           "y": 167.5
         },
         {
-          "x": 916,
+          "x": 1091,
           "y": 1046.5
         }
       ],
@@ -1454,11 +1454,11 @@
       },
       "waypoints": [
         {
-          "x": 934,
+          "x": 1109,
           "y": 518
         },
         {
-          "x": 934,
+          "x": 1109,
           "y": 1046.5
         }
       ],
@@ -1490,11 +1490,11 @@
       },
       "waypoints": [
         {
-          "x": 952,
+          "x": 1127,
           "y": 705
         },
         {
-          "x": 952,
+          "x": 1127,
           "y": 1046.5
         }
       ],
@@ -1524,7 +1524,7 @@
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.58
     },
     {
       "id": "prepara-to-l-aberta",
@@ -1593,11 +1593,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -46,
+          "x": -301,
           "y": 2006
         },
         {
-          "x": -46,
+          "x": -301,
           "y": 1338.5
         }
       ]
@@ -1827,11 +1827,11 @@
       },
       "waypoints": [
         {
-          "x": -46,
+          "x": -301,
           "y": 2170.5
         },
         {
-          "x": -46,
+          "x": -301,
           "y": 1338.5
         }
       ],
@@ -1848,7 +1848,7 @@
       "logic": {
         "branch": "segue"
       },
-      "labelT": 0.5
+      "labelT": 0.62
     }
   ],
   "customAssets": []

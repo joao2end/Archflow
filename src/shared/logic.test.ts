@@ -137,7 +137,9 @@ test("exemplo de precificação: fluxograma com decisões, escolha, laço e fins
   assert.ok(falhas.length >= 4, "o exemplo tem cenários de falha, não só de sucesso");
   assert.ok(doc.groups.some((g) => g.id === "cenarios-falha"), "os cenários de falha ficam num grupo próprio");
   assert.equal(count("loop"), 1);
-  assert.equal(count("switch"), 2, "o tipo do grupo (por valor) e a faixa do arredondamento (por condições)");
+  assert.equal(count("switch"), 1, "o tipo do grupo (por valor)");
+  assert.equal(count("table"), 1, "a faixa do arredondamento é uma tabela de decisão (as linhas, em ordem)");
+  assert.equal(doc.groups.filter((g) => g.stage).length, 7, "o fluxo em etapas, recolhidas na visão geral");
   assert.ok(count("decision") >= 10, "os desvios são decisões no quadro");
   assert.ok(count("rule") >= 15);
   assert.ok(doc.connections.some((c) => c.logic?.branch === "sim") && doc.connections.some((c) => c.logic?.branch === "nao"));

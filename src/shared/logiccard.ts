@@ -42,7 +42,48 @@ export const LOGIC_ICON: Record<string, string[]> = {
   join: ["M6 8l6 6.5", "M18 8l-6 6.5", "M12 14.5v6"],
   call: ["M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1", "M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"],
   code: ["M8.5 7L3.5 12l5 5", "M15.5 7l5 5-5 5", "M13.5 5l-3 14"],
+  table: ["M4 5h16v14H4z", "M4 10h16", "M4 14.5h16", "M10 5v14"],
 };
+
+/* ───────── tabela de decisão: grade «quando → então» ───────── */
+
+export const TABLE_W = 480;
+export const TABLE_ROW_H = 21;
+/** Linhas mostradas no cartão; as demais ficam no inspetor (e um «+N linhas» no rodapé). */
+export const TABLE_MAX_ROWS = 12;
+export const TABLE_SPLIT = 0.5;
+
+export interface TableCard {
+  w: number;
+  h: number;
+  title: string[];
+  /** y do cabeçalho das colunas */
+  gridY: number;
+  rows: { when: string; then: string; otherwise?: boolean; branch: string }[];
+  more: number;
+}
+
+/** O cartão da tabela: título, cabeçalho QUANDO | ENTÃO e uma linha por regra (e o «senão»). */
+export function tableCard(n: NodeEl, names: Record<string, string> = {}): TableCard {
+  const l = n.logic!;
+  const title = wrapLabel(n.label, 44, 2);
+  const cond = (src: string) => {
+    try {
+      return explain(parseExpr(src), names, true);
+    } catch {
+      return `${src} ✘`;
+    }
+  };
+  const all = [
+    ...(l.rows ?? []).map((r, i) => ({ when: r.label ?? cond(r.when), then: r.then.join("; "), branch: `linha ${i + 1}` })),
+    ...(l.otherwise ? [{ when: "senão (nenhuma linha valeu)", then: l.otherwise.join("; "), otherwise: true, branch: "senão" }] : []),
+  ];
+  const rows = all.slice(0, TABLE_MAX_ROWS);
+  const more = all.length - rows.length;
+  const gridY = 42 + title.length * 15;
+  const h = gridY + 22 + Math.max(1, rows.length) * TABLE_ROW_H + (more ? 18 : 0) + 12;
+  return { w: TABLE_W, h, title, gridY, rows, more };
+}
 
 export interface CardLine {
   text: string;
@@ -333,6 +374,10 @@ export function logicSize(n: NodeEl, names: Record<string, string> = {}, fullDes
   switch (l.role) {
     case "rule": {
       const c = ruleCard(n, names);
+      return { w: c.w, h: c.h };
+    }
+    case "table": {
+      const c = tableCard(n, names);
       return { w: c.w, h: c.h };
     }
     case "input":

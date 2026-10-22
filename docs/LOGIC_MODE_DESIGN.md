@@ -214,3 +214,20 @@ Consequência: **a ordem de entrega muda** (§4.7 fica assim):
 - [Máquina de estados × diagrama de atividade (Visual Paradigm)](https://visual-paradigm.com/guide/uml-unified-modeling-language/state-machine-diagram-vs-activity-diagram)
 - [Event Storming (Wikipedia)](https://en.wikipedia.org/wiki/Event_storming) · [Event Storming: legenda e conceitos (Xebia)](https://xebia.com/blog/eventstorming-core-concepts-glossary-and-legend/)
 - [Specification by Example](https://fourweekmba.com/specification-by-example/) · [Given-When-Then](https://concepts.dsebastien.net/concept/given-when-then/)
+
+## 7. Legibilidade de código complexo (2026-10-22)
+
+Revisão do modo com um caso real (a engine de precificação tinha 83 cartões num quadro de 3700 × 5700 px; a reprodução de N-rainhas tinha 402 passos a 8 s cada). O diagnóstico: o quadro traduzia o código linha a linha, sem uma camada acima que dissesse o que o algoritmo faz, e a reprodução era um depurador, não uma explicação. O que entrou:
+
+| Peça | O que resolve | Onde |
+|---|---|---|
+| **Etapas** (`GroupEl.stage`) | Trechos nomeados do fluxo; recolhidos, viram um cartão-resumo (o que lê, o que escreve, passos, exemplos). Todas recolhidas = **visão geral**. Não mudam a execução | `logicstages.ts`, L034–L036 |
+| **Tabela de decisão** (`table`) | Escolha cujos caminhos só atribuem valores vira uma grade num cartão (o arredondamento da precificação: 9 cartões → 1) | `runTable`, `tableCard`, L038–L039 |
+| **Cartão de resumo** e aba **Visão geral** | A porta de entrada: propósito, o que entra e sai, etapas, placar dos cenários e o contrato de dados | `logicoverview.ts` |
+| **Matriz de cenários** e **cobertura nas setas** | Cada cenário numa linha (entra, espera, saiu, por onde passou); cada saída de decisão diz quantos cenários passam por ela | `scenarioMatrix`, `edgeCoverage` |
+| **Espinha e molduras de laço** | O caminho principal numa coluna reta; exceções ao lado; o corpo do laço emoldurado quando não cobre outros passos | `logiclayout.ts` |
+| **Origem no código** (`NodeEl.source`) | «arquivo:linha» em cada passo, no cartão e no inspetor | L037 |
+| **Reprodução Explicar / Depurar** | Explicar anda por momentos (etapas, voltas) com as frases de negócio e o saldo dos dados; Depurar mostra o porquê de cada passo com os valores (`v[meio] < x → 2 < 2`), saltos (mudança, volta, sair do laço), voltas agrupadas e os valores nos cartões de dados | `logicdebug.ts` |
+| **Exportação em seções** | PDF pelo motor de impressão do navegador (diagramas em SVG vetorial, tabelas em HTML, sem sombras para não haver nada rasterizado) ou ZIP com SVG e PNG por seção + README.md: resumo, visão geral, uma seção por etapa (só ela aberta), cenários e dados | `logicsections.ts`, `ui/sectionexport.tsx` |
+
+O guia da IA (`get_schema_guide` e a skill) ganhou as regras de granularidade: uma ação por intenção (não por linha), escolha que só atribui é tabela, mais de ~12 passos pede etapas com uma entrada cada, `source` em cada passo e um cenário por caminho importante.

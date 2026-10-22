@@ -1,10 +1,11 @@
 import type { Doc } from "../shared/schema";
 import { contentBounds } from "./geometry";
+import type { Box } from "../shared/schema";
 import { presetById } from "./bgpresets";
 import { getState, replaceDoc, resolvedTheme, toast, toastError } from "./store";
 import { normalizeDoc } from "../shared/ops";
 
-function download(name: string, blob: Blob) {
+export function download(name: string, blob: Blob) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = name;
@@ -342,6 +343,14 @@ export async function renderSvg(opts: ImageExportOptions = {}): Promise<{ svg: s
   const src = document.querySelector("svg.canvas") as SVGSVGElement | null;
   const content = contentBounds(doc);
   if (!src || (!content && !(doc.ink ?? []).length && !doc.connections.length)) return null;
+  return serializeSvg(src, content, doc.title || "Diagrama", opts);
+}
+
+/**
+ * Um SVG do app (o quadro, ou um desenho montado fora da tela) como arquivo autônomo: estilos calculados inline, fontes
+ * embutidas e o recorte em `content` (ou no que estiver desenhado). `crop` recorta exatamente essa área, sem somar o resto.
+ */
+export async function serializeSvg(src: SVGSVGElement, content: Box | null, titleText: string, opts: ImageExportOptions & { crop?: boolean } = {}): Promise<{ svg: string; w: number; h: number } | null> {
   await document.fonts.ready;
 
   const clone = src.cloneNode(true) as SVGSVGElement;
@@ -361,7 +370,8 @@ export async function renderSvg(opts: ImageExportOptions = {}): Promise<{ svg: s
   (src.parentNode ?? document.body).insertBefore(clone, src.nextSibling);
   try {
     let box = world.getBBox();
-    if (content) {
+    if (content && opts.crop) box = new DOMRect(content.x, content.y, content.w, content.h);
+    else if (content) {
       const x1 = Math.min(box.width ? box.x : content.x, content.x);
       const y1 = Math.min(box.height ? box.y : content.y, content.y);
       const x2 = Math.max(box.width ? box.x + box.width : content.x + content.w, content.x + content.w);
@@ -383,7 +393,16 @@ export async function renderSvg(opts: ImageExportOptions = {}): Promise<{ svg: s
     const animations = new Set<string>();
     const styles = all.map((el) => {
       const cs = computed.get(el)!;
-      if (el.localName === "style" || el.localName === "defs" || (el.closest("defs") && !el.closest("marker"))) return null;
+      if (el.localName === "style" || el.localName === "defs" || (el.closest("defs") && !el.closest("marker"))) {
+        // gradientes e filtros mantêm o estilo inline, mas sem var(): fora do app as variáveis do tema não existem
+        // (o brilho dos cartões virava preto opaco por cima deles)
+        const inline = (el as SVGElement).style;
+        if (inline?.cssText.includes("var(")) {
+          const resolved = Array.from(inline).map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";");
+          el.setAttribute("style", resolved);
+        }
+        return null;
+      }
       const parent = el === clone ? rootParent : computed.get(el.parentElement!) ?? rootParent;
       for (const f of familyNames(cs.getPropertyValue("font-family"))) families.add(f);
       const anim = cs.getPropertyValue("animation-name");
@@ -406,7 +425,7 @@ export async function renderSvg(opts: ImageExportOptions = {}): Promise<{ svg: s
     clone.setAttribute("width", String(w));
     clone.setAttribute("height", String(h));
     const title = document.createElementNS(SVG_NS, "title");
-    title.textContent = doc.title || "Diagrama";
+    title.textContent = titleText;
     const bg = boardBackground(x, y, w, h, opts.background ?? "board");
     if (bg) clone.insertBefore(bg, world);
 
@@ -432,7 +451,15 @@ const MAX_AREA = 120e6;
 export async function renderPng(opts: ImageExportOptions = {}): Promise<{ blob: Blob; w: number; h: number } | null> {
   const r = await renderSvg(opts);
   if (!r) return null;
-  let scale = Math.min(Math.max(opts.scale ?? 2, 0.25), 4);
+  const c = await rasterize(r, opts.scale ?? 2);
+  const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/png"));
+  if (!blob) throw new Error("o navegador não gerou o PNG");
+  return { blob, w: c.width, h: c.height };
+}
+
+/** Desenha um SVG serializado num canvas, na escala pedida (limitada ao que o navegador aguenta). */
+export async function rasterize(r: { svg: string; w: number; h: number }, wanted = 2): Promise<HTMLCanvasElement> {
+  let scale = Math.min(Math.max(wanted, 0.25), 4);
   scale = Math.min(scale, MAX_SIDE / r.w, MAX_SIDE / r.h, Math.sqrt(MAX_AREA / (r.w * r.h)));
   const img = new Image();
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(r.svg);
@@ -443,9 +470,7 @@ export async function renderPng(opts: ImageExportOptions = {}): Promise<{ blob: 
   const ctx = c.getContext("2d")!;
   ctx.scale(scale, scale);
   ctx.drawImage(img, 0, 0, r.w, r.h);
-  const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, "image/png"));
-  if (!blob) throw new Error("o navegador não gerou o PNG");
-  return { blob, w: c.width, h: c.height };
+  return c;
 }
 
 /** Pedido de exportação vindo do MCP (pelo bridge): renderiza aqui e devolve o arquivo. */
@@ -482,7 +507,7 @@ export async function answerExport(req: ExportRequest) {
 /* ───────── HTML autônomo ───────── */
 
 /** @font-face do app (só o subconjunto latino, woff2) com o arquivo embutido em base64. */
-async function embeddedFonts(): Promise<string> {
+export async function embeddedFonts(): Promise<string> {
   const out: string[] = [];
   for (const sheet of Array.from(document.styleSheets)) {
     let rules: CSSRuleList;

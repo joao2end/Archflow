@@ -2,21 +2,26 @@ import { createContext, memo, type CSSProperties, type ReactNode, useCallback, u
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, docMode, isDataRole } from "../shared/schema";
-import { explain, parseExpr } from "../shared/expr";
-import { edgeIdsOf, dataNames, logicStatus, nextExit, relatedTo } from "../shared/logic";
+import { checkExamples } from "../shared/logic";
+import { explain, parseExpr, shortValue } from "../shared/expr";
+import { edgeIdsOf, dataKey, dataNames, dataNodes, logicStatus, nextExit, relatedTo } from "../shared/logic";
+import { changedAt, playSteps, storyAt, valuesAfter, visitsUpTo, whyOf } from "../shared/logicdebug";
+import { hiddenBy, projectStages, stageSummary, type StageSummary } from "../shared/logicstages";
+import { edgeCoverage, logicSummary } from "../shared/logicoverview";
+import { loopFrames } from "../shared/logiclayout";
 import { coverageGaps } from "../shared/logiceval";
-import { DESC_LINE_H, FACT_H, HEAD_H, LOGIC_ICON, descLines, figureText, isFailureScenario, logicSize, ruleCard, scenarioTitle } from "../shared/logiccard";
+import { DESC_LINE_H, FACT_H, HEAD_H, LOGIC_ICON, TABLE_ROW_H, TABLE_SPLIT, tableCard, descLines, figureText, isFailureScenario, logicSize, ruleCard, scenarioTitle } from "../shared/logiccard";
 import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type ConnectionEl, type ConnectionType, type Doc, type GroupEl, type NodeEl, type NoteEl } from "../shared/schema";
 import { truncate, wrapLabel } from "../shared/text";
 import { FONT_CSS, parseInline, parseRich, plainText, type BlockKind, type Span } from "../shared/richtext";
 import { IconSvg } from "./icons";
 import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./richeditor";
-import { contains, edgeGeoms, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
+import { SUMMARY_COLS, SUMMARY_PAD, contains, edgeGeoms, logicSummaryBox, summaryText, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { findSkillCatalogEntry } from "../shared/skillcatalog";
 import { findMcpCatalogEntry } from "../shared/mcpcatalog";
 import { applyAgentTemplate } from "./agentcatalog";
-import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, plugSkill, plugTool, run, select, set, startPlay, toast, toastError, useStore, type View } from "./store";
+import { addRefNode, beginTx, commit, endTx, getState, live, lookupAsset, placeAsset, plugSkill, plugTool, run, select, set, startPlay, toggleStage, toast, toastError, useStore, type View } from "./store";
 import { requestChangeType } from "./typepicker";
 import { reorderSelection, hasClipboard, pasteClipboard, copySelection, deleteSelection, duplicateSelection, exitFlow, fitView, inspectFlow, spaceHeld } from "./keys";
 import { flowBoxes, flowOf, type FlowMode } from "./flow";
@@ -160,9 +165,11 @@ const flowKey = (c: ConnectionEl) => (c.logic?.branch === "sim" ? "ok" : c.logic
 
 /** Destaque de um elemento do fluxo: passo atual da reprodução, já percorrido, apagado ou relacionado ao selecionado. */
 export type Viz = "cur" | "vis" | "dim" | "rel";
+/** reprodução: o valor de um dado depois do passo atual (e se foi este passo que o mudou) */
+export type LiveValue = { text: string; changed: boolean };
 
 /** Legenda de cada elemento do fluxo (a primeira linha pequena do cartão). */
-const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Ação", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", code: "Código", input: "Entrada", output: "Resultado", variable: "Variável", scenario: "Cenário" };
+const LOGIC_CAPTION: Record<string, string> = { start: "Início", end: "Fim", rule: "Ação", table: "Tabela de decisão", decision: "Decisão", switch: "Escolha", loop: "Repetição", fork: "Em paralelo", join: "Junção", call: "Chama", code: "Código", input: "Entrada", output: "Resultado", variable: "Variável", scenario: "Cenário" };
 
 /** Ícone no azulejo colorido do cartão (viewBox 24). */
 function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: number; y: number; size: number; color: string; round?: boolean }) {
@@ -186,7 +193,7 @@ function LogicIcon({ paths, x, y, size, color, round }: { paths: string[]; x: nu
  * legenda pequena e título; a condição ou o efeito em português logo abaixo; dados como etiquetas; estado dos exemplos como
  * um selo redondo. Sem losangos nem caixas de fluxograma antigo: o tipo do elemento vem do ícone, da legenda e da cor.
  */
-const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status, gap, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names: Record<string, string>; viz?: Viz; badge?: number }) {
+const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status, gap, names, viz, badge, visits, liveValue, row }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names: Record<string, string>; viz?: Viz; badge?: number; visits?: number; liveValue?: LiveValue; row?: string }) {
   const l = n.logic!;
   // descrição completa quando o cartão tem a altura dela (Doc.showDescriptions); vale também no visualizador e na exportação
   const fullDesc = (isDataRole(l.role) || l.role === "scenario") && n.h >= (logicSize(n, NO_NAMES, true)?.h ?? Infinity);
@@ -215,18 +222,33 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
     ) : null;
   const g = (children: ReactNode) => (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${role.label}: ${n.label}`} transform={`translate(${n.x},${n.y})`} className={`node domain logic logic-${l.role}${viz ? ` logic-viz-${viz}` : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`}>
-      <title>{[n.label, `${role.label} — ${role.hint}`, l.text, n.description].filter(Boolean).join("\n")}</title>
+      <title>{[n.label, `${role.label} — ${role.hint}`, l.text, n.description, n.source && `Código: ${n.source}`].filter(Boolean).join("\n")}</title>
       <rect className="node-body" width={w} height={h} rx={R} filter="url(#shadow)" style={fillStyle(n)} />
       <rect className="logic-wash" width={w} height={h} rx={R} fill={color} pointerEvents="none" />
       <rect className="node-sheen" width={w} height={h} rx={R} fill="url(#sheen)" pointerEvents="none" />
       <rect className="node-ring" width={w} height={h} rx={R} pointerEvents="none" strokeDasharray={dashed ? "6 5" : undefined} />
       {children}
+      {n.source && (
+        // de onde veio no código: só o arquivo e a linha, no canto (o caminho inteiro fica no tooltip e no inspetor)
+        <text x={w - 12} y={h - 7} textAnchor="end" className="logic-src" pointerEvents="none">
+          {"</> " + truncate(n.source.split(/[\\/]/).pop()!, 28)}
+        </text>
+      )}
       {badge ? (
         <g pointerEvents="none" transform="translate(-4,-4)">
           <circle r={11} fill="#706fd3" stroke="#fff" strokeWidth={2} />
           <text y={4} textAnchor="middle" className="logic-badge">
             {badge}
           </text>
+          {visits ? (
+            <g transform="translate(14,-1)">
+              <title>{`O fluxo já passou ${visits} vezes por aqui`}</title>
+              <rect x={0} y={-8} width={12 + String(visits).length * 7} height={16} rx={8} className="logic-visits" />
+              <text x={6 + String(visits).length * 3.5} y={4} textAnchor="middle" className="logic-visits-t">
+                ×{visits}
+              </text>
+            </g>
+          ) : null}
         </g>
       ) : null}
       {(hovered || selected) && <Handles id={n.id} w={w} h={h} />}
@@ -277,9 +299,26 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
         <text x={32} y={mid + 12} className="logic-mono" pointerEvents="none">
           {truncate(sub, Math.floor((w - 44) / 6) - 4)}
         </text>
-        <text x={w - 10} y={mid + 12} textAnchor="end" className="logic-mono" style={{ fontWeight: 700, fill: color }} pointerEvents="none">
-          {role.badge}
-        </text>
+        {liveValue ? (
+          (() => {
+            // reprodução: o valor do momento toma o lugar do selo IN/OUT/VAR; aceso quando este passo acabou de mudá-lo
+            const t = truncate(liveValue.text, Math.max(6, Math.floor((w - 44) / 7) - 8));
+            const pw = t.length * 6.6 + 14;
+            return (
+              <g transform={`translate(${w - 8 - pw},${mid - 10})`} pointerEvents="none" className={`logic-live${liveValue.changed ? " changed" : ""}`}>
+                <title>{`Valor agora: ${liveValue.text}`}</title>
+                <rect width={pw} height={20} rx={10} />
+                <text x={pw / 2} y={14} textAnchor="middle">
+                  {t}
+                </text>
+              </g>
+            );
+          })()
+        ) : (
+          <text x={w - 10} y={mid + 12} textAnchor="end" className="logic-mono" style={{ fontWeight: 700, fill: color }} pointerEvents="none">
+            {role.badge}
+          </text>
+        )}
         {desc.map((t, k) => (
           <text key={k} x={32} y={FACT_H + 6 + k * DESC_LINE_H} className="logic-desc" pointerEvents="none">
             {t}
@@ -316,6 +355,51 @@ const LogicShape = memo(function LogicShape({ n, selected, hot, hovered, status,
           </text>
         ))}
         {seal(w - 22, 20)}
+      </>,
+    );
+  }
+
+  /* tabela de decisão: grade QUANDO | ENTÃO; na reprodução, a linha que valeu acende */
+  if (l.role === "table") {
+    const c = tableCard(n, names);
+    const split = Math.round(w * TABLE_SPLIT);
+    const cw = (px: number) => Math.floor(px / 6.4);
+    return g(
+      <>
+        <LogicIcon paths={icon} x={12} y={12} size={32} color={color} />
+        {cap(54, 22)}
+        {c.title.map((t, k) => (
+          <text key={k} x={54} y={39 + k * 15} className="logic-title" pointerEvents="none">
+            {t}
+          </text>
+        ))}
+        {seal(w - 22, 20)}
+        <g transform={`translate(12,${c.gridY})`} pointerEvents="none" className="logic-table">
+          <rect width={w - 24} height={22 + Math.max(1, c.rows.length) * TABLE_ROW_H} rx={8} className="lt-box" />
+          <text x={10} y={15} className="lt-head">QUANDO</text>
+          <text x={split - 2} y={15} className="lt-head">ENTÃO</text>
+          <line x1={split - 12} y1={4} x2={split - 12} y2={22 + c.rows.length * TABLE_ROW_H - 4} className="lt-rule" />
+          {c.rows.map((r, i) => {
+            const y = 22 + i * TABLE_ROW_H;
+            const on = row === r.branch;
+            return (
+              <g key={i} className={`lt-row${on ? " on" : ""}${r.otherwise ? " else" : ""}`}>
+                <rect y={y} width={w - 24} height={TABLE_ROW_H} rx={on ? 6 : 0} className="lt-bg" />
+                <text x={10} y={y + 14.5} className="lt-when">
+                  {truncate(r.when, cw(split - 26))}
+                </text>
+                <text x={split - 2} y={y + 14.5} className="lt-then">
+                  {truncate(r.then, cw(w - 24 - split - 8) - 1)}
+                </text>
+              </g>
+            );
+          })}
+          {c.more > 0 && (
+            <text x={10} y={22 + c.rows.length * TABLE_ROW_H + 14} className="lt-more">
+              +{c.more} {c.more === 1 ? "linha" : "linhas"} no inspetor
+            </text>
+          )}
+        </g>
       </>,
     );
   }
@@ -439,14 +523,14 @@ const refName = (n: NodeEl) => {
 /** Assets personalizados do diagrama exibido (no visualizador, o diagrama é outro). */
 export const ViewerAssets = createContext<Asset[] | null>(null);
 
-export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, gap, names, viz, badge }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names?: Record<string, string>; viz?: Viz; badge?: number }) {
+export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, gap, names, viz, badge, visits, liveValue, row }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names?: Record<string, string>; viz?: Viz; badge?: number; visits?: number; liveValue?: LiveValue; row?: string }) {
   const extra = useContext(ViewerAssets);
   const runMark = useNodeRunMark(n.id);
   const asset = extra?.find((a) => a.id === n.asset) ?? lookupAsset(n.asset);
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
-  if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} />;
+  if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} visits={visits} liveValue={liveValue} row={row} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}${runMark ? ` run-${runMark}` : ""}`}>
@@ -482,10 +566,82 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, st
   );
 });
 
-export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered }: { g: GroupEl; selected: boolean; hot: boolean; hovered: boolean }) {
-  const color = g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3";
+/** O que o cartão de uma etapa recolhida mostra (calculado uma vez por quadro) e o destaque dela na reprodução. */
+export type StageView = { summary: StageSummary; viz?: Viz };
+
+/** Botão de recolher/abrir uma etapa (tamanho fixo na tela). */
+function StageToggle({ id, x, y, collapsed }: { id: string; x: number; y: number; collapsed: boolean }) {
   return (
-    <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Grupo ${g.label}`} transform={`translate(${g.x},${g.y})`} className={`group${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
+    <g data-role="stage-toggle" data-id={id} className="stage-toggle" transform={`translate(${x},${y})`}>
+      <title>{collapsed ? "Abrir a etapa: mostrar os passos" : "Recolher a etapa num cartão-resumo"}</title>
+      <circle r={13} />
+      <path d={collapsed ? "M-5 -1.5L0 3.5L5 -1.5" : "M-5 1.5L0 -3.5L5 1.5"} fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+const STAGE_COLOR = "#706fd3";
+
+/** Etapa recolhida: o cartão-resumo no lugar dos passos (o que faz, o que lê, o que escreve, exemplos e cenários). */
+function StageCard({ g, selected, hovered, view }: { g: GroupEl; selected: boolean; hovered: boolean; view?: StageView }) {
+  const s = view?.summary;
+  const w = g.w;
+  const h = g.h;
+  const text = wrapLabel(g.stage?.text ?? g.description ?? "", Math.floor((w - 40) / 6.4), 2);
+  const io = (label: string, names: string[], room = w - 40) => `${label} ${names.length ? truncate(names.join(", "), Math.floor(room / 6.8) - label.length - 1) : "—"}`;
+  return (
+    <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Etapa ${g.label}, recolhida`} transform={`translate(${g.x},${g.y})`} className={`group stage-card${selected ? " sel" : ""}${view?.viz ? ` logic-viz-${view.viz}` : ""}`} style={{ ["--gc" as string]: STAGE_COLOR }}>
+      <title>{[g.label, g.stage?.text, "Etapa recolhida: clique na seta para ver os passos"].filter(Boolean).join(" · ")}</title>
+      <rect className="node-body" width={w} height={h} rx={18} filter="url(#shadow)" />
+      <rect className="stage-wash" width={w} height={h} rx={18} pointerEvents="none" />
+      <rect className="node-ring" width={w} height={h} rx={18} pointerEvents="none" />
+      <rect className="stage-stack" x={8} y={h - 2} width={w - 16} height={6} rx={3} pointerEvents="none" />
+      <g pointerEvents="none">
+        <text className="logic-cap" x={20} y={24} fill={STAGE_COLOR} style={{ ["--cap" as string]: STAGE_COLOR }}>
+          ETAPA{s ? ` · ${s.steps} passos${s.decisions ? ` · ${s.decisions} ${s.decisions === 1 ? "decisão" : "decisões"}` : ""}` : ""}
+        </text>
+        <text className="logic-title stage-title" x={20} y={44}>
+          {truncate(g.label, Math.floor((w - 70) / 8.4))}
+        </text>
+        {text.map((t, i) => (
+          <text key={i} className="logic-desc" x={20} y={64 + i * 14}>
+            {t}
+          </text>
+        ))}
+        {s && (
+          <>
+            <text className="logic-mono stage-io" x={20} y={h - 30}>
+              {io("lê", s.reads)}
+            </text>
+            <text className="logic-mono stage-io" x={20} y={h - 14}>
+              {io("escreve", s.writes, s.scenarios > 0 ? w - 40 - 130 : w - 40)}
+            </text>
+            {s.scenarios > 0 && (
+              <text className="logic-mono" x={w - 20} y={h - 14} textAnchor="end">
+                {s.scenarios} {s.scenarios === 1 ? "cenário passa" : "cenários passam"}
+              </text>
+            )}
+          </>
+        )}
+      </g>
+      {s && s.status !== "none" && (
+        <g transform={`translate(${w - 50},24)`} pointerEvents="none">
+          <title>{s.status === "ok" ? "Os exemplos dos passos batem" : "Algum exemplo de um passo não bate"}</title>
+          <circle r={9} fill={s.status === "ok" ? "#2f9e6b" : "#d6453d"} />
+          <path d={s.status === "ok" ? "M-4,0.5 L-1,3.5 L4.5,-3" : "M-3.5,-3.5 L3.5,3.5 M3.5,-3.5 L-3.5,3.5"} fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      )}
+      <StageToggle id={g.id} x={w - 22} y={24} collapsed />
+      {(hovered || selected) && <Handles id={g.id} w={w} h={h} />}
+    </g>
+  );
+}
+
+export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered, stage }: { g: GroupEl; selected: boolean; hot: boolean; hovered: boolean; stage?: StageView }) {
+  if (g.stage?.collapsed && stage) return <StageCard g={g} selected={selected} hovered={hovered} view={stage} />;
+  const color = g.stage ? STAGE_COLOR : g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3";
+  return (
+    <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Grupo ${g.label}`} transform={`translate(${g.x},${g.y})`} className={`group${g.stage ? " stage-frame" : ""}${stage?.viz ? ` logic-viz-${stage.viz}` : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
       <title>{g.label}</title>
       <rect className="group-body" width={g.w} height={g.h} rx={26} style={fillStyle(g)} />
       <rect className="group-edge" width={g.w} height={g.h} rx={26} pointerEvents="none" />
@@ -498,6 +654,12 @@ export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered }
           {truncate(g.label, Math.floor((g.w - 40) / 9))}
         </text>
       </g>
+      {g.stage && g.stage.text && (
+        <text className="group-stage-text" x={20} y={62} pointerEvents="none">
+          {truncate(g.stage.text, Math.floor((g.w - 70) / 6.4))}
+        </text>
+      )}
+      {g.stage && <StageToggle id={g.id} x={g.w - 24} y={26} collapsed={false} />}
       {(hovered || selected) && <Handles id={g.id} w={g.w} h={g.h} />}
       {selected && <ResizeGrip w={g.w} h={g.h} />}
     </g>
@@ -975,13 +1137,31 @@ function LabelPill({ c, mid }: { c: ConnectionEl; mid: Pt }) {
 }
 
 /** Rótulo desenhado por cima dos nós e das notas, para nunca ficar escondido atrás de um componente; clicar ou arrastar seleciona a conexão como antes. */
-export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected, viz, flow }: { c: ConnectionEl; mid: Pt; selected: boolean; viz?: Viz; flow?: boolean }) {
+export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected, viz, flow, cover }: { c: ConnectionEl; mid: Pt; selected: boolean; viz?: Viz; flow?: boolean; cover?: number }) {
   return (
     <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}${flow ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: flow ? FLOW_EDGE[flowKey(c)].color : CONNECTION_TYPES[c.type].color }}>
       <LabelPill c={c} mid={mid} />
+      {cover !== undefined && <CoverChip c={c} mid={mid} n={cover} />}
     </g>
   );
 });
+
+/** Modo Logic: quantos cenários passam por esta saída. Zero fica tracejado em âmbar: é um caminho que nenhum teste mostra. */
+function CoverChip({ c, mid, n }: { c: ConnectionEl; mid: Pt; n: number }) {
+  const ls = labelSize(c);
+  const text = n ? `${n} ${n === 1 ? "cenário" : "cenários"}` : "sem cenário";
+  const w = text.length * 5.6 + 14;
+  const x = ls ? mid.x + ls.w / 2 + 4 : mid.x - w / 2;
+  return (
+    <g transform={`translate(${x},${mid.y - 8})`} className={`cover-chip${n ? "" : " none"}`} pointerEvents="none">
+      <title>{n ? `${n} exemplo(s) de cenário passam por esta seta` : "Nenhum cenário passa por esta seta: crie um que mostre este caminho"}</title>
+      <rect width={w} height={16} rx={8} />
+      <text x={w / 2} y={11.5} textAnchor="middle">
+        {text}
+      </text>
+    </g>
+  );
+}
 
 export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName, withLabel = true, viz, flow }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string; withLabel?: boolean; viz?: Viz; flow?: boolean }) {
   const t = CONNECTION_TYPES[c.type];
@@ -1148,6 +1328,128 @@ export function DiagramDefs() {
   );
 }
 
+/**
+ * Reprodução de um cenário: o porquê do passo atual escrito ao lado do nó, para não precisar desviar o olho para o painel.
+ * Decisão e laço mostram a condição com os valores do momento e a resposta; ação mostra a conta com os valores e o que mudou.
+ */
+function PlayCallout({ doc }: { doc: Doc }) {
+  const play = useStore((s) => s.play);
+  // com o quadro afastado o balão não encolhe junto: continua legível (como um texto de interface)
+  const scale = useStore((s) => Math.max(1, 0.9 / s.view.z));
+  const info = useMemo(() => {
+    if (!play) return null;
+    const steps = playSteps(play.run);
+    const st = steps[play.k];
+    const real = st && doc.nodes.find((x) => x.id === st.rule);
+    if (!st || !real) return null;
+    const inStage = hiddenBy(doc).get(real.id);
+    const n: { x: number; y: number; w: number; h: number } = (inStage && doc.groups.find((g) => g.id === inStage)) || real;
+    const why = whyOf(doc, st, valuesAfter(play.run, play.k));
+    const lines: { t: string; cls: string }[] = [];
+    // explicar: num momento de vários passos (etapa, volta), o balão conta o saldo do momento
+    const moment = play.mode === "explain" && play.story.length ? play.story[storyAt(play.story, play.k)] : undefined;
+    if (moment && moment.end > moment.k) {
+      for (const c of moment.changes) lines.push({ t: `${c.name} = ${shortValue(c.to)}  (era ${shortValue(c.from)})`, cls: "chg" });
+      if (!lines.length) lines.push({ t: "nada mudou nos dados", cls: "code" });
+      return { n, lines: lines.slice(0, 7).map((l) => ({ ...l, t: truncate(l.t, 64) })), answer: moment.title, role: st.role, branch: undefined };
+    }
+    if (st.error) lines.push({ t: `Erro: ${st.error}`, cls: "err" });
+    for (const l of why.lines) lines.push(l.values && l.values !== l.code ? { t: l.values, cls: "val" } : { t: l.code, cls: "code" });
+    for (const c of st.changes) lines.push({ t: `${c.name} = ${shortValue(c.to)}  (era ${shortValue(c.from)})`, cls: "chg" });
+    if (st.blocked.length) lines.push({ t: `travado, não mudou: ${st.blocked.join(", ")}`, cls: "err" });
+    if (st.role === "rule" && !st.applied) lines.push({ t: "a condição não valeu: nada mudou", cls: "code" });
+    if (!lines.length && !why.answer) return null;
+    const shown = lines.slice(0, 7).map((l) => ({ ...l, t: truncate(l.t, 64) }));
+    if (lines.length > 7) shown.push({ t: `+${lines.length - 7} no painel`, cls: "code" });
+    return { n, lines: shown, answer: why.answer, role: st.role, branch: st.branch };
+  }, [doc, play]);
+  if (!info) return null;
+  const { n, lines, answer } = info;
+  const head = answer ? 26 : 8;
+  const w = Math.min(470, Math.max(170, ...lines.map((l) => l.t.length * 6.5 + 26), (answer?.length ?? 0) * 7.2 + 40));
+  const h = head + lines.length * 18 + 8;
+  const tone = info.branch === "sim" ? " yes" : info.branch === "nao" || info.branch === "erro" ? " no" : "";
+  return (
+    <g transform={`translate(${n.x + n.w + 18},${n.y + Math.min(n.h / 2, 30) - 18}) scale(${scale})`} className="play-callout" pointerEvents="none" aria-hidden>
+      <path d="M0,12 L-9,18 L0,24 Z" className="pc-box" />
+      <rect width={w} height={h} rx={12} className="pc-box" />
+      {answer && (
+        <text x={12} y={18} className={`pc-ans${tone}`}>
+          → {answer}
+        </text>
+      )}
+      {lines.map((l, i) => (
+        <text key={i} x={12} y={head + 13 + i * 18} className={`pc-line ${l.cls}`}>
+          {l.t}
+        </text>
+      ))}
+    </g>
+  );
+}
+
+/**
+ * Modo Logic: o cartão de resumo no topo do quadro (a porta de entrada). O que o fluxo faz, o que entra, o que sai,
+ * quantos passos e etapas, e se os cenários batem. Clicar abre a visão geral completa.
+ */
+export function SummaryCard({ doc }: { doc: Doc }) {
+  const box = logicSummaryBox(doc);
+  const s = useMemo(() => (box ? logicSummary(doc) : null), [doc, !!box]);
+  const t = useMemo(() => summaryText(doc), [doc]);
+  if (!box || !s) return null;
+  const P = SUMMARY_PAD;
+  const allOk = s.scenarios.total > 0 && s.scenarios.ok === s.scenarios.total;
+  const score = s.scenarios.total ? `${allOk ? "✔" : "✘"} ${s.scenarios.ok}/${s.scenarios.total} cenários batem` : "sem cenários";
+  const scoreW = score.length * 6.9 + 24;
+  const descTop = P + 18 + 30;
+  const factsTop = descTop + (t.desc.length ? 8 + t.desc.length * 19 : 0) + 22;
+  const flow = [`${s.steps} passos`, s.stages.length ? `${s.stages.length} etapas` : "sem etapas"];
+  const cols: { label: string; lines: string[]; mono?: boolean }[] = [
+    { label: "Entra", lines: t.inputs, mono: true },
+    { label: "Sai", lines: t.outputs, mono: true },
+    { label: "Fluxo", lines: flow },
+  ];
+  let x = P;
+  return (
+    <g transform={`translate(${box.x},${box.y})`} className="summary-card" data-role="summary" role="button" aria-label={`Resumo: ${s.title}. Abrir a visão geral`} onClick={() => set({ modal: { type: "logic", tab: "overview" } })} onPointerDown={(e) => e.stopPropagation()}>
+      <title>Resumo do fluxo: clique para a visão geral (contrato de dados e matriz de cenários)</title>
+      <rect width={box.w} height={box.h} rx={22} className="sc-body" />
+      <rect width={6} height={box.h - 44} x={0} y={22} rx={3} className="sc-accent" />
+      <text x={P} y={P + 8} className="sc-kicker">
+        RESUMO DO FLUXO
+      </text>
+      <g transform={`translate(${box.w - P - scoreW},${P - 6})`} className={`sc-score${s.scenarios.total ? (allOk ? " ok" : " fail") : ""}`}>
+        <rect width={scoreW} height={24} rx={12} />
+        <text x={scoreW / 2} y={16} textAnchor="middle">
+          {score}
+        </text>
+      </g>
+      <text x={P} y={P + 40} className="sc-title">
+        {truncate(s.title, 52)}
+      </text>
+      {t.desc.map((line, i) => (
+        <text key={i} x={P} y={descTop + 18 + i * 19} className="sc-desc">
+          {line}
+        </text>
+      ))}
+      <line x1={P} x2={box.w - P} y1={factsTop - 8} y2={factsTop - 8} className="sc-rule" />
+      {cols.map((c, k) => {
+        const cx = x;
+        x += SUMMARY_COLS[k];
+        return (
+          <g key={c.label} transform={`translate(${cx},${factsTop + 10})`}>
+            <text className="sc-label">{c.label.toUpperCase()}</text>
+            {c.lines.map((line, i) => (
+              <text key={i} y={20 + i * 18} className={c.mono ? "sc-val mono" : "sc-val"}>
+                {line}
+              </text>
+            ))}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 /* ───────────────────────── canvas ───────────────────────── */
 
 export function Canvas() {
@@ -1162,18 +1464,52 @@ export function Canvas() {
     const nodes = new Map<string, Viz>();
     const edges = new Map<string, Viz>();
     const badges = new Map<string, number>();
-    if (docMode(doc) !== "logic") return { nodes, edges, badges };
+    const visits = new Map<string, number>();
+    const liveVals = new Map<string, LiveValue>();
+    const stages = new Map<string, Viz>();
+    const rows = new Map<string, string>();
+    if (docMode(doc) !== "logic") return { nodes, edges, badges, visits, live: liveVals, stages, rows };
     if (play) {
-      const steps = play.run.steps.filter((s) => s.rule);
+      const steps = playSteps(play.run);
+      // passos escondidos numa etapa recolhida: quem acende é o cartão da etapa
+      const hid = hiddenBy(doc);
+      for (const g of doc.groups) if (g.stage?.collapsed) stages.set(g.id, "dim");
+      steps.slice(0, play.k + 1).forEach((st, i) => {
+        const g = hid.get(st.rule);
+        if (g) stages.set(g, i === play.k ? "cur" : stages.get(g) === "cur" ? "cur" : "vis");
+      });
       const eids = edgeIdsOf(doc, play.run);
       for (const nd of doc.nodes) nodes.set(nd.id, "dim");
       for (const c of doc.connections) edges.set(c.id, "dim");
-      steps.slice(0, play.k + 1).forEach((s, i) => {
-        nodes.set(s.rule, i === play.k ? "cur" : "vis");
-        badges.set(s.rule, i + 1);
-      });
+      // o número é o da última passagem; num laço, o selo ao lado conta quantas vezes o fluxo já passou ali
+      for (const [id, v] of visitsUpTo(steps, play.k)) {
+        nodes.set(id, v.last === play.k ? "cur" : "vis");
+        badges.set(id, v.last + 1);
+        if (v.count > 1) visits.set(id, v.count);
+      }
+      // o valor de cada dado depois do passo atual, escrito no próprio cartão do dado
+      // explicar: os valores do fim do momento (e o que o momento mudou); depurar: os do passo atual
+      const moment = play.mode === "explain" && play.story.length ? play.story[storyAt(play.story, play.k)] : undefined;
+      const env = valuesAfter(play.run, moment ? moment.end : play.k);
+      const changed = moment ? new Set(moment.changes.map((c) => c.name)) : changedAt(steps[play.k]);
+      for (const nd of dataNodes(doc)) {
+        nodes.delete(nd.id); // os dados não se apagam: são o painel de valores do quadro
+        const key = dataKey(nd);
+        if (key in env) liveVals.set(nd.id, { text: shortValue(env[key]), changed: changed.has(key) });
+      }
       for (let i = 0; i < play.k; i++) if (eids[i]) edges.set(eids[i]!, i === play.k - 1 ? "cur" : "vis");
+      // explicar: o momento inteiro (uma passagem por etapa, uma volta) acende, não só o primeiro passo dele
+      if (play.mode === "explain" && play.story.length) {
+        const it = play.story[storyAt(play.story, play.k)];
+        for (let i = it.k; i <= it.end; i++) {
+          nodes.set(steps[i].rule, "cur");
+          const g = hid.get(steps[i].rule);
+          if (g) stages.set(g, "cur");
+          if (i < it.end && eids[i]) edges.set(eids[i]!, "cur");
+        }
+      }
       const cur = steps[play.k]?.rule;
+      if (steps[play.k]?.role === "table" && steps[play.k].branch) rows.set(cur, steps[play.k].branch!); // a linha da tabela que valeu
       if (cur) for (const r of relatedTo(doc, cur)) nodes.set(r, "rel"); // os dados do passo atual acendem junto
       if (play.scenario) nodes.set(play.scenario, "vis");
     } else if (selId) {
@@ -1191,8 +1527,20 @@ export function Canvas() {
         }
       }
     }
-    return { nodes, edges, badges };
+    return { nodes, edges, badges, visits, live: liveVals, stages, rows };
   }, [doc, play, selId]);
+  // etapas recolhidas: o quadro desenhado é a projeção (cartão no lugar dos passos); o resumo de cada cartão sai dos exemplos
+  const vdoc = useMemo(() => (docMode(doc) === "logic" ? projectStages(doc) : doc), [doc]);
+  // cobertura por seta (fora da reprodução, que tem o próprio destaque): quantos cenários passam em cada saída
+  const loops = useMemo(() => (docMode(doc) === "logic" ? loopFrames(vdoc) : []), [vdoc]);
+  const cover = useMemo(() => (docMode(doc) === "logic" && !play && doc.nodes.some((n) => n.logic?.role === "scenario") ? edgeCoverage(doc) : null), [doc, play]);
+  const stageViews = useMemo(() => {
+    const m = new Map<string, StageView>();
+    if (docMode(doc) !== "logic" || !doc.groups.some((g) => g.stage?.collapsed)) return m;
+    const results = checkExamples(doc);
+    for (const g of doc.groups) if (g.stage?.collapsed) m.set(g.id, { summary: stageSummary(doc, g.id, results, lstatus ?? undefined) });
+    return m;
+  }, [doc, lstatus]);
   const sel = useStore((s) => s.sel);
   const tool = useStore((s) => s.tool);
   const view = useStore((s) => s.view);
@@ -1356,6 +1704,10 @@ export function Canvas() {
       beginTx();
       drag.current = { kind: "erase" };
       eraseAt(p, e);
+      return;
+    }
+    if (t?.role === "stage-toggle" && t.id) {
+      toggleStage(t.id);
       return;
     }
     if (t?.role === "collapse" && t.id) {
@@ -1855,13 +2207,13 @@ export function Canvas() {
 
   const focus = useStore((s) => s.focus);
   const flow = useMemo(() => (focus && doc.nodes.some((n) => n.id === focus.id) ? flowOf(doc, focus.id, focus.mode) : null), [doc, focus]);
-  const edges = useMemo(() => computeEdges(doc).filter((e) => !flow || flow.conns.has(e.c.id)), [doc, flow]);
+  const edges = useMemo(() => computeEdges(vdoc).filter((e) => !flow || flow.conns.has(e.c.id)), [vdoc, flow]);
   const ownerLinks = useMemo(() => computeOwnerLinks(doc).filter((l) => !flow || (flow.nodes.has(l.id))), [doc.nodes, flow]);
 
   const bg = useStore((s) => s.bg);
   const bgStep = 24 * view.z;
   const bgPreset = presetById(bg.image);
-  const groupsSorted = useMemo(() => sortedGroups(doc).filter((g) => !flow || flow.groups.has(g.id) || flow.nodes.has(g.id)), [doc.groups, flow]);
+  const groupsSorted = useMemo(() => sortedGroups(vdoc).filter((g) => !flow || flow.groups.has(g.id) || flow.nodes.has(g.id)), [vdoc, flow]);
   const names = useMemo(() => new Map<string, string>([...doc.groups, ...doc.nodes].map((e) => [e.id, e.label])), [doc.groups, doc.nodes]);
   const d = drag.current;
   const selSet = new Set(sel);
@@ -1907,8 +2259,17 @@ export function Canvas() {
       {bg.image && !bgPreset && <image href={bg.image} width="100%" height="100%" preserveAspectRatio="xMidYMid slice" opacity={bg.imageOpacity ?? 1} style={{ mixBlendMode: "overlay" }} data-bg />}
       {bg.pattern !== "none" && <rect width="100%" height="100%" fill="url(#bgpat)" data-bg />}
       <g transform={`translate(${view.x},${view.y}) scale(${view.z})`}>
+        {docMode(doc) === "logic" && !flow && <SummaryCard doc={doc} />}
+        {loops.map((f) => (
+          <g key={f.id} transform={`translate(${f.x},${f.y})`} className="loop-frame" pointerEvents="none">
+            <rect width={f.w} height={f.h} rx={22} />
+            <text x={16} y={19}>
+              ↻ {truncate(f.label, Math.floor((f.w - 40) / 6.6))}
+            </text>
+          </g>
+        ))}
         {groupsSorted.map((g) => (
-          <GroupShape key={g.id} g={g} selected={selSet.has(g.id)} hot={hotDrop === g.id} hovered={hover === g.id || (tool === "connect" && hover === g.id)} />
+          <GroupShape key={g.id} g={g} selected={selSet.has(g.id)} hot={hotDrop === g.id} hovered={hover === g.id || (tool === "connect" && hover === g.id)} stage={g.stage ? { summary: stageViews.get(g.id)?.summary as StageSummary, viz: viz.stages.get(g.id) } : undefined} />
         ))}
         {ownerLinks.map((l) => (
           <path key={l.id} d={l.d} className="owner-link" />
@@ -1920,8 +2281,8 @@ export function Canvas() {
           edges
             .filter(({ c }) => c.id === sel[0])
             .map(({ c, g }) => <EdgeHandles key={c.id} c={c} g={g} z={view.z} />)}
-        {doc.nodes.filter((n) => !flow || flow.nodes.has(n.id)).map((n) => (
-          <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} status={lstatus?.get(n.id)} gap={lgaps?.get(n.id)} names={lnames} viz={viz.nodes.get(n.id)} badge={viz.badges.get(n.id)} />
+        {vdoc.nodes.filter((n) => !flow || flow.nodes.has(n.id)).map((n) => (
+          <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} status={lstatus?.get(n.id)} gap={lgaps?.get(n.id)} names={lnames} viz={viz.nodes.get(n.id)} badge={viz.badges.get(n.id)} visits={viz.visits.get(n.id)} liveValue={viz.live.get(n.id)} row={viz.rows.get(n.id)} />
         ))}
         {flow &&
           doc.nodes
@@ -1963,8 +2324,9 @@ export function Canvas() {
           />
         ))}
         {edges.map(({ c, g }) => (
-          <EdgeLabel key={c.id} c={c} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} />
+          <EdgeLabel key={c.id} c={c} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} cover={cover?.get(c.id)} />
         ))}
+        {docMode(doc) === "logic" && <PlayCallout doc={doc} />}
 
         {(doc.ink ?? []).map((k) => (
           <path key={k.id} d={inkPath(k.pts)} fill="none" {...strokeAttrs(k)} pointerEvents="none" />

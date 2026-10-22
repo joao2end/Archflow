@@ -13,7 +13,7 @@
       "x": -408,
       "y": -10,
       "w": 306,
-      "h": 360,
+      "h": 450,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 1922,
+      "x": 2632,
       "y": -10,
       "w": 306,
-      "h": 140,
+      "h": 146,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 1922,
-      "y": 108,
+      "x": 2632,
+      "y": 126,
       "w": 306,
-      "h": 534,
+      "h": 678,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 1922,
-      "y": 632,
+      "x": 2632,
+      "y": 794,
       "w": 376,
-      "h": 204,
+      "h": 240,
       "auto": true
     },
     {
@@ -54,10 +54,10 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 1922,
-      "y": 830,
+      "x": 2632,
+      "y": 1028,
       "w": 376,
-      "h": 140,
+      "h": 155,
       "auto": true
     }
   ],
@@ -76,7 +76,7 @@
       "x": -380,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "valores",
@@ -90,9 +90,9 @@
         "text": "Valor de cada item (inteiro ≥ 0), na mesma ordem e do mesmo tamanho que pesos."
       },
       "x": -380,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "cap",
@@ -106,9 +106,9 @@
         "text": "Peso total máximo da mochila (inteiro ≥ 0)."
       },
       "x": -380,
-      "y": 160,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "n",
@@ -121,10 +121,10 @@
         "type": "inteiro",
         "text": "Quantos itens existem."
       },
-      "x": 1950,
-      "y": 162,
+      "x": 2660,
+      "y": 180,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "tabela",
@@ -137,10 +137,10 @@
         "type": "lista",
         "text": "Lista de linhas. A linha k tem cap + 1 números: no lugar w, o maior valor usando só os k primeiros itens e capacidade w. A linha 0 é só zeros."
       },
-      "x": 1950,
-      "y": 220,
+      "x": 2660,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "anterior",
@@ -153,10 +153,10 @@
         "type": "lista",
         "text": "A última linha pronta da tabela."
       },
-      "x": 1950,
-      "y": 278,
+      "x": 2660,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "atual",
@@ -169,10 +169,10 @@
         "type": "lista",
         "text": "A linha do item da vez; as células entram da esquerda para a direita."
       },
-      "x": 1950,
-      "y": 336,
+      "x": 2660,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "i",
@@ -185,10 +185,10 @@
         "type": "inteiro",
         "text": "Quantos itens já foram considerados (na volta: o item que está sendo examinado)."
       },
-      "x": 1950,
-      "y": 394,
+      "x": 2660,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "w",
@@ -201,10 +201,10 @@
         "type": "inteiro",
         "text": "A coluna da vez; na volta, a capacidade que ainda sobra."
       },
-      "x": 1950,
-      "y": 452,
+      "x": 2660,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "sem",
@@ -218,9 +218,9 @@
         "text": "O valor da linha de cima na mesma coluna."
       },
       "x": -380,
-      "y": 218,
+      "y": 272,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "com",
@@ -233,10 +233,10 @@
         "type": "inteiro",
         "text": "O valor da linha de cima na coluna w − peso, mais o valor do item."
       },
-      "x": 1950,
-      "y": 510,
+      "x": 2660,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "melhor",
@@ -249,10 +249,10 @@
         "type": "inteiro",
         "text": "O maior entre deixar e levar (só deixar, se o peso não cabe)."
       },
-      "x": 1950,
-      "y": 568,
+      "x": 2660,
+      "y": 712,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "valor",
@@ -266,9 +266,9 @@
         "text": "Resposta: o maior valor total possível."
       },
       "x": -380,
-      "y": 276,
+      "y": 348,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "escolhidos",
@@ -281,10 +281,10 @@
         "type": "lista",
         "text": "Resposta: as posições (a partir de 0) dos itens levados, em ordem crescente."
       },
-      "x": 1950,
+      "x": 2660,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -383,7 +383,7 @@
           }
         ]
       },
-      "x": 535,
+      "x": 710,
       "y": 303,
       "w": 330,
       "h": 212
@@ -429,7 +429,7 @@
           }
         ]
       },
-      "x": 455,
+      "x": 200,
       "y": 744,
       "w": 440,
       "h": 114
@@ -464,7 +464,7 @@
           }
         ]
       },
-      "x": 965,
+      "x": 710,
       "y": 754.5,
       "w": 330,
       "h": 93
@@ -509,7 +509,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 710,
       "y": 1102,
       "w": 330,
       "h": 149
@@ -523,7 +523,7 @@
         "until": "w > cap",
         "text": "Para quando w passou de cap. Cada volta calcula uma célula."
       },
-      "x": 500,
+      "x": 705,
       "y": 1315,
       "w": 340,
       "h": 101
@@ -555,7 +555,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 710,
       "y": 1484.5,
       "w": 330,
       "h": 107
@@ -597,7 +597,7 @@
           }
         ]
       },
-      "x": 80,
+      "x": 710,
       "y": 1669.5,
       "w": 330,
       "h": 116
@@ -639,7 +639,7 @@
           }
         ]
       },
-      "x": 400,
+      "x": 655,
       "y": 1859,
       "w": 440,
       "h": 128
@@ -666,7 +666,7 @@
           }
         ]
       },
-      "x": 910,
+      "x": 1165,
       "y": 1876.5,
       "w": 440,
       "h": 93
@@ -752,7 +752,7 @@
           }
         ]
       },
-      "x": 400,
+      "x": 1110,
       "y": 1481,
       "w": 440,
       "h": 114
@@ -789,7 +789,7 @@
           }
         ]
       },
-      "x": 910,
+      "x": 1110,
       "y": 1102,
       "w": 330,
       "h": 149
@@ -803,7 +803,7 @@
         "until": "i <= 0",
         "text": "Para quando i chegou a 0. Cada volta examina um item, do último para o primeiro."
       },
-      "x": 910,
+      "x": 1115,
       "y": 1322,
       "w": 340,
       "h": 87
@@ -859,7 +859,7 @@
           }
         ]
       },
-      "x": 910,
+      "x": 1620,
       "y": 1480,
       "w": 330,
       "h": 116
@@ -886,7 +886,7 @@
           }
         ]
       },
-      "x": 480,
+      "x": 1110,
       "y": 1681,
       "w": 330,
       "h": 93
@@ -925,7 +925,7 @@
           }
         ]
       },
-      "x": 880,
+      "x": 1510,
       "y": 1660,
       "w": 440,
       "h": 135
@@ -958,7 +958,7 @@
           }
         ]
       },
-      "x": 1310,
+      "x": 2020,
       "y": 1491.5,
       "w": 440,
       "h": 93
@@ -972,7 +972,7 @@
         "outcome": "ok",
         "text": "Devolve valor e escolhidos."
       },
-      "x": 1390,
+      "x": 2020,
       "y": 1697.5,
       "w": 280,
       "h": 60
@@ -986,7 +986,7 @@
         "outcome": "erro",
         "text": "Tamanhos diferentes, peso menor que 1 ou capacidade negativa: nada a calcular."
       },
-      "x": 935,
+      "x": 1110,
       "y": 379,
       "w": 280,
       "h": 60
@@ -1028,10 +1028,10 @@
           }
         ]
       },
-      "x": 1950,
-      "y": 686,
+      "x": 2660,
+      "y": 848,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-invalida",
@@ -1059,10 +1059,10 @@
           }
         ]
       },
-      "x": 1950,
-      "y": 884,
+      "x": 2660,
+      "y": 1082,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-nada",
@@ -1092,10 +1092,10 @@
           }
         ]
       },
-      "x": 1950,
-      "y": 753,
+      "x": 2660,
+      "y": 933,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -1133,7 +1133,7 @@
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.54
     },
     {
       "id": "prepara-to-l-zeros",
@@ -1167,11 +1167,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 409,
+          "x": 154,
           "y": 801
         },
         {
-          "x": 409,
+          "x": 154,
           "y": 629.5
         }
       ]
@@ -1296,11 +1296,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": 591,
           "y": 2108
         },
         {
-          "x": -64,
+          "x": 591,
           "y": 1365.5
         }
       ]
@@ -1328,11 +1328,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -82,
+          "x": 623,
           "y": 1538
         },
         {
-          "x": -82,
+          "x": 623,
           "y": 980
         }
       ]
@@ -1408,11 +1408,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -46,
+          "x": 659,
           "y": 1727.5
         },
         {
-          "x": -46,
+          "x": 659,
           "y": 1365.5
         }
       ]
@@ -1427,11 +1427,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": 641,
           "y": 1727.5
         },
         {
-          "x": -64,
+          "x": 641,
           "y": 1365.5
         }
       ]

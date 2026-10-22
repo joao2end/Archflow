@@ -1,3 +1,4 @@
+import { logicSummaryBox } from "./geometry";
 import { useEffect } from "react";
 import { applyOps, fitGroup, uniqueId } from "../shared/ops";
 import type { Doc } from "../shared/schema";
@@ -173,7 +174,8 @@ export function fitView(svg?: SVGSVGElement | null, only?: { x: number; y: numbe
   const { doc } = getState();
   if (!el || !(doc.nodes.length + doc.groups.length + doc.notes.length)) return;
   const r = el.getBoundingClientRect();
-  const all = only?.length ? only : [...doc.nodes, ...doc.groups, ...doc.notes];
+  const summary = logicSummaryBox(doc); // modo Logic: o cartão de resumo no topo entra no enquadramento
+  const all = only?.length ? only : [...doc.nodes, ...doc.groups, ...doc.notes, ...(summary ? [summary] : [])];
   const x1 = Math.min(...all.map((b) => b.x));
   const y1 = Math.min(...all.map((b) => b.y));
   const x2 = Math.max(...all.map((b) => b.x + b.w));

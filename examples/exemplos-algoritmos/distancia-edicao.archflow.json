@@ -10,10 +10,10 @@
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -613,
       "y": -10,
       "w": 306,
-      "h": 244,
+      "h": 298,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 1122,
+      "x": 1377,
       "y": 50,
       "w": 306,
-      "h": 650,
+      "h": 830,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 1122,
-      "y": 690,
+      "x": 1377,
+      "y": 870,
       "w": 376,
-      "h": 204,
+      "h": 240,
       "auto": true
     }
   ],
@@ -51,10 +51,10 @@
         "type": "texto",
         "text": "A palavra que será transformada. Pode ser vazia. Maiúscula e minúscula são letras diferentes (A ≠ a)."
       },
-      "x": -380,
+      "x": -585,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "para",
@@ -67,10 +67,10 @@
         "type": "texto",
         "text": "A palavra que se quer obter. Pode ser vazia. Maiúscula e minúscula são letras diferentes (A ≠ a)."
       },
-      "x": -380,
-      "y": 102,
+      "x": -585,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "letras-de",
@@ -83,10 +83,10 @@
         "type": "lista",
         "text": "As letras de `de`, uma por item, na ordem."
       },
-      "x": 1150,
+      "x": 1405,
       "y": 104,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "letras-para",
@@ -99,10 +99,10 @@
         "type": "lista",
         "text": "As letras de `para`, uma por item, na ordem."
       },
-      "x": 1150,
-      "y": 162,
+      "x": 1405,
+      "y": 180,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "n",
@@ -115,10 +115,10 @@
         "type": "inteiro",
         "text": "Quantas letras tem `de`."
       },
-      "x": 1150,
-      "y": 220,
+      "x": 1405,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "m",
@@ -131,10 +131,10 @@
         "type": "inteiro",
         "text": "Quantas letras tem `para`."
       },
-      "x": 1150,
-      "y": 278,
+      "x": 1405,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "anterior",
@@ -147,10 +147,10 @@
         "type": "lista",
         "text": "Linha i−1: no lugar j, a distância entre as i−1 primeiras letras de `de` e as j primeiras de `para`. Tem m+1 itens."
       },
-      "x": 1150,
-      "y": 336,
+      "x": 1405,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "atual",
@@ -163,10 +163,10 @@
         "type": "lista",
         "text": "Linha i: o item 0 é i (apagar as i letras); os outros entram um a um, da esquerda para a direita."
       },
-      "x": 1150,
-      "y": 394,
+      "x": 1405,
+      "y": 484,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "i",
@@ -180,10 +180,10 @@
         "text": "Quantas letras de `de` já foram consideradas. Começa em 0.",
         "value": 0
       },
-      "x": 1150,
-      "y": 452,
+      "x": 1405,
+      "y": 560,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "j",
@@ -197,10 +197,10 @@
         "text": "Quantas letras de `para` já foram consideradas na linha. Começa em 0.",
         "value": 0
       },
-      "x": 1150,
-      "y": 510,
+      "x": 1405,
+      "y": 636,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "sub",
@@ -213,10 +213,10 @@
         "type": "número",
         "text": "Distância anterior[j−1] mais 0 (letras iguais) ou 1 (trocar)."
       },
-      "x": 1150,
-      "y": 568,
+      "x": 1405,
+      "y": 712,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "melhor",
@@ -229,10 +229,10 @@
         "type": "número",
         "text": "O menor entre apagar (cima + 1), inserir (esquerda + 1) e a diagonal."
       },
-      "x": 1150,
-      "y": 626,
+      "x": 1405,
+      "y": 788,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "resultado",
@@ -245,10 +245,10 @@
         "type": "número",
         "text": "Resposta: o menor número de operações."
       },
-      "x": -380,
-      "y": 160,
+      "x": -585,
+      "y": 196,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -354,7 +354,7 @@
           }
         ]
       },
-      "x": 50,
+      "x": -205,
       "y": 573,
       "w": 440,
       "h": 114
@@ -368,7 +368,7 @@
         "until": "i >= n",
         "text": "Para quando i chegou a n. Cada volta monta uma linha da tabela."
       },
-      "x": 560,
+      "x": 305,
       "y": 572,
       "w": 340,
       "h": 116
@@ -401,7 +401,7 @@
           }
         ]
       },
-      "x": 110,
+      "x": 310,
       "y": 752,
       "w": 330,
       "h": 135
@@ -415,7 +415,7 @@
         "until": "j >= m",
         "text": "Para quando j chegou a m. Cada volta calcula uma célula da linha."
       },
-      "x": 130,
+      "x": 305,
       "y": 951,
       "w": 340,
       "h": 101
@@ -442,7 +442,7 @@
           }
         ]
       },
-      "x": 55,
+      "x": 310,
       "y": 1116,
       "w": 330,
       "h": 93
@@ -526,7 +526,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 255,
       "y": 1452,
       "w": 440,
       "h": 93
@@ -558,7 +558,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 765,
       "y": 1452,
       "w": 440,
       "h": 93
@@ -634,7 +634,7 @@
           }
         ]
       },
-      "x": 455,
+      "x": 710,
       "y": 1116,
       "w": 440,
       "h": 93
@@ -666,7 +666,7 @@
           }
         ]
       },
-      "x": 510,
+      "x": 710,
       "y": 773,
       "w": 330,
       "h": 93
@@ -680,7 +680,7 @@
         "outcome": "ok",
         "text": "Devolve resultado: o menor número de inserções, remoções e trocas."
       },
-      "x": 540,
+      "x": 715,
       "y": 971.5,
       "w": 280,
       "h": 60
@@ -707,10 +707,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 744,
+      "x": 1405,
+      "y": 924,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-vazia",
@@ -734,10 +734,10 @@
           }
         ]
       },
-      "x": 1150,
-      "y": 811,
+      "x": 1405,
+      "y": 1009,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -783,11 +783,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": 4,
+          "x": -251,
           "y": 630
         },
         {
-          "x": 4,
+          "x": -251,
           "y": 457.5
         }
       ]
@@ -903,11 +903,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": 191,
           "y": 1673
         },
         {
-          "x": -64,
+          "x": 191,
           "y": 1001.5
         }
       ]
@@ -935,11 +935,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -32,
+          "x": -287,
           "y": 1162.5
         },
         {
-          "x": -32,
+          "x": -287,
           "y": 630
         }
       ]

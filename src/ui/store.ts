@@ -2,7 +2,8 @@ import { useSyncExternalStore } from "react";
 import type { FlowMode } from "./flow";
 import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { buildCatalog, type CatalogExample } from "../shared/examples.catalog";
-import { runFlow, runPipeline, hasFlow, starterExample, type Run } from "../shared/logic";
+import { runFlow, runPipeline, hasFlow, isFlowNode, starterExample, type Run } from "../shared/logic";
+import { storyAt, storyOf, type StoryItem } from "../shared/logicdebug";
 import { catalogEntryToSource, resolveSkillSource, type SkillCatalogEntry } from "../shared/skillcatalog";
 import { generateHarness, type HarnessTarget } from "../shared/agentgen";
 import { zip } from "../shared/zip";
@@ -59,14 +60,21 @@ export interface Play {
   playing: boolean;
   /** valores antes do passo atual ficam no próprio run; `given` mostra a entrada */
   given: Record<string, unknown>;
+  /** explicar: anda por momentos (etapas, voltas, decisões) e conta em frases · depurar: passo a passo, com o porquê de cada um */
+  mode: PlayMode;
+  /** os momentos da execução (modo explicar) */
+  story: StoryItem[];
 }
+export type PlayMode = "explain" | "debug";
 export type Tool = "select" | "hand" | "group" | "note" | "connect" | "pen" | "highlight" | "eraser" | "text" | "list";
+/** Abas do modal do modo Logic. */
+export type LogicTab = "overview" | "scenarios" | "issues" | "text" | "code";
 export type Modal =
   | { type: "asset"; id?: string }
   | { type: "interface"; id: string }
   | { type: "llm" }
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
-  | { type: "logic"; tab?: "issues" | "text" }
+  | { type: "logic"; tab?: LogicTab }
   | { type: "agents"; tab?: "issues" | "text" | "harness" }
   | { type: "skill"; id: string; tab?: "catalog" | "write" }
   | { type: "tool"; id: string; tab?: "search" | "paste" | "manual" }
@@ -161,6 +169,8 @@ export interface State {
   play: Play | null;
   /** velocidade da reprodução de cenários (1 = um passo a cada 0,85 s); lembrada entre sessões */
   playSpeed: number;
+  /** modo da reprodução escolhido por último */
+  playMode: PlayMode;
   expanded: Record<string, boolean>;
   modal: Modal;
   theme: Theme;
@@ -212,9 +222,11 @@ const LS_LIB = "archflow.library.v1";
 const LS_SKILLS = "archflow.skillcatalog.v1";
 const LS_PREFS = "archflow.prefs.v1";
 const LS_PLAY_SPEED = "archflow.play-speed.v1";
+const LS_PLAY_MODE = "archflow.play-mode.v1";
 /** Velocidades oferecidas na reprodução (múltiplos de 1x). */
 export const PLAY_SPEEDS = [0.5, 1, 2, 4, 8];
-export const PLAY_STEP_MS = 8000;
+/** 1x: tempo para ler o porquê de um passo; os saltos (mudança, volta) cobrem quem quer ir mais rápido */
+export const PLAY_STEP_MS = 2500;
 const LS_TREE = "archflow.tree.v1";
 const LS_WELCOME = "archflow.welcome.v1";
 
@@ -302,6 +314,7 @@ function init(): State {
     examples: { open: false, tab: null },
     play: null,
     playSpeed: PLAY_SPEEDS.includes(read<number>(LS_PLAY_SPEED) ?? 0) ? read<number>(LS_PLAY_SPEED)! : 1,
+    playMode: read<PlayMode>(LS_PLAY_MODE) === "debug" ? "debug" : "explain",
     expanded: read<Record<string, boolean>>(LS_TREE) ?? {},
     modal: null,
     theme: prefs.theme ?? "system",
@@ -1224,8 +1237,8 @@ export function startPlay(scenarioId: string, idx = 0, autoplay = true) {
   const ex = n?.logic?.examples?.[idx];
   if (!n || !ex) return toast("Este cenário ainda não tem exemplo para reproduzir");
   stopTimer();
-  const run = hasFlow(doc) ? runFlow(doc, ex.given) : runPipeline(doc, ex.given);
-  set({ play: { scenario: scenarioId, example: idx, run, k: 0, playing: false, given: ex.given }, sel: [scenarioId] });
+  const run = hasFlow(doc) ? runFlow(doc, ex.given, { trace: true }) : runPipeline(doc, ex.given, { trace: true });
+  set({ play: { scenario: scenarioId, example: idx, run, k: 0, playing: false, given: ex.given, mode: state.playMode, story: storyOf(doc, run) }, sel: [scenarioId] });
   if (autoplay) playToggle();
 }
 
@@ -1254,11 +1267,22 @@ export function playToggle() {
 /** (Re)liga o relógio da reprodução com a velocidade atual. */
 function startTimer() {
   stopTimer();
-  playTimer = setInterval(() => {
-    const cur = state.play;
-    if (!cur || !cur.playing) return stopTimer();
-    playGo(cur.k + 1);
-  }, Math.round(PLAY_STEP_MS / state.playSpeed));
+  const explain = state.play?.mode === "explain";
+  playTimer = setInterval(
+    () => {
+      const cur = state.play;
+      if (!cur || !cur.playing) return stopTimer();
+      // explicar: de momento em momento (o fim do relógio é o último momento)
+      if (cur.mode === "explain") {
+        const next = cur.story[storyAt(cur.story, cur.k) + 1];
+        if (next) return playGo(next.k);
+        stopTimer();
+        return set({ play: { ...cur, playing: false } });
+      }
+      playGo(cur.k + 1);
+    },
+    Math.round((PLAY_STEP_MS * (explain ? 1.6 : 1)) / state.playSpeed),
+  );
 }
 
 /** Muda a velocidade da reprodução; vale na hora, mesmo com o cenário tocando. */
@@ -1269,7 +1293,45 @@ export function setPlaySpeed(v: number) {
   if (state.play?.playing) startTimer();
 }
 
+/** Troca entre explicar (momentos) e depurar (passo a passo); vale para as próximas reproduções também. */
+export function setPlayMode(mode: PlayMode) {
+  set({ playMode: mode, ...(state.play ? { play: { ...state.play, mode } } : {}) });
+  write(LS_PLAY_MODE, mode);
+  if (state.play?.playing) startTimer();
+}
+
 export function stopPlay() {
   stopTimer();
   set({ play: null });
+}
+
+/* ───────── modo Logic: etapas (recolher num cartão-resumo / abrir os passos) ───────── */
+
+/** Recolhe ou abre uma etapa e refaz o layout (o cartão ocupa o lugar dos passos, e vice-versa). Um Ctrl+Z desfaz. */
+export function toggleStage(id: string, collapsed?: boolean) {
+  const g = state.doc.groups.find((x) => x.id === id);
+  if (!g?.stage) return;
+  const next = collapsed ?? !g.stage.collapsed;
+  if (!!g.stage.collapsed === next) return;
+  run([{ op: "update", id, patch: { stage: { ...g.stage, collapsed: next || undefined } } }, { op: "layout" }]);
+}
+
+/** Visão geral (todas as etapas recolhidas) ou todos os passos (todas abertas). */
+export function setAllStages(collapsed: boolean) {
+  const ops: Op[] = state.doc.groups.filter((g) => g.stage && !!g.stage.collapsed !== collapsed).map((g) => ({ op: "update", id: g.id, patch: { stage: { ...g.stage, collapsed: collapsed || undefined } } }));
+  if (!ops.length) return;
+  run([...ops, { op: "layout" }]);
+}
+
+/** Junta os passos selecionados numa etapa nova (aberta) e a seleciona para dar nome. Dados e cenários ficam de fora. */
+export function stageFromSelection() {
+  const doc = state.doc;
+  const ids = new Set(state.sel);
+  const steps = doc.nodes.filter((n) => ids.has(n.id) && isFlowNode(n));
+  if (!steps.length) return toast("Selecione os passos do fluxo que formam a etapa");
+  const label = `Etapa ${doc.groups.filter((g) => g.stage).length + 1}`;
+  const id = uniqueId(doc, label);
+  // uma operação só: um Ctrl+Z desfaz a etapa inteira
+  run([{ op: "add_group", id, label, stage: {} }, ...steps.map((st): Op => ({ op: "update", id: st.id, patch: { parent: id } })), { op: "layout" }]);
+  set({ sel: [id] });
 }

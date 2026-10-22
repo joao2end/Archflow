@@ -372,6 +372,13 @@ function nodeCase(doc: Doc, n: NodeEl): string[] {
     case "rule":
       L.push(...effectsTs(l, 4), at(next));
       break;
+    case "table": {
+      // a primeira linha verdadeira aplica os efeitos dela; nenhuma, o «senão» (ou erro, como no app)
+      (l.rows ?? []).forEach((r, i) => L.push(`${IND(4)}${i ? "} else " : ""}if (R.truthy(${compile(r.when)})) {${r.label ? ` // ${note(r.label)}` : ""}`, ...effectsTs({ ...l, role: "rule", then: r.then }, 5)));
+      const none = l.otherwise ? effectsTs({ ...l, role: "rule", then: l.otherwise }, 5) : [`${IND(5)}throw new Error(${q(`nenhuma linha da tabela "${n.label}" valeu`)});`];
+      L.push(...((l.rows ?? []).length ? [`${IND(4)}} else {`, ...none, `${IND(4)}}`] : none.map((x) => x.slice(IND(1).length))), at(next));
+      break;
+    }
     case "decision": {
       const yes = target(doc, n, (x) => x.branch === "sim", "sim");
       const no = target(doc, n, (x) => x.branch === "nao", "não");

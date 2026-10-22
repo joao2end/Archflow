@@ -13,7 +13,7 @@
       "x": -408,
       "y": -10,
       "w": 306,
-      "h": 186,
+      "h": 222,
       "auto": true
     },
     {
@@ -21,10 +21,10 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 962,
+      "x": 1137,
       "y": -10,
       "w": 306,
-      "h": 140,
+      "h": 146,
       "auto": true
     },
     {
@@ -32,10 +32,10 @@
       "label": "Variáveis do fluxo",
       "kind": "layer",
       "tag": "Variable",
-      "x": 962,
-      "y": 108,
+      "x": 1137,
+      "y": 126,
       "w": 306,
-      "h": 302,
+      "h": 374,
       "auto": true
     },
     {
@@ -43,10 +43,10 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 962,
-      "y": 400,
+      "x": 1137,
+      "y": 490,
       "w": 376,
-      "h": 204,
+      "h": 240,
       "auto": true
     }
   ],
@@ -65,7 +65,7 @@
       "x": -380,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "vistos",
@@ -79,10 +79,10 @@
         "text": "Lista de pares [número, posição]: o último lugar onde cada número apareceu. Começa vazia.",
         "value": []
       },
-      "x": 990,
-      "y": 162,
+      "x": 1165,
+      "y": 180,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ini",
@@ -96,10 +96,10 @@
         "text": "Primeira posição da janela atual, em que ainda não há repetidos.",
         "value": 0
       },
-      "x": 990,
-      "y": 220,
+      "x": 1165,
+      "y": 256,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "i",
@@ -113,10 +113,10 @@
         "text": "Posição do número da vez em a (a primeira é 0).",
         "value": 0
       },
-      "x": 990,
-      "y": 278,
+      "x": 1165,
+      "y": 332,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "atual",
@@ -130,9 +130,9 @@
         "text": "a[i]."
       },
       "x": -380,
-      "y": 102,
+      "y": 120,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "ult",
@@ -145,10 +145,10 @@
         "type": "lista | vazio",
         "text": "O par [atual, posição] se o número já apareceu; vazio se nunca apareceu."
       },
-      "x": 990,
-      "y": 336,
+      "x": 1165,
+      "y": 408,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "melhor",
@@ -162,10 +162,10 @@
         "text": "Resposta: o maior tamanho de janela visto até agora.",
         "value": 0
       },
-      "x": 990,
+      "x": 1165,
       "y": 44,
       "w": 250,
-      "h": 46
+      "h": 64
     },
     {
       "id": "inicio",
@@ -255,7 +255,7 @@
           }
         ]
       },
-      "x": 0,
+      "x": 175,
       "y": 289,
       "w": 440,
       "h": 128
@@ -390,7 +390,7 @@
         "outcome": "ok",
         "text": "Devolve melhor."
       },
-      "x": 510,
+      "x": 685,
       "y": 323,
       "w": 280,
       "h": 60
@@ -423,10 +423,10 @@
           }
         ]
       },
-      "x": 990,
-      "y": 454,
+      "x": 1165,
+      "y": 544,
       "w": 320,
-      "h": 55
+      "h": 73
     },
     {
       "id": "caso-vazio",
@@ -449,10 +449,10 @@
           }
         ]
       },
-      "x": 990,
-      "y": 521,
+      "x": 1165,
+      "y": 629,
       "w": 320,
-      "h": 55
+      "h": 73
     }
   ],
   "notes": [],
@@ -543,11 +543,11 @@
       "animated": true,
       "waypoints": [
         {
-          "x": -64,
+          "x": 111,
           "y": 884
         },
         {
-          "x": -64,
+          "x": 111,
           "y": 174.5
         }
       ]
@@ -563,7 +563,7 @@
       "logic": {
         "branch": "segue"
       },
-      "labelT": 0.5
+      "labelT": 0.46
     }
   ],
   "customAssets": []

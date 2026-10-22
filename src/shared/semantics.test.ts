@@ -7,7 +7,7 @@ import { DDD_ROLES, DDD_ROLE_KEYS, LOGIC_BRANCH_KEYS, LOGIC_BRANCHES, LOGIC_ROLE
 /** Auditoria semântica (docs/SEMANTICS_LOOP_PROMPT.md): cada componente e propriedade tem uma definição só e nenhuma é aceita sem efeito. */
 
 const DDD_FIELDS: DddField[] = ["intent", "invariants", "payload", "properties", "producedBy", "external", "for", "actor", "goal", "realizedBy", "reactsTo", "issues", "compensates", "projectsFrom", "step"];
-const LOGIC_FIELDS: LogicField[] = ["order", "text", "when", "then", "on", "until", "falha", "request", "mock", "code", "trigger", "devolve", "max", "foreach", "as", "outcome", "examples", "key", "type", "value"];
+const LOGIC_FIELDS: LogicField[] = ["order", "text", "when", "then", "rows", "otherwise", "on", "until", "falha", "request", "mock", "code", "trigger", "devolve", "max", "foreach", "as", "outcome", "examples", "key", "type", "value"];
 
 test("todo campo declarado em DddNodeSpec/LogicNodeSpec é oferecido por pelo menos um papel", () => {
   const dddUsed = new Set(DDD_ROLE_KEYS.flatMap((r) => DDD_ROLES[r].fields));

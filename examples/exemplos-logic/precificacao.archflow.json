@@ -6,11 +6,116 @@
   "mode": "logic",
   "groups": [
     {
+      "id": "etapa-validar",
+      "label": "Validar o produto",
+      "kind": "layer",
+      "stage": {
+        "text": "Carrega o produto e confere se custo e margem permitem calcular um preço.",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 275,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
+      "id": "etapa-partida",
+      "label": "Preço de partida",
+      "kind": "layer",
+      "stage": {
+        "text": "Lucro parte do custo e da margem; imagem e tráfego, do concorrente vezes o índice.",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 473,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
+      "id": "etapa-limites",
+      "label": "Piso e variação",
+      "kind": "layer",
+      "stage": {
+        "text": "Sobe ao piso de margem, mantém diferenças pequenas e corta aumentos e quedas fora do teto.",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 671,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
+      "id": "etapa-arredondar",
+      "label": "Arredondamento",
+      "kind": "layer",
+      "stage": {
+        "text": "Se o preço mudou, arredonda pela faixa de valor (centavos 9, 49 ou 99).",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 869,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
+      "id": "etapa-grupo",
+      "label": "Regras do grupo",
+      "kind": "layer",
+      "stage": {
+        "text": "PMC, referência do grupo, âncora (PBM, popular, marca própria) e preço fixo, nesta ordem.",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 1067,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
+      "id": "etapa-recomendar",
+      "label": "Recomendação",
+      "kind": "layer",
+      "stage": {
+        "text": "Compara com o preço atual: manter, subir ou reduzir, e marca o alerta pendente.",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 1265,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
+      "id": "etapa-fechar",
+      "label": "Ajustes e referência",
+      "kind": "layer",
+      "stage": {
+        "text": "Reaplica o preço digitado, se pedido, e guarda o preço da referência para os seguidores.",
+        "collapsed": true
+      },
+      "tag": "ETAPA",
+      "x": 175,
+      "y": 1463,
+      "w": 360,
+      "h": 134,
+      "auto": false
+    },
+    {
       "id": "entradas",
       "label": "Entradas",
       "kind": "layer",
       "tag": "Input",
-      "x": -408,
+      "x": -583,
       "y": -10,
       "w": 306,
       "h": 1514,
@@ -21,7 +126,7 @@
       "label": "Resultados",
       "kind": "layer",
       "tag": "Output",
-      "x": 3302,
+      "x": 1057,
       "y": -10,
       "w": 306,
       "h": 298,
@@ -32,7 +137,7 @@
       "label": "Cenários que dão certo",
       "kind": "layer",
       "tag": "Caminhos de sucesso",
-      "x": 3302,
+      "x": 1057,
       "y": 278,
       "w": 376,
       "h": 765,
@@ -43,7 +148,7 @@
       "label": "Cenários que falham",
       "kind": "layer",
       "tag": "Caminhos de falha",
-      "x": 3302,
+      "x": 1057,
       "y": 1037,
       "w": 376,
       "h": 455,
@@ -62,7 +167,7 @@
         "type": "lista",
         "text": "Os produtos do grupo, da maior receita de 1 mês para a menor (empate: maior custo). O primeiro é a referência."
       },
-      "x": -380,
+      "x": -555,
       "y": 44,
       "w": 250,
       "h": 64
@@ -78,7 +183,7 @@
         "type": "texto",
         "text": "Estratégia do produto: \"lucro\", \"imagem\" ou \"trafego\"."
       },
-      "x": -380,
+      "x": -555,
       "y": 120,
       "w": 250,
       "h": 64
@@ -94,7 +199,7 @@
         "type": "dinheiro",
         "text": "Custo do produto."
       },
-      "x": -380,
+      "x": -555,
       "y": 196,
       "w": 250,
       "h": 64
@@ -110,7 +215,7 @@
         "type": "percentual",
         "text": "Margem objetivo da categoria (herdada da árvore divisão → departamento → categoria)."
       },
-      "x": -380,
+      "x": -555,
       "y": 272,
       "w": 250,
       "h": 64
@@ -126,7 +231,7 @@
         "type": "dinheiro",
         "text": "Preço de referência do concorrente (mínimo, médio ou máximo, conforme a configuração)."
       },
-      "x": -380,
+      "x": -555,
       "y": 348,
       "w": 250,
       "h": 64
@@ -142,7 +247,7 @@
         "type": "número",
         "text": "Multiplica o preço do concorrente em imagem e tráfego."
       },
-      "x": -380,
+      "x": -555,
       "y": 424,
       "w": 250,
       "h": 64
@@ -158,7 +263,7 @@
         "type": "percentual",
         "text": "Margem mínima da notabilidade (piso de imagem e tráfego)."
       },
-      "x": -380,
+      "x": -555,
       "y": 500,
       "w": 250,
       "h": 64
@@ -174,7 +279,7 @@
         "type": "dinheiro",
         "text": "Preço praticado hoje."
       },
-      "x": -380,
+      "x": -555,
       "y": 576,
       "w": 250,
       "h": 64
@@ -191,7 +296,7 @@
         "text": "Diferença abaixo da qual o preço atual é mantido.",
         "value": 0.02
       },
-      "x": -380,
+      "x": -555,
       "y": 652,
       "w": 250,
       "h": 64
@@ -208,7 +313,7 @@
         "text": "Teto de aumento sobre o preço atual.",
         "value": 0.2
       },
-      "x": -380,
+      "x": -555,
       "y": 728,
       "w": 250,
       "h": 64
@@ -225,7 +330,7 @@
         "text": "Piso de redução sobre o preço atual.",
         "value": 0.2
       },
-      "x": -380,
+      "x": -555,
       "y": 804,
       "w": 250,
       "h": 64
@@ -241,7 +346,7 @@
         "type": "lógico",
         "text": "O produto está num grupo de remarcação (vale o menor PMC)."
       },
-      "x": -380,
+      "x": -555,
       "y": 880,
       "w": 250,
       "h": 64
@@ -257,7 +362,7 @@
         "type": "dinheiro",
         "text": "Menor preço máximo ao consumidor do grupo de remarcação (0 = sem PMC)."
       },
-      "x": -380,
+      "x": -555,
       "y": 956,
       "w": 250,
       "h": 64
@@ -273,7 +378,7 @@
         "type": "lógico",
         "text": "PBM, farmácia popular ou marca própria."
       },
-      "x": -380,
+      "x": -555,
       "y": 1032,
       "w": 250,
       "h": 64
@@ -289,7 +394,7 @@
         "type": "lógico",
         "text": "Primeiro do grupo no cluster."
       },
-      "x": -380,
+      "x": -555,
       "y": 1108,
       "w": 250,
       "h": 64
@@ -305,7 +410,7 @@
         "type": "dinheiro",
         "text": "Preço final já calculado da referência do grupo."
       },
-      "x": -380,
+      "x": -555,
       "y": 1184,
       "w": 250,
       "h": 64
@@ -321,7 +426,7 @@
         "type": "dinheiro",
         "text": "Preço fixo cadastrado; vale quando maior que zero."
       },
-      "x": -380,
+      "x": -555,
       "y": 1260,
       "w": 250,
       "h": 64
@@ -338,7 +443,7 @@
         "text": "Restaura o preço digitado gravado, sem propagar de novo.",
         "value": false
       },
-      "x": -380,
+      "x": -555,
       "y": 1336,
       "w": 250,
       "h": 64
@@ -355,7 +460,7 @@
         "text": "Preço digitado pelo usuário e gravado.",
         "value": 0
       },
-      "x": -380,
+      "x": -555,
       "y": 1412,
       "w": 250,
       "h": 64
@@ -371,7 +476,7 @@
         "type": "dinheiro",
         "text": "O preço que o fluxo vai calculando: cada ação pode reescrevê-lo."
       },
-      "x": 3330,
+      "x": 1085,
       "y": 44,
       "w": 250,
       "h": 64
@@ -387,7 +492,7 @@
         "type": "texto",
         "text": "Resultado: \"keep\", \"raise\" ou \"reduce\"."
       },
-      "x": 3330,
+      "x": 1085,
       "y": 120,
       "w": 250,
       "h": 64
@@ -403,7 +508,7 @@
         "type": "lógico",
         "text": "Há alerta pendente quando o preço muda."
       },
-      "x": 3330,
+      "x": 1085,
       "y": 196,
       "w": 250,
       "h": 64
@@ -416,7 +521,7 @@
         "role": "start",
         "text": "Entra o grupo de produtos de um cluster, com as configurações de margem, variação e PMC."
       },
-      "x": 1425,
+      "x": 215,
       "y": 0,
       "w": 280,
       "h": 60
@@ -431,7 +536,7 @@
         "as": "produto",
         "text": "Da maior receita para a menor; o primeiro é a referência."
       },
-      "x": 1395,
+      "x": 185,
       "y": 124,
       "w": 340,
       "h": 87
@@ -440,6 +545,7 @@
       "id": "carregar",
       "label": "Carregar o produto",
       "kind": "logic",
+      "parent": "etapa-validar",
       "logic": {
         "role": "rule",
         "text": "Copia os dados do produto da vez e solta qualquer trava do produto anterior.",
@@ -485,8 +591,8 @@
           }
         ]
       },
-      "x": 1170,
-      "y": 275,
+      "x": 135,
+      "y": 276,
       "w": 440,
       "h": 132
     },
@@ -494,6 +600,7 @@
       "id": "custo-valido",
       "label": "O custo é válido?",
       "kind": "logic",
+      "parent": "etapa-validar",
       "logic": {
         "role": "decision",
         "when": "custo > 0",
@@ -519,8 +626,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 471,
+      "x": 190,
+      "y": 291.5,
       "w": 330,
       "h": 101
     },
@@ -528,6 +635,7 @@
       "id": "margem-valida",
       "label": "A margem objetivo é válida?",
       "kind": "logic",
+      "parent": "etapa-validar",
       "logic": {
         "role": "decision",
         "when": "margem_objetivo >= 0 e margem_objetivo < 1",
@@ -553,8 +661,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 636,
+      "x": 190,
+      "y": 284.5,
       "w": 330,
       "h": 115
     },
@@ -567,8 +675,8 @@
         "outcome": "erro",
         "text": "O produto tem um dado que impede o cálculo: o fluxo para e avisa."
       },
-      "x": 1650,
-      "y": 828.5,
+      "x": 605,
+      "y": 510,
       "w": 280,
       "h": 60
     },
@@ -576,6 +684,7 @@
       "id": "tipo-do-grupo",
       "label": "Qual o tipo do grupo?",
       "kind": "logic",
+      "parent": "etapa-partida",
       "logic": {
         "role": "switch",
         "on": "tipo_grupo",
@@ -610,8 +719,8 @@
           }
         ]
       },
-      "x": 1200,
-      "y": 815,
+      "x": 165,
+      "y": 496.5,
       "w": 380,
       "h": 87
     },
@@ -619,6 +728,7 @@
       "id": "partida-lucro",
       "label": "Partida: custo e margem",
       "kind": "logic",
+      "parent": "etapa-partida",
       "logic": {
         "role": "rule",
         "text": "Lucro: custo ÷ (1 − margem objetivo da categoria).",
@@ -638,8 +748,8 @@
           }
         ]
       },
-      "x": 915,
-      "y": 966,
+      "x": 135,
+      "y": 493.5,
       "w": 440,
       "h": 93
     },
@@ -647,6 +757,7 @@
       "id": "partida-concorrente",
       "label": "Partida: concorrente × índice",
       "kind": "logic",
+      "parent": "etapa-partida",
       "logic": {
         "role": "rule",
         "text": "Imagem e tráfego: preço do concorrente × índice da notabilidade.",
@@ -666,8 +777,8 @@
           }
         ]
       },
-      "x": 1425,
-      "y": 966,
+      "x": 135,
+      "y": 493.5,
       "w": 440,
       "h": 93
     },
@@ -680,8 +791,8 @@
         "outcome": "erro",
         "text": "Não há como partir o preço: a engine para e avisa."
       },
-      "x": 1935,
-      "y": 982.5,
+      "x": 605,
+      "y": 708,
       "w": 280,
       "h": 60
     },
@@ -689,6 +800,7 @@
       "id": "partida-zerou",
       "label": "O preço de partida deu zero?",
       "kind": "logic",
+      "parent": "etapa-partida",
       "logic": {
         "role": "decision",
         "when": "preco <= 0",
@@ -714,8 +826,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 1123,
+      "x": 190,
+      "y": 489.5,
       "w": 330,
       "h": 101
     },
@@ -723,6 +835,7 @@
       "id": "manter-atual",
       "label": "Manter o preço atual",
       "kind": "logic",
+      "parent": "etapa-partida",
       "logic": {
         "role": "rule",
         "text": "Sem preço de partida, fica o preço atual.",
@@ -742,8 +855,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 1288,
+      "x": 190,
+      "y": 493.5,
       "w": 330,
       "h": 93
     },
@@ -751,6 +864,7 @@
       "id": "abaixo-do-piso",
       "label": "Imagem ou tráfego abaixo do piso?",
       "kind": "logic",
+      "parent": "etapa-limites",
       "logic": {
         "role": "decision",
         "when": "tipo_grupo em [\"imagem\", \"trafego\"] e preco < custo / (1 - margem_minima)",
@@ -782,8 +896,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 1445,
+      "x": 190,
+      "y": 680,
       "w": 330,
       "h": 116
     },
@@ -791,6 +905,7 @@
       "id": "subir-ao-piso",
       "label": "Subir até o piso",
       "kind": "logic",
+      "parent": "etapa-limites",
       "logic": {
         "role": "rule",
         "text": "O piso é custo ÷ (1 − margem mínima da notabilidade).",
@@ -810,8 +925,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 1625,
+      "x": 190,
+      "y": 684.5,
       "w": 330,
       "h": 107
     },
@@ -819,6 +934,7 @@
       "id": "diferenca-pequena",
       "label": "A diferença é menor que a mínima?",
       "kind": "logic",
+      "parent": "etapa-limites",
       "logic": {
         "role": "decision",
         "when": "preco_atual > 0 e abs(preco / preco_atual - 1) < variacao_minima",
@@ -846,8 +962,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 1796,
+      "x": 190,
+      "y": 680,
       "w": 330,
       "h": 116
     },
@@ -855,6 +971,7 @@
       "id": "manter-por-variacao",
       "label": "Manter o preço atual",
       "kind": "logic",
+      "parent": "etapa-limites",
       "logic": {
         "role": "rule",
         "text": "A diferença é pequena demais para valer a troca.",
@@ -874,8 +991,8 @@
           }
         ]
       },
-      "x": 1200,
-      "y": 1980,
+      "x": 190,
+      "y": 691.5,
       "w": 330,
       "h": 93
     },
@@ -883,6 +1000,7 @@
       "id": "tem-preco-atual",
       "label": "Já existe preço atual?",
       "kind": "logic",
+      "parent": "etapa-limites",
       "logic": {
         "role": "decision",
         "when": "preco_atual > 0",
@@ -908,8 +1026,8 @@
           }
         ]
       },
-      "x": 1600,
-      "y": 1976,
+      "x": 190,
+      "y": 687.5,
       "w": 330,
       "h": 101
     },
@@ -917,6 +1035,7 @@
       "id": "cortar-variacao",
       "label": "Cortar no teto e no piso",
       "kind": "logic",
+      "parent": "etapa-limites",
       "logic": {
         "role": "rule",
         "text": "Aumento ou redução acima do máximo é cortado no teto ou no piso.",
@@ -947,8 +1066,8 @@
           }
         ]
       },
-      "x": 1345,
-      "y": 2141,
+      "x": 135,
+      "y": 667,
       "w": 440,
       "h": 142
     },
@@ -956,6 +1075,7 @@
       "id": "preco-mudou",
       "label": "O preço mudou?",
       "kind": "logic",
+      "parent": "etapa-arredondar",
       "logic": {
         "role": "decision",
         "when": "preco != preco_atual",
@@ -983,63 +1103,73 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 2347,
+      "x": 190,
+      "y": 885.5,
       "w": 330,
       "h": 101
     },
     {
       "id": "faixa-do-preco",
-      "label": "Em que faixa está o preço?",
+      "label": "Arredondar pela faixa do preço",
       "kind": "logic",
       "description": "A confirmar: \"Até R$ 1, centavos até 9 recuam para ,99\" não foi modelado à parte (vale a ação de até R$ 10); \"termina em 49 ou 99\" até R$ 50 escolhe o mais próximo abaixo; \"acima termina em 99\" foi entendido como inteiro + 0,99.",
+      "parent": "etapa-arredondar",
       "logic": {
-        "role": "switch",
-        "text": "Arredondamento por faixa: vale a primeira que se encaixar, de cima para baixo.",
-        "examples": [
+        "role": "table",
+        "text": "Arredondamento por faixa: vale a primeira linha que se encaixar, de cima para baixo.",
+        "rows": [
           {
-            "name": "faixa de 100",
-            "given": {
-              "preco": 100
-            },
-            "expect": {
-              "caminho": "entre(preco, 100, 101)"
-            }
+            "label": "Abaixo de R$ 0,10",
+            "when": "preco < 0.1",
+            "then": [
+              "preco := 0.09"
+            ]
           },
           {
-            "name": "acima de 202",
-            "given": {
-              "preco": 250.4
-            },
-            "expect": {
-              "caminho": "preco > 202.01"
-            }
+            "label": "Acima de R$ 202,01",
+            "when": "preco > 202.01",
+            "then": [
+              "preco := piso(preco) - 0.01"
+            ]
           },
           {
-            "name": "de 50 a 100",
-            "given": {
-              "preco": 84
-            },
-            "expect": {
-              "caminho": "outros"
-            }
+            "label": "De R$ 200 a R$ 202",
+            "when": "entre(preco, 200, 202)",
+            "then": [
+              "preco := 199.99"
+            ]
+          },
+          {
+            "label": "De R$ 100 a R$ 101",
+            "when": "entre(preco, 100, 101)",
+            "then": [
+              "preco := 99.99"
+            ]
+          },
+          {
+            "label": "Até R$ 10: termina em 9",
+            "when": "preco < 10",
+            "then": [
+              "preco := piso(preco * 10) / 10 - 0.01"
+            ]
+          },
+          {
+            "label": "Até R$ 50, 50 centavos ou mais: termina em 49",
+            "when": "preco < 50 e preco - piso(preco) >= 0.5",
+            "then": [
+              "preco := piso(preco) + 0.49"
+            ]
+          },
+          {
+            "label": "Até R$ 50, menos de 50 centavos: 99 do real anterior",
+            "when": "preco < 50",
+            "then": [
+              "preco := piso(preco) - 0.01"
+            ]
           }
-        ]
-      },
-      "x": 1375,
-      "y": 2512,
-      "w": 380,
-      "h": 101
-    },
-    {
-      "id": "faixa-minima",
-      "label": "Abaixo de R$ 0,10",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Vira R$ 0,09.",
-        "then": [
-          "preco := 0.09"
+        ],
+        "otherwise": [
+          "preco := piso(preco) + 0.99"
         ],
         "examples": [
           {
@@ -1050,25 +1180,7 @@
             "expect": {
               "preco": 0.09
             }
-          }
-        ]
-      },
-      "x": 0,
-      "y": 2684,
-      "w": 330,
-      "h": 93
-    },
-    {
-      "id": "faixa-alta",
-      "label": "Acima de R$ 202,01",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Vai ao inteiro anterior menos um centavo.",
-        "then": [
-          "preco := piso(preco) - 0.01"
-        ],
-        "examples": [
+          },
           {
             "name": "250,40",
             "given": {
@@ -1077,25 +1189,7 @@
             "expect": {
               "preco": 249.99
             }
-          }
-        ]
-      },
-      "x": 400,
-      "y": 2684,
-      "w": 330,
-      "h": 93
-    },
-    {
-      "id": "faixa-200",
-      "label": "De R$ 200 a R$ 202",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Vira R$ 199,99.",
-        "then": [
-          "preco := 199.99"
-        ],
-        "examples": [
+          },
           {
             "name": "201",
             "given": {
@@ -1104,25 +1198,7 @@
             "expect": {
               "preco": 199.99
             }
-          }
-        ]
-      },
-      "x": 800,
-      "y": 2684,
-      "w": 330,
-      "h": 93
-    },
-    {
-      "id": "faixa-100",
-      "label": "De R$ 100 a R$ 101",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Vira R$ 99,99.",
-        "then": [
-          "preco := 99.99"
-        ],
-        "examples": [
+          },
           {
             "name": "100",
             "given": {
@@ -1131,25 +1207,7 @@
             "expect": {
               "preco": 99.99
             }
-          }
-        ]
-      },
-      "x": 1200,
-      "y": 2684,
-      "w": 330,
-      "h": 93
-    },
-    {
-      "id": "faixa-ate-10",
-      "label": "Até R$ 10",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Termina em 9.",
-        "then": [
-          "preco := piso(preco * 10) / 10 - 0.01"
-        ],
-        "examples": [
+          },
           {
             "name": "7,34",
             "given": {
@@ -1158,25 +1216,7 @@
             "expect": {
               "preco": 7.29
             }
-          }
-        ]
-      },
-      "x": 1600,
-      "y": 2677,
-      "w": 330,
-      "h": 107
-    },
-    {
-      "id": "faixa-ate-50-cima",
-      "label": "Até R$ 50, com 50 centavos ou mais",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Termina em 49.",
-        "then": [
-          "preco := piso(preco) + 0.49"
-        ],
-        "examples": [
+          },
           {
             "name": "23,70",
             "given": {
@@ -1185,25 +1225,7 @@
             "expect": {
               "preco": 23.49
             }
-          }
-        ]
-      },
-      "x": 2000,
-      "y": 2684,
-      "w": 330,
-      "h": 93
-    },
-    {
-      "id": "faixa-ate-50-baixo",
-      "label": "Até R$ 50, com menos de 50 centavos",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Termina em 99, do real anterior.",
-        "then": [
-          "preco := piso(preco) - 0.01"
-        ],
-        "examples": [
+          },
           {
             "name": "23,20",
             "given": {
@@ -1212,27 +1234,9 @@
             "expect": {
               "preco": 22.99
             }
-          }
-        ]
-      },
-      "x": 2400,
-      "y": 2684,
-      "w": 330,
-      "h": 93
-    },
-    {
-      "id": "faixa-resto",
-      "label": "Acima disso",
-      "kind": "logic",
-      "logic": {
-        "role": "rule",
-        "text": "Termina em 99.",
-        "then": [
-          "preco := piso(preco) + 0.99"
-        ],
-        "examples": [
+          },
           {
-            "name": "84",
+            "name": "84 (senão)",
             "given": {
               "preco": 84
             },
@@ -1242,15 +1246,16 @@
           }
         ]
       },
-      "x": 2800,
-      "y": 2684,
-      "w": 330,
-      "h": 93
+      "x": 115,
+      "y": 806.5,
+      "w": 480,
+      "h": 259
     },
     {
       "id": "passou-do-pmc",
       "label": "Passou do PMC do grupo?",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "decision",
         "when": "grupo_remarcacao e pmc > 0 e preco > pmc",
@@ -1280,8 +1285,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 2848,
+      "x": 190,
+      "y": 1090.5,
       "w": 330,
       "h": 87
     },
@@ -1290,6 +1295,7 @@
       "label": "Descer para o PMC",
       "kind": "logic",
       "description": "A confirmar: \"desce um centavo além do último dígito de centavo do PMC\" foi entendido como PMC menos R$ 0,01.",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "rule",
         "text": "Desce um centavo além do último dígito de centavo do PMC.",
@@ -1308,8 +1314,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 2999,
+      "x": 190,
+      "y": 1087.5,
       "w": 330,
       "h": 93
     },
@@ -1317,6 +1323,7 @@
       "id": "segue-a-referencia",
       "label": "Imagem ou tráfego que segue a referência?",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "decision",
         "when": "tipo_grupo em [\"imagem\", \"trafego\"] e nao eh_referencia e nao ancora",
@@ -1346,8 +1353,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 3156,
+      "x": 190,
+      "y": 1069,
       "w": 330,
       "h": 130
     },
@@ -1355,6 +1362,7 @@
       "id": "igualar-referencia",
       "label": "Igualar à referência",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "rule",
         "text": "Os demais do grupo igualam o preço da referência.",
@@ -1374,8 +1382,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 3350,
+      "x": 190,
+      "y": 1080.5,
       "w": 330,
       "h": 107
     },
@@ -1383,6 +1391,7 @@
       "id": "e-ancora",
       "label": "É PBM, popular ou marca própria?",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "decision",
         "when": "ancora",
@@ -1408,8 +1417,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 3521,
+      "x": 190,
+      "y": 1083,
       "w": 330,
       "h": 102
     },
@@ -1417,6 +1426,7 @@
       "id": "ancorar",
       "label": "Voltar ao preço atual e travar",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "rule",
         "text": "O preço volta ao atual e as ações seguintes não o reescrevem.",
@@ -1437,8 +1447,8 @@
           }
         ]
       },
-      "x": 1345,
-      "y": 3687,
+      "x": 135,
+      "y": 1080,
       "w": 440,
       "h": 108
     },
@@ -1446,6 +1456,7 @@
       "id": "tem-preco-fixo",
       "label": "Existe preço fixo?",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "decision",
         "when": "preco_fixo > 0",
@@ -1471,8 +1482,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 3859,
+      "x": 190,
+      "y": 1083.5,
       "w": 330,
       "h": 101
     },
@@ -1480,6 +1491,7 @@
       "id": "aplicar-preco-fixo",
       "label": "Aplicar o preço fixo",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "rule",
         "text": "Vence tudo o que veio antes, inclusive a trava da âncora.",
@@ -1501,8 +1513,8 @@
           }
         ]
       },
-      "x": 1345,
-      "y": 4024,
+      "x": 135,
+      "y": 1072.5,
       "w": 440,
       "h": 123
     },
@@ -1510,6 +1522,7 @@
       "id": "segue-referencia-lucro",
       "label": "Lucro que não é a referência?",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "decision",
         "when": "tipo_grupo = \"lucro\" e nao eh_referencia",
@@ -1537,8 +1550,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 4211,
+      "x": 190,
+      "y": 1076.5,
       "w": 330,
       "h": 115
     },
@@ -1546,6 +1559,7 @@
       "id": "igualar-referencia-lucro",
       "label": "Igualar à referência",
       "kind": "logic",
+      "parent": "etapa-grupo",
       "logic": {
         "role": "rule",
         "text": "Quem já ficou travado na âncora ou no preço fixo não é reescrito (a trava impede).",
@@ -1565,8 +1579,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 4390,
+      "x": 190,
+      "y": 1080.5,
       "w": 330,
       "h": 107
     },
@@ -1574,6 +1588,7 @@
       "id": "recomendar",
       "label": "Os preços coincidem nos centavos?",
       "kind": "logic",
+      "parent": "etapa-recomendar",
       "logic": {
         "role": "decision",
         "when": "arredondar(preco, 2) = arredondar(preco_atual, 2)",
@@ -1601,8 +1616,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 4561,
+      "x": 190,
+      "y": 1274,
       "w": 330,
       "h": 116
     },
@@ -1610,6 +1625,7 @@
       "id": "recomendar-keep",
       "label": "Recomendar manter",
       "kind": "logic",
+      "parent": "etapa-recomendar",
       "logic": {
         "role": "rule",
         "text": "Recomendação \"keep\".",
@@ -1626,8 +1642,8 @@
           }
         ]
       },
-      "x": 1200,
-      "y": 4752.5,
+      "x": 190,
+      "y": 1285.5,
       "w": 330,
       "h": 93
     },
@@ -1635,6 +1651,7 @@
       "id": "recomendar-subiu",
       "label": "O preço novo é maior que o atual?",
       "kind": "logic",
+      "parent": "etapa-recomendar",
       "logic": {
         "role": "decision",
         "when": "preco > preco_atual",
@@ -1662,8 +1679,8 @@
           }
         ]
       },
-      "x": 1600,
-      "y": 4741,
+      "x": 190,
+      "y": 1274,
       "w": 330,
       "h": 116
     },
@@ -1671,6 +1688,7 @@
       "id": "recomendar-raise",
       "label": "Recomendar subir",
       "kind": "logic",
+      "parent": "etapa-recomendar",
       "logic": {
         "role": "rule",
         "text": "Recomendação \"raise\".",
@@ -1687,8 +1705,8 @@
           }
         ]
       },
-      "x": 1200,
-      "y": 4921,
+      "x": 190,
+      "y": 1285.5,
       "w": 330,
       "h": 93
     },
@@ -1696,6 +1714,7 @@
       "id": "recomendar-reduce",
       "label": "Recomendar reduzir",
       "kind": "logic",
+      "parent": "etapa-recomendar",
       "logic": {
         "role": "rule",
         "text": "Recomendação \"reduce\".",
@@ -1712,8 +1731,8 @@
           }
         ]
       },
-      "x": 1600,
-      "y": 4921,
+      "x": 190,
+      "y": 1285.5,
       "w": 330,
       "h": 93
     },
@@ -1721,6 +1740,7 @@
       "id": "recomendar-alerta",
       "label": "Marcar o alerta pendente",
       "kind": "logic",
+      "parent": "etapa-recomendar",
       "logic": {
         "role": "rule",
         "text": "O alerta fica pendente quando o preço muda.",
@@ -1750,8 +1770,8 @@
           }
         ]
       },
-      "x": 1345,
-      "y": 5078,
+      "x": 135,
+      "y": 1278.5,
       "w": 440,
       "h": 107
     },
@@ -1759,6 +1779,7 @@
       "id": "reaplicar-ajustes",
       "label": "Reaplicar ajustes gravados?",
       "kind": "logic",
+      "parent": "etapa-fechar",
       "logic": {
         "role": "decision",
         "when": "reaplicar_ajustes e preco_digitado > 0",
@@ -1786,8 +1807,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 5249,
+      "x": 190,
+      "y": 1479.5,
       "w": 330,
       "h": 101
     },
@@ -1795,6 +1816,7 @@
       "id": "restaurar-digitado",
       "label": "Restaurar o preço digitado",
       "kind": "logic",
+      "parent": "etapa-fechar",
       "logic": {
         "role": "rule",
         "text": "Volta o preço que o usuário digitou.",
@@ -1814,8 +1836,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 5414,
+      "x": 190,
+      "y": 1483.5,
       "w": 330,
       "h": 93
     },
@@ -1823,6 +1845,7 @@
       "id": "e-a-referencia",
       "label": "É a referência do grupo?",
       "kind": "logic",
+      "parent": "etapa-fechar",
       "logic": {
         "role": "decision",
         "when": "eh_referencia",
@@ -1848,8 +1871,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 5571,
+      "x": 190,
+      "y": 1479.5,
       "w": 330,
       "h": 101
     },
@@ -1857,6 +1880,7 @@
       "id": "guardar-referencia",
       "label": "Guardar o preço da referência",
       "kind": "logic",
+      "parent": "etapa-fechar",
       "logic": {
         "role": "rule",
         "text": "Os próximos produtos do grupo usam este preço.",
@@ -1875,8 +1899,8 @@
           }
         ]
       },
-      "x": 1400,
-      "y": 5736,
+      "x": 190,
+      "y": 1476.5,
       "w": 330,
       "h": 107
     },
@@ -1889,8 +1913,8 @@
         "outcome": "ok",
         "text": "Cada produto sai com preço, recomendação (keep, raise, reduce) e alerta."
       },
-      "x": 1680,
-      "y": 311,
+      "x": -175,
+      "y": 312,
       "w": 280,
       "h": 60
     },
@@ -1959,7 +1983,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-100",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -1985,7 +2008,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-resto",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2004,7 +2026,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 332,
       "w": 320,
       "h": 88
@@ -2072,7 +2094,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-100",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2098,7 +2119,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-100",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2117,7 +2137,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 432,
       "w": 320,
       "h": 73
@@ -2184,7 +2204,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-100",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2210,7 +2229,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-100",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2231,7 +2249,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 517,
       "w": 320,
       "h": 73
@@ -2299,7 +2317,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-resto",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2325,7 +2342,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-resto",
               "passou-do-pmc",
               "segue-a-referencia",
               "igualar-referencia",
@@ -2344,7 +2360,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 602,
       "w": 320,
       "h": 73
@@ -2413,7 +2429,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 687,
       "w": 320,
       "h": 73
@@ -2466,7 +2482,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-resto",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2485,7 +2500,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 772,
       "w": 320,
       "h": 73
@@ -2537,7 +2552,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-ate-50-cima",
               "passou-do-pmc",
               "descer-ao-pmc",
               "segue-a-referencia",
@@ -2557,7 +2571,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 857,
       "w": 320,
       "h": 73
@@ -2606,7 +2620,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 1091,
       "w": 320,
       "h": 73
@@ -2653,7 +2667,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 1176,
       "w": 320,
       "h": 88
@@ -2701,7 +2715,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 1276,
       "w": 320,
       "h": 88
@@ -2768,7 +2782,6 @@
               "cortar-variacao",
               "preco-mudou",
               "faixa-do-preco",
-              "faixa-100",
               "passou-do-pmc",
               "segue-a-referencia",
               "e-ancora",
@@ -2789,7 +2802,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 1376,
       "w": 320,
       "h": 88
@@ -2819,7 +2832,7 @@
           }
         ]
       },
-      "x": 3330,
+      "x": 1085,
       "y": 942,
       "w": 320,
       "h": 73
@@ -2842,7 +2855,7 @@
       "to": "carregar",
       "type": "data",
       "label": "repete",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "repete"
@@ -2855,7 +2868,7 @@
       "to": "custo-valido",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -2864,12 +2877,13 @@
       "to": "margem-valida",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "custo-valido-to-dados-invalidos",
@@ -2877,22 +2891,12 @@
       "to": "dados-invalidos",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1976,
-          "y": 521.5
-        },
-        {
-          "x": 1976,
-          "y": 796.5
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.66
     },
     {
       "id": "margem-valida-to-tipo-do-grupo",
@@ -2900,7 +2904,7 @@
       "to": "tipo-do-grupo",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
@@ -2913,12 +2917,12 @@
       "to": "dados-invalidos",
       "type": "data",
       "label": "não",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.78
     },
     {
       "id": "tipo-do-grupo-to-partida-lucro",
@@ -2926,12 +2930,13 @@
       "to": "partida-lucro",
       "type": "data",
       "label": "= \"lucro\"",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "case": "\"lucro\""
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": 50
     },
     {
       "id": "tipo-do-grupo-to-partida-concorrente",
@@ -2939,12 +2944,13 @@
       "to": "partida-concorrente",
       "type": "data",
       "label": "= \"imagem\"",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "case": "\"imagem\""
       },
-      "labelT": 0.21999999999999997
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "tipo-do-grupo-to-partida-concorrente-2",
@@ -2952,12 +2958,13 @@
       "to": "partida-concorrente",
       "type": "data",
       "label": "= \"trafego\"",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "case": "\"trafego\""
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "tipo-do-grupo-to-grupo-desconhecido",
@@ -2965,7 +2972,7 @@
       "to": "grupo-desconhecido",
       "type": "data",
       "label": "outros",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "outros"
@@ -2978,7 +2985,7 @@
       "to": "partida-zerou",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -2987,7 +2994,7 @@
       "to": "partida-zerou",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -2996,12 +3003,13 @@
       "to": "manter-atual",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
     },
     {
       "id": "partida-zerou-to-abaixo-do-piso",
@@ -3009,21 +3017,11 @@
       "to": "abaixo-do-piso",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1794,
-          "y": 1173.5
-        },
-        {
-          "x": 1794,
-          "y": 1413
-        }
-      ],
       "labelT": 0.5
     },
     {
@@ -3032,7 +3030,7 @@
       "to": "abaixo-do-piso",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3041,12 +3039,13 @@
       "to": "subir-ao-piso",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "abaixo-do-piso-to-diferenca-pequena",
@@ -3054,22 +3053,13 @@
       "to": "diferenca-pequena",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1812,
-          "y": 1503
-        },
-        {
-          "x": 1812,
-          "y": 1764
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
     },
     {
       "id": "subir-ao-piso-to-diferenca-pequena",
@@ -3077,7 +3067,7 @@
       "to": "diferenca-pequena",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3086,12 +3076,13 @@
       "to": "manter-por-variacao",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "diferenca-pequena-to-tem-preco-atual",
@@ -3099,12 +3090,13 @@
       "to": "tem-preco-atual",
       "type": "data",
       "label": "não",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": 50
     },
     {
       "id": "manter-por-variacao-to-preco-mudou",
@@ -3112,18 +3104,8 @@
       "to": "preco-mudou",
       "type": "data",
       "label": "",
-      "routing": "elbow",
-      "animated": true,
-      "waypoints": [
-        {
-          "x": 1976,
-          "y": 2026.5
-        },
-        {
-          "x": 1976,
-          "y": 2315
-        }
-      ]
+      "routing": "curve",
+      "animated": true
     },
     {
       "id": "tem-preco-atual-to-cortar-variacao",
@@ -3131,12 +3113,12 @@
       "to": "cortar-variacao",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9
     },
     {
       "id": "tem-preco-atual-to-preco-mudou",
@@ -3144,21 +3126,11 @@
       "to": "preco-mudou",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1994,
-          "y": 2026.5
-        },
-        {
-          "x": 1994,
-          "y": 2315
-        }
-      ],
       "labelT": 0.5
     },
     {
@@ -3167,7 +3139,7 @@
       "to": "preco-mudou",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3176,12 +3148,21 @@
       "to": "faixa-do-preco",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9
+    },
+    {
+      "id": "faixa-do-preco-to-passou-do-pmc",
+      "from": "faixa-do-preco",
+      "to": "passou-do-pmc",
+      "type": "data",
+      "label": "",
+      "routing": "curve",
+      "animated": true
     },
     {
       "id": "preco-mudou-to-passou-do-pmc",
@@ -3189,198 +3170,12 @@
       "to": "passou-do-pmc",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 3212,
-          "y": 2397.5
-        },
-        {
-          "x": 3212,
-          "y": 2816
-        }
-      ],
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-minima",
-      "from": "faixa-do-preco",
-      "to": "faixa-minima",
-      "type": "data",
-      "label": "preço < 0,1",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "preco < 0.1"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-alta",
-      "from": "faixa-do-preco",
-      "to": "faixa-alta",
-      "type": "data",
-      "label": "preço > 202,01",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "preco > 202.01"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-200",
-      "from": "faixa-do-preco",
-      "to": "faixa-200",
-      "type": "data",
-      "label": "preço está entre 200 e 202",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "entre(preco, 200, 202)"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-100",
-      "from": "faixa-do-preco",
-      "to": "faixa-100",
-      "type": "data",
-      "label": "preço está entre 100 e 101",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "entre(preco, 100, 101)"
-      },
-      "labelT": 0.46
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-ate-10",
-      "from": "faixa-do-preco",
-      "to": "faixa-ate-10",
-      "type": "data",
-      "label": "preço < 10",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "preco < 10"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-ate-50-cima",
-      "from": "faixa-do-preco",
-      "to": "faixa-ate-50-cima",
-      "type": "data",
-      "label": "preço < 50 e preço − piso(preço) …",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "preco < 50 e preco - piso(preco) >= 0.5"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-ate-50-baixo",
-      "from": "faixa-do-preco",
-      "to": "faixa-ate-50-baixo",
-      "type": "data",
-      "label": "preço < 50",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "case": "preco < 50"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-do-preco-to-faixa-resto",
-      "from": "faixa-do-preco",
-      "to": "faixa-resto",
-      "type": "data",
-      "label": "outros",
-      "routing": "elbow",
-      "animated": true,
-      "logic": {
-        "branch": "outros"
-      },
-      "labelT": 0.5
-    },
-    {
-      "id": "faixa-minima-to-passou-do-pmc",
-      "from": "faixa-minima",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-alta-to-passou-do-pmc",
-      "from": "faixa-alta",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-200-to-passou-do-pmc",
-      "from": "faixa-200",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-100-to-passou-do-pmc",
-      "from": "faixa-100",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-ate-10-to-passou-do-pmc",
-      "from": "faixa-ate-10",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-ate-50-cima-to-passou-do-pmc",
-      "from": "faixa-ate-50-cima",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-ate-50-baixo-to-passou-do-pmc",
-      "from": "faixa-ate-50-baixo",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
-    },
-    {
-      "id": "faixa-resto-to-passou-do-pmc",
-      "from": "faixa-resto",
-      "to": "passou-do-pmc",
-      "type": "data",
-      "label": "",
-      "routing": "straight",
-      "animated": true
+      "labelT": 0.62
     },
     {
       "id": "passou-do-pmc-to-descer-ao-pmc",
@@ -3388,12 +3183,13 @@
       "to": "descer-ao-pmc",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "passou-do-pmc-to-segue-a-referencia",
@@ -3401,22 +3197,13 @@
       "to": "segue-a-referencia",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1776,
-          "y": 2891.5
-        },
-        {
-          "x": 1776,
-          "y": 3124
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
     },
     {
       "id": "descer-ao-pmc-to-segue-a-referencia",
@@ -3424,7 +3211,7 @@
       "to": "segue-a-referencia",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3433,12 +3220,13 @@
       "to": "igualar-referencia",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "segue-a-referencia-to-e-ancora",
@@ -3446,22 +3234,13 @@
       "to": "e-ancora",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1794,
-          "y": 3221
-        },
-        {
-          "x": 1794,
-          "y": 3489
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": 50
     },
     {
       "id": "igualar-referencia-to-e-ancora",
@@ -3469,7 +3248,7 @@
       "to": "e-ancora",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3478,12 +3257,13 @@
       "to": "ancorar",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": 50
     },
     {
       "id": "e-ancora-to-tem-preco-fixo",
@@ -3491,22 +3271,13 @@
       "to": "tem-preco-fixo",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1867,
-          "y": 3572
-        },
-        {
-          "x": 1867,
-          "y": 3827
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "ancorar-to-tem-preco-fixo",
@@ -3514,7 +3285,7 @@
       "to": "tem-preco-fixo",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3523,12 +3294,13 @@
       "to": "aplicar-preco-fixo",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "tem-preco-fixo-to-segue-referencia-lucro",
@@ -3536,22 +3308,13 @@
       "to": "segue-referencia-lucro",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1831,
-          "y": 3909.5
-        },
-        {
-          "x": 1831,
-          "y": 4179
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
     },
     {
       "id": "aplicar-preco-fixo-to-segue-referencia-l",
@@ -3559,7 +3322,7 @@
       "to": "segue-referencia-lucro",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3568,12 +3331,13 @@
       "to": "igualar-referencia-lucro",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "segue-referencia-lucro-to-recomendar",
@@ -3581,21 +3345,11 @@
       "to": "recomendar",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1794,
-          "y": 4268.5
-        },
-        {
-          "x": 1794,
-          "y": 4529
-        }
-      ],
       "labelT": 0.5
     },
     {
@@ -3604,7 +3358,7 @@
       "to": "recomendar",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3613,12 +3367,13 @@
       "to": "recomendar-keep",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "recomendar-to-recomendar-subiu",
@@ -3626,12 +3381,13 @@
       "to": "recomendar-subiu",
       "type": "data",
       "label": "não",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
     },
     {
       "id": "recomendar-subiu-to-recomendar-raise",
@@ -3639,12 +3395,13 @@
       "to": "recomendar-raise",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "recomendar-subiu-to-recomendar-reduce",
@@ -3652,12 +3409,13 @@
       "to": "recomendar-reduce",
       "type": "data",
       "label": "não",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": 50
     },
     {
       "id": "recomendar-keep-to-recomendar-alerta",
@@ -3665,18 +3423,8 @@
       "to": "recomendar-alerta",
       "type": "data",
       "label": "",
-      "routing": "elbow",
-      "animated": true,
-      "waypoints": [
-        {
-          "x": 2012,
-          "y": 4799
-        },
-        {
-          "x": 2012,
-          "y": 5046
-        }
-      ]
+      "routing": "curve",
+      "animated": true
     },
     {
       "id": "recomendar-raise-to-recomendar-alerta",
@@ -3684,7 +3432,7 @@
       "to": "recomendar-alerta",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3693,7 +3441,7 @@
       "to": "recomendar-alerta",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3702,7 +3450,7 @@
       "to": "reaplicar-ajustes",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3711,12 +3459,13 @@
       "to": "restaurar-digitado",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.9,
+      "labelOffset": -50
     },
     {
       "id": "reaplicar-ajustes-to-e-a-referencia",
@@ -3724,22 +3473,13 @@
       "to": "e-a-referencia",
       "type": "data",
       "label": "não",
-      "routing": "elbow",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "nao"
       },
-      "waypoints": [
-        {
-          "x": 1776,
-          "y": 5299.5
-        },
-        {
-          "x": 1776,
-          "y": 5539
-        }
-      ],
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": -50
     },
     {
       "id": "restaurar-digitado-to-e-a-referencia",
@@ -3747,7 +3487,7 @@
       "to": "e-a-referencia",
       "type": "data",
       "label": "",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true
     },
     {
@@ -3756,12 +3496,13 @@
       "to": "guardar-referencia",
       "type": "data",
       "label": "sim",
-      "routing": "straight",
+      "routing": "curve",
       "animated": true,
       "logic": {
         "branch": "sim"
       },
-      "labelT": 0.5
+      "labelT": 0.09999999999999998,
+      "labelOffset": 50
     },
     {
       "id": "e-a-referencia-to-para-cada-produto",
@@ -3776,11 +3517,11 @@
       },
       "waypoints": [
         {
-          "x": -64,
-          "y": 5621.5
+          "x": -221,
+          "y": 1530
         },
         {
-          "x": -64,
+          "x": -221,
           "y": 167.5
         }
       ],
@@ -3792,18 +3533,8 @@
       "to": "para-cada-produto",
       "type": "data",
       "label": "",
-      "routing": "elbow",
-      "animated": true,
-      "waypoints": [
-        {
-          "x": -82,
-          "y": 5789.5
-        },
-        {
-          "x": -82,
-          "y": 167.5
-        }
-      ]
+      "routing": "curve",
+      "animated": true
     },
     {
       "id": "para-cada-produto-to-fim",
@@ -3816,7 +3547,7 @@
       "logic": {
         "branch": "segue"
       },
-      "labelT": 0.5
+      "labelT": 0.46
     }
   ],
   "customAssets": []

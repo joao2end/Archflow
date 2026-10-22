@@ -1,4 +1,5 @@
 import { CONNECTION_TYPES, type Box, type ConnectionEl, type Doc, type Routing } from "../shared/schema";
+import { wrapLabel } from "../shared/text";
 
 export type Pt = { x: number; y: number };
 export type Side = "left" | "right" | "top" | "bottom";
@@ -191,8 +192,59 @@ export function normRect(a: Pt, b: Pt): Box {
   return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
 }
 
+/**
+ * Modo Logic: o cartão de resumo fica acima de tudo, alinhado ao Start (a porta de entrada do quadro). A altura acompanha
+ * o texto: título, até 3 linhas de descrição e a faixa de fatos (Entra · Sai · Fluxo), cada coluna com até 2 linhas.
+ */
+export const SUMMARY_W = 760;
+export const SUMMARY_PAD = 28;
+/** largura das colunas da faixa de fatos (somam a largura útil) */
+export const SUMMARY_COLS = [380, 196, 128];
+const DESC_CHARS = 104;
+const COL_CHARS = (w: number) => Math.floor(w / 7.1);
+export interface SummaryText {
+  desc: string[];
+  inputs: string[];
+  outputs: string[];
+}
+/** O texto do resumo já quebrado em linhas (o desenho e o tamanho do cartão usam o mesmo). */
+export function summaryText(doc: Doc): SummaryText {
+  const dataKeys = (role: string) => doc.nodes.filter((n) => n.logic?.role === role).map((n) => n.logic!.key ?? n.id.replace(/-/g, "_"));
+  // nomes inteiros, linha a linha (até 2); o que não coube vira «+N» no fim, em vez de cortar um nome no meio
+  const list = (keys: string[], w: number) => {
+    if (!keys.length) return ["—"];
+    const max = COL_CHARS(w);
+    const lines: string[] = [""];
+    let i = 0;
+    for (; i < keys.length; i++) {
+      const piece = (lines.at(-1) ? ", " : "") + keys[i];
+      const room = lines.length === 2 && i < keys.length - 1 ? max - 5 : max; // na última linha, guarda lugar para o «+N»
+      if (lines.at(-1)!.length + piece.length <= room || !lines.at(-1)) lines[lines.length - 1] += piece;
+      else if (lines.length < 2) lines.push(keys[i]);
+      else break;
+    }
+    if (i < keys.length) lines[1] += ` +${keys.length - i}`;
+    return lines;
+  };
+  return { desc: wrapLabel(doc.description ?? "", DESC_CHARS, 3).filter(Boolean), inputs: list(dataKeys("input"), SUMMARY_COLS[0]), outputs: list(dataKeys("output"), SUMMARY_COLS[1]) };
+}
+export function summaryHeight(t: SummaryText): number {
+  const factLines = Math.max(t.inputs.length, t.outputs.length, 2);
+  return SUMMARY_PAD + 18 + 30 + (t.desc.length ? 8 + t.desc.length * 19 : 0) + 22 + 18 + factLines * 18 + SUMMARY_PAD - 6;
+}
+export function logicSummaryBox(doc: Doc): Box | null {
+  if (doc.mode !== "logic") return null;
+  const start = doc.nodes.find((n) => n.logic?.role === "start");
+  if (!start) return null;
+  const all: Box[] = [...doc.nodes.filter((n) => !n.parent || doc.groups.some((g) => g.id === n.parent && !g.stage?.collapsed)), ...doc.groups];
+  const top = Math.min(...all.map((b) => b.y));
+  const h = summaryHeight(summaryText(doc));
+  return { x: start.x + start.w / 2 - SUMMARY_W / 2, y: top - h - 56, w: SUMMARY_W, h };
+}
+
 export function contentBounds(doc: Doc): Box | null {
-  const all: Box[] = [...doc.nodes, ...doc.groups, ...doc.notes];
+  const summary = logicSummaryBox(doc);
+  const all: Box[] = [...doc.nodes, ...doc.groups, ...doc.notes, ...(summary ? [summary] : [])];
   if (!all.length) return null;
   const x1 = Math.min(...all.map((b) => b.x));
   const y1 = Math.min(...all.map((b) => b.y));

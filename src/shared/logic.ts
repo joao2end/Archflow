@@ -455,6 +455,10 @@ export function checkLogicNode(logic: unknown): string | undefined {
       if (e) return `logic.${f}[${i}] "${s}": ${e.message} (posição ${e.pos})`;
     }
   }
+  if (d.rows !== undefined || d.otherwise !== undefined) {
+    const bad = checkTable(d.rows, d.otherwise);
+    if (bad) return bad;
+  }
   if (d.examples !== undefined) {
     if (!Array.isArray(d.examples)) return "logic.examples deve ser uma lista de { name, given, expect }";
     for (const [i, e] of (d.examples as unknown[]).entries()) {
@@ -462,6 +466,37 @@ export function checkLogicNode(logic: unknown): string | undefined {
       if (bad) return bad;
     }
   }
+  return undefined;
+}
+
+/** Linhas da tabela de decisão: condição válida, efeitos válidos e sem «se … entao … senao» (a linha já é o «se»). */
+function checkTable(rows: unknown, otherwise: unknown): string | undefined {
+  const effects = (list: unknown, where: string): string | undefined => {
+    if (!Array.isArray(list) || list.some((x) => typeof x !== "string")) return `${where} deve ser uma lista de efeitos em texto (ex.: ["frete := 0"])`;
+    for (const [i, src] of (list as string[]).entries()) {
+      const e = checkExpr(src, "statement");
+      if (e) return `${where}[${i}] "${src}": ${e.message} (posição ${e.pos})`;
+      const st = parseStatement(src);
+      if (st.t === "assign" && hasConditional(st.value)) return `${where}[${i}] "${src}": a linha da tabela já é o «se»; em vez de «se … entao … senao» no efeito, crie outra linha`;
+    }
+    return undefined;
+  };
+  if (rows !== undefined) {
+    if (!Array.isArray(rows)) return "logic.rows deve ser uma lista de linhas { when, then, label? }";
+    for (const [i, r] of (rows as unknown[]).entries()) {
+      if (!r || typeof r !== "object" || Array.isArray(r)) return `logic.rows[${i}] deve ser { when, then, label? }`;
+      const o = r as Record<string, unknown>;
+      const extra = Object.keys(o).filter((k) => !["when", "then", "label"].includes(k));
+      if (extra.length) return `logic.rows[${i}] não tem o campo "${extra[0]}"; a linha tem when, then e label`;
+      if (typeof o.when !== "string" || !o.when.trim()) return `logic.rows[${i}].when é obrigatório: a condição da linha (ex.: "total >= 200")`;
+      const e = checkExpr(o.when);
+      if (e) return `logic.rows[${i}].when: ${e.message} (posição ${e.pos})`;
+      if (o.label !== undefined && typeof o.label !== "string") return `logic.rows[${i}].label deve ser texto`;
+      const bad = effects(o.then, `logic.rows[${i}].then`);
+      if (bad) return bad;
+    }
+  }
+  if (otherwise !== undefined) return effects(otherwise, "logic.otherwise");
   return undefined;
 }
 
@@ -538,11 +573,11 @@ export const dataNodes = (doc: Doc) => doc.nodes.filter((n) => isDataRole(n.logi
 /** Nome usado nas expressões: `key` do fato ou, na falta dele, o id com "_" no lugar de "-". */
 export const dataKey = (n: NodeEl) => n.logic?.key ?? n.id.replace(/-/g, "_");
 
-/** Efeitos de um passo: os `then` da Rule ou os `devolve` do Call. */
-export const effectsOf = (l: LogicNodeSpec): string[] => (isCallLike(l.role) ? l.devolve : l.then) ?? [];
+/** Efeitos de um passo: os `then` da Rule, os `devolve` do Call ou, na tabela, os de todas as linhas e do `otherwise`. */
+export const effectsOf = (l: LogicNodeSpec): string[] => (l.role === "table" ? [...(l.rows ?? []).flatMap((r) => r.then), ...(l.otherwise ?? [])] : (isCallLike(l.role) ? l.devolve : l.then) ?? []);
 
 /** Papéis que fazem parte do fluxo (os demais são dados e cenários). */
-export const FLOW_ROLES: LogicRole[] = ["start", "end", "rule", "decision", "switch", "loop", "fork", "join", "call", "code"];
+export const FLOW_ROLES: LogicRole[] = ["start", "end", "rule", "table", "decision", "switch", "loop", "fork", "join", "call", "code"];
 export const isFlowNode = (n: NodeEl) => !!n.logic && FLOW_ROLES.includes(n.logic.role);
 
 /** Setas entre passos do fluxo. */
@@ -602,6 +637,8 @@ export interface Step {
   /** laço: número da volta */
   turn?: number;
   error?: string;
+  /** só com `trace`: os dados logo antes deste passo (a reprodução mostra o porquê e os valores de cada momento) */
+  before?: Env;
 }
 export interface Run {
   env: Env;
@@ -625,8 +662,8 @@ function fail(step: Step, e: unknown): Step {
 }
 
 /** Efeitos de uma regra: atribui, trava e destrava. */
-function runEffects(l: LogicNodeSpec, env: Env, locked: Set<string>, step: Step) {
-  for (const src of effectsOf(l)) {
+function runEffects(l: LogicNodeSpec, env: Env, locked: Set<string>, step: Step, list = effectsOf(l)) {
+  for (const src of list) {
     const s: Statement = parseStatement(src);
     if (s.t === "lock") {
       locked.add(s.name);
@@ -661,6 +698,31 @@ function runRule(rule: NodeEl, env: Env, locked: Set<string>): Step {
   return step;
 }
 
+/** Tabela de decisão: a primeira linha que vale aplica os efeitos dela; nenhuma, o `otherwise` (ou erro). `branch` diz qual linha valeu. */
+function runTable(n: NodeEl, env: Env, locked: Set<string>): Step {
+  const l = n.logic!;
+  const step = blank(n);
+  try {
+    for (const [i, row] of (l.rows ?? []).entries()) {
+      const w = evaluate(parseExpr(row.when), env);
+      if (typeof w !== "boolean") throw new EvalError(`a condição da linha ${i + 1} (${row.when}) precisa dar verdadeiro ou falso, mas deu ${JSON.stringify(w)}`);
+      if (!w) continue;
+      step.branch = tableRowName(i);
+      runEffects(l, env, locked, step, row.then);
+      return step;
+    }
+    if (!l.otherwise) throw new EvalError(`nenhuma linha da tabela "${n.label}" valeu e ela não tem «senão» (otherwise)`);
+    step.branch = TABLE_OTHERWISE;
+    runEffects(l, env, locked, step, l.otherwise);
+  } catch (e) {
+    fail(step, e);
+  }
+  return step;
+}
+/** Nome da linha que valeu, como fica em `Step.branch` («linha 2»), e o do «senão». */
+export const tableRowName = (i: number) => `linha ${i + 1}`;
+export const TABLE_OTHERWISE = "senão";
+
 /** Dados fixos declarados nos fatos (constantes), usados quando o exemplo não informa. */
 function defaults(doc: Doc): Env {
   const env: Env = {};
@@ -671,12 +733,14 @@ function defaults(doc: Doc): Env {
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Roda a fila simples (sem setas) com os dados de entrada: as regras por `order`. */
-export function runPipeline(doc: Doc, given: Record<string, LogicValue>): Run {
+export function runPipeline(doc: Doc, given: Record<string, LogicValue>, opts: RunOptions = {}): Run {
   const env: Env = { ...defaults(doc), ...given };
   const locked = new Set<string>();
   const steps: Step[] = [];
   for (const r of pipelineRules(doc)) {
+    const before = opts.trace ? snapshot(env) : undefined;
     const st = runRule(r, env, locked);
+    if (before) st.before = before;
     steps.push(st);
     if (st.error) break;
   }
@@ -697,8 +761,14 @@ const branchName = (l: LogicNodeSpec, kase: string) => (l.on ? String(safeEval(k
 
 const MAX_STEPS = 5000;
 
+export interface RunOptions {
+  /** guarda em cada passo os dados de antes dele (`Step.before`); custa uma cópia por passo, por isso só na reprodução */
+  trace?: boolean;
+}
+const snapshot = (env: Env): Env => JSON.parse(JSON.stringify(env));
+
 /** Roda o fluxo (Start → … → End) seguindo as setas, com os dados de entrada. */
-export function runFlow(doc: Doc, given: Record<string, LogicValue>): Run {
+export function runFlow(doc: Doc, given: Record<string, LogicValue>, opts: RunOptions = {}): Run {
   const env: Env = { ...defaults(doc), ...given };
   const locked = new Set<string>();
   const steps: Step[] = [];
@@ -724,7 +794,9 @@ export function runFlow(doc: Doc, given: Record<string, LogicValue>): Run {
       const l = n.logic!;
       const outs = exitsOf(doc, cur);
       const only = () => outs[0]?.to.id;
+      const before = opts.trace ? snapshot(env) : undefined;
       const record = (st: Step) => {
+        if (before) st.before = before;
         steps.push(st);
         return st;
       };
@@ -761,8 +833,9 @@ export function runFlow(doc: Doc, given: Record<string, LogicValue>): Run {
           }
           break;
         }
-        case "rule": {
-          const st = record(runRule(n, env, locked));
+        case "rule":
+        case "table": {
+          const st = record(l.role === "table" ? runTable(n, env, locked) : runRule(n, env, locked));
           if (st.error) return { stop: "error" };
           cur = only();
           break;
@@ -835,7 +908,9 @@ export function runFlow(doc: Doc, given: Record<string, LogicValue>): Run {
             joinAt ??= r.at;
           }
           if (!joinAt) return { stop: "error" };
-          record(blank(byId.get(joinAt)!));
+          const join = blank(byId.get(joinAt)!);
+          if (opts.trace) join.before = snapshot(env); // depois dos ramos, não antes do fork
+          steps.push(join);
           cur = exitsOf(doc, joinAt)[0]?.to.id;
           break;
         }
@@ -912,7 +987,7 @@ export function variableTimeline(run: Run): VarTrack[] {
 export function runSingle(doc: Doc, rule: NodeEl, given: Record<string, LogicValue>): Run {
   const env: Env = { ...defaults(doc), ...given };
   const locked = new Set<string>();
-  const st = runRule(rule, env, locked);
+  const st = rule.logic!.role === "table" ? runTable(rule, env, locked) : runRule(rule, env, locked);
   return { env, locked: [...locked], steps: [st] };
 }
 
@@ -976,7 +1051,7 @@ export function usageOf(doc: Doc): Map<string, { reads: Set<string>; writes: Set
     const u = { reads: new Set<string>(), writes: new Set<string>() };
     const l = n.logic!;
     try {
-      for (const f of [l.when, l.on, l.until, l.foreach, l.falha, ...requestExprs(l)]) if (f) readsOf(parseExpr(f), u.reads);
+      for (const f of [l.when, l.on, l.until, l.foreach, l.falha, ...requestExprs(l), ...(l.rows ?? []).map((r) => r.when)]) if (f) readsOf(parseExpr(f), u.reads);
       if (l.role === "switch" && !l.on) for (const e of exitsOf(doc, n.id)) if (e.case) readsOf(parseExpr(e.case), u.reads);
       for (const t of effectsOf(l)) {
         const s = parseStatement(t);
@@ -1086,7 +1161,7 @@ export function checkExamples(doc: Doc): ExampleResult[] {
   };
   for (const n of logicNodes(doc)) {
     const l = n.logic!;
-    if (l.role === "rule") for (const ex of l.examples ?? []) check(n, ex, runSingle(doc, n, ex.given));
+    if (l.role === "rule" || l.role === "table") for (const ex of l.examples ?? []) check(n, ex, runSingle(doc, n, ex.given));
     else if (l.role === "decision" || l.role === "switch") for (const ex of l.examples ?? []) check(n, ex, runBranch(doc, n, ex.given));
     else if (l.role === "scenario") for (const ex of l.examples ?? []) check(n, ex, flow ? runFlow(doc, ex.given) : runPipeline(doc, ex.given));
   }
@@ -1096,7 +1171,7 @@ export function checkExamples(doc: Doc): ExampleResult[] {
 /** Situação de cada passo com exemplos, para o quadro: ok, fail ou none (sem exemplo). */
 export function logicStatus(doc: Doc): Map<string, "ok" | "fail" | "none"> {
   const m = new Map<string, "ok" | "fail" | "none">();
-  for (const n of logicNodes(doc)) if (["rule", "decision", "switch", "scenario"].includes(n.logic!.role)) m.set(n.id, "none");
+  for (const n of logicNodes(doc)) if (["rule", "table", "decision", "switch", "scenario"].includes(n.logic!.role)) m.set(n.id, "none");
   for (const r of checkExamples(doc)) m.set(r.node, r.ok && m.get(r.node) !== "fail" ? "ok" : "fail");
   return m;
 }
@@ -1107,7 +1182,7 @@ export function logicStatus(doc: Doc): Map<string, "ok" | "fail" | "none"> {
 function readsOfNode(n: NodeEl): Set<string> {
   const l = n.logic!;
   const out = new Set<string>();
-  for (const f of [l.when, l.on, l.until, l.foreach, l.falha, ...requestExprs(l)]) if (f) readsOf(parseExpr(f), out);
+  for (const f of [l.when, l.on, l.until, l.foreach, l.falha, ...requestExprs(l), ...(l.rows ?? []).map((r) => r.when)]) if (f) readsOf(parseExpr(f), out);
   for (const t of effectsOf(l)) {
     const s = parseStatement(t);
     if (s.t === "assign") readsOf(s.value, out);
@@ -1173,7 +1248,9 @@ export function logicIssues(doc: Doc): Issue[] {
           /* L001 acima */
         }
       }
-    if ((l.role === "rule" || l.role === "decision" || l.role === "switch") && !(l.examples ?? []).length) add("L003", l.role === "rule" ? "aviso" : "dica", n.id, `${where} sem exemplo: sem um caso concreto ninguém confere se está certo`);
+    if (l.role === "table" && !(l.rows ?? []).length) add("L038", "erro", n.id, `a tabela ${where} não tem linhas: cada linha tem uma condição (when) e os efeitos (then) que valem quando ela é a primeira verdadeira`);
+    if (l.role === "table" && (l.rows ?? []).length && !l.otherwise) add("L039", "dica", n.id, `a tabela ${where} não tem «senão» (otherwise): se nenhuma linha valer, o fluxo para com erro. Se isso não pode acontecer, tudo bem; senão, diga o que vale no resto`);
+    if ((l.role === "rule" || l.role === "table" || l.role === "decision" || l.role === "switch") && !(l.examples ?? []).length) add("L003", l.role === "rule" || l.role === "table" ? "aviso" : "dica", n.id, `${where} sem exemplo: sem um caso concreto ninguém confere se está certo`);
     if (l.role === "rule" && !l.text?.trim()) add("L008", "dica", n.id, `${where} sem frase de negócio (campo "text"); a explicação automática cobre, mas a frase do negócio é melhor`);
     if (l.role === "rule") for (const i of conditionalEffects(l)) add("L028", "erro", n.id, `${where}: o efeito ${i + 1} (${l.then![i]}) tem «se … entao … senao» dentro, e a ação não tem condição. Coloque uma Decisão antes: "sim" leva a uma ação com um valor e "não" a outra com o outro`);
     if (isCallLike(l.role)) for (const i of conditionalEffects(l, "devolve")) add("L028", "erro", n.id, `${where}: o efeito ${i + 1} de devolve (${l.devolve![i]}) tem «se … entao … senao» dentro, e a chamada não tem condição. Coloque uma Decisão depois dela`);
@@ -1246,7 +1323,7 @@ export function logicIssues(doc: Doc): Issue[] {
       if (isCallLike(l.role) && l.falha !== undefined && !count("erro")) add("L025", "aviso", n.id, `a chamada ${where} pode falhar (${l.falha}), mas não tem a seta "erro": ligue o que acontece quando falha`);
       if (l.role === "call" && l.request && l.mock === undefined) add("L032", "dica", n.id, `a chamada HTTP ${where} não tem resposta simulada (mock): nos exemplos, "resposta" fica vazia e os efeitos que a leem dão erro. Informe um corpo de exemplo, como o que a API devolve`);
       if (isCallLike(l.role) && l.falha === undefined && l.role !== "code" && count("erro")) add("L025", "dica", n.id, `a chamada ${where} tem seta "erro", mas nenhum exemplo a faz falhar: preencha "Falha simulada quando" para poder testar esse caminho`);
-      if (["rule", "start", "call", "code", "join"].includes(l.role) && o.filter((e) => e.logic?.branch !== "erro").length > 1) add("L024", "aviso", n.id, `${where} tem ${o.length} saídas sem decisão: o fluxo não sabe qual seguir (use uma decisão, escolha ou paralelo)`);
+      if (["rule", "table", "start", "call", "code", "join"].includes(l.role) && o.filter((e) => e.logic?.branch !== "erro").length > 1) add("L024", "aviso", n.id, `${where} tem ${o.length} saídas sem decisão: o fluxo não sabe qual seguir (use uma decisão, escolha ou paralelo)`);
     }
     // paralelo: o app simula os ramos um depois do outro, na ordem das setas, sobre os mesmos dados; ramos que se tocam dão resultado que depende da ordem
     const use = usageOf(doc);
@@ -1418,6 +1495,8 @@ function stepText(n: NodeEl, names: Record<string, string>): string {
   switch (l.role) {
     case "decision":
       return `${l.text ?? ""} ${ex(l.when)}`.trim();
+    case "table":
+      return `${l.text ?? ""} (tabela: ${(l.rows ?? []).length} linhas, vale a primeira${l.otherwise ? "; senão, a linha «senão»" : ""})`.trim();
     case "switch":
       return `${l.text ?? ""} ${l.on ? `conforme ${ex(l.on)}` : "(a primeira condição que valer)"}`.trim();
     case "loop":
@@ -1462,7 +1541,7 @@ export function describeLogic(doc: Doc, issues: Issue[]): string {
     for (const n of doc.nodes.filter(isFlowNode)) visit(n);
     for (const n of order) {
       const t = stepText(n, names);
-      out.push(`- **${LOGIC_ROLES[n.logic!.role].label}** \`${n.id}\` — ${n.label}${t ? `: ${t}` : ""}`);
+      out.push(`- **${LOGIC_ROLES[n.logic!.role].label}** \`${n.id}\` — ${n.label}${t ? `: ${t}` : ""}${n.source ? ` (código: \`${n.source}\`)` : ""}`);
       for (const e of exitsOf(doc, n.id)) out.push(`  - → ${branchLabel(e.edge.logic) ?? "segue"}: ${e.to.label} (\`${e.to.id}\`)`);
     }
     out.push("");
@@ -1491,6 +1570,21 @@ export function describeLogic(doc: Doc, issues: Issue[]): string {
         }
       }
       for (const x of results.filter((e) => e.node === r.id)) out.push(`- ${x.ok ? "✔" : "✘"} exemplo "${x.example}"${x.ok ? "" : ": " + x.problems.join("; ")}`);
+      out.push("");
+    }
+  }
+  const tables = doc.nodes.filter((n) => n.logic?.role === "table");
+  if (tables.length) {
+    out.push("## Tabelas de decisão (vale a primeira linha verdadeira, de cima para baixo)", "");
+    for (const t of tables) {
+      const l = t.logic!;
+      out.push(`### ${t.label} (${t.id})`);
+      if (l.text) out.push(l.text);
+      out.push("", "| # | Quando | Então |", "|---|---|---|");
+      (l.rows ?? []).forEach((r, i) => out.push(`| ${i + 1} | ${r.label ? `${cell(r.label)}: ` : ""}\`${cell(r.when)}\` | ${r.then.map((x) => `\`${cell(x)}\``).join("; ")} |`));
+      if (l.otherwise) out.push(`| senão | (nenhuma linha valeu) | ${l.otherwise.map((x) => `\`${cell(x)}\``).join("; ")} |`);
+      out.push("");
+      for (const x of results.filter((e) => e.node === t.id)) out.push(`- ${x.ok ? "✔" : "✘"} exemplo "${x.example}"${x.ok ? "" : ": " + x.problems.join("; ")}`);
       out.push("");
     }
   }
@@ -1563,7 +1657,7 @@ export function schemaGuideLogic(): string {
     '1. Um nó `start` (o que entra) e um ou mais `end` (o que sai; `outcome: "erro"` para falhas).',
     "2. Um nó de dado por dado, no papel certo: **`input`** (entra de fora e só é lido; nenhuma ação o escreve), **`output`** (o resultado que o fluxo devolve; é o que os cenários conferem em `expect`) ou **`variable`** (intermediário: criado e reescrito dentro do fluxo para calcular outra coisa). `key` é o nome nas expressões (`preco_atual`, `categoria.margem`). Constantes de entrada levam `value`; na variável, `value` é o valor inicial. O papel antigo `fact` foi dividido nesses três: arquivos antigos são convertidos ao abrir (nunca escrito = input; escrito e conferido nos cenários ou nunca lido = output; escrito e lido no meio do fluxo = variable).",
     "3. Cada **ação** é um nó `action` (o nome antigo `rule` também vale) só com efeitos (`then`) e **sem condição**: ela roda sempre que o fluxo chega nela, e um efeito não pode ter `se … entao … senao` dentro (é recusado, erro L028): para escolher entre dois valores, ponha uma Decisão antes, com uma ação para cada valor. **Uma condição sim/não é um nó `decision`** (`when`, com setas sim/não) colocado antes da ação, para o desvio aparecer no quadro; com 3 ou mais saídas é um `switch`, e a repetição é um `loop` (veja 3b). Só a Ação e a Decisão são os nós básicos para mexer em dados e escolher entre dois caminhos (as exceções estão logo abaixo). A Ação muda dados, a Decisão escolhe o caminho; Switch, Loop, Fork, Join e Call organizam o fluxo e não mudam dados sozinhos (exceto o `devolve` do Call e o item do `foreach`, que o Loop guarda em `as`). Nenhum deles aceita `se … entao … senao` dentro de um efeito.",
-    "3b. **Escolha o nó pela forma do desvio**: 2 saídas (sim/não) → `decision`; **3 ou mais saídas** por valor (`on` + uma seta por `case`) ou por faixas (sem `on`: a condição de cada faixa vai em `logic.case` da seta e vale a primeira verdadeira, na ordem em que as setas foram criadas; faixas que se sobrepõem: ganha a mais antiga) → `switch`, nunca uma cadeia de `decision` testando o mesmo dado; passos **independentes** que não dependem do resultado um do outro (ex.: frete e imposto) → `fork` com uma seta por ramo e um `join` que reúne todos antes de seguir; repetição → `loop`; lógica de outro diagrama → `call`.",
+    "3b. **Escolha o nó pela forma do desvio**: 2 saídas (sim/não) → `decision`; **3 ou mais saídas** por valor (`on` + uma seta por `case`) ou por faixas (sem `on`: a condição de cada faixa vai em `logic.case` da seta e vale a primeira verdadeira, na ordem em que as setas foram criadas; faixas que se sobrepõem: ganha a mais antiga) → `switch`, nunca uma cadeia de `decision` testando o mesmo dado; passos **independentes** que não dependem do resultado um do outro (ex.: frete e imposto) → `fork` com uma seta por ramo e um `join` que reúne todos antes de seguir; repetição → `loop`; lógica de outro diagrama → `call`. **Se cada caminho de uma escolha só atribui valores** (faixas de preço, tabela de frete, classificação), use uma `table` (tabela de decisão: `rows: [{ when, then, label? }]` em ordem + `otherwise`) no lugar do `switch` + uma ação por caso: a regra inteira vira uma grade num cartão só.",
     "4. Repetições são `loop` (`until`, `max` ou `foreach` + `as`): a seta `repete` volta ao início do corpo, `segue` sai. A parada é conferida ANTES de cada volta, então pode haver zero voltas; o loop sai pela seta `segue` assim que vale a primeira entre: acabaram os itens do `foreach`, a condição `until` ficou verdadeira ou já foram `max` voltas. `max` conta voltas (1 a 1000) e não tem valor padrão: sem `until`, `max` nem `foreach`, o loop é recusado.",
     "4a. **Bordas do laço, da decisão e da trava**: `foreach` de lista vazia dá zero voltas; `nulo`, objeto ou texto no lugar da lista é erro; sem `as` o item se chama `item` e fica com o último valor depois do laço. A `when` da decisão é obrigatória (recusada ao criar) e precisa dar verdadeiro ou falso: número ou nulo é erro de execução, não falso. `destravar` sem `travar` antes não faz nada e não avisa; `travar` num dado que ainda não existe já bloqueia a escrita dele; `expect` confere o valor que o dado tem DE FATO (o travado), não o que a ação tentou escrever. Um ramo do `fork` que chega a um `end` termina o fluxo inteiro com o desfecho desse `end`, e um `join` sem `fork` só deixa passar.",
     "5a. **De onde vem o valor de um dado**: o que entra em `given` (no cenário, o fluxo todo recebe o `given`; no exemplo de um passo, só ele) vale mais que o `value` do dado; sem `given`, vale o `value`; sem os dois, quem LÊ o dado dá o erro «não tem valor neste exemplo» (`nulo` informado em `given` conta como valor). O `value` de uma `variable` é o valor inicial e a ação pode reescrevê-lo sem aviso; o `value` de um `input` é uma constante de entrada: se uma ação o calcula, o aviso L029 pede para trocar o papel para `variable` (intermediário) ou `output` (resultado). Uma ação que escreve um dado sem nó de dado cria o dado na hora (aviso L007: declare um `variable` ou `output`); um dado lido que ninguém declara nem escreve dá o aviso L002. O `type` do dado não bloqueia a execução: valor fixo, `given` ou efeito de tipo incompatível (`preco := \"abc\"` com `preco: number`) só dão o aviso L026, e a execução segue.",
@@ -1574,12 +1668,23 @@ export function schemaGuideLogic(): string {
     "8. **Integrações reais (estilo n8n) e código**: um `call` com `request: { method, url, headers?, body? }` é uma chamada HTTP de verdade (`url`, cada cabeçalho e cada campo do `body` são EXPRESSÕES: texto fixo leva aspas, ex.: `url: '\"https://api.exemplo.com/clientes/\" + cliente_id'`; o corpo vai como JSON). A resposta cai nos dados `resposta` (o corpo, JSON ou texto) e `status_http`, que `falha` e `devolve` podem ler (`devolve: [\"cidade := resposta.localidade\"]`). Resposta fora de 2xx ou sem rede segue pela seta `erro`. O app não chama a rede: os exemplos usam `mock` (o corpo simulado, status 200). `generate_code` gera TypeScript EXECUTÁVEL do fluxo (`run(input, deps)`, com `fetch` de verdade nas chamadas, e um teste por exemplo de cenário); declare os `type` dos dados na sintaxe do TypeScript, pois viram as interfaces Input e Output.",
     "9. **Gatilhos, código livre e credenciais (estilo n8n)**: o `start` aceita `trigger`: `{ kind: \"manual\" }` (padrão), `{ kind: \"webhook\", method?, path: \"/pedidos\" }` (o corpo JSON, ou a query em GET, é o input) ou `{ kind: \"agenda\", cron: \"0 8 * * 1-5\" }`; o código gerado exporta `trigger` e `handler(req)` (Fetch API) ou `onSchedule()`. Para o que as expressões não alcançam use um nó `code` com `code`: o CORPO de `async (data) => { ... }` em TypeScript (`data` são os dados do fluxo); o `return` vira o dado `resultado`, lido em `devolve` (`total := resultado.total`); se lançar erro, segue pela seta `erro`. O app NÃO executa TypeScript: nos exemplos vale `mock` (o resultado simulado); no código gerado roda de verdade. Credenciais: `segredo(\"API_TOKEN\")` numa expressão (ex.: cabeçalho `Authorization`) lê `deps.secrets` ou a variável de ambiente no código gerado; no app é um texto de mentira, e o valor nunca fica no diagrama.",
     "",
+    "## Diagramas que explicam código complexo (leia antes de traduzir um código)",
+    "O objetivo é que uma pessoa entenda a lógica olhando o quadro, não reler o código em cartões. Regras de granularidade:",
+    "- **Uma ação por intenção, não por linha**: atribuições seguidas sem desvio entre elas (`inicio := 0`, `fim := tamanho(v)`) são UMA ação com vários efeitos, com uma frase de negócio em `text`.",
+    "- **Escolha que só atribui é tabela**: `switch` com N setas para N ações de um efeito cada vira uma `table` (veja 3b).",
+    "- **Etapas**: um fluxo com mais de ~12 passos é dividido em ETAPAS, trechos com um objetivo (validar, calcular a partida, arredondar, recomendar). Crie com `add_groups` e `stage: { text }` (a frase do que a etapa faz) e ponha os passos dentro com `parent`. Cada etapa deve ter **uma entrada** (aviso L035) e no máximo ~12 passos. Com `stage.collapsed: true` a etapa vira um cartão-resumo (o que lê, o que escreve, quantos passos, exemplos) e as etapas recolhidas formam a **visão geral**. Diagramas grandes devem ficar com as etapas recolhidas: quem lê abre a etapa que interessa. Fluxo com mais de 25 passos e nenhuma etapa dá a dica L036.",
+    "- **Origem no código**: preencha `source` em cada passo (`\"src/precos.ts:120-134\"`, em `add_components`) para ligar o desenho ao código real (o cartão mostra o arquivo e a linha; formato conferido pela dica L037).",
+    "- **Cenários cobrem os caminhos**: um `scenario` por caminho importante (incluindo os de erro). As setas de decisão mostram quantos cenários passam por elas; uma seta «sem cenário» é um caminho sem teste.",
+    "- **Frases de negócio**: `text` em decisões (a pergunta), ações (o que muda e por quê), tabelas e etapas. O modo Explicar da reprodução conta a execução com essas frases.",
+    "",
     "## Semântica do fluxo",
     "- O fluxo anda de seta em seta a partir do `start`, sobre os mesmos dados; `x := ...` atualiza `x` para os passos seguintes.",
     "- `travar x`: daí em diante (na mesma ação, nos passos seguintes, nas voltas de um loop e em todos os ramos) `x := ...` NÃO muda `x` e não dá erro: a tentativa é só anotada no passo e aparece na linha do tempo do dado, marcada como bloqueada; `destravar x` libera. A trava vale até o fim da execução ou até o `destravar`.",
     '- Decisão: `when` verdadeiro segue por "sim"; falso, por "não". Escolha: segue pela seta cujo `case` é igual ao valor de `on`, senão "outros".',
     '- Loop: antes de cada volta confere a parada; se não parou, segue por "repete"; ao parar, por "segue". Com `foreach`, cada volta guarda o item em `as`.',
     "- Paralelo (`fork`): os ramos são **independentes**: o app os simula um depois do outro, na ordem das setas, sobre os MESMOS dados (nada roda de fato ao mesmo tempo); por isso um ramo não deve escrever um dado que outro ramo escreve ou lê (a validação avisa, L027). Roda cada ramo até o `join` e só então continua. Erro (divisão por zero, dado sem valor, saída faltando) interrompe o fluxo e aparece no exemplo.",
+    "- Tabela (`table`): confere as linhas de cima para baixo; a primeira com `when` verdadeiro aplica o `then` dela e o fluxo segue pela única seta de saída; nenhuma verdadeira aplica o `otherwise` (sem ele, é erro de execução). Exemplos da tabela são como os da ação (`expect` confere os dados).",
+    "- Etapas (`stage`) não mudam a execução: só o que se vê e o layout.",
     "- Sem setas entre os passos, vale o modo simples: as ações rodam em ordem CRESCENTE de `order` (1, 2, 3…); as sem `order` vão para o fim, na ordem em que foram criadas, que também desempata `order` repetido (a validação avisa, L005). Com setas, o fluxo manda e `order` é ignorado.",
   ].join("\n");
 }
