@@ -20,3 +20,14 @@ Thumbs.db
 .claude/settings.local.json
 .claude
 skills-lock.json
+
+# artefato do Windows (redirecionamento para NUL que virou arquivo)
+NUL
+
+# configuração local e cache da ferramenta de design (impeccable)
+.impeccable/
+
+# modelos do Blender da primeira versão da visão 3D (as formas agora são geradas no app)
+public/assets/iso/
+scripts/blender/
+docs/assets/iso-components.png
