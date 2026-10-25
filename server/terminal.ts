@@ -15,7 +15,7 @@ import { chmodSync, existsSync, readdirSync, readFileSync, statSync } from "node
 import { homedir } from "node:os";
 import type { IncomingMessage } from "node:http";
 import { createRequire } from "node:module";
-import { delimiter, dirname, isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join, win32 } from "node:path";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
 import { createStreamFormatter } from "./streamfmt";
@@ -158,11 +158,12 @@ export function resolveClaudeCommand(opts?: { platform?: NodeJS.Platform; path?:
   if (platform !== "win32") return "claude";
   const path = opts?.path ?? process.env.PATH ?? process.env.Path ?? "";
   const exists = opts?.exists ?? existsSync;
-  for (const dir of path.split(delimiter)) {
+  // caminhos do Windows mesmo quando o teste roda em outro sistema (lá o separador do PATH seria ":", que corta o "C:")
+  for (const dir of path.split(win32.delimiter)) {
     const trimmed = dir.trim().replace(/^"|"$/g, "");
     if (!trimmed) continue;
     for (const name of ["claude.exe", "claude.bat", "claude.cmd"]) {
-      const full = join(trimmed, name);
+      const full = win32.join(trimmed, name);
       if (exists(full)) return full;
     }
   }

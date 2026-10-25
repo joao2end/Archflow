@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { delimiter, join } from "node:path";
+import { win32 } from "node:path";
+
+const { delimiter, join } = win32; // o resolvedor só procura no PATH do Windows
 import { resolveClaudeCommand } from "./terminal";
 
 test("fora do Windows o comando é claude", () => {
