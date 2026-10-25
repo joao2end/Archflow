@@ -215,7 +215,8 @@ test("passo automático: claude (falso) recebe os argumentos e o código de saí
   const { writeFileSync: wf, mkdirSync: mk, chmodSync } = await import("node:fs");
   const bin = join(tmp, "fakebin");
   mk(bin, { recursive: true });
-  wf(join(bin, "claude"), '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9"; exit 0; fi\necho "ARGS:$#:$1:$2:$4:$5"\ncase "$5" in *FALHA*) exit 3;; esac\nexit 0\n');
+  // o passo automático roda com --output-format stream-json --verbose e manda o texto pelo stdin (withStreamFlags)
+  wf(join(bin, "claude"), '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9"; exit 0; fi\nt=$(cat)\necho "ARGS:$#:$1:$2:$4:$5:$t"\ncase "$t" in *FALHA*) exit 3;; esac\nexit 0\n');
   chmodSync(join(bin, "claude"), 0o755);
   const oldPath = process.env.PATH;
   process.env.PATH = `${bin}:${oldPath}`;
@@ -237,7 +238,7 @@ test("passo automático: claude (falso) recebe os argumentos e o código de saí
         });
         setTimeout(() => res({ out, code: -999 }), 8000);
       });
-      assert.match(got.out, /ARGS:5:-p:--session-id:--:/);
+      assert.match(got.out, new RegExp(`ARGS:6:-p:--session-id:--output-format:stream-json:${texto}`));
       assert.equal(got.code, code);
       ws!.close();
       await post("/api/term/kill", token, { id: s.id });
