@@ -32,11 +32,12 @@ const laid = (ops: Op[], style?: "onion"): Doc => {
   return r.doc;
 };
 
-test("onion: padrão do modo domain; anéis concêntricos Entities ⊂ Use Cases ⊂ Adapters ⊂ contexto ⊂ Drivers", () => {
+test("onion: padrão do modo domain; anéis concêntricos Entities ⊂ Use Cases ⊂ Adapters ⊂ Drivers, com o contexto de moldura", () => {
   const d = laid(pedidos());
   const g = (id: string) => d.groups.find((x) => x.id === id)!;
   const n = (id: string) => d.nodes.find((x) => x.id === id)!;
   const ring = (id: string) => d.groups.find((x) => x.id === n(id).parent)!;
+  const center = (x: GroupEl) => [x.x + x.w / 2, x.y + x.h / 2];
   assert.equal(ring("pedido").id, "anel-pedidos-entities");
   assert.equal(ring("pedido-criado").id, "anel-pedidos-entities");
   assert.equal(ring("criar-pedido").id, "anel-pedidos-usecases");
@@ -49,7 +50,11 @@ test("onion: padrão do modo domain; anéis concêntricos Entities ⊂ Use Cases
   assert.equal(g("anel-pedidos-entities").parent, "anel-pedidos-usecases");
   assert.equal(g("anel-pedidos-usecases").parent, "anel-pedidos-adapters");
   assert.equal(g("anel-pedidos-adapters").parent, "pedidos");
-  assert.equal(g("pedidos").parent, "anel-geral-drivers");
+  // um contexto só: o anel de drivers encosta no de adapters (sem o vão da meia diagonal) e o contexto emoldura tudo
+  assert.equal(g("pedidos").parent, undefined);
+  assert.ok(inside(g("anel-geral-drivers"), g("pedidos")), "o contexto emoldura o anel de drivers");
+  assert.equal(g("anel-geral-drivers").ring!.inner, g("anel-pedidos-adapters").w / 2 + 12, "drivers começa logo depois de adapters");
+  assert.deepEqual(center(g("anel-geral-drivers")), center(g("anel-pedidos-entities")));
   for (const x of d.groups) if (x.parent) assert.ok(inside(x, g(x.parent)), `${x.id} dentro de ${x.parent}`);
   for (const x of d.nodes) if (x.parent) assert.ok(inside(x, g(x.parent)), `${x.id} dentro de ${x.parent}`);
   // círculos: cada componente inteiro dentro do seu anel (ou setor); setores e anéis com o mesmo centro
@@ -58,7 +63,6 @@ test("onion: padrão do modo domain; anéis concêntricos Entities ⊂ Use Cases
     if (!p.ring) continue;
     for (const c of [{ x: x.x, y: x.y }, { x: x.x + x.w, y: x.y }, { x: x.x, y: x.y + x.h }, { x: x.x + x.w, y: x.y + x.h }]) assert.ok(insideGroupShape(p, c), `${x.id} dentro do anel ${p.id}`);
   }
-  const center = (x: GroupEl) => [x.x + x.w / 2, x.y + x.h / 2];
   for (const id of ["anel-pedidos-usecases", "anel-pedidos-adapters", ring("pedido-repo").id]) assert.deepEqual(center(g(id)), center(g("anel-pedidos-entities")));
   assert.ok(g("anel-pedidos-usecases").ring!.inner >= g("anel-pedidos-entities").w / 2, "anel de fora começa onde o de dentro termina");
   assert.equal(g("anel-pedidos-entities").ring!.inner, 0, "o miolo é um disco");
@@ -135,4 +139,18 @@ test("onion: diagrama de domínio novo já nasce com a estrutura circular; clica
   // um mapa de contextos (só referências) não fica com anéis ao reorganizar
   const map = applyOps(createDoc("Mapa", "domain"), [{ op: "add_node", id: "s", label: "S", kind: "system" }, { op: "layout" }]).doc;
   assert.ok(map.groups.every((g) => !g.ring));
+});
+
+test("onion: um contexto com atores dentro dele não ganha uma segunda camada de drivers", () => {
+  const d = laid([
+    { op: "add_group", id: "ctx", label: "Agenda", kind: "context" },
+    dn("x", { role: "aggregate-root" }, "ctx"),
+    dn("c", { role: "command" }, "ctx"),
+    { op: "add_node", id: "u", label: "Paciente", kind: "actor", parent: "ctx" },
+  ]);
+  const drivers = d.groups.filter((g) => g.ring?.layer === "drivers" && !g.ring.side);
+  assert.deepEqual(drivers.map((g) => g.id), ["anel-ctx-drivers"]);
+  assert.equal(d.groups.find((g) => g.id === "ctx")!.parent, undefined);
+  const back = applyOps(d, [{ op: "layout", style: "timeline" }]).doc;
+  assert.equal(back.nodes.find((n) => n.id === "u")!.parent, "ctx", "o ator continua no contexto");
 });

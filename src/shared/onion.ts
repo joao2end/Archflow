@@ -400,22 +400,41 @@ export function onionLayout(doc: Doc): OnionResult {
     (c ? lists.get(c.id)! : loose).push(n);
   }
   const inside: Ring[] = ["entities", "usecases", "adapters"];
-  const blocks: Piece[] = [];
-  // sem contextos, o miolo geral é o círculo do diagrama; com contextos, só aparece se houver componentes soltos fora dos drivers
-  if (!ctxs.length || loose.some((n) => onionSlot(n).ring !== "drivers")) blocks.push(onion(`${ONION_PREFIX}geral`, loose, inside));
-  for (const g of ctxs) {
-    const list = lists.get(g.id)!;
-    const inner = onion(`${ONION_PREFIX}${g.id}`, list, list.some((n) => onionSlot(n).ring === "drivers") ? [...inside, "drivers"] : inside);
+  const block = (g: GroupEl, list: NodeEl[], rings: Ring[]): Piece => {
+    const inner = onion(`${ONION_PREFIX}${g.id}`, list, rings);
     const w = inner.w + PAD * 2;
     const h = inner.h + TOP + PAD;
-    blocks.push({
+    return {
       w,
       h,
       place: (x, y, parent) => {
         out.contexts.set(g.id, { rect: { x: Math.round(x), y: Math.round(y), w, h }, ...(parent ? { parent } : {}) });
         inner.place(x + PAD, y + TOP, g.id);
       },
-    });
+    };
+  };
+  // um contexto só (o caso comum: um diagrama por bounded context): o anel geral de drivers encosta nos anéis do
+  // contexto, em vez de envolver o retângulo dele pela meia diagonal (o que abria um vão entre as camadas), e o
+  // retângulo do contexto vira a moldura do desenho inteiro. Com os drivers já dentro do contexto e nenhum solto, o
+  // anel geral (vazio) nem existe: seriam duas camadas de Frameworks & Drivers. Os pais não mudam: o que é do
+  // contexto continua no contexto e os atores soltos continuam soltos.
+  if (ctxs.length === 1 && loose.every((n) => onionSlot(n).ring === "drivers")) {
+    const g = ctxs[0];
+    const list = lists.get(g.id)!;
+    const own = list.some((n) => onionSlot(n).ring === "drivers");
+    const inner = onion(`${ONION_PREFIX}${g.id}`, list, own ? [...inside, "drivers"] : inside);
+    const mine: Disc = { ...inner, place: (x, y) => inner.place(x, y, g.id) };
+    const frame = own && !loose.length ? mine : ring(`${ONION_PREFIX}geral`, "drivers", loose, mine, mine.ro);
+    out.contexts.set(g.id, { rect: { x: 0, y: 0, w: frame.w + PAD * 2, h: frame.h + TOP + PAD } });
+    frame.place(PAD, TOP, undefined);
+    return out;
+  }
+  const blocks: Piece[] = [];
+  // sem contextos, o miolo geral é o círculo do diagrama; com contextos, só aparece se houver componentes soltos fora dos drivers
+  if (!ctxs.length || loose.some((n) => onionSlot(n).ring !== "drivers")) blocks.push(onion(`${ONION_PREFIX}geral`, loose, inside));
+  for (const g of ctxs) {
+    const list = lists.get(g.id)!;
+    blocks.push(block(g, list, list.some((n) => onionSlot(n).ring === "drivers") ? [...inside, "drivers"] : inside));
   }
 
   // blocos lado a lado, quebrando linha ao passar da largura máxima
