@@ -1,51 +1,65 @@
 # Archflow
 
-Quadro branco para **arquitetura de software**, inspirado na engenharia reversa do Excalidraw — mas com
-modelo semântico (componentes, grupos, conexões tipadas e interfaces), interface *glassmorphism* e um
-**servidor MCP** para que LLMs desenhem junto com você, em tempo real.
+Quadro branco para **software** com um **servidor MCP**: você pede, o agente desenha no quadro e você acompanha cada passo.
+Diferente de um quadro livre, o Archflow guarda o que cada coisa significa (um serviço é um serviço, uma fila é uma fila,
+cada conexão tem tipo), então humanos e LLMs leem o mesmo diagrama. São quatro modos no mesmo app:
+
+- **Arch**: arquitetura com serviços, bancos, filas, nuvem e rede.
+- **Domain**: DDD em camadas da Clean Architecture, com visão 3D, validação e geração de código.
+- **Logic**: regras de negócio como fluxo executável, com cenários que o app roda e confere.
+- **Agents**: times de agentes de IA que viram o harness do Claude Code ou do Cursor, com workflows que rodam no terminal do app.
 
 [![CI](https://github.com/joao2end/Archflow/actions/workflows/ci.yml/badge.svg)](https://github.com/joao2end/Archflow/actions/workflows/ci.yml)
 ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-706fd3)
 ![Node 22+](https://img.shields.io/badge/node-22%2B-706fd3)
-![Windows · Web](https://img.shields.io/badge/plataforma-Windows%20%C2%B7%20Web-706fd3)
-![MCP](https://img.shields.io/badge/MCP-26%20tools-706fd3)
+![Windows · macOS · Linux · Web](https://img.shields.io/badge/plataforma-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux%20%C2%B7%20Web-706fd3)
+![MCP](https://img.shields.io/badge/MCP-27%20tools-706fd3)
 
 > Desenvolvido pela **2.end**.
 >
 > **Experimente online:** [archflow.2-end.online](https://archflow.2-end.online) — a landing page fica em `/` e o app em [`/app`](https://archflow.2-end.online/app), sem instalar nada.
 
-![Archflow — canvas com o diagrama de exemplo "Plataforma de Pedidos"](docs/screenshots/02-canvas.png)
+[![O agente desenha o checkout pelo MCP, ao vivo (clique para ver o vídeo)](public/landing/mcp.jpg)](public/landing/mcp.mp4)
 
 - Tipografia: Instrument Serif + Inter Tight · Cores: `#706fd3` (primária) e `#f7f1e3` (secundária)
 - Documentação técnica: [`docs/REVERSE_ENGINEERING.md`](docs/REVERSE_ENGINEERING.md) · [`docs/PROTOCOL.md`](docs/PROTOCOL.md)
 
 ## Sumário
 
-- [Visão geral](#visão-geral)
+- [Em vídeo](#em-vídeo)
 - [Acesso online](#acesso-online)
 - [Instalação e execução](#instalação-e-execução)
-- [Versão para Windows (instalador)](#versão-para-windows-instalador)
+- [Versão desktop (Windows, macOS e Linux)](#versão-para-windows-instalador)
 - [Guia de utilização](#guia-de-utilização)
 - [Conectar um agente (MCP)](#conectar-um-agente-mcp)
 - [Projeto de diagramas](#projeto-de-diagramas-estilo-obsidian)
 - [Endpoints e referências entre diagramas](#endpoints-e-referências-entre-diagramas)
+- [Apresentar a arquitetura](#apresentar-a-arquitetura)
 - [Modo Domain (DDD)](#modo-domain-ddd)
+- [Modo Logic](#modo-logic-regras-de-negócio)
+- [Modo Agents](#modo-agents-time-de-ia-e-harness)
 - [Recursos](#recursos)
 - [Atalhos de teclado](#atalhos-de-teclado)
 - [Estrutura do projeto](#estrutura)
 - [Contribuindo e segurança](#contribuindo-e-segurança)
 
-## Visão geral
+## Em vídeo
 
-| Landing page (`/`) | Aplicação (`/app`) |
+Gravações do app de verdade (as mesmas da landing page). Clique na imagem para abrir o vídeo.
+
+| Arquitetura à mão | Domain em camadas e 3D |
 | --- | --- |
-| ![Landing page](docs/screenshots/01-landing.png) | ![Aplicação](docs/screenshots/02-canvas.png) |
+| [![Biblioteca, conexão pelo "+" e tipo da conexão](public/landing/library.jpg)](public/landing/library.mp4) | [![Anéis da Clean Architecture e a visão 3D](public/landing/domain.jpg)](public/landing/domain.mp4) |
+| **Logic: cenário passo a passo** | **Agents: time e harness** |
+| [![Reprodução de um cenário com os valores mudando](public/landing/logic.jpg)](public/landing/logic.mp4) | [![O agente monta um time de agentes e o harness do Claude Code](public/landing/agents.jpg)](public/landing/agents.mp4) |
+| **Apresentação (tecla P)** | **Landing page** |
+| [![Slides montados a partir do diagrama](public/landing/present.jpg)](public/landing/present.mp4) | ![Landing page](docs/screenshots/01-landing.png) |
 
-Diferente de um quadro branco livre, o Archflow guarda **o que cada coisa significa**: um serviço é um serviço,
-uma fila é uma fila, e cada conexão tem tipo (síncrona, assíncrona, streaming, UML…). Isso permite que humanos e
-LLMs leiam o mesmo diagrama — sem coordenadas e sem ruído visual.
+Para regravar depois de mudar a UI: suba o app vazio com `node scripts/dev-sandbox.mjs` e rode
+`node docs/promo/record-landing.mjs [mcp library domain logic agents present]` (precisa de `playwright-core`, `ffmpeg-static` e do Microsoft Edge).
+Os arquivos vão para `public/landing/` e ficam fora do app desktop.
 
-Acesse online em **[archflow.2-end.online](https://archflow.2-end.online)**. Também funciona em **tema escuro** (automático, claro ou escuro):
+O app também funciona em **tema escuro** (automático, claro ou escuro):
 
 ![Tema escuro](docs/screenshots/10-dark.png)
 
@@ -55,11 +69,11 @@ O Archflow está publicado em **[archflow.2-end.online](https://archflow.2-end.o
 
 | Endereço | O que é |
 | --- | --- |
-| [archflow.2-end.online](https://archflow.2-end.online) | Landing page com a demonstração animada das ferramentas e do MCP |
+| [archflow.2-end.online](https://archflow.2-end.online) | Landing page com os vídeos de cada modo e o comando do MCP |
 | [archflow.2-end.online/app](https://archflow.2-end.online/app) | O aplicativo, direto no navegador |
 
 Como o site é estático (sem servidor local), o app abre no **modo Memória do navegador**: os projetos ficam no IndexedDB, com pastas,
-referências entre diagramas, busca, modo Domain (DDD), validação, geração de código e exportação. Não há pasta em disco, Git nem MCP —
+referências entre diagramas, busca, os modos Domain, Logic e Agents, validação, geração de código e exportação. Não há pasta em disco, Git, MCP nem terminal —
 para isso use o [instalador do Windows](#versão-para-windows-instalador) ou `npm run dev`. Faça backup com **Exportar projeto atual** /
 **Importar projeto…** no gerenciador de projetos.
 
@@ -93,7 +107,8 @@ npm run build && npm run bridge   # depois abra http://127.0.0.1:7077/app
 | `npm run bridge` | Servidor local (HTTP/SSE) servindo o build |
 | `npm run examples:build` | Regrava os exemplos de DDD em `examples/` (e `-- --check` confere se estão em dia) |
 | `npm run eval:domain -- <arquivos>` | Avalia diagramas de domínio contra as metas objetivas (casos de uso rastreados, erros estruturais, itens a corrigir) |
-| `npm test` | Testes (modelo, regras de domínio, catálogo, regressão da arquitetura e MCP ponta a ponta) |
+| `npm test` | Testes (modelo, regras de domínio, lógica e agentes, catálogo, regressão da arquitetura e MCP ponta a ponta) |
+| `npm run eval:nodes` / `eval:scenario` / `eval:jev` | Avaliações dos modos Logic e Agents usadas nos loops de qualidade |
 | `npm run mcp` | Servidor MCP (stdio) em desenvolvimento |
 | `npm run mcp:bundle` | Empacota o MCP (`dist-mcp/`), levado pelo instalador em `resources/mcp/` |
 | `npm run mcp:install` / `mcp:check` | Instala o MCP no Cursor, Claude Desktop e Claude Code e testa a conexão / só testa |
@@ -145,7 +160,7 @@ Se o `electron-builder` falhar com `EPERM` ao extrair o Electron (comum com anti
 
 ### 1. Monte o diagrama com a biblioteca
 
-Pressione **`B`** (ou clique no ícone de grade no dock) para abrir a **Biblioteca**: ~155 tecnologias organizadas por
+Pressione **`B`** (ou clique no ícone de grade no dock) para abrir a **Biblioteca**: mais de 200 tecnologias organizadas por
 categoria (Linguagens, Frameworks, Bancos de Dados, Mensageria, AWS, Google Cloud, Azure & IBM, IA & LLM, Modelos de IA…).
 Cada item explica **o problema que resolve**. Use a busca (**`/`**) para achar rápido — por exemplo `laravel`, `fila` ou `cache` —
 e **arraste** o item para o quadro. Precisa de algo que não existe? **Novo asset** cadastra uma tecnologia sua (ícone, cor, descrição).
@@ -190,7 +205,9 @@ de cada tecnologia — em **Markdown**, **Mermaid** ou **JSON**, mais o **Guia d
 
 ### 7. Exporte
 
-O menu **Arquivo** salva o diagrama como `.archflow.json`, importa outro diagrama e exporta em **SVG** ou **PNG (2×)**.
+O menu **Arquivo** salva o diagrama como `.archflow.json`, importa outro diagrama e exporta em **SVG** ou **PNG (2×)**. No modo Logic há também a exportação em seções: **PDF** com os diagramas em vetor ou **ZIP** com SVG e PNG por seção e um `README.md`.
+
+O botão **Gravar** da barra grava a tela da aba com a sua voz (microfone opcional), inclusive durante a apresentação.
 
 ![Menu Arquivo](docs/screenshots/07-arquivo.png)
 
@@ -289,11 +306,13 @@ Teclas no painel: `→`/`←` (ou PageDown/PageUp) trocam o slide, `Home`/`End` 
 
 ## Modo Domain (DDD)
 
-Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (arquitetura: serviços, bancos, filas) ou **Domain** (o negócio com DDD). Crie um diagrama de domínio pelo ícone de camadas do explorador (ou `new_diagram` com `mode: "domain"`); o selo abre a modal com a troca de modo, a **validação** e a **visão geral do projeto**.
+Todo diagrama tem um **modo**, mostrado como seletor ao lado do título: **Arch** (arquitetura: serviços, bancos, filas), **Domain** (o negócio com DDD), **Logic** (regras de negócio) ou **Agents** (times de agentes de IA). Crie um diagrama de domínio pelo ícone de camadas do explorador (ou `new_diagram` com `mode: "domain"`); o selo abre a modal com a troca de modo, a **validação** e a **visão geral do projeto**.
 
-- **Paleta própria:** categoria *Domain* com Aggregate Root, Entity, Value Object, Domain Event, Command, Policy, Repository, Domain/Application Service, Use Case, Read Model e Process Manager (nomes em inglês, explicação em pt-BR no tooltip). Cada elemento é colorido pelo papel, como os post-its de Event Storming.
+- **Paleta própria:** categoria *Domain* com Aggregate Root, Entity, Value Object, Domain Event, Command, Policy, Repository, Domain/Application Service, Use Case, Controller, Read Model e Process Manager (nomes em inglês, explicação em pt-BR no tooltip). Cada elemento é colorido pelo papel, como os post-its de Event Storming.
 - **Relações com semântica:** no inspetor da conexão, *Relação de domínio* (`emits`, `triggers`, `contains`, `references-by-id`, `realizes`, `context-relation`) e, entre contextos, o **padrão do Context Map** (ACL, Customer/Supplier, Shared Kernel…). Grupos `context` ganham **subdomain** (core, supporting, generic).
-- **Validação com regras DDD** (D001–D032, incluindo conectores e fluxo), cada aviso com id, severidade e clique para selecionar o elemento: caso de uso sem command, command sem aggregate, evento sem produtor, aggregates ligados por objeto…
+- **Camadas da Clean Architecture:** o layout padrão do modo (`auto_layout` com `style: "onion"`) põe cada componente no anel do seu papel: Entities no centro, depois Use Cases, Interface Adapters (Controllers, Presenters, Gateways) e Frameworks & Drivers. A regra **D034** acusa camada interna dependendo de externa (D035/D036 dão as dicas) e a **porta** (`port`) na conexão registra a inversão de dependência, no 2D, no 3D, no inspetor e pelo MCP.
+- **Visão 3D:** o botão **3D** na barra inferior mostra os anéis em degraus, com os componentes em arte de triângulos e as conexões em arco coloridas pela relação. Dá para orbitar (botão do meio, `Q`/`E`), dar zoom, buscar (`/`), isolar vizinhos (`I`), montar o diagrama arrastando da paleta para uma camada e ligar componentes arrastando de um ao outro. `Esc` volta ao 2D. A apresentação também roda no 3D.
+- **Validação com regras DDD** (D001–D036, incluindo conectores, fluxo e camadas), cada aviso com id, severidade e clique para selecionar o elemento: caso de uso sem command, command sem aggregate, evento sem produtor, aggregates ligados por objeto…
 - **Estrutura por contexto + visão geral:** um diagrama por bounded context e um **mapa de contextos** (componentes *Outro diagrama* ligados por `context-relation`). A aba *Visão geral do projeto* consolida contextos, eventos publicados/consumidos e o rastreio dos casos de uso.
 - **Casos de uso → projeto:** peça ao agente (MCP) para modelar a partir de casos de uso: `add_use_cases`, `add_components` com `ddd`, `connect` com `ddd.rel`, `validate_diagram` e `trace` (caso de uso → command → aggregate → evento). Repetir é seguro e o agente reaproveita os ids ao retomar um diagrama que você editou.
 - **Linha do tempo (Event Storming):** no *Layout automático* escolha *Linha do tempo* (ou `auto_layout` com `style: "timeline"`): raias ator → caso de uso → command → aggregate → evento → policy → read model, com os commands na ordem de `ddd.step`.
@@ -305,15 +324,25 @@ Todo diagrama tem um **modo**, mostrado como selo ao lado do título: **Arch** (
 - **Decisões, condições, loops e iteração (só no modo Domain):** o papel *Decision* (exclusiva, paralela ou junção) com um ramo por conexão, **condição** e **senão** nas conexões `triggers`/`emits`, **loop** marcado na conexão que volta a um passo anterior (com condição de parada obrigatória) e **para cada**. As regras D024 a D032 conferem a forma do fluxo (decisão com 2+ ramos e um senão, junção com 2+ entradas, ciclo por decisão exige loop declarado) e o código gerado leva os ramos para tipos. Veja o guia em [docs/DDD.md](docs/DDD.md).
 - **Switch Arch | Domain** na barra superior (sem diálogo; Ctrl+Z desfaz) e, ao lado, o atalho da validação.
 - **Guia animado de DDD:** novo em DDD? O botão ▶ ao lado do selo de modo (ou **Guia de DDD** no quadro vazio e na modal do modo) abre *DDD em 8 passos*: cenas animadas de valor do negócio, bounded context, use case → command, aggregate, domain event, policy, context map e uma receita rápida do zero ao domínio.
-- **Exemplos prontos** (arquitetura, domínio e lógica: do primeiro diagrama a 15 algoritmos): seção *Exemplos* do explorador → *Instalar e abrir*. Os de DDD (biblioteca, clínica, loja, banco, delivery) também estão na pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
+- **Exemplos prontos** (25: arquitetura, domínio e lógica, do primeiro diagrama a 15 algoritmos): seção *Exemplos* do explorador → *Instalar e abrir*. Os de DDD (biblioteca, clínica, loja, banco, delivery) também estão na pasta [`examples/`](examples/README.md). O guia [docs/DDD.md](docs/DDD.md) explica DDD do zero e como cada conceito aparece no Archflow.
 
 ### Modo Logic (regras de negócio)
 
-Um terceiro modo, **Logic**, descreve uma regra de negócio específica (precificação, elegibilidade, frete…) como um **fluxo executável**: Start → regras, decisões sim/não, escolhas, laços e paralelos → End. As condições e efeitos são expressões curtas em português (`preco := max(preco, piso)`, `travar preco`) e o app mostra a explicação em português ao lado. Cada regra e cada cenário levam **exemplos que o app executa**: o ✔ ou ✘ aparece no quadro, a validação `L001–L024` aponta o que falha e a reprodução (▶) mostra o valor mudando passo a passo. Pelo MCP: `new_diagram` com `mode: "logic"`, `add_components` com `logic`, `connect` com `logic.branch` e `auto_layout` em `pipeline`. Exemplo completo (engine de precificação, 11 regras e 30 exemplos) em [`examples/exemplos-logic/`](examples/exemplos-logic/); desenho e decisões em [docs/LOGIC_MODE_DESIGN.md](docs/LOGIC_MODE_DESIGN.md).
+Um terceiro modo, **Logic**, descreve uma regra de negócio específica (precificação, elegibilidade, frete…) como um **fluxo executável**: Start → regras, decisões sim/não, escolhas, laços e paralelos → End. As condições e efeitos são expressões curtas em português (`preco := max(preco, piso)`, `travar preco`) e o app mostra a explicação em português ao lado. Cada regra e cada cenário levam **exemplos que o app executa**: o ✔ ou ✘ aparece no quadro e a validação `L001–L039` aponta o que falha.
+
+- **Reprodução (debug visual):** o ▶ de um cenário percorre o fluxo passo a passo, com o valor das variáveis mudando no quadro. **Explicar** agrupa os passos em momentos com frases de negócio; **Depurar** mostra o porquê de cada passo com os valores, os saltos e as voltas de cada laço. Velocidade de 0,5× a 8× e *Gravar caminho* para o exemplo avisar se o fluxo mudar.
+- **Visão de conjunto:** **etapas** (trechos nomeados que recolhem num cartão-resumo com o que leem, o que escrevem e os exemplos), **tabela de decisão** (linhas «quando → então», vale a primeira, com *otherwise*), cartão de resumo no topo, aba *Visão geral* com o contrato de dados, matriz de cenários e cobertura por seta.
+- **Exportação em seções:** PDF com os diagramas em vetor ou ZIP com SVG e PNG por seção e um `README.md`.
+- **Pelo MCP:** `new_diagram` com `mode: "logic"`, `add_components` com `logic`, `connect` com `logic.branch` e `auto_layout` em `pipeline`.
+
+Exemplo completo (engine de precificação em 7 etapas, 11 regras e 30 exemplos) em [`examples/exemplos-logic/`](examples/exemplos-logic/); tutorial em [docs/LOGIC_TUTORIAL.md](docs/LOGIC_TUTORIAL.md); desenho e decisões em [docs/LOGIC_MODE_DESIGN.md](docs/LOGIC_MODE_DESIGN.md).
 
 ### Modo Agents (time de IA e harness)
 
-O modo **Agents** desenha um time de agentes de IA: subagentes (`agent`), skills (do catálogo ou escritas no app) e as setas `uses-skill` e `delegates`. Skills no grupo **Global** valem para todos os agentes.
+O modo **Agents** desenha um time de agentes de IA: subagentes (`agent`), skills (do catálogo `npx skills` ou escritas no app), tools (nativas como `Read`/`Bash` ou servidores MCP, do catálogo curado ou do registro oficial), prompts, workflows, pontos de entrada (`entrypoint`), arquivos de referência (`file`: JSON, CSV, Excel, Markdown, HTML, imagem) e saídas (`output`). As setas dizem como cada peça se liga: `delegates`, `uses-skill`, `uses-tool`, `uses-file`, `produces`, `runs-on`, `step` e `start`. Skills e tools no grupo **Global** valem para todos os agentes. A validação `A001–A030` aponta o que falta.
+
+- **Executar no canvas:** o `entrypoint` dispara o workflow no estilo do n8n: cada passo roda com `claude -p` no terminal, o canvas acende o prompt, o agente e as skills do passo, e `{{entrada}}` / `{{saida_anterior}}` passam dados entre passos. Cada passo pode exigir os arquivos que deve gerar (`expects`, com glob simples) e falha se não gerar. O histórico fica em `.archflow/runs/`, com cópia dos arquivos gerados para retomar uma execução antiga.
+- **Importar o harness:** um `.claude/` existente volta para o diagrama (aba *Harness* → *Importar do projeto*, ou `import_harness` pelo MCP).
 
 - **Exportar o harness:** o botão ⬇ ao lado da validação (ou a aba *Harness* da modal) gera `agents/*.md` e `skills/<nome>/SKILL.md` para **Claude Code** (`.claude/`) ou **Cursor** (`.cursor/`). Com um projeto aberto, os arquivos são gravados **dentro da pasta do projeto** — é onde as duas ferramentas procuram. No modo navegador (sem servidor local), vem um `.zip` com a mesma árvore para descompactar na raiz do seu repositório.
 - **Pelo MCP:** `generate_code { target: "claude" | "cursor" }` devolve os arquivos, e `generate_code { write: true }` grava direto no projeto aberto.
@@ -323,9 +352,10 @@ Detalhes de projeto, regras e decisões do modo Domain: [docs/DOMAIN_MODE.md](do
 
 ## Recursos
 
-- **Biblioteca** com ~155 tecnologias (AWS, Google, Azure/IBM, Anthropic, OpenAI, modelos de IA (Claude Opus/Sonnet/Haiku, GPT, Gemini, Llama…), PHP/Laravel, Swagger, MySQL/MariaDB/Postgres/Mongo, mensageria, DevOps…), cada uma com *o problema que resolve*; cadastre as suas (ícone, cor, descrição).
+- **Quatro modos** (Arch, Domain, Logic e Agents), cada um com paleta, regras de validação e geração própria.
+- **Biblioteca** com mais de 200 tecnologias (AWS, Google, Azure/IBM, Anthropic, OpenAI, modelos de IA (Claude Opus/Sonnet/Haiku, GPT, Gemini, Llama…), PHP/Laravel, Swagger, MySQL/MariaDB/Postgres/Mongo, mensageria, DevOps…), cada uma com *o problema que resolve*; cadastre as suas (ícone, cor, descrição).
 - **Conexões**: síncrona, assíncrona, streaming, dados + UML (dependência, herança, implementação, composição, agregação, associação), animadas; traçado curva/ortogonal/reta; **interface** (operações, métodos, payloads, contrato OpenAPI/AsyncAPI).
-- **Grupos** aninháveis (cloud, rede, camada, bounded context…), auto-layout, undo/redo, exportação JSON/SVG/PNG, **Visão LLM** (Markdown/Mermaid/JSON).
+- **Grupos** aninháveis (cloud, rede, camada, bounded context…), auto-layout, undo/redo, exportação JSON/SVG/PNG, **Visão LLM** (Markdown/Mermaid/JSON), **apresentação** com roteiro e **gravação de tela** com voz.
 - Tema **claro, escuro ou automático** (botão na barra superior ou `T`; a escolha fica salva).
 
 ## Atalhos de teclado
@@ -350,10 +380,13 @@ Detalhes de projeto, regras e decisões do modo Domain: [docs/DOMAIN_MODE.md](do
 src/shared   schema, catálogo, operações semânticas, layout, describe()  (usado por UI, bridge e MCP)
 src/ui       canvas SVG, painéis, modais, store, sincronização
 server       bridge HTTP/SSE e servidor MCP
+src/landing  landing page (/), com os vídeos de public/landing
 electron     casca desktop (Electron) que embute o bridge
 build        ícones do app (icon.ico / icon.png)
 scripts      build-icons.ts (extrai ícones do Iconify logos/simple-icons) · build-app-icon.ts (ícone do app)
 docs         documentação técnica e screenshots usados neste README
+docs/promo   gravador dos vídeos da landing (record-landing.mjs) e o vídeo do modo Logic
+examples     exemplos de DDD, lógica e algoritmos (também instaláveis pelo explorador)
 ```
 
 ## Contribuindo e segurança
