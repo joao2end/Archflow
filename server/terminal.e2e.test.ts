@@ -216,7 +216,7 @@ test("passo automático: claude (falso) recebe os argumentos e o código de saí
   const bin = join(tmp, "fakebin");
   mk(bin, { recursive: true });
   // o passo automático roda com --output-format stream-json --verbose e manda o texto pelo stdin (withStreamFlags)
-  wf(join(bin, "claude"), '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9"; exit 0; fi\nt=$(cat)\necho "ARGS:$#:$1:$2:$4:$5:$t"\ncase "$t" in *FALHA*) exit 3;; esac\nexit 0\n');
+  wf(join(bin, "claude"), '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9"; exit 0; fi\nt=$(timeout 3 cat)\necho "ARGS:$#:$1:$2:$4:$5:$t"\ncase "$t" in *FALHA*) exit 3;; esac\nexit 0\n');
   chmodSync(join(bin, "claude"), 0o755);
   const oldPath = process.env.PATH;
   process.env.PATH = `${bin}:${oldPath}`;
