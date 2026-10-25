@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Canvas } from "./ui/Canvas";
+import { IsoGate } from "./ui/iso";
 import { Modals } from "./ui/modals";
 import { FilesPanel } from "./ui/files";
 import { Dock, Inspector, Library, Toast, TopBar, ZoomBar } from "./ui/panels";
@@ -28,6 +29,7 @@ export default function App() {
     <>
       <div className="backdrop" aria-hidden />
       <Canvas />
+      <IsoGate />
       {present ? (
         <PresentMode />
       ) : (

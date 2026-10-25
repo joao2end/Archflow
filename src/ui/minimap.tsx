@@ -80,9 +80,13 @@ export function Minimap() {
         onPointerUp={() => (dragging.current = false)}
         onPointerCancel={() => (dragging.current = false)}
       >
-        {doc.groups.map((g) => (
-          <rect key={g.id} x={g.x * k + ox} y={g.y * k + oy} width={g.w * k} height={g.h * k} rx={2} className="mm-group" />
-        ))}
+        {doc.groups.map((g) =>
+          g.ring ? (
+            g.ring.frame ? null : <circle key={g.id} cx={(g.x + g.w / 2) * k + ox} cy={(g.y + g.h / 2) * k + oy} r={(Math.min(g.w, g.h) / 2) * k} className="mm-group" />
+          ) : (
+            <rect key={g.id} x={g.x * k + ox} y={g.y * k + oy} width={g.w * k} height={g.h * k} rx={2} className="mm-group" />
+          ),
+        )}
         {doc.nodes.map((n) => (
           <rect key={n.id} x={n.x * k + ox} y={n.y * k + oy} width={Math.max(flagged.has(n.id) ? 4 : 2, n.w * k)} height={Math.max(flagged.has(n.id) ? 4 : 2, n.h * k)} rx={1} className={`mm-node${flagged.get(n.id) === "erro" ? " err" : flagged.get(n.id) === "aviso" ? " warn" : ""}`} />
         ))}

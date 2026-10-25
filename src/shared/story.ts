@@ -59,6 +59,7 @@ const WHY: Record<string, string> = {
   "domain-event": "Registra o fato já consumado, no passado. Quem reage a ele não precisa ser conhecido por quem o produziu, o que mantém os contextos desacoplados.",
   policy: "Automatiza a regra \"quando isto acontece, faça aquilo\" sem ninguém precisar lembrar. Vive fora do aggregate para que ele não dependa de outros processos.",
   "process-manager": "Coordena um fluxo longo que passa por vários passos ou contextos e sabe compensar (desfazer) o que já foi feito se algo falhar.",
+  controller: "É a porta de entrada: recebe o pedido de fora (tela, API, mensagem), traduz a entrada e aciona o caso de uso. Fica em Interface Adapters para que a regra de negócio não dependa de como o pedido chegou.",
   "read-model": "Projeção pensada para consulta. Separa a leitura da escrita, para que telas e relatórios sejam rápidos sem pesar no modelo que garante as regras.",
 };
 

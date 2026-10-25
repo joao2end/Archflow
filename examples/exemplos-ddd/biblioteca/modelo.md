@@ -26,7 +26,10 @@ _exemplos-ddd/biblioteca/visao-geral.archflow.json_
 
 ## Avisos
 - [D011 dica] contexto `acervo` (Acervo) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/biblioteca/acervo.archflow.json`
+- [D035 dica] `cadastrar-livro` (Cadastrar livro) depende de `livro-repo` (Repositório de livros) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioLivros") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/biblioteca/acervo.archflow.json`
+- [D035 dica] `marcar-emprestado` (Marcar exemplar emprestado) depende de `exemplar-repo` (Repositório de exemplares) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioExemplares") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/biblioteca/acervo.archflow.json`
 - [D011 dica] contexto `emprestimos` (Empréstimos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/biblioteca/emprestimos.archflow.json`
+- [D035 dica] `servico-de-emprestimo` (Serviço de empréstimo) depende de `leitor-repo` (Repositório de leitores) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioLeitores") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/biblioteca/emprestimos.archflow.json`
 
 ---
 
@@ -105,6 +108,7 @@ O Leitor é o aggregate porque as regras acima precisam ser garantidas juntas, n
 
 ## Avisos
 - [D011 dica] contexto `emprestimos` (Empréstimos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `servico-de-emprestimo` (Serviço de empréstimo) depende de `leitor-repo` (Repositório de leitores) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioLeitores") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -206,6 +210,8 @@ Um exemplar muda de estado por conta própria; por isso é um aggregate separado
 
 ## Avisos
 - [D011 dica] contexto `acervo` (Acervo) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `cadastrar-livro` (Cadastrar livro) depende de `livro-repo` (Repositório de livros) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioLivros") para o diagrama mostrar a interface que a camada de dentro define
+- [D035 dica] `marcar-emprestado` (Marcar exemplar emprestado) depende de `exemplar-repo` (Repositório de exemplares) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioExemplares") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid

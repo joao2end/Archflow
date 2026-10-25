@@ -18,6 +18,7 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `use-case` | CLARO | dica + D001 + quem realiza (20) + `actor` (17) |
 | `read-model` | CLARO | dica + D019 + `projectsFrom` (12) |
 | `process-manager` | CLARO | dica + D018 + `reactsTo` igual à policy (19) + `compensates` (21) |
+| `controller` | CLARO | dica (porta de entrada, sem regra); setor Controllers em Interface Adapters; `triggers` → command, `uses` → application-service/read-model |
 
 ## Papéis Logic (`logic.role`)
 

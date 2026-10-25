@@ -222,6 +222,13 @@ export function useHotkeys() {
       if (getState().modal && e.key !== "Escape") return; // com um modal aberto, os atalhos do quadro ficam suspensos
       const mod = e.ctrlKey || e.metaKey;
       const s = getState();
+      // na visão 3D valem só desfazer/refazer e apagar; o resto das teclas é da própria visão (iso.tsx)
+      if (s.iso && document.documentElement.classList.contains("iso-mode")) {
+        if (mod && e.key.toLowerCase() === "z") (e.preventDefault(), e.shiftKey ? redo() : undo());
+        else if (mod && e.key.toLowerCase() === "y") (e.preventDefault(), redo());
+        else if (e.key === "Delete" || e.key === "Backspace") (e.preventDefault(), deleteSelection());
+        return;
+      }
       if (e.code === "Space") {
         // Espaço em botão, summary, radio… é do próprio controle (ativar); só o quadro usa o Espaço para mover a tela
         if (e.target instanceof HTMLElement && e.target.closest("button, summary, a[href], select, [role=button], [role=radio], [role=checkbox], [role=tab], [role=menuitem]")) return;

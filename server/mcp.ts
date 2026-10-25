@@ -385,6 +385,13 @@ server.registerTool(
             })
             .optional(),
           agent: agentConnSchema.optional(),
+          port: z
+            .object({
+              name: z.string().describe('nome da interface, ex.: "RepositorioDePedidos"'),
+              operations: z.array(z.string()).optional().describe('operações, ex.: ["salvar(pedido)", "buscarPorId(id)"]'),
+            })
+            .optional()
+            .describe("modo domain: porta (inversão de dependência). A origem depende de uma interface da própria camada; o destino, mais externo, a implementa. Com porta, depender de uma camada externa não fere a regra de camadas (D034)."),
           logic: z
             .object({
               branch: z.enum(["sim", "nao", "repete", "segue", "outros"]).optional().describe("modo logic: saída da decisão (sim/nao), do loop (repete/segue) ou da escolha (outros)"),
@@ -402,7 +409,7 @@ server.registerTool(
 server.registerTool(
   "update_element",
   {
-    description: "Altera campos de um elemento existente (label, description, technology, parent, type, interface, waypoints de conexão — [] ou null para resetar a curva...).",
+    description: "Altera campos de um elemento existente (label, description, technology, parent, type, interface, waypoints de conexão — [] ou null para resetar a curva, port de conexão no modo domain — null remove...).",
     inputSchema: { id: z.string(), patch: z.record(z.string(), z.any()) },
   },
   async ({ id, patch }) => report((await ops([{ op: "update", id, patch }])).results),
@@ -448,7 +455,7 @@ server.registerTool(
     description:
       "Reorganiza automaticamente (camadas por fluxo de conexões; grupos dimensionados). `spacing` define a distância mínima entre componentes: compact (44px) | comfortable (80px, padrão) | spacious (120px); entre camadas é o dobro. `minGap` (px) sobrescreve o preset. Se o diagrama parecer apertado, use spacious. `gapX`/`gapY` (px) definem o espaçamento horizontal e vertical separadamente (sobrescrevem spacing/minGap). `routing` define o traçado de TODOS os conectores: curve (curva, padrão) | elbow (ortogonal) | straight (reta); omitido, preserva o traçado de cada conexão.",
     inputSchema: {
-      style: z.enum(["flow", "timeline", "pipeline", "grouped"]).optional().describe("flow (padrão): camadas pelo fluxo das conexões. pipeline: só no modo logic (padrão nele): a fila de regras de cima para baixo, entradas à esquerda, resultados à direita, cenários no fim. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step. grouped: só no modo domain; \"agrupar por tipo\", um quadro por tipo de componente (atores, commands, aggregates, eventos…) em cada contexto, ligados por conectores ortogonais que desviam dos componentes"),
+      style: z.enum(["flow", "timeline", "pipeline", "grouped", "onion"]).optional().describe("flow (padrão fora dos modos domain e logic): camadas pelo fluxo das conexões. onion: só no modo domain (padrão nele); anéis concêntricos da Clean Architecture: Entities (aggregates, entities, value objects, domain services, eventos) no centro, Use Cases (casos de uso, commands, application services, policies, sagas), Interface Adapters (Gateways = repositories, Presenters = read models) e Frameworks & Drivers (atores, sistemas com ref, eventos externos, sistemas externos) por fora; cada bounded context tem a sua cebola e o que está fora dos contextos forma o anel externo. pipeline: só no modo logic (padrão nele): a fila de regras de cima para baixo, entradas à esquerda, resultados à direita, cenários no fim. timeline: só no modo domain; raias de Event Storming (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands em ordem de ddd.step. grouped: só no modo domain; \"agrupar por tipo\", um quadro por tipo de componente (atores, commands, aggregates, eventos…) em cada contexto, ligados por conectores ortogonais que desviam dos componentes"),
       direction: z.enum(["LR", "TB"]).optional(),
       spacing: z.enum(["compact", "comfortable", "spacious"]).optional(),
       minGap: z.number().min(16).max(400).optional(),

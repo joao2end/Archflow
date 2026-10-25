@@ -1,4 +1,6 @@
-import { createContext, memo, type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, memo, type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { RingAddMenu } from "./ringmenu";
+import { ONION_PREFIX, insideGroupShape, onionPicks, orbitLook, orbits, polar } from "../shared/onion";
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, docMode, isDataRole } from "../shared/schema";
@@ -56,7 +58,7 @@ const snapV = (v: number, on: boolean) => (on ? Math.round(v / 8) * 8 : v);
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
   | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string; under?: string; /** clique sem arrastar numa nota já selecionada → editar in-place */ editNote?: string }
-  | { kind: "marquee"; start: Pt; cur: Pt; additive: boolean; base: string[] }
+  | { kind: "marquee"; start: Pt; cur: Pt; additive: boolean; base: string[]; /** começou num anel do layout "camadas": clique sem arrastar abre o menu de adicionar */ ring?: string }
   | { kind: "resize"; id: string; start: Pt; orig: { w: number; h: number } }
   | { kind: "waypoint"; id: string; idx: number }
   | { kind: "label"; id: string }
@@ -146,6 +148,41 @@ const DomainShape = memo(function DomainShape({ n, selected, hot, hovered }: { n
         </text>
       )}
       {n.description && <circle cx={n.w - 14} cy={14} r={3} fill={role.color} opacity={0.8} pointerEvents="none" />}
+      {(hovered || selected) && <Handles id={n.id} w={n.w} h={n.h} />}
+    </g>
+  );
+});
+
+/**
+ * Elemento de domínio dentro dos anéis do layout "camadas": um círculo que orbita o centro, com o selo do papel em cima e o
+ * nome embaixo. Cabe no anel igual em qualquer ângulo (um cartão largo ocupava a largura inteira nas laterais).
+ */
+const OrbitShape = memo(function OrbitShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
+  const look = orbitLook(n);
+  const role = { label: look.role, hint: look.hint, color: look.color };
+  const badge = look.badge;
+  const cx = n.w / 2;
+  const cy = n.h / 2;
+  const r = Math.min(n.w, n.h) / 2;
+  const bw = Math.max(36, badge.length * 8 + 14);
+  const lines = wrapLabel(n.label, Math.max(6, Math.floor((r * 1.55) / 7.4)), 3);
+  const top = cy - ((lines.length - 1) * 15) / 2 + 12;
+  return (
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${role.label}: ${n.label}`} transform={`translate(${n.x},${n.y})`} className={`node domain orbit${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--rc" as string]: role.color }}>
+      <title>{`${n.label}\n${role.label} — ${role.hint}${n.description ? "\n" + n.description : ""}`}</title>
+      <circle className="node-body" cx={cx} cy={cy} r={r} filter="url(#shadow)" style={fillStyle(n)} />
+      <circle className="orbit-ring" cx={cx} cy={cy} r={r - 1.5} pointerEvents="none" />
+      <rect x={cx - bw / 2} y={top - 36} width={bw} height={19} rx={9.5} fill={role.color} pointerEvents="none" />
+      <text x={cx} y={top - 26} className="ep-badge" pointerEvents="none">
+        {badge}
+      </text>
+      <text className="node-label orbit-label" x={cx} y={top} textAnchor="middle" pointerEvents="none">
+        {lines.map((l, k) => (
+          <tspan key={k} x={cx} dy={k === 0 ? 0 : 15}>
+            {l}
+          </tspan>
+        ))}
+      </text>
       {(hovered || selected) && <Handles id={n.id} w={n.w} h={n.h} />}
     </g>
   );
@@ -530,7 +567,9 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, st
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
-  if (n.kind === "logic" && n.logic) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} visits={visits} liveValue={liveValue} row={row} />;
+  // papel de lógica desconhecido (arquivo de outra versão): cai no desenho genérico em vez de derrubar o quadro inteiro
+  if (n.kind === "logic" && n.logic && LOGIC_ROLES[n.logic.role]) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} visits={visits} liveValue={liveValue} row={row} />;
+  if (orbits(n) && n.parent?.startsWith(ONION_PREFIX)) return <OrbitShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}${runMark ? ` run-${runMark}` : ""}`}>
@@ -637,8 +676,79 @@ function StageCard({ g, selected, hovered, view }: { g: GroupEl; selected: boole
   );
 }
 
+/** Contorno de um anel do layout "camadas": disco, coroa circular ou setor da coroa, no círculo inscrito na caixa. */
+export function ringPath(w: number, h: number, inner: number, start?: number, end?: number) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const R = Math.min(w, h) / 2;
+  const f = (p: { x: number; y: number }) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+  if (start === undefined || end === undefined || end - start >= 359.9) {
+    const circle = (r: number, sweep: 0 | 1) => `M${cx} ${cy - r}A${r} ${r} 0 1 ${sweep} ${cx} ${cy + r}A${r} ${r} 0 1 ${sweep} ${cx} ${cy - r}Z`;
+    return circle(R, 1) + (inner > 0 ? circle(inner, 0) : "");
+  }
+  const large = end - start > 180 ? 1 : 0;
+  const outer = `M${f(polar(cx, cy, R, start))}A${R} ${R} 0 ${large} 1 ${f(polar(cx, cy, R, end))}`;
+  return inner > 0 ? `${outer}L${f(polar(cx, cy, inner, end))}A${inner} ${inner} 0 ${large} 0 ${f(polar(cx, cy, inner, start))}Z` : `${outer}L${cx} ${cy}Z`;
+}
+
+/** Anel (ou setor) do layout "camadas": preenchido, com o nome escrito ao longo do arco, como a figura da Clean Architecture. */
+function RingShape({ g, selected, hot, hovered, color }: { g: GroupEl; selected: boolean; hot: boolean; hovered: boolean; color: string }) {
+  const uid = useId().replace(/:/g, "");
+  const ring = g.ring!;
+  const cx = g.w / 2;
+  const cy = g.h / 2;
+  const R = Math.min(g.w, g.h) / 2;
+  const cls = `group onion ring${selected ? " sel" : ""}${hot ? " drop-target" : ""}`;
+  if (ring.frame)
+    return (
+      <g data-id={g.id} data-role="group" transform={`translate(${g.x},${g.y})`} className={cls} style={{ ["--gc" as string]: color }} pointerEvents="none">
+        <title>{g.label}</title>
+      </g>
+    );
+  const full = ring.start === undefined || ring.end === undefined;
+  const start = ring.start ?? -180;
+  const end = ring.end ?? 180;
+  const mid = (start + end) / 2;
+  // nome na faixa externa do anel; na metade de baixo o arco é percorrido ao contrário para o texto não ficar de ponta-cabeça
+  const below = !full && Math.cos((mid * Math.PI) / 180) < 0;
+  const half = Math.min((end - start) / 2 - 2, 80);
+  const lr = below ? R - 10 : R - 21;
+  const a = polar(cx, cy, lr, below ? mid + half : mid - half);
+  const b = polar(cx, cy, lr, below ? mid - half : mid + half);
+  const arc = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}A${lr} ${lr} 0 0 ${below ? 0 : 1} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  return (
+    <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Camada ${g.label}`} transform={`translate(${g.x},${g.y})`} className={cls} style={{ ["--gc" as string]: color }}>
+      <title>{g.tag ? `${g.label} · ${g.tag}` : g.label}</title>
+      <path className="ring-body" d={ringPath(g.w, g.h, ring.inner, ring.start, ring.end)} fillRule="evenodd" />
+      {ring.orbits?.map((o) => {
+        // trilha da órbita em que os componentes giram (no setor, só o arco dele)
+        if (full) return <circle key={o} className="ring-orbit" cx={cx} cy={cy} r={o} pointerEvents="none" />;
+        const p = polar(cx, cy, o, start + 2);
+        const q = polar(cx, cy, o, end - 2);
+        return <path key={o} className="ring-orbit" d={`M${p.x.toFixed(1)} ${p.y.toFixed(1)}A${o} ${o} 0 ${end - start > 180 ? 1 : 0} 1 ${q.x.toFixed(1)} ${q.y.toFixed(1)}`} pointerEvents="none" />;
+      })}
+      {ring.inner === 0 && full ? (
+        <text className="ring-label" x={cx} y={cy - R + 34} textAnchor="middle" pointerEvents="none">
+          {g.label}
+        </text>
+      ) : (
+        <>
+          <path id={`rl-${uid}`} d={arc} fill="none" stroke="none" />
+          <text className="ring-label" pointerEvents="none">
+            <textPath href={`#rl-${uid}`} startOffset="50%" textAnchor="middle">
+              {g.label}
+            </textPath>
+          </text>
+        </>
+      )}
+      {(hovered || selected) && <Handles id={g.id} w={g.w} h={g.h} />}
+    </g>
+  );
+}
+
 export const GroupShape = memo(function GroupShape({ g, selected, hot, hovered, stage }: { g: GroupEl; selected: boolean; hot: boolean; hovered: boolean; stage?: StageView }) {
   if (g.stage?.collapsed && stage) return <StageCard g={g} selected={selected} hovered={hovered} view={stage} />;
+  if (g.ring) return <RingShape g={g} selected={selected} hot={hot} hovered={hovered} color={g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3"} />;
   const color = g.stage ? STAGE_COLOR : g.color ?? GROUP_COLORS[g.kind] ?? "#706fd3";
   return (
     <g data-id={g.id} data-role="group" role="button" aria-pressed={selected} aria-label={`Grupo ${g.label}`} transform={`translate(${g.x},${g.y})`} className={`group${g.stage ? " stage-frame" : ""}${stage?.viz ? ` logic-viz-${stage.viz}` : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--gc" as string]: color }}>
@@ -1204,10 +1314,30 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
             </animateMotion>
           </circle>
         ))}
+      {c.port && <PortMark c={c} d={d} color={color} />}
       {withLabel && <LabelPill c={c} mid={mid} />}
     </g>
   );
 });
+
+/**
+ * Porta da conexão (modo domain, inversão de dependência): o anel de interface da UML sobre o traçado, perto da origem
+ * (a interface é da camada dela); o nome e as operações aparecem no balão ao passar o mouse.
+ */
+function PortMark({ c, d, color }: { c: ConnectionEl; d: string; color: string }) {
+  const at = useMemo(() => {
+    const pts = samplePath(d);
+    return pts[Math.round((pts.length - 1) * 0.28)];
+  }, [d]);
+  if (!at || !c.port) return null;
+  return (
+    <g className="edge-port" transform={`translate(${at.x},${at.y})`} pointerEvents="visiblePainted">
+      <title>{[`Porta ${c.port.name}`, ...(c.port.operations ?? []), "(a origem depende desta interface; o destino a implementa)"].join("\n")}</title>
+      <circle r={7} fill="var(--node-fill)" stroke={color} strokeWidth={2.4} />
+      <circle r={2.4} fill={color} />
+    </g>
+  );
+}
 
 export const withWaypoints = (c: ConnectionEl, wps: Pt[]): ConnectionEl => {
   const { waypoints: _drop, ...rest } = c;
@@ -1555,6 +1685,8 @@ export function Canvas() {
   const [dragOver, setDragOver] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; conn: string; at: Pt; idx: number; onPoint: boolean } | null>(null);
   const [paneMenu, setPaneMenu] = useState<{ x: number; y: number; at: Pt } | null>(null);
+  /** clique numa área do layout "camadas": o que dá para adicionar ali */
+  const [ringMenu, setRingMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
@@ -1576,8 +1708,8 @@ export function Canvas() {
   }, [editingNoteId]);
 
   useEffect(() => {
-    if (!menu && !nodeMenu && !paneMenu) return;
-    const close = () => (setMenu(null), setNodeMenu(null), setPaneMenu(null));
+    if (!menu && !nodeMenu && !paneMenu && !ringMenu) return;
+    const close = () => (setMenu(null), setNodeMenu(null), setPaneMenu(null), setRingMenu(null));
     const esc = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("pointerdown", close);
     window.addEventListener("blur", close);
@@ -1587,7 +1719,7 @@ export function Canvas() {
       window.removeEventListener("blur", close);
       window.removeEventListener("keydown", esc);
     };
-  }, [menu, nodeMenu, paneMenu]);
+  }, [menu, nodeMenu, paneMenu, ringMenu]);
 
   const toWorld = useCallback((e: { clientX: number; clientY: number }): Pt => {
     const r = svgRef.current!.getBoundingClientRect();
@@ -1645,7 +1777,7 @@ export function Canvas() {
   };
 
   const groupAt = (p: Pt, d: Doc, exclude: Set<string>): GroupEl | undefined => {
-    const cands = d.groups.filter((g) => !exclude.has(g.id) && contains(g, p));
+    const cands = d.groups.filter((g) => !exclude.has(g.id) && !g.ring?.frame && (g.ring ? insideGroupShape(g, p) : contains(g, p)));
     return cands.sort((a, b) => a.w * a.h - b.w * b.h)[0];
   };
 
@@ -1774,6 +1906,13 @@ export function Canvas() {
       select([t.id]);
       beginTx();
       drag.current = { kind: "label", id: t.id };
+      return;
+    }
+    // anel do layout "camadas": não se arrasta (sairia do centro); arrastar seleciona por área e o clique abre o menu de adicionar
+    if (t?.role === "group" && t.id && s.doc.groups.find((g) => g.id === t.id)?.ring && !e.shiftKey) {
+      select([]);
+      drag.current = { kind: "marquee", start: p, cur: p, additive: false, base: [], ring: t.id };
+      force((n) => n + 1);
       return;
     }
     if (t && t.id && (t.role === "node" || t.role === "group" || t.role === "note" || t.role === "conn")) {
@@ -1976,6 +2115,10 @@ export function Canvas() {
         endTx();
         break;
       }
+      case "marquee":
+        if (d.ring && Math.hypot(p.x - d.start.x, p.y - d.start.y) * s.view.z < 5 && onionPicks(s.doc.groups.find((g) => g.id === d.ring)?.ring?.layer).length)
+          setRingMenu({ x: e.clientX, y: e.clientY, id: d.ring });
+        break;
       case "resize":
       case "waypoint":
       case "label":
@@ -2404,6 +2547,7 @@ export function Canvas() {
         </div>
       );
     })()}
+    {ringMenu && <RingAddMenu x={ringMenu.x} y={ringMenu.y} groupId={ringMenu.id} onClose={() => setRingMenu(null)} />}
     {paneMenu && (
       <div className="glass ctx-menu" style={{ left: paneMenu.x, top: paneMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
         <button role="menuitem" disabled={!hasClipboard()} onClick={() => (setPaneMenu(null), pasteClipboard(paneMenu.at))}>

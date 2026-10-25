@@ -23,7 +23,8 @@ import {
   type Subdomain,
 } from "../shared/schema";
 import { cleanProperties, mergeProperties, parseProperties, propertiesToJson } from "../shared/properties";
-import { composeDddLabel, dddLabelVia, reshapeDdd, suggestRels } from "../shared/domain";
+import { composeDddLabel, dddLabelVia, portName, reshapeDdd, suggestRels } from "../shared/domain";
+import { ONION_RINGS, onionSlot } from "../shared/onion";
 import { validateDetailed } from "../shared/ops";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
@@ -171,7 +172,7 @@ export function DomainFields({ node, patch }: { node: NodeEl; patch: Patch }) {
 
 /* ───────── propriedades (campos) do elemento ───────── */
 
-const PROP_TITLE: Partial<Record<DddRole, string>> = { command: "Parâmetros", "domain-event": "Campos do evento", "read-model": "Colunas" };
+const PROP_TITLE: Partial<Record<DddRole, string>> = { command: "Parâmetros", "domain-event": "Campos do evento", "read-model": "Colunas", controller: "Entrada (o que recebe)" };
 const TYPE_HINTS = ["texto", "inteiro", "número", "booleano", "data", "data e hora", "uuid", "email", "dinheiro", "lista"];
 const PASTE_HELP = [
   "Aceita:",
@@ -344,7 +345,62 @@ export function DddConnFields({ conn, patch }: { conn: ConnectionEl; patch: Patc
           {d.pattern && <div className="callout">{CONTEXT_PATTERNS[d.pattern].hint}</div>}
         </>
       )}
+      <PortFields conn={conn} patch={patch} />
     </>
+  );
+}
+
+const LAYER_ORDER = ["entities", "usecases", "adapters", "drivers"] as const;
+
+/**
+ * Porta da conexão (inversão de dependência): aparece quando a conexão sai para uma camada mais externa (é aí que a
+ * porta tem sentido) ou quando já tem uma. A interface é da camada da origem; o destino a implementa.
+ */
+function PortFields({ conn, patch }: { conn: ConnectionEl; patch: Patch }) {
+  const from = useStore((s) => s.doc.nodes.find((n) => n.id === conn.from));
+  const to = useStore((s) => s.doc.nodes.find((n) => n.id === conn.to));
+  if (!from || !to) return null;
+  const a = onionSlot(from).ring;
+  const b = onionSlot(to).ring;
+  const outward = LAYER_ORDER.indexOf(a) < LAYER_ORDER.indexOf(b);
+  const port = conn.port;
+  if (!outward && !port) return null;
+  return (
+    <div className="field port-fields">
+      <label className="field check-field">
+        <input type="checkbox" checked={!!port} onChange={(e) => patch({ port: e.target.checked ? { name: portName(to) } : null })} />
+        <span>Passa por uma porta (inversão de dependência)</span>
+      </label>
+      {port ? (
+        <>
+          <label className="field">
+            <span>Interface (porta)</span>
+            <TextField value={port.name} placeholder={portName(to)} onCommit={(v) => v.trim() && patch({ port: { ...port, name: v.trim() } })} />
+          </label>
+          <label className="field">
+            <span>Operações (uma por linha)</span>
+            <textarea
+              className="input"
+              rows={3}
+              defaultValue={(port.operations ?? []).join("\n")}
+              key={`${conn.id}-${(port.operations ?? []).join("|")}`}
+              placeholder={"salvar(pedido)\nbuscarPorId(id)"}
+              onBlur={(e) => {
+                const ops = e.target.value.split("\n").map((x) => x.trim()).filter(Boolean);
+                patch({ port: { name: port.name, ...(ops.length ? { operations: ops } : {}) } });
+              }}
+            />
+          </label>
+          <div className={`callout${outward ? "" : " warn"}`}>
+            {outward
+              ? `A interface ${port.name} pertence a ${ONION_RINGS[a].label}; ${to.label} (${ONION_RINGS[b].label}) a implementa. O código aponta para dentro: a regra de camadas é respeitada.`
+              : "Esta conexão não sai para uma camada mais externa: a porta não inverte nada aqui (dica D036)."}
+          </div>
+        </>
+      ) : (
+        <div className="callout">{`${from.label} (${ONION_RINGS[a].label}) depende de ${to.label} (${ONION_RINGS[b].label}), uma camada mais externa. Marque a porta para a dependência apontar para dentro: a interface fica em ${ONION_RINGS[a].label} e ${to.label} a implementa.`}</div>
+      )}
+    </div>
   );
 }
 

@@ -614,11 +614,11 @@
       "labelT": 0.33999999999999997
     },
     {
-      "id": "tradutor-do-gateway-to-gateway-de-pagame",
-      "from": "tradutor-do-gateway",
-      "to": "gateway-de-pagamento",
+      "id": "gateway-de-pagamento-to-tradutor-do-gate",
+      "from": "gateway-de-pagamento",
+      "to": "tradutor-do-gateway",
       "type": "association",
-      "label": "traduz",
+      "label": "retorno traduzido",
       "routing": "curve",
       "animated": true,
       "labelT": 0.5,

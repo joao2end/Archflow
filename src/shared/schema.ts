@@ -412,7 +412,8 @@ export type DddRole =
   | "application-service"
   | "use-case"
   | "read-model"
-  | "process-manager";
+  | "process-manager"
+  | "controller";
 
 /** Uma propriedade (campo) de entity, value object, aggregate, command, evento ou read model: explica a estrutura do modelo. */
 export interface PropertySpec {
@@ -432,14 +433,14 @@ export interface PropertySpec {
 /** Campos próprios de um papel, todos textuais/ids para uma LLM ler e escrever sem ambiguidade. */
 export interface DddNodeSpec {
   role: DddRole;
-  /** command, policy, domain-service, application-service: o que faz, em uma frase */
+  /** command, policy, domain-service, application-service, controller: o que faz, em uma frase */
   intent?: string;
   /** aggregate-root, entity, value-object, command: regras que sempre valem */
   invariants?: string[];
   /** domain-event: dados que o evento carrega */
   /** domain-event (legado): resumo em texto livre dos dados; só vale quando não há `properties` (se houver, `properties` vence) */
   payload?: string;
-  /** aggregate-root, entity, value-object, command, domain-event, read-model: campos (nome, tipo, descrição) que explicam a estrutura */
+  /** aggregate-root, entity, value-object, command, domain-event, read-model, controller (a entrada que recebe): campos (nome, tipo, descrição) que explicam a estrutura */
   properties?: PropertySpec[];
   /** domain-event: id do command, aggregate-root ou process-manager que o produz */
   producedBy?: string;
@@ -474,10 +475,11 @@ export const DDD_ROLES: Record<DddRole, { label: string; hint: string; color: st
   command: { label: "Command", hint: "Intenção de mudar o estado, nomeada no imperativo (ex.: criar-pedido).", color: "#3b9ddd", fields: ["intent", "properties", "invariants", "step"] },
   policy: { label: "Policy", hint: "Regra sem estado: quando um evento acontece, dispara um command.", color: "#9b6bd6", fields: ["intent", "reactsTo", "issues"] },
   repository: { label: "Repository", hint: "Coleção persistente de um aggregate-root; a interface fica no domínio.", color: "#2f9e8f", fields: ["for"] },
-  "domain-service": { label: "Domain Service", hint: "Regra de negócio que não cabe em um aggregate; pura, sem I/O: recebe os dados prontos de quem o chama (command ou application-service) e não busca em repository (ligar a um repository é aceito, mas gera a dica D033).", color: "#5b8def", fields: ["intent"] },
+  "domain-service": { label: "Domain Service", hint: "Regra de negócio que não cabe em um aggregate; pura, sem I/O: recebe os dados prontos de quem o chama (command ou application-service) e não busca em repository (ligá-lo a um repository fere a regra de camadas, D034: o domínio não depende de nada de fora).", color: "#5b8def", fields: ["intent"] },
   "application-service": { label: "Application Service", hint: "Orquestra um caso de uso (carrega, chama o domínio, persiste e entrega ao publicador os eventos que o domínio produziu); sem regra de negócio e sem emitir eventos.", color: "#6c7a89", fields: ["intent"] },
   "use-case": { label: "Use Case", hint: "Objetivo de um ator com o sistema; liga o requisito ao command que o realiza.", color: "#4caf7d", fields: ["actor", "goal", "realizedBy"] },
   "read-model": { label: "Read Model", hint: "Projeção otimizada para consulta (CQRS), alimentada por eventos.", color: "#7fb3d5", fields: ["properties", "projectsFrom"] },
+  controller: { label: "Controller", hint: "Porta de entrada da aplicação (Interface Adapters): recebe o pedido de fora (tela, HTTP, CLI, mensagem), converte a entrada e aciona o caso de uso — despacha o command ou chama o application-service; para leituras, consulta o read model. Sem regra de negócio.", color: "#e86f9e", fields: ["intent", "properties"] },
   "process-manager": { label: "Process Manager", hint: "Saga: coordena um fluxo longo reagindo a eventos e disparando commands, com compensação.", color: "#c2548b", fields: ["intent", "reactsTo", "issues", "compensates"] },
 };
 export const DDD_ROLE_KEYS = Object.keys(DDD_ROLES) as DddRole[];
@@ -495,6 +497,7 @@ export const DDD_BADGES: Record<DddRole, string> = {
   "use-case": "UC",
   "read-model": "READ",
   "process-manager": "SAGA",
+  controller: "CTRL",
 };
 
 /* ───────── modo lógica (regras de negócio) ───────── */
@@ -658,11 +661,11 @@ export const SUBDOMAINS: Record<Subdomain, string> = {
 export type DddRel = "emits" | "triggers" | "contains" | "references-by-id" | "realizes" | "uses" | "context-relation";
 export const DDD_RELS: Record<DddRel, { label: string; semantics: string; type: ConnectionType }> = {
   emits: { label: "emits", semantics: "command, aggregate-root ou process-manager → domain-event: produz o fato.", type: "async" },
-  triggers: { label: "triggers", semantics: "causa: domain-event → policy/process-manager/read-model, policy → command, command → aggregate-root.", type: "dependency" },
+  triggers: { label: "triggers", semantics: "causa: domain-event → policy/process-manager/read-model, policy → command, command → aggregate-root, controller → command (o controller despacha o command).", type: "dependency" },
   contains: { label: "contains", semantics: "aggregate-root/entity → entity/value-object: parte do mesmo aggregate (ciclo de vida compartilhado).", type: "composition" },
   "references-by-id": { label: "references-by-id", semantics: "aggregate-root/entity → aggregate-root de OUTRO aggregate: referência só por identificador, nunca por objeto.", type: "association" },
   realizes: { label: "realizes", semantics: "command (ou serviço) → use-case: quem concretiza o caso de uso.", type: "realization" },
-  uses: { label: "uses", semantics: "dependência de serviço: command, policy, process-manager ou application-service → domain-service ou repository (quem orquestra usa; o aggregate nunca depende de repository). Um domain-service pode usar outro domain-service; usar um repository é aceito, mas ele deveria ser puro (dica D033).", type: "dependency" },
+  uses: { label: "uses", semantics: "dependência de serviço: command, policy, process-manager ou application-service → domain-service ou repository (quem orquestra usa; o aggregate nunca depende de repository). Um controller usa o application-service (orquestração) ou o read-model (consultas). Um domain-service pode usar outro domain-service; usar um repository fere a regra de camadas (D034: o domínio não depende de nada de fora) — ele deveria ser puro (dica D033).", type: "dependency" },
   "context-relation": { label: "context-relation", semantics: "bounded context ↔ bounded context, com `pattern` do Context Map. Nos padrões assimétricos (customer-supplier, conformist, acl, ohs) `from` é o upstream (fornecedor) e `to` o downstream (cliente). Nos demais (shared-kernel, partnership, published-language, separate-ways) a ordem não muda o sentido.", type: "association" },
 };
 export const DDD_REL_KEYS = Object.keys(DDD_RELS) as DddRel[];
@@ -679,11 +682,15 @@ export const DDD_REL_PAIRS: Record<DddRel, { from: RelEnd[]; to: RelEnd[] }[]> =
     { from: ["command"], to: ["aggregate-root"] },
     { from: ["domain-event"], to: ["policy", "process-manager", "read-model"] },
     { from: ["policy", "process-manager"], to: ["command"] },
+    { from: ["controller"], to: ["command"] },
   ],
   contains: [{ from: ["aggregate-root", "entity"], to: ["entity", "value-object"] }],
   "references-by-id": [{ from: ["aggregate-root", "entity"], to: ["aggregate-root"] }],
   realizes: [{ from: ["command", "domain-service", "application-service"], to: ["use-case"] }],
-  uses: [{ from: ["command", "policy", "process-manager", "application-service", "domain-service"], to: ["domain-service", "repository"] }],
+  uses: [
+    { from: ["command", "policy", "process-manager", "application-service", "domain-service"], to: ["domain-service", "repository"] },
+    { from: ["controller"], to: ["application-service", "read-model"] },
+  ],
   "context-relation": [{ from: ["context"], to: ["context"] }],
 };
 /** Tipos de conexão de infraestrutura: não existem no modo domain (o tipo vem da relação de domínio). */
@@ -875,6 +882,20 @@ export interface NodeEl extends Base, Box {
   agent?: AgentNodeSpec;
 }
 
+/** Anel do layout "camadas": raio interno (0 = disco) e, num setor, os ângulos em graus (0 = topo, sentido horário). */
+export interface GroupRing {
+  inner: number;
+  /** camada da Clean Architecture e, nos setores, o lado: dizem o que se adiciona ao clicar na área */
+  layer?: "entities" | "usecases" | "adapters" | "drivers";
+  side?: "top" | "left" | "right" | "bottom";
+  start?: number;
+  end?: number;
+  /** só agrupa os setores: o anel em si não é desenhado */
+  frame?: boolean;
+  /** raios das órbitas (a partir do centro) em que os componentes giram; o canvas desenha a trilha */
+  orbits?: number[];
+}
+
 export interface GroupEl extends Base, Box {
   kind: GroupKind;
   parent?: string;
@@ -885,6 +906,8 @@ export interface GroupEl extends Base, Box {
   subdomain?: Subdomain;
   /** legenda curta no topo do grupo, no lugar do tipo (ex.: DADOS) */
   tag?: string;
+  /** layout "camadas" do modo domain: o grupo é desenhado como o anel (ou setor) do círculo inscrito na caixa */
+  ring?: GroupRing;
   /** modo logic: o grupo é uma etapa do fluxo (os passos com `parent` nele), que pode ser recolhida num cartão-resumo */
   stage?: LogicStageSpec;
 }
@@ -944,6 +967,17 @@ export interface NoteEl {
 
 export type Routing = "curve" | "straight" | "elbow";
 
+/**
+ * Porta (inversão de dependência), modo domain: a origem da conexão depende de uma interface que pertence à camada
+ * dela (`name`, ex.: "RepositorioDePedidos"), e o destino, numa camada mais externa, a implementa. Com porta, depender de
+ * fora não fere a regra de camadas (D034): o código aponta para dentro, só a chamada vai para fora.
+ */
+export interface PortSpec {
+  name: string;
+  /** operações da interface, ex.: ["salvar(pedido)", "buscarPorId(id)"] */
+  operations?: string[];
+}
+
 export interface ConnectionEl {
   id: string;
   from: string;
@@ -964,6 +998,8 @@ export interface ConnectionEl {
   animated?: boolean;
   /** semântica de domínio (modo domain): relação DDD e, entre contextos, o padrão do Context Map */
   ddd?: DddConnSpec;
+  /** modo domain: a dependência passa por uma porta (interface da camada da origem, implementada pelo destino) */
+  port?: PortSpec;
   /** semântica de fluxo (modo logic): por qual saída da decisão, escolha ou laço a seta sai */
   logic?: LogicConnSpec;
   /** semântica do modo agents: uses-skill ou delegates */

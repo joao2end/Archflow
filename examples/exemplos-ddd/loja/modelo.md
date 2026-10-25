@@ -29,8 +29,11 @@ _exemplos-ddd/loja/visao-geral.archflow.json_
 
 ## Avisos
 - [D011 dica] contexto `estoque` (Estoque) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/loja/estoque.archflow.json`
+- [D035 dica] `reservar-estoque` (Reservar estoque) depende de `item-de-estoque-repo` (Repositório de estoque) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioEstoque") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/loja/estoque.archflow.json`
 - [D011 dica] contexto `pagamentos` (Pagamentos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/loja/pagamentos.archflow.json`
 - [D030 dica] `ha-tentativas` (Há tentativas?) → `cobrar` (Cobrar) está marcada como loop, mas o diagrama não mostra o caminho de volta (de cobrar até ha-tentativas); se o retorno passa por um sistema externo está certo, senão revise a conexão — `exemplos-ddd/loja/pagamentos.archflow.json`
+- [D035 dica] `cobrar` (Cobrar) depende de `pagamento-repo` (Repositório de pagamentos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPagamentos") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/loja/pagamentos.archflow.json`
+- [D035 dica] `criar-pedido` (Criar pedido) depende de `pedido-repo` (Repositório de pedidos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPedidos") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/loja/pedidos.archflow.json`
 
 ---
 
@@ -95,6 +98,9 @@ _Diferencial competitivo do negócio; onde vale investir no melhor modelo._
 ### Application services
 - `consulta-de-pedidos` **Consulta de pedidos** — responde "como está meu pedido?" lendo a projeção
 
+### Controllers
+- `controller-de-pedidos` **Controller de pedidos** — recebe o pedido do app, valida o formato e despacha o command
+
 ### Read models
 - `pedidos-do-cliente` **Pedidos do cliente** projeta pedido-criado, pedido-confirmado, pedido-cancelado
 
@@ -111,6 +117,9 @@ _Diferencial competitivo do negócio; onde vale investir no melhor modelo._
 
 ## Diagramas referenciados
 - `pedidos-api` **Pedidos API** → `exemplos-ddd/loja/arquitetura.archflow.json` (componente `pedidos-api`)
+
+## Avisos
+- [D035 dica] `criar-pedido` (Criar pedido) depende de `pedido-repo` (Repositório de pedidos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPedidos") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -138,6 +147,7 @@ flowchart LR
     n_pedidos_do_cliente["Pedidos do cliente"]
     n_consulta_de_pedidos["Consulta de pedidos"]
     n_pedido_repo["Repositório de pedidos"]
+    n_controller_de_pedidos["Controller de pedidos"]
     n_pedidos_api[["↗ Pedidos API"]]
   end
   n_cliente ---|"executa"| n_fazer_pedido_uc
@@ -166,6 +176,8 @@ flowchart LR
   n_pedido_confirmado -.->|"triggers"| n_pedidos_do_cliente
   n_pedido_cancelado -.->|"triggers"| n_pedidos_do_cliente
   n_criar_pedido -.->|"uses"| n_pedido_repo
+  n_cliente ---|"envia o pedido"| n_controller_de_pedidos
+  n_controller_de_pedidos -.->|"triggers"| n_criar_pedido
   n_pedidos_api ---|"implementado por"| n_pedido
 ```
 
@@ -212,6 +224,7 @@ _Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira compra
 
 ## Avisos
 - [D011 dica] contexto `pagamentos` (Pagamentos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `cobrar` (Cobrar) depende de `pagamento-repo` (Repositório de pagamentos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPagamentos") para o diagrama mostrar a interface que a camada de dentro define
 - [D030 dica] `ha-tentativas` (Há tentativas?) → `cobrar` (Cobrar) está marcada como loop, mas o diagrama não mostra o caminho de volta (de cobrar até ha-tentativas); se o retorno passa por um sistema externo está certo, senão revise a conexão
 
 ## Mermaid
@@ -256,7 +269,7 @@ flowchart LR
   n_registrar_aprovacao -.->|"uses"| n_tradutor_do_gateway
   n_registrar_recusa -.->|"uses"| n_tradutor_do_gateway
   n_cobrar -.->|"uses"| n_pagamento_repo
-  n_tradutor_do_gateway ---|"traduz"| n_gateway_de_pagamento
+  n_gateway_de_pagamento ---|"retorno traduzido"| n_tradutor_do_gateway
 ```
 
 ---
@@ -299,6 +312,7 @@ Um aggregate por produto (SKU): reservar o pedido inteiro mexe em vários, e é 
 
 ## Avisos
 - [D011 dica] contexto `estoque` (Estoque) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `reservar-estoque` (Reservar estoque) depende de `item-de-estoque-repo` (Repositório de estoque) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioEstoque") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid

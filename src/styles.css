@@ -756,6 +756,13 @@ textarea.input {
 .callout b {
   color: var(--ink);
 }
+/* botões dentro do aviso («Trocar por…», «Criar entrada»): numa linha que quebra, sem colar no texto */
+.callout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
 .swatches {
   display: flex;
   gap: 7px;
@@ -4328,3 +4335,143 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .logic-play-panel .lp-story.error { color: #d6453d; }
 .logic-play-panel [hidden] { display: none !important; }
 .field.check { display: flex; flex-direction: row; align-items: center; gap: 8px; cursor: pointer; }
+
+/* layout "camadas" (Clean Architecture) do modo domain: círculos concêntricos preenchidos, como a figura clássica */
+.group.ring .ring-body {
+  fill: color-mix(in srgb, var(--gc) 30%, var(--group-tint));
+  stroke: color-mix(in srgb, var(--gc) 45%, var(--ink));
+  stroke-width: 2;
+}
+.group.ring .ring-label { font: 700 14px var(--sans); fill: var(--ink); letter-spacing: 0.02em; }
+.group.ring.sel .ring-body { stroke: var(--primary-600); stroke-width: 3; }
+.group.ring.drop-target .ring-body { stroke-dasharray: 8 6; stroke-width: 3; }
+:root[data-theme="dark"] .group.ring .ring-body { fill: color-mix(in srgb, var(--gc) 26%, var(--group-tint)); stroke: color-mix(in srgb, var(--gc) 70%, var(--ink)); }
+.node.orbit .orbit-ring { fill: none; stroke: var(--rc); stroke-width: 3; }
+.node.orbit .orbit-label { font-size: 12.5px; }
+.node.orbit.sel .orbit-ring { stroke: var(--primary-600); stroke-width: 3.5; }
+.group.ring .ring-orbit { fill: none; stroke: color-mix(in srgb, var(--gc) 55%, var(--ink)); stroke-width: 1.2; stroke-dasharray: 2 7; stroke-linecap: round; opacity: 0.55; }
+.ctx-menu-title { padding: 6px 10px 4px; font: 650 11px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+
+
+/* visão 3D (modo domain, layout "camadas"): cena three.js, tema claro e escuro (acompanha o app) */
+.iso-view { position: fixed; inset: 0; z-index: 10; --iso-ink: #1f2430; --iso-ink-2: #5d6474; --iso-halo: rgba(255, 255, 255, 0.85); background: radial-gradient(ellipse at 50% 40%, #f5f6f8 0%, #dde1e8 75%); }
+.iso-view.iso-dark { --iso-ink: #e6e9ef; --iso-ink-2: #9aa2b1; --iso-halo: rgba(0, 0, 0, 0.75); background: radial-gradient(ellipse at 50% 40%, #23262d 0%, #15171b 75%); }
+.iso3d-host { position: absolute; inset: 0; z-index: 0; cursor: grab; touch-action: none; } /* z-index: os rótulos (z-index por profundidade) não passam por cima dos painéis */
+.iso3d-host:active { cursor: grabbing; }
+.iso3d-canvas { display: block; }
+/* transições da visão 3D: a cortina (fundo da visão) cobre o 2D com fade; a cena e os painéis só aparecem prontos */
+.iso-view { animation: iso-in 220ms ease-out both; }
+/* a saída é outra animação (uma transição não venceria o preenchimento da animação de entrada) */
+.iso-view.iso-leave { animation: iso-out 200ms ease-in both; pointer-events: none; }
+.iso3d-host { opacity: 0; transition: opacity 450ms ease-out; }
+.iso-ready .iso3d-host { opacity: 1; }
+.iso-view .iso-side, .iso-view .iso-focus, .iso-view .iso-hint-btn { transition: opacity 300ms ease-out; }
+.iso-view:not(.iso-ready) :is(.iso-side, .iso-focus, .iso-hint, .iso-hint-btn) { opacity: 0; pointer-events: none; }
+@keyframes iso-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes iso-out { from { opacity: 1; } to { opacity: 0; } }
+/* indicador enquanto a cena é montada: o giro é só transform, continua animando mesmo com a página ocupada */
+.iso-loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 10px; font: 600 13px var(--sans); color: var(--iso-ink-2); animation: iso-in 300ms 120ms ease-out both; }
+.iso-spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--iso-ink-2) 30%, transparent); border-top-color: var(--iso-ink); animation: iso-spin 0.8s linear infinite; will-change: transform; }
+@keyframes iso-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .iso-view, .iso-loading { animation: none; }
+  .iso3d-host, .iso-view .iso-side { transition: none; }
+}
+.iso3d-labels { position: absolute; inset: 0; pointer-events: none; }
+.iso3d-label { font-family: var(--sans); pointer-events: none; white-space: nowrap; }
+/* tamanho pela proximidade (zoom da câmera, ver fitLabels) e arrumação sem sobreposição */
+.iso3d-label > span { display: inline-block; transform: scale(var(--iso-ls, 1)); transform-origin: center top; transition: opacity 160ms ease-out; }
+.iso3d-label.iso3d-hidden > span { opacity: 0; }
+/* nome que encostava em outro: segunda posição, acima do componente */
+.iso3d-label.iso3d-alt > span { translate: 0 -64px; }
+.iso3d-far .iso3d-name small { display: none; }
+/* rótulo de conexão: só com foco (componente apontado ou selecionado, ou isolado) */
+.iso3d-label[data-conn]:not([data-on="1"]):not([data-bad]) { display: none; }
+.iso3d-label.iso3d-dim > span { opacity: 0.14; }
+/* porta (inversão de dependência) sobre a ligação: o símbolo de interface da UML, sempre de frente; nome com foco */
+.iso3d-port { position: relative; width: 12px; height: 12px; pointer-events: none; transition: opacity 160ms ease-out; }
+.iso3d-port i { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, var(--c) 0 2.5px, var(--iso-halo) 3px); border: 2.5px solid var(--c); box-shadow: 0 0 0 1.5px var(--iso-halo), 0 1px 3px rgba(0, 0, 0, 0.35); }
+.iso3d-port b { display: none; position: absolute; left: 18px; top: 50%; transform: translateY(-50%); padding: 1px 7px; border-radius: 999px; background: var(--iso-halo); border: 1px dashed var(--c); font: 700 10.5px var(--sans); color: var(--iso-ink); white-space: nowrap; }
+.iso3d-port[data-on="1"] b { display: block; }
+.iso3d-top { transform: translateY(50%); }
+.iso3d-name { display: block; text-align: center; font: 700 12px/1.25 var(--sans); letter-spacing: 0.04em; color: var(--iso-ink); text-shadow: 0 0 3px var(--iso-halo), 0 0 6px var(--iso-halo); }
+.iso3d-name small { display: block; font: 600 10px var(--sans); letter-spacing: 0.06em; color: var(--iso-ink-2); }
+.iso3d-tier { padding: 3px 9px; border-radius: 999px; background: var(--iso-halo); font: 800 12px var(--sans); letter-spacing: 0.12em; color: color-mix(in srgb, var(--c) 45%, var(--iso-ink)); }
+.iso-dark .iso3d-tier { color: color-mix(in srgb, var(--c) 70%, var(--iso-ink)); }
+.iso3d-context { font: 800 14px var(--sans); letter-spacing: 0.1em; color: var(--c); text-shadow: 0 0 3px var(--iso-halo); }
+.iso3d-edge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--iso-halo); border: 1.5px solid var(--c); font: 700 11px var(--sans); color: var(--iso-ink); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
+/* dica de controles: centrada no espaço livre à direita do painel lateral (largura dele + margens) */
+.iso-hint { position: absolute; left: calc(50% + 152px); bottom: 84px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; max-width: min(640px, calc(100vw - 336px)); padding: 7px 14px; border-radius: 14px; font: 500 12px var(--sans); color: var(--ink-2); pointer-events: none; transition: opacity 240ms ease-out, transform 240ms ease-out; }
+.iso-hint.off { opacity: 0; transform: translate(-50%, 6px); }
+.iso-hint span { white-space: nowrap; }
+.iso-hint kbd { display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 4px; border: 1px solid color-mix(in srgb, var(--ink-2) 35%, transparent); font: 600 11px var(--sans); color: var(--ink); }
+.iso-hint kbd + kbd { margin-left: -2px; }
+.iso-hint-btn { position: absolute; right: 20px; bottom: 84px; width: 32px; height: 32px; border-radius: 50%; font: 700 14px var(--sans); color: var(--ink); cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .iso-hint { transition: none; } }
+
+/* painel lateral da visão 3D: busca, paleta de componentes (arrastar) e legenda das conexões */
+.iso-side { position: absolute; left: 16px; top: var(--iso-top, 84px); width: 272px; background: var(--glass-strong); max-height: calc(100vh - var(--iso-top, 84px) - 86px); overflow: auto; padding: 10px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; font: 500 12px var(--sans); color: var(--ink); }
+.iso-search { position: relative; }
+.iso-search .input { width: 100%; padding-right: 28px; }
+.iso-search kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 0 5px; border-radius: 4px; border: 1px solid var(--hairline); font: 600 11px var(--sans); color: var(--ink-3); pointer-events: none; }
+.iso-count { padding: 0 4px 4px; color: var(--ink-3); font-size: 11px; }
+.iso-results { display: flex; flex-direction: column; gap: 1px; }
+.iso-results button, .iso-legend button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.iso-results button:hover, .iso-legend button:hover { background: var(--primary-100); }
+.iso-results button.on { background: var(--primary-100); font-weight: 700; }
+.iso-results i, .iso-legend i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.iso-legend i { width: 18px; height: 4px; border-radius: 2px; }
+.iso-results span, .iso-legend span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iso-results small, .iso-legend small { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
+.iso-legend button.off { opacity: 0.45; }
+/* conexões que ferem a regra de camadas (D034): só informa, não filtra */
+.iso-legend-bad { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, #e5484d 12%, transparent); color: var(--ink); font-weight: 600; }
+.iso-legend-bad i { flex: none; width: 18px; height: 4px; border-radius: 2px; }
+.iso-legend-bad span { flex: 1; }
+.iso-legend-bad small { color: var(--ink-3); font-size: 11px; }
+.iso-legend button.off span { text-decoration: line-through; }
+.iso-sec { border-top: 1px solid var(--hairline); padding-top: 6px; }
+.iso-sec summary { cursor: pointer; padding: 2px 4px; font: 700 11px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.iso-tip { margin: 4px 4px 6px; color: var(--ink-3); font-size: 11px; line-height: 1.35; }
+.iso-pal { margin: 0 2px 12px; }
+.iso-pal-title { display: flex; align-items: center; gap: 6px; margin: 0 2px 6px; font: 700 11px var(--sans); letter-spacing: 0.02em; color: var(--ink-2); }
+.iso-pal-title::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+/* paleta: um cartão por tipo, com a miniatura do componente 3D (mesma forma e cores da cena) e o nome */
+.iso-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.iso-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 4px 3px 6px; border: 1px solid var(--hairline); border-radius: 10px; background: color-mix(in srgb, var(--c) 7%, transparent); color: var(--ink); font: 600 10.5px/1.2 var(--sans); text-align: center; cursor: grab; touch-action: none; user-select: none; transition: border-color 120ms ease-out, background 120ms ease-out, transform 120ms ease-out; }
+.iso-tile:hover { border-color: color-mix(in srgb, var(--c) 70%, transparent); background: color-mix(in srgb, var(--c) 16%, transparent); transform: translateY(-1px); }
+.iso-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.iso-tile.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, transparent); box-shadow: 0 0 0 1px var(--primary); }
+/* tipo selecionado na paleta: o aviso de onde clicar */
+.iso-armed { position: absolute; left: calc(50% + 152px); top: var(--iso-top, 84px); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 4px; border-radius: 14px; font: 500 12px var(--sans); color: var(--ink); white-space: nowrap; max-width: calc(100vw - 336px); }
+.iso-armed .iso-gear { width: 36px; height: 36px; }
+.iso-armed span { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 720px) { .iso-armed { left: 50%; max-width: calc(100vw - 32px); } }
+.iso-tile:active { cursor: grabbing; transform: none; }
+.iso-tile span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.iso-gear { display: block; width: 60px; height: 60px; flex: none; }
+@media (prefers-reduced-motion: reduce) { .iso-tile { transition: none; } .iso-tile:hover { transform: none; } }
+.iso-dragging, .iso-dragging * { cursor: grabbing !important; }
+.iso-ghost { position: fixed; z-index: 80; transform: translate(14px, 10px); display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 4px 12px 4px 4px; border-radius: 12px; border-left: 4px solid var(--rc); background: var(--modal-bg); box-shadow: var(--shadow); pointer-events: none; font: 700 12px var(--sans); color: var(--ink); opacity: 0.85; }
+.iso-ghost small { grid-column: 2; font: 500 11px var(--sans); color: var(--ink-3); }
+.iso-ghost .iso-gear { grid-row: span 2; width: 44px; height: 44px; }
+.iso-ghost.ok { opacity: 1; }
+.iso-ghost.ok small { color: var(--ink-2); }
+/* barra de foco do componente selecionado: isolar vizinhos e centralizar */
+.iso-focus { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; border-radius: 14px; font: 500 12px var(--sans); color: var(--ink); white-space: nowrap; max-width: calc(100vw - 32px); }
+.iso-focus-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; font-weight: 700; padding-left: 8px; border-left: 3px solid var(--rc); }
+.iso-focus-lbl { color: var(--ink-3); margin: 0 2px 0 4px; }
+.iso-focus-sep { width: 1px; height: 18px; background: var(--hairline); margin: 0 4px; }
+.iso-focus .btn { padding: 5px 9px; font-size: 12px; }
+.iso-focus .btn.active { background: var(--primary-100); color: var(--primary-600); font-weight: 700; }
+@media (max-width: 720px) {
+  .iso-side { width: calc(100vw - 32px); max-height: 40vh; }
+  .iso-hint { left: 50%; max-width: calc(100vw - 32px); }
+  .iso-focus-lbl, .iso-focus-name { display: none; }
+}
+/* modo 3D: some o cromo do 2D que não faz nada aqui (desenho, paleta, ferramentas, minimapa, zoom do 2D) */
+.iso-mode .dock, .iso-mode .draw-bar, .iso-mode .minimap, .iso-mode .library { display: none; }
+/* apresentação na visão 3D: sai a interface de edição (paleta, busca, legenda, dica) */
+.iso-presenting .iso-side, .iso-presenting .iso-hint { display: none; }
+.iso-mode .zoombar > :not(.iso-toggle):not(.iso-keep) { display: none; }
+.iso-mode .zoombar .iso-keep { display: none; }

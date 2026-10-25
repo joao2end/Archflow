@@ -57,7 +57,7 @@ import { harnessDiff, syncHarness, type HarnessSyncResult, readManifest } from "
 import { harnessToOps } from "../src/shared/agentimport";
 import { checkExpects, missingOutputs, type FsEntry } from "../src/shared/expects";
 import { getRun, listRuns, resumeFiles, RunStoreError, saveRun, snapshotStep } from "./runstore";
-import { applyOps, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
+import { applyOps, createDoc, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { normalizeLibrary } from "../src/shared/prompts";
 import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
@@ -372,11 +372,11 @@ function openFile(rel: string, source = "file") {
   sendWorkspace();
 }
 
-function createDiagram(title: string, folder = "", source = "file", mode: DocMode = "architecture"): string {
+function createDiagram(title: string, folder = "", source = "file", mode: DocMode = "architecture", blank = false): string {
   saveNow();
   segments(folder, true);
   const rel = uniqueFile(title, folder);
-  atomicWrite(diagramPath(rel), JSON.stringify(emptyDoc(title, mode), null, 2));
+  atomicWrite(diagramPath(rel), JSON.stringify(createDoc(title, mode, { blank }), null, 2));
   openFile(rel, source);
   return rel;
 }
@@ -1350,7 +1350,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     if (path === "/api/diagrams" && m === "POST") {
       const b = await body(req);
       if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic" && b.mode !== "agents") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic, agents`);
-      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture");
+      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture", b.blank === true);
       return ws(res, { name: rel });
     }
     if (path === "/api/diagrams/open" && m === "POST") {

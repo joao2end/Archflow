@@ -218,6 +218,7 @@ const lojaFiles = (): ExampleFile[] => {
         dn("pedidos", "pedidos-do-cliente", "Pedidos do cliente", { role: "read-model", projectsFrom: ["pedido-criado", "pedido-confirmado", "pedido-cancelado"] }),
         dn("pedidos", "consulta-de-pedidos", "Consulta de pedidos", { role: "application-service", intent: "responde \"como está meu pedido?\" lendo a projeção" }),
         dn("pedidos", "pedido-repo", "Repositório de pedidos", { role: "repository", for: "pedido" }),
+        dn("pedidos", "controller-de-pedidos", "Controller de pedidos", { role: "controller", intent: "recebe o pedido do app, valida o formato e despacha o command", properties: [{ name: "itens", type: "Item[]", description: "produto e quantidade escolhidos no carrinho" }, { name: "enderecoId", type: "uuid", description: "endereço salvo do cliente" }] }, "Porta de entrada (Interface Adapters): só traduz o pedido HTTP em command; a regra fica no aggregate."),
         { op: "add_node", id: "pedidos-api", label: "Pedidos API", kind: "system", parent: "pedidos", ref: { diagram: examplePath(ex, "arquitetura"), node: "pedidos-api" }, description: "Onde este contexto roda na arquitetura (ver o diagrama de arquitetura)." },
         runs("cliente", "fazer-pedido-uc"),
         runs("cliente", "cancelar-pedido-uc"),
@@ -238,6 +239,8 @@ const lojaFiles = (): ExampleFile[] => {
         rel("pedido-confirmado", "pedidos-do-cliente", "triggers"),
         rel("pedido-cancelado", "pedidos-do-cliente", "triggers"),
         rel("criar-pedido", "pedido-repo", "uses"),
+        { op: "add_connection", from: "cliente", to: "controller-de-pedidos", type: "association", label: "envia o pedido" },
+        rel("controller-de-pedidos", "criar-pedido", "triggers"),
         { op: "add_connection", from: "pedidos-api", to: "pedido", type: "association", label: "implementado por" },
       ],
     },
@@ -280,7 +283,8 @@ const lojaFiles = (): ExampleFile[] => {
         rel("registrar-aprovacao", "tradutor-do-gateway", "uses"),
         rel("registrar-recusa", "tradutor-do-gateway", "uses"),
         rel("cobrar", "pagamento-repo", "uses"),
-        { op: "add_connection", from: "tradutor-do-gateway", to: "gateway-de-pagamento", type: "association", label: "traduz" },
+        // o retorno do gateway entra pelo tradutor (de fora para dentro): o domínio não depende do sistema externo
+        { op: "add_connection", from: "gateway-de-pagamento", to: "tradutor-do-gateway", type: "association", label: "retorno traduzido" },
       ],
     },
     {
@@ -745,7 +749,8 @@ const deliveryFiles = (): ExampleFile[] => {
         rel("registrar-aprovacao", "tradutor-do-gateway", "uses"),
         rel("registrar-recusa", "tradutor-do-gateway", "uses"),
         rel("cobrar", "pagamento-repo", "uses"),
-        { op: "add_connection", from: "tradutor-do-gateway", to: "gateway-de-pagamento", type: "association", label: "traduz" },
+        // o retorno do gateway entra pelo tradutor (de fora para dentro): o domínio não depende do sistema externo
+        { op: "add_connection", from: "gateway-de-pagamento", to: "tradutor-do-gateway", type: "association", label: "retorno traduzido" },
       ],
     },
     {

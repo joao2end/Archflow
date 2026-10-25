@@ -47,12 +47,20 @@ _exemplos-ddd/delivery/visao-geral.archflow.json_
 
 ## Avisos
 - [D011 dica] contexto `cozinha` (Cozinha) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/delivery/cozinha.archflow.json`
+- [D035 dica] `iniciar-preparo` (Iniciar preparo) depende de `ticket-repo` (Repositório de tickets) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioTickets") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/cozinha.archflow.json`
 - [D011 dica] contexto `entrega` (Entrega) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/delivery/entrega.archflow.json`
+- [D035 dica] `alocar-entregador` (Alocar entregador) depende de `entrega-repo` (Repositório de entregas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioEntregas") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/entrega.archflow.json`
+- [D035 dica] `consulta-de-rastreamento` (Consulta de rastreamento) depende de `entregador-repo` (Repositório de entregadores) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioEntregadores") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/entrega.archflow.json`
 - [D011 dica] contexto `fidelidade` (Fidelidade) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/delivery/fidelidade.archflow.json`
+- [D035 dica] `acumular-pontos` (Acumular pontos) depende de `conta-repo` (Repositório de contas de pontos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioContasPontos") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/fidelidade.archflow.json`
 - [D011 dica] contexto `mapas` (Mapas) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/delivery/mapas.archflow.json`
+- [D035 dica] `calcular-rota` (Calcular rota) depende de `rota-repo` (Repositório de rotas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioRotas") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/mapas.archflow.json`
+- [D035 dica] `calcular-rota` (Calcular rota) depende de `provedor-de-mapas` (Provedor de mapas) por uma porta implícita: declare a porta na conexão (port, ex.: "GatewayProvedorMapas") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/mapas.archflow.json`
 - [D011 dica] contexto `pagamentos` (Pagamentos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/delivery/pagamentos.archflow.json`
 - [D030 dica] `ha-tentativas` (Há tentativas?) → `cobrar` (Cobrar) está marcada como loop, mas o diagrama não mostra o caminho de volta (de cobrar até ha-tentativas); se o retorno passa por um sistema externo está certo, senão revise a conexão — `exemplos-ddd/delivery/pagamentos.archflow.json`
+- [D035 dica] `cobrar` (Cobrar) depende de `pagamento-repo` (Repositório de pagamentos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPagamentos") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/pagamentos.archflow.json`
 - [D011 dica] contexto `pedidos` (Pedidos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/delivery/pedidos.archflow.json`
+- [D035 dica] `criar-pedido` (Criar pedido) depende de `pedido-repo` (Repositório de pedidos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPedidos") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/delivery/pedidos.archflow.json`
 
 ---
 
@@ -172,6 +180,7 @@ O aggregate protege as regras do pedido inteiro: itens, total e estado mudam jun
 
 ## Avisos
 - [D011 dica] contexto `pedidos` (Pedidos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `criar-pedido` (Criar pedido) depende de `pedido-repo` (Repositório de pedidos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPedidos") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -288,6 +297,7 @@ _Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira compra
 
 ## Avisos
 - [D011 dica] contexto `pagamentos` (Pagamentos) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `cobrar` (Cobrar) depende de `pagamento-repo` (Repositório de pagamentos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioPagamentos") para o diagrama mostrar a interface que a camada de dentro define
 - [D030 dica] `ha-tentativas` (Há tentativas?) → `cobrar` (Cobrar) está marcada como loop, mas o diagrama não mostra o caminho de volta (de cobrar até ha-tentativas); se o retorno passa por um sistema externo está certo, senão revise a conexão
 
 ## Mermaid
@@ -332,7 +342,7 @@ flowchart LR
   n_registrar_aprovacao -.->|"uses"| n_tradutor_do_gateway
   n_registrar_recusa -.->|"uses"| n_tradutor_do_gateway
   n_cobrar -.->|"uses"| n_pagamento_repo
-  n_tradutor_do_gateway ---|"traduz"| n_gateway_de_pagamento
+  n_gateway_de_pagamento ---|"retorno traduzido"| n_tradutor_do_gateway
 ```
 
 ---
@@ -385,6 +395,7 @@ _Diferencial competitivo do negócio; onde vale investir no melhor modelo._
 
 ## Avisos
 - [D011 dica] contexto `cozinha` (Cozinha) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `iniciar-preparo` (Iniciar preparo) depende de `ticket-repo` (Repositório de tickets) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioTickets") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -489,6 +500,8 @@ Outro aggregate, com ciclo de vida próprio: a Entrega só o conhece pelo id.
 
 ## Avisos
 - [D011 dica] contexto `entrega` (Entrega) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `alocar-entregador` (Alocar entregador) depende de `entrega-repo` (Repositório de entregas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioEntregas") para o diagrama mostrar a interface que a camada de dentro define
+- [D035 dica] `consulta-de-rastreamento` (Consulta de rastreamento) depende de `entregador-repo` (Repositório de entregadores) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioEntregadores") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -572,6 +585,8 @@ _Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira compra
 
 ## Avisos
 - [D011 dica] contexto `mapas` (Mapas) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `calcular-rota` (Calcular rota) depende de `rota-repo` (Repositório de rotas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioRotas") para o diagrama mostrar a interface que a camada de dentro define
+- [D035 dica] `calcular-rota` (Calcular rota) depende de `provedor-de-mapas` (Provedor de mapas) por uma porta implícita: declare a porta na conexão (port, ex.: "GatewayProvedorMapas") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -630,6 +645,7 @@ _Necessário ao negócio, mas sem diferencial; costuma ser feito sob medida e si
 
 ## Avisos
 - [D011 dica] contexto `fidelidade` (Fidelidade) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `acumular-pontos` (Acumular pontos) depende de `conta-repo` (Repositório de contas de pontos) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioContasPontos") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid

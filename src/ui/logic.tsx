@@ -7,7 +7,8 @@ import { FUNCTIONS, explainError, findFunctions, readsOf, checkExpr, evaluate, e
 import { jumpsFrom, loopTurns, nextVisit, playSteps, storyAt, turnHas, valuesAfter, whyOf } from "../shared/logicdebug";
 import { SOURCE_RE, hiddenBy, stageMembers, stageSummary } from "../shared/logicstages";
 import { COND_OPS, COND_OP_KEYS, autoQuote, firstProblem, fromText, toText, type Cond, type CondOp, type Group, type Item as CItem } from "../shared/conditions";
-import { FLOW_ROLES, branchLabel, caseLabel, checkExamples, dataNodes, dataTypeOf, nameProblems, outputOf, renameName, dataKey, dataNames, hasFlow, reshapeLogic, starterExample, usageOf, variableTimeline, visitedIds, type VarTrack } from "../shared/logic";
+import { FLOW_ROLES, branchLabel, caseLabel, checkExamples, dataNodes, dataTypeOf, outputOf, renameName, dataKey, dataNames, hasFlow, reshapeLogic, starterExample, usageOf, variableTimeline, visitedIds, type VarTrack } from "../shared/logic";
+import { declareDataOp, missingData, type MissingData } from "../shared/logicquick";
 import { TextField } from "./panels";
 import { PLAY_SPEEDS, getState, playGo, playLength, playToggle, run as runOps, select as selectNodes, set as setStore, setPlayMode, setPlaySpeed, startPlay, stopPlay, toast, toastError, toggleStage, useStore } from "./store";
 
@@ -487,40 +488,42 @@ function SourceField({ node, patch }: { node: NodeEl; patch: Patch }) {
 /** Nomes que o texto lê e que não existem no diagrama, com «Trocar por» o parecido (o erro de digitação mais comum: totl por total). */
 function NameWarnings({ src, kind, onFix }: { src: string; kind: "expr" | "statement"; onFix: (next: string) => void }) {
   const doc = useStore((s) => s.doc);
-  const found = useMemo(() => {
-    const reads = new Set<string>();
-    for (const line of kind === "statement" ? src.split(/\r?\n/) : [src]) {
-      const t = line.trim();
-      if (!t) continue;
-      try {
-        if (kind === "expr") readsOf(parseExpr(t), reads);
-        else {
-          const st = parseStatement(t);
-          if (st.t === "assign") readsOf(st.value, reads);
-        }
-      } catch {
-        return []; // erro de sintaxe: quem avisa é o outro aviso
-      }
-    }
-    return nameProblems(doc, reads);
-  }, [src, kind, doc]);
+  const found = useMemo(() => missingData(doc, src, kind), [src, kind, doc]);
   if (!found.length) return null;
+  // declarar o dado sem sair do passo: papel e tipo já vêm do texto (o escrito é Output; o só lido, Input)
+  const create = (m: MissingData, role: "input" | "output" | "variable") => {
+    const [r] = runOps([declareDataOp(getState().doc, { ...m, role })]);
+    if (r.ok) toast(`Dado «${m.name}» criado como ${LOGIC_ROLES[role].label}${m.type ? ` (${m.type})` : ""}`, true);
+    else toastError(`Não deu para criar «${m.name}»: ${r.error ?? "erro desconhecido"}`);
+  };
+  const tag = (m: MissingData) => (m.type ? ` · ${m.type}` : "");
   return (
     <>
-      {found.map((p) => (
-        <div key={p.name} className="callout warn" role="alert">
-          «{p.name}» não é um dado deste diagrama.
-          {p.suggestion ? (
-            <>
-              {" "}
-              Quis dizer «{p.suggestion}»?{" "}
-              <button className="btn" onClick={() => onFix(renameName(src, p.name, p.suggestion!))}>
-                Trocar por {p.suggestion}
+      {found.map((m) => (
+        <div key={m.name} className="callout warn" role="alert">
+          «{m.name}» {m.role === "output" ? "ainda não é um dado do diagrama." : "não é um dado deste diagrama."}
+          {m.suggestion && <> Quis dizer «{m.suggestion}»?</>}
+          <div className="callout-actions">
+            {m.suggestion && (
+              <button className="btn" onClick={() => onFix(renameName(src, m.name, m.suggestion!))}>
+                Trocar por {m.suggestion}
               </button>
-            </>
-          ) : (
-            " Declare um dado com esse nome ou corrija o texto."
-          )}
+            )}
+            {m.role === "output" ? (
+              <>
+                <button className="btn" onClick={() => create(m, "output")} data-tip="O resultado que o fluxo devolve e os cenários conferem">
+                  Criar saída (OUT{tag(m)})
+                </button>
+                <button className="btn ghost" onClick={() => create(m, "variable")} data-tip="Um valor do meio do caminho, que não é resultado">
+                  Criar variável (VAR)
+                </button>
+              </>
+            ) : (
+              <button className="btn" onClick={() => create(m, "input")} data-tip="Um dado que entra no fluxo; o valor vem de cada exemplo">
+                Criar entrada (IN{tag(m)})
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </>

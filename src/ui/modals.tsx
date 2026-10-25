@@ -403,7 +403,7 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
             <button
               className="btn"
               onClick={() => {
-                void newDiagram("Visão geral", "dominio", "domain");
+                void newDiagram("Visão geral", "dominio", "domain", true);
                 close();
               }}
               data-tip="Cria um diagrama de mapa de contextos em dominio/. Arraste os diagramas de contexto para ele (componente «Outro diagrama») e ligue-os com context-relation."
@@ -806,7 +806,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
   const [gapY, setGapY] = useState(cfg.gapY);
   const [routing, setRouting] = useState(cfg.routing);
   const domain = useStore((s) => docMode(s.doc) === "domain");
-  const [style, setStyle] = useState<"flow" | "timeline" | "grouped">(domain ? "timeline" : "flow");
+  const [style, setStyle] = useState<"flow" | "timeline" | "grouped" | "onion">(domain ? "onion" : "flow");
   const apply = () => {
     try {
       localStorage.setItem(LS_LAYOUT, JSON.stringify({ gapX, gapY, routing }));
@@ -815,7 +815,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
     }
     const r = run([{ op: "layout", style, direction, gapX, gapY, routing: routing === "keep" ? undefined : routing }]);
     close();
-    toast(r[0]?.ok === false ? r[0].error ?? "Não foi possível aplicar o layout" : style === "timeline" ? "Linha do tempo aplicada" : style === "grouped" ? "Agrupado por tipo" : "Layout automático aplicado");
+    toast(r[0]?.ok === false ? r[0].error ?? "Não foi possível aplicar o layout" : style === "onion" ? "Camadas aplicadas" : style === "timeline" ? "Linha do tempo aplicada" : style === "grouped" ? "Agrupado por tipo" : "Layout automático aplicado");
   };
   return (
     <Modal
@@ -838,7 +838,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
           <section className="lay-sec">
             <h3>Estilo</h3>
             <div className="lay-opts" role="radiogroup" aria-label="Estilo do layout">
-              {([["timeline", "Linha do tempo", "Event Storming: ator → caso de uso → command → aggregate → evento"], ["grouped", "Agrupar por tipo", "Um quadro por tipo de componente, ligados por conectores"], ["flow", "Fluxo", "Camadas pelo fluxo das conexões"]] as const).map(([k, l, d]) => (
+              {([["onion", "Camadas", "Clean Architecture: Entities → Use Cases → Interface Adapters → Frameworks & Drivers"], ["timeline", "Linha do tempo", "Event Storming: ator → caso de uso → command → aggregate → evento"], ["grouped", "Agrupar por tipo", "Um quadro por tipo de componente, ligados por conectores"], ["flow", "Fluxo", "Camadas pelo fluxo das conexões"]] as const).map(([k, l, d]) => (
                 <button key={k} role="radio" aria-checked={style === k} className={`lay-opt ${style === k ? "active" : ""}`} onClick={() => setStyle(k)}>
                   <b>{l}</b>
                   <small>{d}</small>
@@ -847,7 +847,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
             </div>
           </section>
         )}
-        <section className="lay-sec" style={style === "timeline" || style === "grouped" ? { display: "none" } : undefined}>
+        <section className="lay-sec" style={style !== "flow" ? { display: "none" } : undefined}>
           <h3>Direção do fluxo</h3>
           <div className="lay-opts two" role="radiogroup" aria-label="Direção do fluxo">
             {([["LR", "Horizontal", "Da esquerda para a direita", "M4 12h16M14 6l6 6-6 6"], ["TB", "Vertical", "De cima para baixo", "M12 4v16M6 14l6 6 6-6"]] as const).map(([k, l, d, icon]) => (
@@ -860,7 +860,7 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
           </div>
         </section>
 
-        <section className="lay-sec" style={style === "timeline" || style === "grouped" ? { display: "none" } : undefined}>
+        <section className="lay-sec" style={style !== "flow" ? { display: "none" } : undefined}>
           <h3>Espaçamento</h3>
           <div className="seg" role="radiogroup" aria-label="Presets de espaçamento">
             {SPACING_PRESETS.map(([l, x, y]) => {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DDD_ROLES } from "../shared/schema";
 import { buildStories, type Story } from "../shared/story";
 import { Glyph } from "./icons";
-import { getState, set, useStore } from "./store";
+import { getState, set, useStore, type Spotlight3D } from "./store";
 import { fitView } from "./keys";
 
 /* ───────── passo a passo do fluxo de um diagrama de domínio (modo apresentação) ───────── */
@@ -57,6 +57,18 @@ function storyCss(story: Story, at: number): string {
   });
 }
 
+/** O passo para a visão 3D: as mesmas listas do destaque 2D. */
+function storySpotlight(story: Story, at: number): Spotlight3D {
+  const cur = story.steps[at];
+  return {
+    nodes: [cur.id, ...cur.extraIds],
+    extras: cur.extraIds,
+    seenNodes: story.steps.slice(0, at).map((s) => s.id),
+    conns: cur.connIds,
+    seenConns: story.steps.slice(0, at + 1).flatMap((s) => s.connIds),
+  };
+}
+
 let raf = 0;
 /** Interrompe a animação da câmera (ao sair do painel). */
 export const cancelCamera = () => cancelAnimationFrame(raf);
@@ -102,19 +114,23 @@ export function StoryPanel() {
 
   const go = (n: number) => story && setAt(Math.max(0, Math.min(story.steps.length - 1, n)));
 
-  /* destaque no quadro */
+  /* destaque no quadro (2D: CSS no canvas; 3D: o mesmo passo vai para o store e a visão 3D destaca e anima) */
   useEffect(() => {
     if (!open || !story || !step) return;
     const style = document.createElement("style");
     style.dataset.story = "";
     style.textContent = storyCss(story, idx);
     document.head.appendChild(style);
-    return () => style.remove();
+    set({ spotlight: storySpotlight(story, idx) });
+    return () => {
+      style.remove();
+      set({ spotlight: null });
+    };
   }, [open, story, idx]);
 
-  /* a câmera acompanha o passo; o anterior entra no quadro para dar contexto */
+  /* a câmera acompanha o passo; o anterior entra no quadro para dar contexto (na visão 3D, a câmera 3D faz isso) */
   useEffect(() => {
-    if (!open || !story || !step) return;
+    if (!open || !story || !step || getState().iso) return;
     const ids = new Set([step.id, ...step.extraIds, ...(idx > 0 ? [story.steps[idx - 1].id] : [])]);
     moveCameraTo(getState().doc.nodes.filter((n) => ids.has(n.id)));
   }, [open, story?.id, idx]);

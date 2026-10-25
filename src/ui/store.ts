@@ -66,6 +66,17 @@ export interface Play {
   story: StoryItem[];
 }
 export type PlayMode = "explain" | "debug";
+/** O que o passo atual da apresentação destaca (ids de componentes e conexões). */
+export interface Spotlight3D {
+  /** componentes do passo atual (brilham) e os de apoio que entram junto */
+  nodes: string[];
+  extras: string[];
+  /** já percorridos (meio apagados) */
+  seenNodes: string[];
+  /** conexões que levaram ao passo atual (animadas) e as já percorridas */
+  conns: string[];
+  seenConns: string[];
+}
 export type Tool = "select" | "hand" | "group" | "note" | "connect" | "pen" | "highlight" | "eraser" | "text" | "list";
 /** Abas do modal do modo Logic. */
 export type LogicTab = "overview" | "scenarios" | "issues" | "text" | "code";
@@ -207,6 +218,10 @@ export interface State {
   toastError: boolean; // aviso de erro: destaque visual, anunciado na hora e fica mais tempo
   /** modo apresentação: tela limpa com desenho, laser e cronômetro */
   present: boolean;
+  /** visão isométrica 3D do layout "camadas" (modo domain) */
+  iso: boolean;
+  /** passo atual do passo a passo da apresentação (modo domain), para a visão 3D destacar e animar como o 2D */
+  spotlight: Spotlight3D | null;
   /** painel do terminal do Claude Code (modo agents) */
   termOpen: boolean;
   /** o bridge tem terminal? (undefined = ainda não sabemos); o botão da barra preenche */
@@ -341,6 +356,8 @@ function init(): State {
     toastUndo: false,
     toastError: false,
     present: false,
+    iso: false,
+    spotlight: null,
     termOpen: false,
     termRequest: null,
     runNodeRequest: null,
@@ -927,7 +944,8 @@ export function addRefNode(diagram: string, title: string, x?: number, y?: numbe
   const [r] = run([{ op: "add_node", asset: "diagram-ref", label: title, ref: { diagram, node }, x, y }]);
   if (r.ok && r.id) set({ sel: [r.id] });
 }
-export const newDiagram = (title: string, folder = "", mode: DocMode = "architecture") => guard(() => reload("/api/diagrams", { title, folder, mode }));
+/** `blank`: diagrama de domínio sem a estrutura circular (ex.: mapa de contextos). */
+export const newDiagram = (title: string, folder = "", mode: DocMode = "architecture", blank = false) => guard(() => reload("/api/diagrams", { title, folder, mode, ...(blank ? { blank } : {}) }));
 /**
  * Todos os exemplos da seção «Exemplos» (Arquitetura, Domínio e Lógica). Os algoritmos de Lógica são arquivos de `examples/`
  * carregados só quando a pessoa instala um (cada um vira um pacote separado, fora do principal).
@@ -956,7 +974,7 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   }
   let toOpen = ex.open;
   for (const f of ex.files) {
-    const made = await newDiagram(f.title, folder(f.path), f.mode);
+    const made = await newDiagram(f.title, folder(f.path), f.mode, true); // o conteúdo vem do exemplo: sem a estrutura vazia
     const name: string | undefined = made?.name;
     if (!name) return false;
     // os diagramas de um exemplo de domínio se referenciam pelo caminho (mapa de contextos → contextos): o caminho tem de ser o previsto

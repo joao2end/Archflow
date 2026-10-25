@@ -49,6 +49,7 @@ Fonte única: `DDD_ROLES` em `src/shared/schema.ts` (catálogo, validador, UI e 
 | `application-service` | APP | `intent` | orquestra um caso de uso; sem regra de negócio |
 | `use-case` | UC | `actor`, `goal`, `realizedBy` | objetivo de um ator |
 | `read-model` | READ | `projectsFrom` | projeção para consulta (CQRS) |
+| `controller` | CTRL | `intent`, `properties` (a entrada que recebe) | porta de entrada (Interface Adapters, setor Controllers): recebe o pedido de fora e aciona o caso de uso, sem regra de negócio |
 | `process-manager` | SAGA | `intent`, `reactsTo`, `issues`, `compensates` | saga com estado e compensação |
 
 Nomes em inglês (termos da área); a explicação em pt-BR vai no tooltip e no callout do inspetor. Grupos `context` recebem `subdomain`: `core`, `supporting` ou `generic`.
@@ -60,11 +61,11 @@ No modo domain cada conexão é uma **relação** com significado. `connect` ace
 | `rel` | `type` | Liga (de → para) |
 |---|---|---|
 | `emits` | async | command, aggregate-root ou process-manager → domain-event |
-| `triggers` | dependency | command → aggregate-root; domain-event → policy / process-manager / read-model; policy / process-manager → command (os ramos de uma policy ou saga podem ter condição, `otherwise`, loop e `foreach`) |
+| `triggers` | dependency | command → aggregate-root; domain-event → policy / process-manager / read-model; policy / process-manager → command; controller → command (os ramos de uma policy ou saga podem ter condição, `otherwise`, loop e `foreach`) |
 | `contains` | composition | aggregate-root / entity → entity / value-object |
 | `references-by-id` | association | aggregate-root / entity → aggregate-root **de outro aggregate**; nunca por objeto |
 | `realizes` | realization | command / domain-service / application-service → use-case |
-| `uses` | dependency | command / policy / process-manager / application-service / domain-service → domain-service / repository (quem orquestra usa; o aggregate nunca depende de repository) |
+| `uses` | dependency | command / policy / process-manager / application-service / domain-service → domain-service / repository (quem orquestra usa; o aggregate nunca depende de repository); controller → application-service / read-model |
 | `context-relation` | association | bounded context ↔ bounded context (grupo `context` ou componente `system` com `ref` **fora** de um contexto), com `pattern` |
 
 ### Fluxo: condições, loops e iteração (só no modo Domain)
@@ -129,6 +130,9 @@ Os campos se combinam no rótulo (`para cada item · se x · repete máx. 2`) e 
 | D030 | dica | loop que o diagrama não mostra voltando a um passo anterior (o retorno pode passar por um sistema externo) |
 | D032 | aviso | condição, senão, loop ou para cada em relação que não é de fluxo (arquivo importado) |
 | D033 | dica | `domain-service` ligado a um `repository` por `uses` (o serviço deveria ser puro: quem busca é o command/application-service) |
+| D034 | erro | regra de camadas: uma camada interna depende de uma externa (Entities → Use Cases → Interface Adapters → Frameworks & Drivers; a camada vem do papel). Só vale de fora para dentro. Não contam: conexão com porta (`port`), evento que dispara uma reação (quem depende é o assinante; evento de outro contexto chega de fora), Use Cases chamando repository ou sistema externo/outro diagrama (porta implícita) e relação entre contextos. Sem porta, Entities não depende de nada de fora |
+| D035 | dica | Use Cases depende de repository ou sistema por porta implícita: declare a porta (`port: { name, operations? }`) na conexão |
+| D036 | dica | conexão com porta que não sai para uma camada mais externa (a porta só faz sentido na inversão de dependência) |
 | D013 | aviso | `application-service` com invariantes (só chegam por arquivo importado) ou que emite eventos |
 
 Casos de borda: evento sem consumidor é válido; um use-case pode ser realizado por commands de vários aggregates (D002 vale por command); entity aninhada alcança a raiz por `contains` encadeado.
@@ -153,7 +157,7 @@ Casos de borda: evento sem consumidor é válido; um use-case pode ser realizado
 | `validate_diagram` | regras D001–D032 |
 | `trace` | caso de uso → command → aggregate → evento |
 | `domain_overview` | visão consolidada do projeto |
-| `auto_layout` | `style: "timeline"` |
+| `auto_layout` | `style: "onion"` (padrão) ou `"timeline"` |
 | `generate_code` | esqueleto TypeScript |
 
 HTTP (bridge e projeto do navegador): `POST /api/diagrams { title, folder?, mode? }`, `GET /api/project/docs`, `GET /api/schema?mode=`.
@@ -166,9 +170,13 @@ HTTP (bridge e projeto do navegador): `POST /api/diagrams { title, folder?, mode
 - Canvas: elementos coloridos pelo papel com selo (AGG, CMD, EVT…); grupos mostram `CONTEXT · CORE`.
 - **Nomes e rótulos completos** ✔: o rótulo de uma conexão é desenhado **acima** dos nós (nunca fica escondido atrás de um componente) e a largura da pílula é a do texto medido no navegador; o nome de um componente quebra em até 3 linhas (a linha secundária, tecnologia ou papel, sai do desenho quando o nome usa as 3) e o nome inteiro está no tooltip e no campo *Nome* do inspetor. Só um nome maior que 3 linhas termina em "…".
 - Inspetor: papel e campos do papel (selects de id, listas, invariantes uma por linha), relação de domínio (só as que ligam o par) e padrão do Context Map, subdomain.
-- Layout automático: estilo **Linha do tempo** ou **Fluxo**.
+- Layout automático: estilo **Camadas** (padrão), **Linha do tempo**, **Agrupar por tipo** ou **Fluxo**.
 
-## 9. Layout "linha do tempo" (Event Storming)
+## 9. Layout "camadas" (Clean Architecture, padrão)
+
+`layout` sem estilo (ou `style: "onion"`) no modo domain organiza o modelo em anéis concêntricos: **Entities** (aggregates, entities, value objects, domain services e eventos internos) no centro → **Use Cases** (casos de uso e commands em cima; application services, policies e sagas embaixo) → **Interface Adapters** (Gateways = repositories à esquerda, Presenters = read models à direita) → **Frameworks & Drivers** (atores em cima, sistemas com `ref` à esquerda, eventos de outros contextos à direita, sistemas externos embaixo). Cada contexto tem a sua cebola dentro do quadro do contexto; atores, sistemas e eventos fora dos contextos formam o anel externo em volta de todos. Anéis vazios não são criados. Determinístico e idempotente; os outros estilos desfazem os anéis.
+
+## 9.1 Layout "linha do tempo" (Event Storming)
 
 `layout` com `style: "timeline"` (só no modo domain). Cada contexto vira um bloco; as raias (de cima para baixo, vazias são comprimidas) são **evento externo → ator → caso de uso → command → aggregate → evento → policy/saga → read model → estrutura** (entity, value object, repository, serviços). Colunas = tempo: commands ordenados por `ddd.step` e depois pela ordem do documento; caso de uso e ator na coluna do command que os realiza, aggregate na do primeiro command que o aciona, evento na de quem o produz, policy/saga uma coluna depois do evento (ou na do command que dispara, se só reage a eventos externos), read model na do evento que o alimenta, entities/value objects/repository na primeira coluna livre a partir da do aggregate. **Eventos de outros contextos** (`external`) ficam na raia de entrada, na coluna de quem reage a eles, e por isso não alargam o diagrama ✔. Determinístico e idempotente ✔; blocos de contextos ficam empilhados sem se tocar.
 
@@ -195,7 +203,7 @@ A lógica fica como TODO (o modelo sabe nomes, invariantes, intenção, eventos 
 2. `add_groups` (context + subdomain) e `add_use_cases`.
 3. `add_components` com `ddd`, `connect` com `ddd.rel`.
 4. `validate_diagram` e `trace`; corrigir D001–D005/D008 antes de responder.
-5. `auto_layout` com `style: "timeline"`; opcionalmente `generate_code`.
+5. `auto_layout` (padrão: camadas da Clean Architecture; `style: "timeline"` para Event Storming); opcionalmente `generate_code`.
 6. Round-trip: ao retomar um diagrama editado, ler com `get_diagram` e **reaproveitar os ids**; `add_use_cases` ignora ids existentes.
 
 ### Metas mensuráveis

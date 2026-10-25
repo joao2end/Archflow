@@ -23,7 +23,13 @@ Arquitetura (`auto_layout`):
 5. **Componentes sem conexão** (3 ou mais) vão para uma grade abaixo do fluxo, em vez de uma coluna interminável.
 6. Grupos são medidos de dentro para fora; o vão entre camadas comporta o maior rótulo; depois `avoidCollisions` desvia conexões de componentes e `placeLabels` evita sobrepor rótulos.
 
-Domínio (`style: "timeline"`):
+Domínio, padrão (`style: "onion"`), camadas da Clean Architecture em anéis concêntricos:
+
+1. **Entities** (aggregates, entities, value objects, domain services e eventos internos) no centro → **Use Cases** (casos de uso e commands em cima; application services, policies e sagas embaixo) → **Interface Adapters** (Gateways = repositories à esquerda, Presenters = read models à direita) → **Frameworks & Drivers** (atores em cima, sistemas com `ref` à esquerda, eventos de outros contextos à direita, sistemas externos embaixo).
+2. Cada bounded context tem a sua cebola; o que está fora dos contextos forma o anel externo de Frameworks & Drivers em volta de todos. Anéis vazios não são criados.
+3. Os anéis são grupos `anel-*` com `ring` (raio interno e, nos setores, ângulos): a caixa é o quadrado do círculo e o canvas desenha disco, coroa ou setor, com o nome ao longo do arco. Os componentes ficam espalhados em ângulos iguais no seu anel; o raio cresce até nenhum encostar em outro ou sair do setor. Qualquer outro estilo de layout desfaz os anéis e devolve componentes e contextos ao pai de origem.
+
+Domínio, Event Storming (`style: "timeline"`):
 
 1. Raias fixas por papel (ator → caso de uso → command → aggregate → evento → policy → read model → estrutura), commands na ordem de `ddd.step`.
 2. **Contextos em ordem de dependência**: o que alimenta outro (conexão ou evento externo) fica acima.

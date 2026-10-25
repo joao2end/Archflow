@@ -13,7 +13,7 @@
       "subdomain": "core",
       "x": 0,
       "y": 0,
-      "w": 1680,
+      "w": 1920,
       "h": 1146,
       "auto": true
     }
@@ -487,6 +487,33 @@
       "h": 72
     },
     {
+      "id": "controller-de-pedidos",
+      "label": "Controller de pedidos",
+      "kind": "domain",
+      "description": "Porta de entrada (Interface Adapters): só traduz o pedido HTTP em command; a regra fica no aggregate.",
+      "parent": "pedidos",
+      "ddd": {
+        "role": "controller",
+        "intent": "recebe o pedido do app, valida o formato e despacha o command",
+        "properties": [
+          {
+            "name": "itens",
+            "type": "Item[]",
+            "description": "produto e quantidade escolhidos no carrinho"
+          },
+          {
+            "name": "enderecoId",
+            "type": "uuid",
+            "description": "endereço salvo do cliente"
+          }
+        ]
+      },
+      "x": 1468,
+      "y": 1046,
+      "w": 184,
+      "h": 72
+    },
+    {
       "id": "pedidos-api",
       "label": "Pedidos API",
       "kind": "system",
@@ -496,7 +523,7 @@
         "diagram": "exemplos-ddd/loja/arquitetura.archflow.json",
         "node": "pedidos-api"
       },
-      "x": 1468,
+      "x": 1708,
       "y": 1046,
       "w": 184,
       "h": 72
@@ -577,7 +604,7 @@
       "ddd": {
         "rel": "realizes"
       },
-      "labelT": 0.5
+      "labelT": 0.42
     },
     {
       "id": "criar-pedido-to-pedido",
@@ -942,6 +969,29 @@
         "rel": "uses"
       },
       "labelT": 0.62
+    },
+    {
+      "id": "cliente-to-controller-de-pedidos",
+      "from": "cliente",
+      "to": "controller-de-pedidos",
+      "type": "association",
+      "label": "envia o pedido",
+      "routing": "curve",
+      "animated": true,
+      "labelT": 0.5
+    },
+    {
+      "id": "controller-de-pedidos-to-criar-pedido",
+      "from": "controller-de-pedidos",
+      "to": "criar-pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "curve",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
     },
     {
       "id": "pedidos-api-to-pedido",

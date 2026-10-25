@@ -29,6 +29,7 @@ import {
   type RelEnd,
 } from "./schema";
 import { checkProperties, propertiesSummary } from "./properties";
+import { ONION_RINGS, onionSlot } from "./onion";
 
 export type Severity = "erro" | "aviso" | "dica";
 export interface Issue {
@@ -358,6 +359,61 @@ const INFINITIVE = /^[a-zA-ZÀ-ú]{3,}(ar|er|ir|or)$/;
 const words = (s: string) => s.trim().split(/[\s_-]+/).filter(Boolean);
 
 /** Todas as regras de domínio (D001–D020) para um diagrama de modo `domain`. */
+/** Camadas da Clean Architecture, de dentro (0) para fora (3). */
+const LAYER_RANK: Record<keyof typeof ONION_RINGS, number> = { entities: 0, usecases: 1, adapters: 2, drivers: 3 };
+
+/** Nome sugerido para a porta de um destino: "Repositorio…" para repository, "Gateway…" para sistemas. */
+export function portName(target: Pick<NodeEl, "label" | "ddd">): string {
+  const words = target.label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\(.*?\)/g, "")
+    .split(/[^A-Za-z0-9]+/)
+    .filter((w) => w && !/^(repo|repositorio|de|da|do|das|dos)$/i.test(w))
+    .map((w) => w[0].toUpperCase() + w.slice(1));
+  const repo = target.ddd?.role === "repository";
+  return (repo ? "Repositorio" : "Gateway") + (words.join("") || (repo ? "" : "Externo"));
+}
+
+export interface LayerViolation {
+  conn: string;
+  /** quem depende (está mais para dentro) e de quem (mais para fora): a origem e o destino da conexão */
+  dependent: string;
+  dependee: string;
+}
+
+/**
+ * Conexões que ferem a regra de dependência: uma camada interna (Entities → Use Cases → Interface Adapters → Frameworks &
+ * Drivers) não pode depender de uma externa; só o contrário. A camada de cada componente vem do papel dele (onionSlot) e
+ * quem depende é a origem da conexão.
+ *
+ * Não contam:
+ * - conexão com porta (`port`): a origem depende de uma interface da própria camada, que o destino implementa
+ *   (inversão de dependência explícita);
+ * - evento que dispara (`triggers`) uma reação: um evento interno não depende de quem o assina (o assinante é que depende
+ *   dele) e um evento de outro contexto chega de fora, como um driver que aciona a camada interna;
+ * - Use Cases chamando um repository ou um sistema (externo ou outro diagrama): a interface (porta) pertence à aplicação
+ *   e só a implementação fica do lado de fora (inversão de dependência). Entities não tem essa saída: o domínio não
+ *   conhece nada de fora;
+ * - relação entre contextos (Context Map).
+ */
+/** Use Cases chamando repository ou sistema (externo ou outro diagrama): aceito como porta mesmo sem `port` declarada. */
+const impliedPort = (a: NodeEl, b: NodeEl) => onionSlot(a).ring === "usecases" && (b.ddd?.role === "repository" || b.kind === "external" || b.kind === "system");
+
+export function layerViolations(doc: Doc): LayerViolation[] {
+  const nodes = new Map(doc.nodes.filter((n) => !n.owner && n.kind !== "endpoint").map((n) => [n.id, n]));
+  const out: LayerViolation[] = [];
+  for (const c of doc.connections) {
+    const a = nodes.get(c.from);
+    const b = nodes.get(c.to);
+    if (!a || !b || c.port || c.ddd?.rel === "context-relation") continue;
+    if (c.ddd?.rel === "triggers" && a.ddd?.role === "domain-event") continue;
+    if (impliedPort(a, b)) continue;
+    if (LAYER_RANK[onionSlot(a).ring] < LAYER_RANK[onionSlot(b).ring]) out.push({ conn: c.id, dependent: a.id, dependee: b.id });
+  }
+  return out;
+}
+
 export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolean } = {}): Issue[] {
   const m = new Model(doc);
   const out: Issue[] = [];
@@ -496,6 +552,23 @@ export function domainIssues(doc: Doc, opts: { exists?: (path: string) => boolea
   for (const s of m.byRole("domain-service"))
     for (const c of m.outOf(s.id, "uses"))
       if (isRole(m.nodes.get(c.to), "repository")) add("D033", "dica", `domain-service ${quote(m, s.id)} usa o repository ${quote(m, c.to)}, mas um domain-service é puro (sem I/O): prefira que o command ou o application-service busque no repository e passe os dados ao serviço`, s.id);
+
+  // D034 regra de dependência das camadas: só de fora para dentro
+  for (const v of layerViolations(doc)) {
+    const [dep, on] = [m.nodes.get(v.dependent)!, m.nodes.get(v.dependee)!];
+    const where = (n: NodeEl) => ONION_RINGS[onionSlot(n).ring].label;
+    add("D034", "erro", `${quote(m, dep.id)} (${where(dep)}) depende de ${quote(m, on.id)} (${where(on)}): uma camada interna não pode depender de uma externa; declare uma porta na conexão (port: a interface fica na camada de ${where(dep)} e ${quote(m, on.id)} a implementa), inverta o sentido ou passe por um adapter em Interface Adapters`, v.conn);
+  }
+  // D035 inversão implícita: Use Cases chamando repository/sistema sem porta declarada (aceito, mas o diagrama não mostra a interface)
+  // D036 porta onde não há inversão (de fora para dentro ou na mesma camada)
+  for (const c of doc.connections) {
+    const a = m.nodes.get(c.from);
+    const b = m.nodes.get(c.to);
+    if (!a || !b || a.owner || b.owner) continue;
+    const outward = LAYER_RANK[onionSlot(a).ring] < LAYER_RANK[onionSlot(b).ring];
+    if (!c.port && impliedPort(a, b) && outward) add("D035", "dica", `${quote(m, a.id)} depende de ${quote(m, b.id)} por uma porta implícita: declare a porta na conexão (port, ex.: "${portName(b)}") para o diagrama mostrar a interface que a camada de dentro define`, c.id);
+    if (c.port && !outward) add("D036", "dica", `${quote(m, a.id)} → ${quote(m, b.id)} tem a porta "${c.port.name}", mas a conexão não sai para uma camada mais externa: a porta só faz sentido na inversão de dependência (de dentro para fora)`, c.id);
+  }
 
   // D016 ciclo de references-by-id entre aggregates
   const refEdges = new Map<string, string[]>();
@@ -723,6 +796,7 @@ export function describeDomain(doc: Doc, issues: Issue[]): string {
     rest(["process-manager"], "Process managers (sagas)", (n) => `\`${n.id}\` **${n.label}**: reage a ${(n.ddd!.reactsTo ?? []).join(", ") || "—"} → dispara ${(n.ddd!.issues ?? []).join(", ") || "—"}${n.ddd!.compensates?.length ? ` · compensa com ${n.ddd!.compensates.join(", ")}` : ""}`);
     rest(["domain-service"], "Domain services", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}`);
     rest(["application-service"], "Application services", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}`);
+    rest(["controller"], "Controllers", (n) => `\`${n.id}\` **${n.label}**${n.ddd!.intent ? ` — ${n.ddd!.intent}` : ""}`);
     rest(["read-model"], "Read models", (n) => `\`${n.id}\` **${n.label}** projeta ${(n.ddd!.projectsFrom ?? []).join(", ") || "—"}`);
     const ext = nodes.filter((n) => isRole(n, "domain-event") && n.ddd!.external);
     if (ext.length) {
@@ -951,6 +1025,11 @@ export function schemaGuideDomain(): string {
     "- **sync, async, stream e data não existem** no modo domain (o `async` de `emits` é inferido). Sem relação use um tipo UML: association, dependency, inheritance, realization, composition ou aggregation.",
     "- Se você omitir `ddd` e só uma relação servir para o par (ex.: command → evento = emits), a conexão **já nasce com ela**. Ator → caso de uso não tem relação: use association.",
     "- Conexão entre dois elementos de domínio sem relação é aviso D022.",
+    "",
+    "## Regra de camadas e portas (inversão de dependência)",
+    "- Camadas, de dentro para fora: Entities → Use Cases → Interface Adapters → Frameworks & Drivers (a camada vem do papel). Uma camada interna NÃO depende de uma externa (erro D034); de fora para dentro é livre. Evento que dispara uma reação não conta (quem depende é o assinante).",
+    "- **Porta** (`port: { name, operations? }` na conexão, em `connect` ou `update_element`): a origem depende de uma interface da PRÓPRIA camada (`name`, ex.: \"RepositorioDePedidos\") e o destino, mais externo, a implementa. Com porta, depender de fora é válido. Ex.: command `criar-pedido` —uses→ repository `pedidos-repo` com `port: { name: \"RepositorioDePedidos\", operations: [\"salvar(pedido)\"] }`.",
+    "- Use Cases chamando repository ou sistema sem `port` é aceito (porta implícita), mas gera a dica D035: declare a porta para documentar a interface. Porta numa conexão que não sai para uma camada mais externa é a dica D036.",
     "",
     "## Padrões do Context Map (`pattern`, só com `context-relation`)",
     ...CONTEXT_PATTERN_KEYS.map((k) => `- \`${k}\` (${CONTEXT_PATTERNS[k].label}): ${CONTEXT_PATTERNS[k].hint}`),

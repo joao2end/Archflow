@@ -28,8 +28,12 @@ _exemplos-ddd/banco/visao-geral.archflow.json_
 
 ## Avisos
 - [D011 dica] contexto `antifraude` (Antifraude) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/banco/antifraude.archflow.json`
+- [D035 dica] `analisar-transferencia` (Analisar transferência) depende de `analise-repo` (Repositório de análises) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioAnalises") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/banco/antifraude.archflow.json`
 - [D011 dica] contexto `contas` (Contas) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/banco/contas.archflow.json`
+- [D035 dica] `debitar-origem` (Debitar origem) depende de `conta-repo` (Repositório de contas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioContas") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/banco/contas.archflow.json`
+- [D035 dica] `solicitar-transferencia` (Solicitar transferência) depende de `transferencia-repo` (Repositório de transferências) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioTransferencias") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/banco/contas.archflow.json`
 - [D011 dica] contexto `notificacoes` (Notificações) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/banco/notificacoes.archflow.json`
+- [D035 dica] `enviar-notificacao` (Enviar notificação) depende de `notificacao-repo` (Repositório de notificações) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioNotificacoes") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/banco/notificacoes.archflow.json`
 
 ---
 
@@ -115,6 +119,8 @@ O acompanhamento da transferência é um aggregate próprio: a saga o consulta e
 
 ## Avisos
 - [D011 dica] contexto `contas` (Contas) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `debitar-origem` (Debitar origem) depende de `conta-repo` (Repositório de contas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioContas") para o diagrama mostrar a interface que a camada de dentro define
+- [D035 dica] `solicitar-transferencia` (Solicitar transferência) depende de `transferencia-repo` (Repositório de transferências) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioTransferencias") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -218,6 +224,7 @@ _Necessário ao negócio, mas sem diferencial; costuma ser feito sob medida e si
 
 ## Avisos
 - [D011 dica] contexto `antifraude` (Antifraude) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `analisar-transferencia` (Analisar transferência) depende de `analise-repo` (Repositório de análises) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioAnalises") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -278,6 +285,7 @@ _Problema comum e resolvido no mercado (auth, e-mail, pagamento); prefira compra
 
 ## Avisos
 - [D011 dica] contexto `notificacoes` (Notificações) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `enviar-notificacao` (Enviar notificação) depende de `notificacao-repo` (Repositório de notificações) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioNotificacoes") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid

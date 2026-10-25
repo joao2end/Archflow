@@ -285,6 +285,7 @@ const ROLE_TAGS: Record<DddRole, string> = {
   "use-case": "caso de uso requisito ator ddd",
   "read-model": "projeção consulta cqrs leitura ddd",
   "process-manager": "saga processo compensação fluxo longo ddd",
+  controller: "controlador entrada http api tela adaptador clean architecture ddd",
 };
 const domainAssets: Asset[] = DDD_ROLE_KEYS.map((role) => ({
   id: `ddd-${role}`,

@@ -23,11 +23,13 @@ import { checklistLayout } from "./Canvas";
 import { deleteSelection, duplicateSelection, fitSelection, fitView, layout, zoomTo } from "./keys";
 import { RichField } from "./richeditor";
 import { IS_DESKTOP } from "./platform";
-import type { Asset } from "../shared/schema";
+import type { Asset, NodeEl } from "../shared/schema";
+import { ONION_RINGS } from "../shared/onion";
 import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, live, lookupAsset, placeAsset, plugSkill, plugTool, toast, toastError, cycleTheme, redo, run, set, setAllStages, setPrefs, stageFromSelection, setTitle, undo, useStore, type Tool } from "./store";
 import { isFlowNode } from "../shared/logic";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
+import { exitIso } from "./iso";
 
 /* ───────── helpers ───────── */
 
@@ -361,6 +363,8 @@ export function ZoomBar() {
   const allCollapsed = useStore((s) => s.doc.groups.some((g) => g.stage) && s.doc.groups.filter((g) => g.stage).every((g) => g.stage!.collapsed));
   const selSteps = useStore((s) => (docMode(s.doc) === "logic" ? s.doc.nodes.filter((n) => s.sel.includes(n.id) && isFlowNode(n)).length : 0));
   const zoomBy = zoomTo;
+  const hasRings = useStore((s) => docMode(s.doc) === "domain" && s.doc.groups.some((g) => g.ring));
+  const iso = useStore((s) => s.iso);
   return (
     <div className="hud glass zoombar">
       <button className="btn ghost icon" onClick={undo} disabled={!canUndo} aria-label="Desfazer" data-tip="Desfazer (Ctrl+Z)" data-tip-pos="top">
@@ -380,6 +384,14 @@ export function ZoomBar() {
       <button className="btn ghost icon" onClick={() => (hasSel ? fitSelection() : fitView())} aria-label={hasSel ? "Ajustar à seleção" : "Ajustar à tela"} aria-keyshortcuts={hasSel ? "Shift+F" : "F"} data-tip={hasSel ? "Ajustar à seleção (Shift+F)\nF enquadra o diagrama inteiro." : "Ajustar à tela (F)"} data-tip-pos="top">
         <Glyph name="fit" size={17} />
       </button>
+      {hasRings && (
+        <>
+          <div className="sep iso-keep" style={{ margin: "6px 4px" }} />
+          <button className={`btn ghost pct iso-toggle${iso ? " active" : ""}`} onClick={() => (iso ? exitIso() : set({ iso: true }))} aria-pressed={iso} aria-label="Visão isométrica 3D" data-tip={iso ? "Voltar à visão 2D (Esc)" : "Visão isométrica 3D das camadas"} data-tip-pos="top">
+            3D
+          </button>
+        </>
+      )}
       {isLogic && (
         <>
           <div className="sep" style={{ margin: "6px 4px" }} />
@@ -813,6 +825,9 @@ export function Inspector() {
     const role = node.ddd ? DDD_ROLES[node.ddd.role] : undefined;
     const lrole = node.logic ? LOGIC_ROLES[node.logic.role] : undefined;
     const arole = node.agent ? AGENT_ROLES[node.agent.role] : undefined;
+    // modo domain: o inspetor só mostra o que faz sentido no modelo de domínio (sem tecnologia, endpoints, categoria de
+    // infraestrutura, cor de fundo nem propriedades soltas; o grupo é o bounded context)
+    const domainDoc = docMode(doc) === "domain";
     const badgeAsset = isLogic && lrole ? { icon: `t:${lrole.badge}`, color: lrole.color, name: lrole.label } : isAgent && arole ? { icon: `t:${arole.badge}`, color: arole.color, name: arole.label } : isDomain && role ? { icon: `t:${DDD_BADGES[node.ddd!.role]}`, color: role.color, name: role.label } : asset;
     return (
       <aside className="hud glass inspector" aria-label="Propriedades do componente">
@@ -824,12 +839,12 @@ export function Inspector() {
             <div className="ttl" role="heading" aria-level={2}>{node.label}</div>
           </div>
         </div>
-        {!isDomain && !isAgent && asset?.problem && (
+        {!isDomain && !isAgent && !domainDoc && asset?.problem && (
           <div className="callout">
             <b>{asset.name}</b> resolve: {asset.problem}
           </div>
         )}
-        {!isDomain && !isAgent && <TechPicker node={node} patch={patch} />}
+        {!isDomain && !isAgent && !domainDoc && <TechPicker node={node} patch={patch} />}
         <label className="field">
           <span>Nome</span>
           <TextField id="insp-first" value={node.label} onCommit={(v) => patch({ label: v || node.label })} />
@@ -839,16 +854,19 @@ export function Inspector() {
         {isAgent && <AgentFields node={node} patch={patch} />}
         {node.kind === "endpoint" ? (
           <EndpointFields node={node} patch={patch} />
-        ) : isDomain || isAgent ? null : (
+        ) : isDomain || isAgent || domainDoc ? null : (
           <label className="field">
             <span>Tecnologia / versão</span>
             <TextField value={node.technology ?? ""} placeholder="ex.: Laravel 11 · PHP 8.3" onCommit={(v) => patch({ technology: v || undefined })} />
           </label>
         )}
         <label className="field">
-          <span>Responsabilidade (o que faz)</span>
-          <TextField multiline value={node.description ?? ""} placeholder="Descreva em 1–2 frases — LLMs leem isto." onCommit={(v) => patch({ description: v || undefined })} />
+          <span>{domainDoc ? "Descrição" : "Responsabilidade (o que faz)"}</span>
+          <TextField multiline value={node.description ?? ""} placeholder={domainDoc ? "O que é no negócio e por que existe — LLMs leem isto." : "Descreva em 1–2 frases — LLMs leem isto."} onCommit={(v) => patch({ description: v || undefined })} />
         </label>
+        {domainDoc ? (
+          <ContextPicker node={node} />
+        ) : (
         <div className="grid2">
           <label className="field">
             <span>Categoria</span>
@@ -880,10 +898,11 @@ export function Inspector() {
             </select>
           </label>
         </div>
-        <FillControls el={node} patch={(p) => patch(p, "node")} />
+        )}
+        {!domainDoc && <FillControls el={node} patch={(p) => patch(p, "node")} />}
         {(node.kind === "system" || node.ref) && <RefPicker node={node} patch={patch} />}
-        {node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && node.kind !== "logic" && node.kind !== "agent" && !node.ref && <EndpointsSection node={node} />}
-        <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />
+        {!domainDoc && node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && node.kind !== "logic" && node.kind !== "agent" && !node.ref && <EndpointsSection node={node} />}
+        {!domainDoc && <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />}
         <div className="callout" style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5 }}>
           id: {node.id}
         </div>
@@ -917,7 +936,7 @@ export function Inspector() {
             </button>
           ))}
         </div>
-        {docMode(doc) !== "logic" && !agentsConn && <div className="callout">{t.semantics}</div>}
+        {docMode(doc) !== "logic" && !agentsConn && !(domainConn && conn.ddd) && <div className="callout">{t.semantics}</div>}
         {docMode(doc) === "domain" && <DddConnFields conn={conn} patch={patch} />}
         {docMode(doc) === "logic" && <LogicConnFields conn={conn} patch={patch} />}
         {agentsConn && <AgentConnFields conn={conn} patch={patch} />}
@@ -925,7 +944,7 @@ export function Inspector() {
           <span>Rótulo</span>
           <TextField id="insp-first" value={conn.label ?? ""} placeholder="ex.: cria pedido" onCommit={(v) => patch({ label: v || undefined })} />
         </label>
-        {docMode(doc) !== "logic" && !agentsConn && (
+        {docMode(doc) !== "logic" && !agentsConn && !domainConn && (
           <label className="field">
             <span>Protocolo</span>
             <TextField value={conn.protocol ?? ""} placeholder="HTTPS/REST · gRPC · AMQP · TCP/5432" onCommit={(v) => patch({ protocol: v || undefined })} />
@@ -954,7 +973,7 @@ export function Inspector() {
             <button className="switch" role="switch" aria-checked={conn.animated !== false} aria-label="Animar fluxo" onClick={() => patch({ animated: conn.animated === false })} />
           </div>
         )}
-        {docMode(doc) !== "logic" && !agentsConn && (
+        {docMode(doc) !== "logic" && !agentsConn && !domainConn && (
         <>
         <div className="callout">
           {conn.interface ? (
@@ -978,7 +997,26 @@ export function Inspector() {
     );
   }
 
+  if (group && docMode(doc) === "domain" && group.ring) {
+    // anel (ou setor) do layout "camadas": gerado pelo layout a partir dos papéis; não se edita, só se explica
+    const layer = group.ring.layer ? ONION_RINGS[group.ring.layer] : undefined;
+    return (
+      <aside className="hud glass inspector" aria-label="Camada da Clean Architecture">
+        <InspectorGrip />
+        <div className="insp-head">
+          <div>
+            <div className="kicker">Camada{layer && layer.label !== group.label ? ` · ${layer.label}` : ""}</div>
+            <div className="ttl" role="heading" aria-level={2}>{group.label}</div>
+          </div>
+        </div>
+        {layer && <div className="callout">{layer.tag}.</div>}
+        <div className="callout">Gerada pelo layout «camadas»: cada componente entra na camada do seu papel. Para mudar de camada, troque o papel do componente.</div>
+      </aside>
+    );
+  }
+
   if (group) {
+    const domainCtx = docMode(doc) === "domain";
     return (
       <aside className="hud glass inspector" aria-label="Propriedades do grupo">
         <InspectorGrip />
@@ -992,7 +1030,7 @@ export function Inspector() {
           <span>Nome</span>
           <TextField id="insp-first" value={group.label} onCommit={(v) => patch({ label: v || group.label })} />
         </label>
-        {!group.stage && (
+        {!group.stage && !domainCtx && (
           <label className="field">
             <span>Tipo de fronteira</span>
             <select className="input" value={group.kind} onChange={(e) => patch({ kind: e.target.value as GroupKind }, "group")}>
@@ -1012,15 +1050,17 @@ export function Inspector() {
             <button key={c} className={`swatch ${group.color === c ? "active" : ""}`} style={{ background: c }} aria-label={`Cor ${c}`} onClick={() => patch({ color: c }, "group")} />
           ))}
         </div>
-        <FillControls el={group} patch={(p) => patch(p, "group")} />
+        {!domainCtx && <FillControls el={group} patch={(p) => patch(p, "group")} />}
         <label className="field">
           <span>Descrição</span>
-          <TextField multiline value={group.description ?? ""} placeholder="Propósito desta fronteira" onCommit={(v) => patch({ description: v || undefined })} />
+          <TextField multiline value={group.description ?? ""} placeholder={domainCtx ? "Linguagem e responsabilidade deste contexto" : "Propósito desta fronteira"} onCommit={(v) => patch({ description: v || undefined })} />
         </label>
-        <div className="toggle">
-          Ajustar ao conteúdo
-          <button className="switch" role="switch" aria-checked={!!group.auto} aria-label="Ajustar ao conteúdo" onClick={() => patch({ auto: !group.auto })} />
-        </div>
+        {!domainCtx && (
+          <div className="toggle">
+            Ajustar ao conteúdo
+            <button className="switch" role="switch" aria-checked={!!group.auto} aria-label="Ajustar ao conteúdo" onClick={() => patch({ auto: !group.auto })} />
+          </div>
+        )}
         {actions}
       </aside>
     );
@@ -1091,6 +1131,41 @@ export function Inspector() {
     );
   }
   return null;
+}
+
+/**
+ * Modo domain: em que bounded context o componente está (no lugar do «Grupo» livre, que listava também os anéis do
+ * layout). Trocar de contexto refaz o layout «camadas», que leva o componente para a camada certa do novo contexto.
+ */
+function ContextPicker({ node }: { node: NodeEl }) {
+  const groups = useStore((s) => s.doc.groups);
+  const contexts = groups.filter((g) => g.kind === "context");
+  if (!contexts.length) return null;
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  let cur: string | undefined = node.parent;
+  for (let i = 0; cur && i < 30 && byId.get(cur)?.kind !== "context"; i++) cur = byId.get(cur)?.parent;
+  const current = cur && byId.get(cur)?.kind === "context" ? cur : "";
+  const onion = groups.some((g) => g.ring);
+  return (
+    <label className="field">
+      <span>Bounded context</span>
+      <select
+        className="input"
+        value={current}
+        onChange={(e) => {
+          const [r] = run([{ op: "update", id: node.id, patch: { parent: e.target.value || undefined } }, ...(onion ? [{ op: "layout" as const, style: "onion" as const }] : [])]);
+          if (!r.ok) toastError(r.error ?? "Não deu para mudar de contexto");
+        }}
+      >
+        <option value="">— fora dos contextos —</option>
+        {contexts.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function Props({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {

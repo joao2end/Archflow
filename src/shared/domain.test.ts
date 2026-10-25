@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EVAL_TARGETS, checkDddNode, composeDddLabel, dddLabelVia, domainOverview, evaluateDomain, reshapeDdd, traceUseCase } from "./domain";
 import { applyOps, describe, normalizeDoc, schemaGuide, validate, validateDetailed, type Op } from "./ops";
+import { onionSlot } from "./onion";
 import { emptyDoc, docMode, DDD_ROLE_KEYS, type Doc, type DddNodeSpec, type DddRel, type ContextPattern } from "./schema";
 
 /* ───────── helpers ───────── */
@@ -481,4 +482,90 @@ test("evaluateDomain: reprova casos de uso sem rastreio, erros estruturais, iten
   assert.deepEqual(dup.duplicates, ["criar-pedido-2 repete criar-pedido"]);
   assert.equal(dup.ok, false);
   assert.equal(evaluateDomain(build([ctx("c", "core")])).tracedPct, 100, "sem casos de uso não há o que rastrear");
+});
+
+test("D034 regra de camadas: camada interna não depende de externa; de fora para dentro é livre", () => {
+  const doc = build([
+    dn("pedido", { role: "aggregate-root" }),
+    dn("uc", { role: "use-case" }),
+    dn("criar", { role: "command" }),
+    dn("criado", { role: "domain-event" }),
+    dn("notificar", { role: "policy" }),
+    dn("saga", { role: "process-manager" }),
+    dn("pago", { role: "domain-event", external: "pagamentos" }),
+    dn("repo", { role: "repository", for: "pedido" }),
+    { op: "add_node", id: "cliente", label: "Cliente", kind: "actor" },
+    { op: "add_node", id: "correios", label: "Correios", kind: "external" },
+    // de fora para dentro: ok
+    { op: "add_connection", from: "cliente", to: "uc", type: "association" },
+    rel("criar", "pedido", "triggers"),
+    // evento dispara a policy: quem depende é a policy (o evento não conhece o assinante): ok
+    rel("criado", "notificar", "triggers"),
+    // evento de outro contexto chega de fora e aciona a saga (como um driver): ok
+    rel("pago", "saga", "triggers"),
+    // Use Cases chamando repository ou sistema externo: porta (inversão de dependência): ok
+    rel("criar", "repo", "uses"),
+    { op: "add_connection", from: "criar", to: "correios", type: "association" },
+    // de dentro para fora: violações (o domínio não conhece nada de fora)
+    { op: "add_connection", id: "c-ext", from: "pedido", to: "correios", type: "association" },
+    { op: "add_connection", id: "c-uc", from: "pedido", to: "uc", type: "association" },
+  ]);
+  const d34 = issues(doc, "D034");
+  assert.deepEqual(d34.map((i) => i.target).sort(), ["c-ext", "c-uc"]);
+  assert.ok(d34.every((i) => i.severity === "erro"));
+  assert.match(d34[0].message, /camada interna não pode depender de uma externa/);
+});
+
+test("porta (inversão de dependência): com port, depender de fora é válido; sem port no Use Cases é dica D035; porta sem inversão é dica D036", () => {
+  const doc = build([
+    dn("pedido", { role: "aggregate-root" }),
+    dn("criar", { role: "command" }),
+    dn("repo", { role: "repository", for: "pedido" }, undefined, "Pedidos (repo)"),
+    { op: "add_node", id: "correios", label: "Correios", kind: "external" },
+    { op: "add_node", id: "cliente", label: "Cliente", kind: "actor" },
+    // Entities → externo: sem porta é D034; com porta, válido
+    { op: "add_connection", id: "sem-porta", from: "pedido", to: "correios", type: "association" },
+    { op: "add_connection", id: "com-porta", from: "pedido", to: "repo", type: "association", port: { name: "RepositorioDePedidos", operations: ["salvar(pedido)", " "] } },
+    // Use Cases → repository sem porta: aceito com a dica D035
+    rel("criar", "repo", "uses"),
+    // porta de fora para dentro: dica D036
+    { op: "add_connection", id: "porta-inutil", from: "cliente", to: "criar", type: "association", port: { name: "X" } },
+  ]);
+  assert.deepEqual(issues(doc, "D034").map((i) => i.target), ["sem-porta"]);
+  assert.match(issues(doc, "D034")[0].message, /declare uma porta/);
+  assert.ok(has(doc, "D035"));
+  assert.ok(issues(doc, "D035")[0].message.includes('"RepositorioPedidos"'));
+  assert.deepEqual(issues(doc, "D036").map((i) => i.target), ["porta-inutil"]);
+  // operações vazias saem; o nome é obrigatório; port só no modo domain; null remove
+  assert.deepEqual(doc.connections.find((c) => c.id === "com-porta")!.port, { name: "RepositorioDePedidos", operations: ["salvar(pedido)"] });
+  const { results } = applyOps(doc, [{ op: "update", id: "com-porta", patch: { port: { name: " " } } }]);
+  assert.equal(results[0].ok, false);
+  const arch = applyOps(emptyDoc("t", "architecture"), [
+    { op: "add_node", id: "a", label: "a" },
+    { op: "add_node", id: "b", label: "b" },
+    { op: "add_connection", from: "a", to: "b", port: { name: "P" } },
+  ]);
+  assert.equal(arch.results[2].ok, false);
+  const cleared = applyOps(doc, [{ op: "update", id: "com-porta", patch: { port: null } }]).doc;
+  assert.equal(cleared.connections.find((c) => c.id === "com-porta")!.port, undefined);
+});
+
+test("controller: porta de entrada em Interface Adapters; despacha command (triggers) e usa application-service/read-model (uses), de fora para dentro", () => {
+  const doc = build([
+    dn("pedido", { role: "aggregate-root" }),
+    dn("criar", { role: "command" }),
+    dn("checkout", { role: "application-service" }),
+    dn("lista", { role: "read-model" }),
+    dn("api", { role: "controller", intent: "receber o pedido pela API" }),
+    { op: "add_node", id: "cliente", label: "Cliente", kind: "actor" },
+    { op: "add_connection", from: "cliente", to: "api", type: "association" },
+    { op: "add_connection", id: "c1", from: "api", to: "criar" },
+    { op: "add_connection", id: "c2", from: "api", to: "checkout" },
+    { op: "add_connection", id: "c3", from: "api", to: "lista" },
+    rel("criar", "pedido", "triggers"),
+  ]);
+  const rels = (id: string) => doc.connections.find((c) => c.id === id)!.ddd?.rel;
+  assert.deepEqual([rels("c1"), rels("c2"), rels("c3")], ["triggers", "uses", "uses"], "a relação é inferida pelo par");
+  assert.ok(!has(doc, "D021") && !has(doc, "D034"), "relações válidas e sem ferir a regra de camadas");
+  assert.equal(onionSlot(doc.nodes.find((n) => n.id === "api")!).ring, "adapters");
 });

@@ -23,6 +23,7 @@ const MAX_WIDTH = 1900;
 const TYPES: { key: string; label: string }[] = [
   { key: "external", label: "Eventos externos" },
   { key: "actor", label: "Atores" },
+  { key: "controller", label: "Controllers" },
   { key: "use-case", label: "Casos de uso" },
   { key: "command", label: "Commands" },
   { key: "aggregate-root", label: "Aggregates" },

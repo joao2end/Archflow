@@ -1,4 +1,4 @@
-import { boxOf, edgeGeoms, labelPoint, labelSize, samplePath, segmentHitsRect } from "../ui/geometry";
+import { boxOf, edgeGeom, edgeGeoms, labelPoint, labelSize, samplePath, segmentHitsRect } from "../ui/geometry";
 import { BUILTIN_ASSETS, searchAssets } from "./catalog";
 import {
   CONNECTION_TYPES,
@@ -25,6 +25,7 @@ import {
   type ConnectionEl,
   type ConnectionType,
   type DddConnSpec,
+  type PortSpec,
   type DddNodeSpec,
   type LogicConnSpec,
   type LogicNodeSpec,
@@ -51,6 +52,7 @@ import {
 import { layeredLayout, shelfPack } from "./layout";
 import { stormLayout } from "./storm";
 import { groupedLayout, TYPE_GROUP_PREFIX } from "./grouped";
+import { onionLayout, ONION_PREFIX, ORBIT_D, orbits } from "./onion";
 import { logicLayout } from "./logiclayout";
 import { describeStages, stageGroups, stageIssues } from "./logicstages";
 import { migrateFacts, migrateRuleGuards, normalizeLogicRole, pipelineSequence, branchLabel, caseLabel, checkLogicConn, checkLogicNode, describeLogic, dataNames, hasFlow, logicIssues, schemaGuideLogic } from "./logic";
@@ -73,14 +75,27 @@ export type Op =
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; stage?: LogicStageSpec; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
-  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec }
+  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec; port?: PortSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
-  | { op: "layout"; style?: "flow" | "timeline" | "pipeline" | "grouped"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
+  | { op: "layout"; style?: "flow" | "timeline" | "pipeline" | "grouped" | "onion"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
   | { op: "set_meta"; title?: string; description?: string; mode?: DocMode; showDescriptions?: boolean }
   | { op: "set_tour"; steps: TourStep[] }
   | { op: "clear" };
+
+/** Porta de uma conexão: só no modo domain, com nome; operações são textos. undefined se estiver ok. */
+function checkPort(doc: Doc, port: unknown): string | undefined {
+  if (docMode(doc) !== "domain") return `port só existe em diagramas de modo "domain"`;
+  const p = port as Partial<PortSpec> | null;
+  if (!p || typeof p !== "object" || typeof p.name !== "string" || !p.name.trim()) return `port precisa de name (o nome da interface, ex.: "RepositorioDePedidos")`;
+  if (p.operations !== undefined && (!Array.isArray(p.operations) || p.operations.some((o) => typeof o !== "string"))) return "port.operations é uma lista de textos";
+  return undefined;
+}
+const normalizePort = (p: PortSpec): PortSpec => {
+  const ops = (p.operations ?? []).map((o) => o.trim()).filter(Boolean);
+  return { name: p.name.trim(), ...(ops.length ? { operations: ops } : {}) };
+};
 
 export interface OpResult {
   ok: boolean;
@@ -432,6 +447,10 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       }
       const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : agentConn ? AGENT_RELS[agentConn.rel].type : domainMode ? "association" : docMode(doc) === "logic" ? "data" : "sync");
       if (!CONNECTION_TYPES[type]) return { ok: false, error: `type inválido "${type}". Válidos: ${Object.keys(CONNECTION_TYPES).join(", ")}` };
+      if (op.port !== undefined) {
+        const bad = checkPort(doc, op.port);
+        if (bad) return { ok: false, error: bad };
+      }
       const id = uniqueId(doc, op.id ?? `${op.from}-to-${op.to}`);
       const c: ConnectionEl = {
         id,
@@ -448,6 +467,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ...(ddd ? { ddd } : {}),
         ...(op.logic ? { logic: op.logic } : {}),
         ...(agentConn ? { agent: agentConn } : {}),
+        ...(op.port ? { port: normalizePort(op.port) } : {}),
       };
       doc.connections.push(c);
       return { ok: true, id };
@@ -505,6 +525,12 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (bad) return { ok: false, error: bad };
         if (patch.tag === undefined && !el.tag) patch.tag = "ETAPA";
       }
+      if ("port" in patch && patch.port != null) {
+        if (!isConn) return { ok: false, error: "port só vale em conexões (a porta fica entre a origem e o destino)" };
+        const bad = checkPort(doc, patch.port);
+        if (bad) return { ok: false, error: bad };
+        patch.port = normalizePort(patch.port as PortSpec);
+      }
       if ("subdomain" in patch && patch.subdomain != null) {
         if (!doc.groups.includes(el) || el.kind !== "context") return { ok: false, error: `subdomain só vale em grupos kind "context"` };
         if (!(patch.subdomain as string in SUBDOMAINS)) return { ok: false, error: `subdomain inválido "${patch.subdomain}". Válidos: ${Object.keys(SUBDOMAINS).join(", ")}` };
@@ -518,6 +544,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if ("ddd" in patch && patch.ddd == null) delete el.ddd;
       if ("logic" in patch && patch.logic == null) delete el.logic;
       if ("agent" in patch && patch.agent == null) delete el.agent;
+      if ("port" in patch && patch.port == null) delete el.port;
       if (isNode && ("logic" in patch || "label" in patch || "description" in patch) && el.logic) resizeLogic(doc, [el as NodeEl]); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("stage" in patch && patch.stage == null) delete el.stage;
@@ -625,8 +652,14 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         groupedTypeLayout(doc, op.routing);
         return { ok: true };
       }
-      if (docMode(doc) === "domain") dissolveTypeGroups(doc); // os outros estilos não usam os quadros de tipo
-      // em diagramas de domínio, sem estilo explícito vale a linha do tempo: raias por tipo de componente (ator, command, aggregate, evento…)
+      // em diagramas de domínio, sem estilo explícito valem as camadas da Clean Architecture (Entities → Use Cases → Adapters → Drivers);
+      // um mapa de contextos (só referências, sem papéis DDD) continua na linha do tempo; o diagrama vazio fica com os anéis
+      if (op.style === "onion" || (docMode(doc) === "domain" && op.style === undefined && (!doc.nodes.length || doc.nodes.some((n) => n.ddd)))) {
+        if (docMode(doc) !== "domain") return { ok: false, error: `o layout "onion" (camadas da Clean Architecture) só existe em diagramas de modo "domain"` };
+        onionTypeLayout(doc, op.routing);
+        return { ok: true };
+      }
+      if (docMode(doc) === "domain") dissolveTypeGroups(doc); // os outros estilos não usam os quadros de tipo nem os anéis
       if (op.style === "timeline" || (docMode(doc) === "domain" && op.style === undefined)) {
         if (docMode(doc) !== "domain") return { ok: false, error: `o layout "timeline" (Event Storming) só existe em diagramas de modo "domain"` };
         timelineLayout(doc, op.routing);
@@ -759,12 +792,63 @@ export function timelineLayout(doc: Doc, routing?: Routing) {
 
 /* ───────────────────────── layout "agrupar por tipo" (modo domain) ───────────────────────── */
 
-/** Remove os quadros de tipo criados por `groupedTypeLayout`, devolvendo os componentes ao contexto de origem. */
+/** Remove os quadros de tipo (`groupedTypeLayout`) e os anéis (`onionTypeLayout`), devolvendo componentes e contextos ao pai de origem. */
 export function dissolveTypeGroups(doc: Doc) {
-  const typed = new Map(doc.groups.filter((g) => g.id.startsWith(TYPE_GROUP_PREFIX)).map((g) => [g.id, g]));
+  const typed = new Map(doc.groups.filter((g) => g.id.startsWith(TYPE_GROUP_PREFIX) || g.id.startsWith(ONION_PREFIX)).map((g) => [g.id, g]));
   if (!typed.size) return;
-  for (const n of doc.nodes) if (n.parent && typed.has(n.parent)) n.parent = typed.get(n.parent)!.parent;
+  // anéis se aninham: sobe até o primeiro pai que não é quadro de layout
+  const origin = (pid: string | undefined) => {
+    for (let i = 0; pid && typed.has(pid) && i < 50; i++) pid = typed.get(pid)!.parent;
+    return pid;
+  };
+  for (const e of [...doc.nodes, ...doc.groups]) if (e.parent && typed.has(e.parent)) {
+    const p = origin(e.parent);
+    if (p) e.parent = p;
+    else delete e.parent;
+  }
   doc.groups = doc.groups.filter((g) => !typed.has(g.id));
+  // fora dos anéis o componente volta a ser um cartão
+  for (const n of doc.nodes) if (orbits(n) && n.w === ORBIT_D && n.h === ORBIT_D) Object.assign(n, { w: NODE_W, h: NODE_H });
+}
+
+/**
+ * Documento novo. Um diagrama de domínio já nasce com a estrutura circular da Clean Architecture (os anéis vazios), para
+ * o usuário clicar numa área e adicionar ali os componentes; `blank` cria sem ela (ex.: mapa de contextos).
+ */
+export function createDoc(title: string, mode: DocMode = "architecture", opts: { blank?: boolean } = {}): Doc {
+  const doc = emptyDoc(title, mode);
+  if (mode === "domain" && !opts.blank) onionTypeLayout(doc);
+  return doc;
+}
+
+/** Camadas da Clean Architecture: anéis concêntricos (Entities → Use Cases → Interface Adapters → Frameworks & Drivers). */
+export function onionTypeLayout(doc: Doc, routing?: Routing) {
+  dissolveTypeGroups(doc);
+  // dentro dos anéis todo componente é um círculo que orbita o centro (cabe no anel igual em qualquer ângulo)
+  for (const n of doc.nodes) if (orbits(n)) Object.assign(n, { w: ORBIT_D, h: ORBIT_D });
+  const r = onionLayout(doc);
+  // a caixa dos anéis é a do círculo: não se ajusta aos filhos (auto: false), senão o círculo se deformaria ao mover um componente
+  for (const g of r.groups) doc.groups.push({ id: g.id, label: g.label, kind: "layer", tag: g.tag, color: g.color, ring: g.ring, ...(g.parent ? { parent: g.parent } : {}), ...g.rect });
+  for (const n of doc.nodes) {
+    const pos = r.nodes.get(n.id);
+    if (pos) Object.assign(n, pos);
+    const p = r.parentOf.get(n.id);
+    if (p) n.parent = p;
+  }
+  for (const n of doc.nodes) if (r.nodes.has(n.id)) restack(doc, n);
+  for (const g of doc.groups) {
+    const c = r.contexts.get(g.id);
+    if (!c) continue;
+    Object.assign(g, c.rect);
+    if (c.parent) g.parent = c.parent;
+  }
+  for (const c of doc.connections) {
+    c.routing = routing ?? "elbow";
+    delete c.labelT;
+    delete c.labelOffset;
+  }
+  avoidCollisions(doc);
+  placeLabels(doc);
 }
 
 /** Agrupa os componentes por tipo (um quadro por tipo em cada contexto) e liga tudo com conectores ortogonais que desviam dos componentes. */
@@ -940,6 +1024,20 @@ export function avoidCollisions(doc: Doc, margin = 14) {
   };
   const grow = (r: Rect, m: number): Rect => ({ x: r.x - m, y: r.y - m, w: r.w + m * 2, h: r.h + m * 2 });
   const lengthOf = (pts: Pt[]) => pts.reduce((s, p, i) => (i ? s + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0);
+  // lane de cada conexão (pares repetidos se afastam), calculada uma vez como em edgeGeoms: cada teste de rota desenha só a
+  // própria conexão (antes recalculava todas a cada candidato, e o layout "camadas" levava ~10 s num diagrama de 50 conexões)
+  const pairCount = new Map<string, number>();
+  const pairKey = (c: { from: string; to: string }) => [c.from, c.to].sort().join("|");
+  for (const c of doc.connections) pairCount.set(pairKey(c), (pairCount.get(pairKey(c)) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const lanes = new Map<string, number>();
+  for (const c of doc.connections) {
+    const k = pairKey(c);
+    const i = seen.get(k) ?? 0;
+    seen.set(k, i + 1);
+    const n = pairCount.get(k)!;
+    lanes.set(c.id, n > 1 ? (i - (n - 1) / 2) * 26 : 0);
+  }
 
   for (const c of doc.connections) {
     const a = boxOf(doc, c.from);
@@ -947,15 +1045,11 @@ export function avoidCollisions(doc: Doc, margin = 14) {
     if (!a || !b) continue;
     const obstacles: Rect[] = [...doc.nodes.filter((n) => n.id !== c.from && n.id !== c.to && !isInside(n.id, c.from) && !isInside(n.id, c.to)), ...doc.notes].map((o) => grow(o, margin));
     if (!obstacles.length) continue;
-    const probe = (wps?: Pt[]) => {
-      c.waypoints = wps;
-      const g = edgeGeoms(doc).find((e) => e.c.id === c.id)!.g; // inclui as lanes de pares repetidos
-      c.waypoints = undefined;
-      const pts = samplePath(g.d);
-      return { hits: obstacles.filter((o) => pts.some((p, i) => i > 0 && segmentHitsRect(pts[i - 1], p, o))), len: lengthOf(pts) };
-    };
-    const base = probe();
-    if (!base.hits.length) continue;
+    const path = (wps?: Pt[]) => samplePath(edgeGeom(a, b, c.routing, lanes.get(c.id) ?? 0, wps).d);
+    const blocked = (pts: Pt[], o: Rect) => pts.some((p, i) => i > 0 && segmentHitsRect(pts[i - 1], p, o));
+    const basePts = path();
+    const baseHits = obstacles.filter((o) => blocked(basePts, o));
+    if (!baseHits.length) continue;
 
     const ca = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
     const cb = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
@@ -978,14 +1072,38 @@ export function avoidCollisions(doc: Doc, margin = 14) {
 
     let best: { wps: Pt[]; len: number } | undefined;
     const consider = (wps: Pt[]) => {
-      const r = probe(wps);
-      if (!r.hits.length && (!best || r.len < best.len)) best = { wps, len: r.len };
+      const pts = path(wps);
+      const len = lengthOf(pts);
+      // mais longo que o melhor achado: nem testa colisão
+      if (best && len >= best.len) return;
+      // só os obstáculos que cruzam a caixa da rota podem bloqueá-la
+      const x1 = Math.min(...pts.map((p) => p.x));
+      const x2 = Math.max(...pts.map((p) => p.x));
+      const y1 = Math.min(...pts.map((p) => p.y));
+      const y2 = Math.max(...pts.map((p) => p.y));
+      if (!obstacles.some((o) => o.x <= x2 && o.x + o.w >= x1 && o.y <= y2 && o.y + o.h >= y1 && blocked(pts, o))) best = { wps, len };
+    };
+    // limite inferior do comprimento de uma rota pelos waypoints (linha reta entre centros, menos a saída das caixas e a
+    // folga das curvas): testando na ordem desse limite, para assim que nenhum candidato restante pode ser mais curto
+    const ra = Math.hypot(a.w, a.h) / 2;
+    const rb = Math.hypot(b.w, b.h) / 2;
+    const bound = (wps: Pt[]) => {
+      let s = 0;
+      let prev = ca;
+      for (const p of [...wps, cb]) (s += Math.hypot(p.x - prev.x, p.y - prev.y)), (prev = p);
+      return s - ra - rb - 30 * (wps.length + 2);
+    };
+    const search = (cands: Pt[][]) => {
+      for (const { wps, lb } of cands.map((wps) => ({ wps, lb: bound(wps) })).sort((x, y) => x.lb - y.lb)) {
+        if (best && lb >= best.len) break;
+        consider(wps);
+      }
     };
     // 1 waypoint nos cantos dos obstáculos que bloqueiam → 2 waypoints → amplia a busca a todos os obstáculos
-    for (const pool of [near(base.hits, 12), near(obstacles, 24)]) {
-      for (const p of pool) consider([p]);
+    for (const pool of [near(baseHits, 12), near(obstacles, 24)]) {
+      search(pool.map((p) => [p]));
       if (best) break;
-      for (const p of pool) for (const q of pool) if (p !== q) consider([p, q]);
+      search(pool.flatMap((p) => pool.filter((q) => q !== p).map((q) => [p, q])));
       if (best) break;
     }
     if (best) c.waypoints = (best as { wps: Pt[] }).wps.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
@@ -1225,13 +1343,27 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
   ].join("\n");
 }
 
+/**
+ * Modo de um arquivo gravado sem `mode` (versões anteriores ao campo): deduzido pelos nós. Sem isso, um diagrama de
+ * lógica antigo abria como arquitetura, as migrações do modo (ex.: `fact` → input/output/variable) não rodavam e o
+ * desenho quebrava num papel que não existe mais.
+ */
+function inferMode(raw: any): "domain" | "logic" | "agents" | undefined {
+  const nodes: any[] = Array.isArray(raw?.nodes) ? raw.nodes : [];
+  if (nodes.some((n) => n?.kind === "logic" && n.logic)) return "logic";
+  if (nodes.some((n) => n?.kind === "agent" && n.agent)) return "agents";
+  if (nodes.some((n) => n?.kind === "domain" && n.ddd)) return "domain";
+  return undefined;
+}
+
 export function normalizeDoc(raw: any): Doc {
   const d = emptyDoc(raw?.title ?? "Importado");
   const { mode: _mode, ...rest } = raw ?? {};
+  const mode = raw?.mode === "domain" || raw?.mode === "logic" || raw?.mode === "agents" ? (raw.mode as "domain" | "logic" | "agents") : inferMode(raw);
   const out = {
     ...d,
     ...rest,
-    ...(raw?.mode === "domain" || raw?.mode === "logic" || raw?.mode === "agents" ? { mode: raw.mode as "domain" | "logic" | "agents" } : {}),
+    ...(mode ? { mode } : {}),
     schema: SCHEMA_VERSION,
     groups: Array.isArray(raw?.groups) ? raw.groups : [],
     nodes: Array.isArray(raw?.nodes) ? raw.nodes.map((n: any) => (n?.logic?.role === "action" ? { ...n, logic: normalizeLogicRole(n.logic) } : n)) : [],

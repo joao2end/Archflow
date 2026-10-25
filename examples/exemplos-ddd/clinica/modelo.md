@@ -29,8 +29,11 @@ _exemplos-ddd/clinica/visao-geral.archflow.json_
 
 ## Avisos
 - [D011 dica] contexto `agenda` (Agenda) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/clinica/agenda.archflow.json`
+- [D035 dica] `servico-de-agendamento` (Serviço de agendamento) depende de `agenda-repo` (Repositório de agendas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioAgendas") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/clinica/agenda.archflow.json`
 - [D011 dica] contexto `faturamento` (Faturamento) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/clinica/faturamento.archflow.json`
+- [D035 dica] `emitir-guia` (Emitir guia) depende de `guia-repo` (Repositório de guias) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioGuias") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/clinica/faturamento.archflow.json`
 - [D011 dica] contexto `prontuario` (Prontuário) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura — `exemplos-ddd/clinica/prontuario.archflow.json`
+- [D035 dica] `registrar-atendimento` (Registrar atendimento) depende de `prontuario-repo` (Repositório de prontuários) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioProntuarios") para o diagrama mostrar a interface que a camada de dentro define — `exemplos-ddd/clinica/prontuario.archflow.json`
 
 ---
 
@@ -96,6 +99,7 @@ O aggregate é a agenda inteira de um profissional, não a consulta isolada: a r
 
 ## Avisos
 - [D011 dica] contexto `agenda` (Agenda) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `servico-de-agendamento` (Serviço de agendamento) depende de `agenda-repo` (Repositório de agendas) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioAgendas") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -161,6 +165,7 @@ _Diferencial competitivo do negócio; onde vale investir no melhor modelo._
 
 ## Avisos
 - [D011 dica] contexto `prontuario` (Prontuário) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `registrar-atendimento` (Registrar atendimento) depende de `prontuario-repo` (Repositório de prontuários) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioProntuarios") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid
@@ -225,6 +230,7 @@ _Necessário ao negócio, mas sem diferencial; costuma ser feito sob medida e si
 
 ## Avisos
 - [D011 dica] contexto `faturamento` (Faturamento) sem ligação com a arquitetura: adicione um componente "system" com ref para o diagrama de arquitetura
+- [D035 dica] `emitir-guia` (Emitir guia) depende de `guia-repo` (Repositório de guias) por uma porta implícita: declare a porta na conexão (port, ex.: "RepositorioGuias") para o diagrama mostrar a interface que a camada de dentro define
 
 ## Mermaid
 ```mermaid

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { emptyDoc, type Doc, type LogicNodeSpec } from "./schema";
-import { applyOps, describe, schemaGuide, validateDetailed, type Op } from "./ops";
+import { applyOps, describe, normalizeDoc, schemaGuide, validateDetailed, type Op } from "./ops";
 import { checkExamples, runPipeline } from "./logic";
 
 const node = (id: string, label: string, logic: LogicNodeSpec): Op => ({ op: "add_node", id, label, logic });
@@ -187,4 +187,21 @@ test("domain e logic só carregam componentes compatíveis com o modo", () => {
   assert.equal(rejected("domain", { op: "add_node", kind: "actor", label: "Cliente" }).ok, true);
   // architecture continua aceitando infraestrutura
   assert.equal(applyOps(emptyDoc("a"), [{ op: "add_node", kind: "service", label: "API" }]).results[0].ok, true);
+});
+
+test("arquivo antigo sem `mode`: o modo vem dos nós e as migrações rodam (fact vira input/output; o quadro não quebra)", () => {
+  const raw = {
+    schema: "archflow/1",
+    title: "antigo",
+    nodes: [
+      { id: "s", kind: "logic", label: "Início", x: 0, y: 0, w: 100, h: 40, logic: { role: "start" } },
+      { id: "f", kind: "logic", label: "Preço", x: 0, y: 0, w: 100, h: 40, logic: { role: "fact", key: "preco" } },
+    ],
+    connections: [],
+  };
+  const doc = normalizeDoc(raw);
+  assert.equal(doc.mode, "logic");
+  assert.ok(doc.nodes.every((n) => n.logic?.role !== ("fact" as never)), "fact migrado");
+  assert.equal(normalizeDoc({ title: "arq", nodes: [{ id: "a", kind: "service", label: "A", x: 0, y: 0, w: 1, h: 1 }] }).mode, undefined, "sem nós de modo: continua arquitetura");
+  assert.equal(normalizeDoc({ title: "ddd", nodes: [{ id: "a", kind: "domain", label: "A", x: 0, y: 0, w: 1, h: 1, ddd: { role: "entity" } }] }).mode, "domain");
 });
