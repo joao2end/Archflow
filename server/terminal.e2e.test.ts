@@ -228,10 +228,12 @@ test("passo automático: claude (falso) recebe os argumentos e o código de saí
       const r = await post("/api/term/start", token, { program: "claude", args: ["-p", "--session-id", id, "--", texto] });
       assert.equal(r.status, 200, await r.clone().text());
       const s = (await r.json()) as { id: string };
-      const { ws } = await open(`ws://127.0.0.1:${port}/api/term?session=${s.id}&token=${token}`, BASE);
+      // ouve desde a criação: o processo falso sai antes do WS abrir, e o servidor manda scrollback e exit junto com o
+      // handshake; um listener ligado depois do `await open(...)` perderia essas mensagens
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/api/term?session=${s.id}&token=${token}`, { origin: BASE });
       const got = await new Promise<{ out: string; code: number }>((res) => {
         let out = "";
-        ws!.on("message", (m) => {
+        ws.on("message", (m) => {
           const j = JSON.parse(String(m));
           if (j.t === "out") out += j.d;
           if (j.t === "exit") res({ out, code: j.code });
@@ -240,7 +242,7 @@ test("passo automático: claude (falso) recebe os argumentos e o código de saí
       });
       assert.match(got.out, new RegExp(`ARGS:6:-p:--session-id:--output-format:stream-json:${texto}`));
       assert.equal(got.code, code);
-      ws!.close();
+      ws.close();
       await post("/api/term/kill", token, { id: s.id });
     }
     const ruim = await post("/api/term/start", token, { program: "claude", args: ["--dangerously-skip-permissions"] });
