@@ -2,6 +2,8 @@
 
 Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qualquer um deles no projeto aberto.
 
+**Todo exemplo de Arquitetura e de Domínio tem uma aula guiada** (`src/shared/example.lessons.ts`): ao instalar ou abrir o exemplo, o painel da aula aparece à direita e cada passo acende as peças do diagrama e explica o porquê. Nos exemplos de Domínio a aula começa pelo mapa de contextos e o botão *Próximo* abre sozinho o diagrama de cada contexto.
+
 - **Arquitetura**: loja online, API com fila, microsserviços e pipeline de dados (definidos em `src/shared/arch.examples.ts`; instalam em `exemplos-arquitetura/`).
 - **Domínio (DDD)**: três aulas para começar ([`aulas-ddd/`](aulas-ddd/README.md)) e os cinco modelos abaixo, na pasta `exemplos-ddd/`.
 - **Lógica**: o motor de precificação (`exemplos-logic/`) e 15 algoritmos, de busca binária a fluxo máximo, em [`exemplos-algoritmos/`](exemplos-algoritmos/) (gerados por `scripts/build-algorithms.ts`, com oráculos em `src/shared/fixtures/oracles/`; histórico e resultados em [`docs/algorithm-score.md`](../docs/algorithm-score.md)).

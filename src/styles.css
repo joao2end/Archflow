@@ -4479,6 +4479,9 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .iso-mode .dock, .iso-mode .draw-bar, .iso-mode .minimap, .iso-mode .library { display: none; }
 /* apresentação na visão 3D: sai a interface de edição (paleta, busca, legenda, dica) */
 .iso-presenting .iso-side, .iso-presenting .iso-hint { display: none; }
+/* com a aula na tela a paleta lateral do 3D sai de cena: sobram a cena e o painel da aula */
+.lesson-on .iso-view .iso-side { display: none; }
+.lesson-on .iso-view .iso-hint { left: 50%; }
 .iso-mode .zoombar > :not(.iso-toggle):not(.iso-keep) { display: none; }
 .iso-mode .zoombar .iso-keep { display: none; }
 

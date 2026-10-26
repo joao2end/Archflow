@@ -104,6 +104,12 @@ export function LessonPanel() {
   useEffect(() => {
     if (open && guide) set({ panel: null });
   }, [open, guide?.key]);
+  /* com a aula na tela, a paleta lateral da visão 3D some (como na apresentação); volta quando a aula recolhe ou fecha */
+  const showing = open && !!step && !yielded && !sidePanel;
+  useEffect(() => {
+    document.documentElement.classList.toggle("lesson-on", showing);
+    return () => document.documentElement.classList.remove("lesson-on");
+  }, [showing]);
 
   if (!guide || !step) return null;
   const pill = course ? `Aula ${course.n}` : "Aula";
