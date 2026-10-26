@@ -4647,3 +4647,90 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .arch3d-cat-sec > summary span { flex: 1; }
 .arch3d-cat-sec > summary small { color: var(--ink-3); font-weight: 600; }
 .arch3d-cat-sec > .iso-tiles { margin: 4px 0 8px; }
+
+/* ───────── convivência das barras e painéis: nada fica por cima de outra coisa ───────── */
+/* terminal aberto (--term-h = altura dele): o que mora embaixo sobe acima da faixa dele */
+:is(.zoombar, .draw-bar, .corner-br, .library) {
+  margin-bottom: var(--term-h, 0px);
+}
+@media (min-width: 701px) {
+  .inspector {
+    max-height: calc(100vh - 190px - var(--term-h, 0px));
+  }
+  /* no 3D o inspetor para antes do botão de dicas (canto inferior direito) */
+  .iso-mode .inspector {
+    max-height: calc(100vh - 230px - var(--term-h, 0px));
+  }
+}
+/* celular: o topbar ocupa duas linhas, embaixo ficam a barra de desenho e o zoom (bottom 104px);
+   a validação sobe uma linha acima do zoom e os painéis (inspetor, aula) ficam à direita do dock, acima dela */
+@media (max-width: 700px) {
+  .corner-br {
+    bottom: 164px;
+    right: 12px;
+  }
+  .inspector,
+  .lesson-panel,
+  .lesson-panel.wide {
+    top: auto;
+    left: 86px;
+    right: 12px;
+    bottom: 214px;
+    width: auto;
+    max-height: calc(100vh - 214px - 190px); /* abaixo do topbar e da pílula da aula */
+    margin-bottom: var(--term-h, 0px);
+  }
+  .lesson-pill,
+  .lesson-pill.beside-insp {
+    top: 144px;
+    right: 12px;
+  }
+  .lesson-foot {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+/* a altura livre acima do terminal não comporta o dock centrado: ele sobe para o topo e o zoom vai para o lado dele */
+.term-open .dock {
+  top: 84px;
+  translate: 0 0;
+}
+.term-open .zoombar {
+  left: 92px;
+}
+.term-open .empty-hint {
+  display: none; /* com o terminal o canvas encolhe: a dica de começo vira ruído */
+}
+@media (min-width: 701px) and (max-width: 950px) {
+  .term-open .dock {
+    top: 144px; /* o topbar quebra em duas linhas nessa faixa */
+  }
+}
+@media (min-width: 951px) and (max-width: 1260px) {
+  /* sem largura para o zoom e a barra de desenho na mesma linha: a de desenho fica uma linha acima
+     (até 950px a regra das janelas médias já faz isso) */
+  .draw-bar {
+    bottom: 76px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  .draw-bar .swatches {
+    flex-wrap: nowrap;
+  }
+}
+/* janelas de 951 a 1360px: a barra de ações com os rótulos não cabe ao lado da marca; ficam só os ícones
+   (o texto continua no DOM: nome acessível e a dica ao passar o mouse) */
+@media (min-width: 951px) and (max-width: 1360px) {
+  .actions-pill .btn.ghost,
+  .actions-pill .status {
+    font-size: 0;
+    gap: 0;
+  }
+  .actions-pill .btn.ghost {
+    padding: 0 10px;
+  }
+}
+/* a barra de inspeção de fluxo ocupa o topo central: o aviso aparece logo abaixo dela */
+body:has(.flow-bar) .toast {
+  top: 146px;
+}

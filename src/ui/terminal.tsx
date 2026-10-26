@@ -195,6 +195,18 @@ export function TerminalPanel({ onApi }: { onApi?: (api: TermApi) => void } = {}
     setReady(false);
   }, [projectId]);
 
+  // aberto, o terminal ocupa a faixa de baixo: as barras (zoom, desenho, validação) e os painéis sobem acima dele
+  useEffect(() => {
+    const root = document.documentElement;
+    if (open) root.style.setProperty("--term-h", `${height + 12}px`);
+    else root.style.removeProperty("--term-h");
+    root.classList.toggle("term-open", open);
+    return () => {
+      root.style.removeProperty("--term-h");
+      root.classList.remove("term-open");
+    };
+  }, [open, height]);
+
   const checkHarness = useCallback(() => fetchHarnessStatus().then(setHarness, () => setHarness(undefined)), []);
   // aberto: confere o harness ao abrir e ~1,2 s depois de cada edição do diagrama (o sync automático tem 0,8 s)
   useEffect(() => {
