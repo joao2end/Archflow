@@ -20,7 +20,7 @@ export interface ExampleFile {
   mode: DocMode;
   ops: Op[];
   /** layout aplicado ao final */
-  layout: "timeline" | "flow";
+  layout: "timeline" | "flow" | "onion";
 }
 export interface DddExample {
   id: string;
@@ -37,20 +37,20 @@ export const examplePath = (ex: Pick<DddExample, "id">, file: string) => `${EXAM
 
 /* ───────── helpers de autoria ───────── */
 
-const ctx = (id: string, label: string, subdomain: Subdomain, description: string): Op => ({ op: "add_group", id, label, kind: "context", subdomain, description });
-const dn = (ctxId: string, id: string, label: string, ddd: DddNodeSpec, description?: string): Op => ({ op: "add_node", id, label, parent: ctxId, ddd, ...(description ? { description } : {}) });
-const actor = (ctxId: string, id: string, label: string): Op => ({ op: "add_node", id, label, kind: "actor", parent: ctxId });
-const rel = (from: string, to: string, r: DddRel, label?: string): Op => ({ op: "add_connection", from, to, ddd: { rel: r }, ...(label ? { label } : {}) });
-const runs = (actorId: string, useCase: string): Op => ({ op: "add_connection", from: actorId, to: useCase, type: "association", label: "executa" });
+export const ctx = (id: string, label: string, subdomain: Subdomain, description: string): Op => ({ op: "add_group", id, label, kind: "context", subdomain, description });
+export const dn = (ctxId: string, id: string, label: string, ddd: DddNodeSpec, description?: string): Op => ({ op: "add_node", id, label, parent: ctxId, ddd, ...(description ? { description } : {}) });
+export const actor = (ctxId: string, id: string, label: string): Op => ({ op: "add_node", id, label, kind: "actor", parent: ctxId });
+export const rel = (from: string, to: string, r: DddRel, label?: string): Op => ({ op: "add_connection", from, to, ddd: { rel: r }, ...(label ? { label } : {}) });
+export const runs = (actorId: string, useCase: string): Op => ({ op: "add_connection", from: actorId, to: useCase, type: "association", label: "executa" });
 /** Evento publicado por outro contexto, consumido aqui (cópia local; o produtor está em `external`). */
 const ext = (ctxId: string, id: string, label: string, from: string, payload?: string): Op => dn(ctxId, id, label, { role: "domain-event", external: from, ...(payload ? { payload } : {}) }, `Publicado por ${from.split(".")[0]}; aqui só reagimos a ele.`);
 /** Atalho: command que aciona um aggregate e emite eventos. */
-const handle = (cmd: string, aggregate: string, ...events: string[]): Op[] => [rel(cmd, aggregate, "triggers"), ...events.map((e) => rel(cmd, e, "emits"))];
+export const handle = (cmd: string, aggregate: string, ...events: string[]): Op[] => [rel(cmd, aggregate, "triggers"), ...events.map((e) => rel(cmd, e, "emits"))];
 /** Atalho: policy "quando <evento> então <command>". */
-const when = (event: string, policy: string, cmd: string): Op[] => [rel(event, policy, "triggers"), rel(policy, cmd, "triggers")];
+export const when = (event: string, policy: string, cmd: string): Op[] => [rel(event, policy, "triggers"), rel(policy, cmd, "triggers")];
 
 /** Conexão de fluxo (triggers/emits) com condição, senão, loop ou "para cada". */
-const flow = (from: string, to: string, r: "triggers" | "emits", extra: Omit<DddConnSpec, "rel">): Op => ({ op: "add_connection", from, to, ddd: { rel: r, ...extra } });
+export const flow = (from: string, to: string, r: "triggers" | "emits", extra: Omit<DddConnSpec, "rel">): Op => ({ op: "add_connection", from, to, ddd: { rel: r, ...extra } });
 
 const relation = (from: string, to: string, pattern: ContextPattern, via: string): Op => ({ op: "add_connection", from, to, label: via, ddd: { rel: "context-relation", pattern } });
 
@@ -920,7 +920,7 @@ export const DDD_EXAMPLES: DddExample[] = [biblioteca, loja, clinica, banco, del
 
 /** Documento pronto de um arquivo de exemplo (ops aplicadas + layout). */
 export function buildExampleDoc(f: ExampleFile, description?: string): Doc {
-  const { doc, results } = applyOps(emptyDoc(f.title, f.mode), [...f.ops, { op: "layout", ...(f.layout === "timeline" ? { style: "timeline" as const } : { direction: "LR" as const, spacing: "spacious" as const }) }]);
+  const { doc, results } = applyOps(emptyDoc(f.title, f.mode), [...f.ops, { op: "layout", ...(f.layout === "timeline" ? { style: "timeline" as const } : f.layout === "onion" ? { style: "onion" as const } : { direction: "LR" as const, spacing: "spacious" as const }) }]);
   const failed = results.map((r, i) => ({ r, i })).filter((x) => !x.r.ok);
   if (failed.length) throw new Error(`exemplo "${f.title}": ${failed.map((x) => `op #${x.i}: ${x.r.error}`).join("; ")}`);
   if (description && !doc.description) doc.description = description;

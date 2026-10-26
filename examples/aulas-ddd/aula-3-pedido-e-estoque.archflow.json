@@ -1,0 +1,930 @@
+{
+  "schema": "archflow/1",
+  "id": "aula-ddd-03-pedidos",
+  "title": "Aula 3 · Pedido e estoque",
+  "description": "Aula 3 de 3 de DDD em TypeScript: Dois aggregates que não se tocam: o Pedido anuncia, uma policy reage e o Estoque reserva. Com controller na entrada e read model para a consulta.",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "vendas",
+      "label": "Vendas",
+      "kind": "context",
+      "description": "Pedidos de clientes e a reserva do estoque que os atende.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1986,
+      "h": 2012,
+      "auto": true
+    },
+    {
+      "id": "anel-vendas-drivers",
+      "label": "Frameworks & Drivers",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 774,
+        "layer": "drivers",
+        "frame": true,
+        "orbits": [
+          858
+        ]
+      },
+      "parent": "vendas",
+      "x": 28,
+      "y": 54,
+      "w": 1930,
+      "h": 1930
+    },
+    {
+      "id": "anel-vendas-drivers-top",
+      "label": "Atores",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 774,
+        "layer": "drivers",
+        "side": "top",
+        "orbits": [
+          858
+        ],
+        "start": -70.5,
+        "end": 70.5
+      },
+      "parent": "anel-vendas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1930,
+      "h": 1930
+    },
+    {
+      "id": "anel-vendas-drivers-right",
+      "label": "Eventos externos",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 774,
+        "layer": "drivers",
+        "side": "right",
+        "orbits": [
+          858
+        ],
+        "start": 73.5,
+        "end": 142.5
+      },
+      "parent": "anel-vendas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1930,
+      "h": 1930
+    },
+    {
+      "id": "anel-vendas-drivers-bottom",
+      "label": "Interfaces externas",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 774,
+        "layer": "drivers",
+        "side": "bottom",
+        "orbits": [
+          858
+        ],
+        "start": 145.5,
+        "end": 214.5
+      },
+      "parent": "anel-vendas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1930,
+      "h": 1930
+    },
+    {
+      "id": "anel-vendas-drivers-left",
+      "label": "Sistemas",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 774,
+        "layer": "drivers",
+        "side": "left",
+        "orbits": [
+          858
+        ],
+        "start": 217.5,
+        "end": 286.5
+      },
+      "parent": "anel-vendas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1930,
+      "h": 1930
+    },
+    {
+      "id": "anel-vendas-adapters",
+      "label": "Interface Adapters",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "frame": true,
+        "orbits": [
+          641
+        ]
+      },
+      "parent": "anel-vendas-drivers",
+      "x": 231,
+      "y": 257,
+      "w": 1524,
+      "h": 1524
+    },
+    {
+      "id": "anel-vendas-adapters-top",
+      "label": "Controllers",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "side": "top",
+        "orbits": [
+          641
+        ],
+        "start": -49.9,
+        "end": 49.9
+      },
+      "parent": "anel-vendas-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1524,
+      "h": 1524
+    },
+    {
+      "id": "anel-vendas-adapters-right",
+      "label": "Presenters",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "side": "right",
+        "orbits": [
+          641
+        ],
+        "start": 52.9,
+        "end": 152.8
+      },
+      "parent": "anel-vendas-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1524,
+      "h": 1524
+    },
+    {
+      "id": "anel-vendas-adapters-left",
+      "label": "Gateways",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "side": "left",
+        "orbits": [
+          641
+        ],
+        "start": 155.8,
+        "end": 307.1
+      },
+      "parent": "anel-vendas-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1524,
+      "h": 1524
+    },
+    {
+      "id": "anel-vendas-usecases",
+      "label": "Use Cases",
+      "kind": "layer",
+      "tag": "Regras de negócio da aplicação",
+      "color": "#ec6f78",
+      "ring": {
+        "inner": 282,
+        "layer": "usecases",
+        "orbits": [
+          398
+        ]
+      },
+      "parent": "anel-vendas-adapters",
+      "x": 464,
+      "y": 490,
+      "w": 1058,
+      "h": 1058
+    },
+    {
+      "id": "anel-vendas-entities",
+      "label": "Entities",
+      "kind": "layer",
+      "tag": "Regras de negócio corporativas",
+      "color": "#e3c84a",
+      "ring": {
+        "inner": 0,
+        "layer": "entities",
+        "orbits": [
+          158
+        ]
+      },
+      "parent": "anel-vendas-usecases",
+      "x": 723,
+      "y": 749,
+      "w": 540,
+      "h": 540
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cliente",
+      "label": "Cliente",
+      "kind": "actor",
+      "parent": "anel-vendas-drivers-top",
+      "x": 923,
+      "y": 91,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "fazer-pedido",
+      "label": "Fazer pedido",
+      "kind": "domain",
+      "parent": "anel-vendas-usecases",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "Comprar um produto e acompanhar até a confirmação"
+      },
+      "x": 1122,
+      "y": 604,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "pedidos-controller",
+      "label": "Controller de pedidos",
+      "kind": "domain",
+      "parent": "anel-vendas-adapters-top",
+      "ddd": {
+        "role": "controller",
+        "intent": "POST /pedidos despacha Registrar pedido; GET /clientes/:id/pedidos lê Meus pedidos",
+        "properties": [
+          {
+            "name": "clienteId",
+            "type": "texto"
+          },
+          {
+            "name": "produtoId",
+            "type": "texto"
+          },
+          {
+            "name": "quantidade",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 923,
+      "y": 308,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "registrar-pedido",
+      "label": "Registrar pedido",
+      "kind": "domain",
+      "parent": "anel-vendas-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Abrir um pedido de um produto"
+      },
+      "x": 1321,
+      "y": 949,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "pedido",
+      "label": "Pedido",
+      "kind": "domain",
+      "parent": "anel-vendas-entities",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "tem ao menos uma unidade",
+          "só é confirmado uma vez, e depois de registrado"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "texto",
+            "key": true
+          },
+          {
+            "name": "produtoId",
+            "type": "texto",
+            "description": "aponta o Estoque só pelo id"
+          },
+          {
+            "name": "quantidade",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 923,
+      "y": 949,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "pedido-registrado",
+      "label": "Pedido registrado",
+      "kind": "domain",
+      "parent": "anel-vendas-entities",
+      "ddd": {
+        "role": "domain-event"
+      },
+      "x": 1035,
+      "y": 1061,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "reservar-ao-registrar",
+      "label": "Ao registrar, reservar estoque",
+      "kind": "domain",
+      "parent": "anel-vendas-usecases",
+      "ddd": {
+        "role": "policy",
+        "intent": "Todo pedido novo pede a reserva do produto"
+      },
+      "x": 525,
+      "y": 949,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "reservar-estoque",
+      "label": "Reservar estoque",
+      "kind": "domain",
+      "parent": "anel-vendas-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Separar as unidades do pedido"
+      },
+      "x": 1122,
+      "y": 1294,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "estoque",
+      "label": "Estoque",
+      "kind": "domain",
+      "parent": "anel-vendas-entities",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "o saldo nunca fica negativo"
+        ],
+        "properties": [
+          {
+            "name": "produtoId",
+            "type": "texto",
+            "key": true
+          },
+          {
+            "name": "saldo",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 1035,
+      "y": 837,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "estoque-reservado",
+      "label": "Estoque reservado",
+      "kind": "domain",
+      "parent": "anel-vendas-entities",
+      "ddd": {
+        "role": "domain-event"
+      },
+      "x": 811,
+      "y": 1061,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "confirmar-ao-reservar",
+      "label": "Ao reservar, confirmar pedido",
+      "kind": "domain",
+      "parent": "anel-vendas-usecases",
+      "ddd": {
+        "role": "policy",
+        "intent": "Com o estoque garantido, o pedido é confirmado"
+      },
+      "x": 724,
+      "y": 604,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "confirmar-pedido",
+      "label": "Confirmar pedido",
+      "kind": "domain",
+      "parent": "anel-vendas-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Marcar o pedido como confirmado"
+      },
+      "x": 724,
+      "y": 1294,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "pedido-confirmado",
+      "label": "Pedido confirmado",
+      "kind": "domain",
+      "parent": "anel-vendas-entities",
+      "ddd": {
+        "role": "domain-event"
+      },
+      "x": 811,
+      "y": 837,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "meus-pedidos",
+      "label": "Meus pedidos",
+      "kind": "domain",
+      "parent": "anel-vendas-adapters-right",
+      "ddd": {
+        "role": "read-model",
+        "properties": [
+          {
+            "name": "pedidoId",
+            "type": "texto"
+          },
+          {
+            "name": "situacao",
+            "type": "texto"
+          }
+        ]
+      },
+      "x": 1548,
+      "y": 1092,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "pedidos-repo",
+      "label": "Repositório de pedidos",
+      "kind": "domain",
+      "parent": "anel-vendas-adapters-left",
+      "ddd": {
+        "role": "repository",
+        "for": "pedido"
+      },
+      "x": 772,
+      "y": 1572,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "estoques-repo",
+      "label": "Repositório de estoques",
+      "kind": "domain",
+      "parent": "anel-vendas-adapters-left",
+      "ddd": {
+        "role": "repository",
+        "for": "estoque"
+      },
+      "x": 282,
+      "y": 957,
+      "w": 140,
+      "h": 140
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "cliente-to-fazer-pedido",
+      "from": "cliente",
+      "to": "fazer-pedido",
+      "type": "association",
+      "label": "executa",
+      "routing": "elbow",
+      "animated": true,
+      "waypoints": [
+        {
+          "x": 1105,
+          "y": 266
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-controller-to-registrar-pedido",
+      "from": "pedidos-controller",
+      "to": "registrar-pedido",
+      "type": "dependency",
+      "label": "POST /pedidos",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 1304,
+          "y": 786
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "pedidos-controller-to-meus-pedidos",
+      "from": "pedidos-controller",
+      "to": "meus-pedidos",
+      "type": "dependency",
+      "label": "GET",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-pedido-to-pedido",
+      "from": "registrar-pedido",
+      "to": "pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-pedido-to-pedido-registrado",
+      "from": "registrar-pedido",
+      "to": "pedido-registrado",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-registrado-to-reservar-ao-registr",
+      "from": "pedido-registrado",
+      "to": "reservar-ao-registrar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 993,
+          "y": 1243
+        },
+        {
+          "x": 769,
+          "y": 1243
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "reservar-ao-registrar-to-reservar-estoqu",
+      "from": "reservar-ao-registrar",
+      "to": "reservar-estoque",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 769,
+          "y": 1243
+        }
+      ],
+      "labelT": 0.58
+    },
+    {
+      "id": "reservar-estoque-to-estoque",
+      "from": "reservar-estoque",
+      "to": "estoque",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 1217,
+          "y": 1019
+        }
+      ],
+      "labelT": 0.14
+    },
+    {
+      "id": "reservar-estoque-to-estoque-reservado",
+      "from": "reservar-estoque",
+      "to": "estoque-reservado",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "waypoints": [
+        {
+          "x": 993,
+          "y": 1243
+        }
+      ],
+      "labelT": 0.38
+    },
+    {
+      "id": "estoque-reservado-to-confirmar-ao-reserv",
+      "from": "estoque-reservado",
+      "to": "confirmar-ao-reservar",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 769,
+          "y": 1019
+        }
+      ],
+      "labelT": 0.38
+    },
+    {
+      "id": "confirmar-ao-reservar-to-confirmar-pedid",
+      "from": "confirmar-ao-reservar",
+      "to": "confirmar-pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.54
+    },
+    {
+      "id": "confirmar-pedido-to-pedido",
+      "from": "confirmar-pedido",
+      "to": "pedido",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 993,
+          "y": 1243
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "confirmar-pedido-to-pedido-confirmado",
+      "from": "confirmar-pedido",
+      "to": "pedido-confirmado",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "waypoints": [
+        {
+          "x": 769,
+          "y": 1019
+        }
+      ],
+      "labelT": 0.5,
+      "labelOffset": -25
+    },
+    {
+      "id": "pedido-to-estoque",
+      "from": "pedido",
+      "to": "estoque",
+      "type": "association",
+      "label": "produtoId",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "references-by-id"
+      },
+      "labelT": 0.26,
+      "labelOffset": 50
+    },
+    {
+      "id": "pedido-registrado-to-meus-pedidos",
+      "from": "pedido-registrado",
+      "to": "meus-pedidos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "pedido-confirmado-to-meus-pedidos",
+      "from": "pedido-confirmado",
+      "to": "meus-pedidos",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 993,
+          "y": 795
+        },
+        {
+          "x": 1217,
+          "y": 795
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-pedido-to-pedidos-repo",
+      "from": "registrar-pedido",
+      "to": "pedidos-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "port": {
+        "name": "PedidoRepository",
+        "operations": [
+          "buscar(id)",
+          "salvar(pedido)"
+        ]
+      },
+      "waypoints": [
+        {
+          "x": 1304,
+          "y": 1252
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "confirmar-pedido-to-pedidos-repo",
+      "from": "confirmar-pedido",
+      "to": "pedidos-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "port": {
+        "name": "PedidoRepository",
+        "operations": [
+          "buscar(id)",
+          "salvar(pedido)"
+        ]
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "reservar-estoque-to-estoques-repo",
+      "from": "reservar-estoque",
+      "to": "estoques-repo",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "port": {
+        "name": "EstoqueRepository",
+        "operations": [
+          "buscar(produtoId)",
+          "salvar(estoque)"
+        ]
+      },
+      "waypoints": [
+        {
+          "x": 906,
+          "y": 1252
+        },
+        {
+          "x": 682,
+          "y": 1252
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "registrar-pedido-to-fazer-pedido",
+      "from": "registrar-pedido",
+      "to": "fazer-pedido",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "reservar-estoque-to-fazer-pedido",
+      "from": "reservar-estoque",
+      "to": "fazer-pedido",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.9,
+      "labelOffset": 25
+    },
+    {
+      "id": "confirmar-pedido-to-fazer-pedido",
+      "from": "confirmar-pedido",
+      "to": "fazer-pedido",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "waypoints": [
+        {
+          "x": 906,
+          "y": 786
+        }
+      ],
+      "labelT": 0.5,
+      "labelOffset": -50
+    }
+  ],
+  "customAssets": []
+}

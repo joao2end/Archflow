@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildTour, type TourCard, type TourSlide } from "../shared/tour";
+import type { Doc } from "../shared/schema";
+import { buildTour, type Tour, type TourCard, type TourSlide } from "../shared/tour";
 import { Glyph } from "./icons";
 import { fitView } from "./keys";
 import { moveCameraTo, spotlightCss, cancelCamera } from "./story";
-import { useStore } from "./store";
+import { getState, set, useStore, type Spotlight3D } from "./store";
 
 /* ───────── roteiro de apresentação de um diagrama de arquitetura ───────── */
 
@@ -17,6 +18,35 @@ function slideCss(slide: TourSlide): string {
     notes: slide.spotlight.notes,
     conns: slide.spotlight.conns,
   });
+}
+
+/**
+ * O passo para a visão 3D: os componentes do passo (um grupo em foco conta pelos componentes de dentro), as conexões e
+ * o que os passos anteriores já mostraram. A visão geral não destaca nada.
+ */
+function tourSpotlight(doc: Doc, tour: Tour, idx: number): Spotlight3D | null {
+  const slide = tour.slides[idx];
+  if (!slide || slide.overview) return null;
+  const parents = new Map(doc.groups.map((g) => [g.id, g.parent]));
+  const inGroup = (parent: string | undefined, groups: Set<string>) => {
+    for (let p = parent, k = 0; p && k < 20; p = parents.get(p), k++) if (groups.has(p)) return true;
+    return false;
+  };
+  const nodesOf = (s: TourSlide) => {
+    const groups = new Set(s.spotlight.groups);
+    return [...new Set([...s.spotlight.nodes, ...doc.nodes.filter((n) => inGroup(n.parent, groups)).map((n) => n.id)])];
+  };
+  const before = tour.slides.slice(0, idx);
+  const nodes = nodesOf(slide);
+  // passo só de notas: no 3D não há o que destacar, fica a cena inteira
+  if (!nodes.length && !slide.spotlight.conns.length) return null;
+  return {
+    nodes,
+    extras: [],
+    seenNodes: before.flatMap(nodesOf),
+    conns: slide.spotlight.conns,
+    seenConns: before.flatMap((s) => s.spotlight.conns),
+  };
 }
 
 export function TourPanel() {
@@ -46,8 +76,15 @@ export function TourPanel() {
     return () => style.remove();
   }, [open, slide, idx]);
 
+  /* na visão 3D o passo vai para o store: a cena destaca, desenha as conexões do passo e leva a câmera até ele */
   useEffect(() => {
-    if (!open || !slide?.boxes.length) return;
+    if (!open || !slide) return;
+    set({ spotlight: tourSpotlight(getState().doc, tour, idx) });
+    return () => set({ spotlight: null });
+  }, [open, sig, idx]);
+
+  useEffect(() => {
+    if (!open || !slide?.boxes.length || getState().iso) return;
     moveCameraTo(slide.boxes);
   }, [open, sig, idx]);
 

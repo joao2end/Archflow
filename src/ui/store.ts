@@ -222,6 +222,8 @@ export interface State {
   iso: boolean;
   /** passo atual do passo a passo da apresentação (modo domain), para a visão 3D destacar e animar como o 2D */
   spotlight: Spotlight3D | null;
+  /** painel da aula de DDD aberto (quando o diagrama aberto é uma aula) */
+  lessonOpen: boolean;
   /** painel do terminal do Claude Code (modo agents) */
   termOpen: boolean;
   /** o bridge tem terminal? (undefined = ainda não sabemos); o botão da barra preenche */
@@ -358,6 +360,7 @@ function init(): State {
     present: false,
     iso: false,
     spotlight: null,
+    lessonOpen: true,
     termOpen: false,
     termRequest: null,
     runNodeRequest: null,
@@ -989,6 +992,7 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
     if (f.path === ex.open) toOpen = name;
   }
   await openDiagram(toOpen);
+  if (ex.lesson) set({ lessonOpen: true, iso: true }); // a aula abre nas camadas 3D, com o painel dos passos
   toast(`Exemplo «${ex.title}» instalado em ${folder(ex.open)}`);
   return true;
 }

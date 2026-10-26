@@ -4475,3 +4475,175 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .iso-presenting .iso-side, .iso-presenting .iso-hint { display: none; }
 .iso-mode .zoombar > :not(.iso-toggle):not(.iso-keep) { display: none; }
 .iso-mode .zoombar .iso-keep { display: none; }
+
+/* ───────── aula de DDD (painel com os passos, as peças destacadas e o código) ───────── */
+.lesson-panel {
+  position: fixed;
+  right: 20px;
+  top: 84px;
+  bottom: 200px; /* acima da validação e do minimapa (canto inferior direito) */
+  width: min(440px, calc(100vw - 40px));
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  --story-color: var(--primary-600);
+}
+.lesson-panel.wide {
+  width: min(760px, calc(100vw - 120px));
+}
+.lesson-pill {
+  position: fixed;
+  right: 20px;
+  top: 84px;
+  z-index: 30;
+}
+/* com o inspetor aberto a aula cede a direita e fica como pílula ao lado dele */
+@media (min-width: 701px) {
+  .lesson-pill.beside-insp {
+    right: calc(var(--insp-w, 330px) + 28px);
+  }
+}
+.lesson-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.lesson-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.lesson-titles b {
+  font: 600 15px/1.25 var(--sans);
+}
+.lesson-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lesson-body h2 {
+  margin: 2px 0 0;
+  font: 400 24px/1.15 var(--serif);
+  text-wrap: balance;
+}
+.lesson-body h2 small {
+  font: 600 14px/1 var(--sans);
+  color: var(--ink-3);
+  vertical-align: 0.25em;
+}
+.lesson-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.lesson-text strong {
+  color: var(--ink);
+}
+.lesson-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lesson-piece {
+  --rc: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 5px;
+  border: 1px solid color-mix(in srgb, var(--rc) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rc) 12%, transparent);
+  color: var(--ink);
+  font: 500 12px/1.2 var(--sans);
+  cursor: pointer;
+}
+.lesson-piece:hover {
+  background: color-mix(in srgb, var(--rc) 22%, transparent);
+}
+.lesson-piece.ctx {
+  --rc: #706fd3;
+  cursor: default;
+}
+.lesson-piece i {
+  font: 700 9.5px/1 var(--sans);
+  font-style: normal;
+  letter-spacing: 0.04em;
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: var(--rc);
+  color: #fff;
+}
+.lesson-code {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lesson-code figcaption {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 11.5px/1 ui-monospace, "JetBrains Mono", Consolas, monospace;
+  color: var(--ink-3);
+}
+.lesson-code .note-md pre {
+  margin: 0;
+  overflow-x: auto;
+}
+.lesson-code .note-md pre code {
+  font-size: 12px;
+}
+.lesson-practice h3 {
+  margin: 0 0 4px;
+  font: 600 12px/1.2 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+}
+.lesson-practice ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.lesson-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+@media (max-width: 760px) {
+  .lesson-panel,
+  .lesson-panel.wide {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 112px; /* acima da barra de desenho */
+    width: auto;
+    max-height: 52vh;
+  }
+}
+
+/* visão 3D do modo architecture (arch3d.tsx): endpoint atrás do componente e a busca no catálogo da paleta */
+.arch3d-ep { display: inline-block; padding: 1px 6px; border-radius: 6px; background: var(--iso-halo); border-left: 3px solid var(--c); font: 700 10px var(--mono, ui-monospace, monospace); color: var(--iso-ink); white-space: nowrap; }
+.iso3d-far .arch3d-ep { display: none; }
+.arch3d-cat { width: calc(100% - 8px); margin: 0 4px 8px; }
+/* biblioteca completa na paleta 3D: uma seção recolhível por categoria */
+.arch3d-cat-sec { margin: 0 2px 6px; }
+.arch3d-cat-sec > summary { display: flex; align-items: center; gap: 6px; padding: 4px 4px; border-radius: 6px; cursor: pointer; font: 700 11px var(--sans); color: var(--ink-2); list-style-position: inside; }
+.arch3d-cat-sec > summary:hover { background: var(--primary-100); }
+.arch3d-cat-sec > summary span { flex: 1; }
+.arch3d-cat-sec > summary small { color: var(--ink-3); font-weight: 600; }
+.arch3d-cat-sec > .iso-tiles { margin: 4px 0 8px; }

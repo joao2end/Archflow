@@ -11,6 +11,7 @@ import { ModeTools } from "./ui/domain";
 import { DrawBar } from "./ui/drawbar";
 import { PresentMode } from "./ui/present";
 import { PlayPanel } from "./ui/logic";
+import { LessonPanel } from "./ui/lessons";
 import { TerminalPanel } from "./ui/terminal";
 import { AgentRunPanel } from "./ui/agentrun";
 import type { TermApi } from "./ui/workflow";
@@ -46,6 +47,7 @@ export default function App() {
           </div>
           <EmptyHint />
           <DrawBar />
+          <LessonPanel />
         </>
       )}
       <PlayPanel />

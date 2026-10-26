@@ -7,6 +7,7 @@
  */
 import { ARCH_EXAMPLES } from "./arch.examples";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExampleFile, examplePath } from "./examples";
+import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
@@ -33,6 +34,8 @@ export interface CatalogExample {
   open: string;
   /** os diagramas se referenciam pelo caminho (mapa de contextos → contextos): o caminho criado tem de ser exatamente o previsto */
   linked: boolean;
+  /** aula de DDD (id em `LESSONS`): ao instalar, abre na visão 3D com o painel da aula */
+  lesson?: string;
 }
 
 export const ARCH_DIR = "exemplos-arquitetura";
@@ -82,6 +85,20 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
     return { key: `architecture:${a.id}`, mode: "architecture", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: docTitle, path, mode: "architecture", load: a.doc }], open: path, linked: false };
   });
 
+  // as aulas vêm antes de tudo, na ordem delas: são a porta de entrada do DDD
+  const lessons: CatalogExample[] = LESSONS.map((l) => ({
+    key: `domain:aula-${l.id}`,
+    mode: "domain",
+    title: `Aula ${l.n} · ${l.title}`,
+    level: "iniciante",
+    summary: l.summary,
+    teaches: l.teaches,
+    files: [{ title: l.diagram.title, path: lessonPath(l), mode: "domain", load: () => buildLessonDoc(l) }],
+    open: lessonPath(l),
+    linked: false,
+    lesson: l.id,
+  }));
+
   const domain: CatalogExample[] = byLevel(DDD_EXAMPLES).map((ex) => {
     // os caminhos vêm do exemplo; os diagramas só são montados (e guardados) quando alguém os abre — montar todos na carga do app custava ~9 s
     const docs = ex.files.map((f) => {
@@ -119,7 +136,7 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
       return { key: `logic:${a.file}`, mode: "logic", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: a.title, path, mode: "logic", load: () => loadAlgorithm(a.file) }], open: path, linked: false };
     }),
   ];
-  return [...architecture, ...domain, ...logic];
+  return [...architecture, ...lessons, ...domain, ...logic];
 }
 
 export const EXAMPLE_MODES: { mode: DocMode; label: string; hint: string }[] = [

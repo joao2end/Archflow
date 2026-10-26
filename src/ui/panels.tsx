@@ -29,7 +29,7 @@ import { allKnownAssets, beginTyping, endTyping, deleteAsset, getState, goBack, 
 import { isFlowNode } from "../shared/logic";
 import { DefaultsPanel, FillControls, PALETTE, syncStyleDefaults } from "./styledefaults";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
-import { exitIso } from "./iso";
+import { exitIso, iso3dKind } from "./iso";
 
 /* ───────── helpers ───────── */
 
@@ -363,7 +363,7 @@ export function ZoomBar() {
   const allCollapsed = useStore((s) => s.doc.groups.some((g) => g.stage) && s.doc.groups.filter((g) => g.stage).every((g) => g.stage!.collapsed));
   const selSteps = useStore((s) => (docMode(s.doc) === "logic" ? s.doc.nodes.filter((n) => s.sel.includes(n.id) && isFlowNode(n)).length : 0));
   const zoomBy = zoomTo;
-  const hasRings = useStore((s) => docMode(s.doc) === "domain" && s.doc.groups.some((g) => g.ring));
+  const has3d = useStore((s) => iso3dKind(s.doc));
   const iso = useStore((s) => s.iso);
   return (
     <div className="hud glass zoombar">
@@ -384,10 +384,10 @@ export function ZoomBar() {
       <button className="btn ghost icon" onClick={() => (hasSel ? fitSelection() : fitView())} aria-label={hasSel ? "Ajustar à seleção" : "Ajustar à tela"} aria-keyshortcuts={hasSel ? "Shift+F" : "F"} data-tip={hasSel ? "Ajustar à seleção (Shift+F)\nF enquadra o diagrama inteiro." : "Ajustar à tela (F)"} data-tip-pos="top">
         <Glyph name="fit" size={17} />
       </button>
-      {hasRings && (
+      {has3d && (
         <>
           <div className="sep iso-keep" style={{ margin: "6px 4px" }} />
-          <button className={`btn ghost pct iso-toggle${iso ? " active" : ""}`} onClick={() => (iso ? exitIso() : set({ iso: true }))} aria-pressed={iso} aria-label="Visão isométrica 3D" data-tip={iso ? "Voltar à visão 2D (Esc)" : "Visão isométrica 3D das camadas"} data-tip-pos="top">
+          <button className={`btn ghost pct iso-toggle${iso ? " active" : ""}`} onClick={() => (iso ? exitIso() : set({ iso: true }))} aria-pressed={iso} aria-label="Visão isométrica 3D" data-tip={iso ? "Voltar à visão 2D (Esc)" : has3d === "board" ? "Visão isométrica 3D da arquitetura" : "Visão isométrica 3D das camadas"} data-tip-pos="top">
             3D
           </button>
         </>

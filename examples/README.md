@@ -3,8 +3,18 @@
 Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qualquer um deles no projeto aberto.
 
 - **Arquitetura**: loja online, API com fila, microsserviços e pipeline de dados (definidos em `src/shared/arch.examples.ts`; instalam em `exemplos-arquitetura/`).
-- **Domínio (DDD)**: os cinco modelos abaixo, na pasta `exemplos-ddd/`.
+- **Domínio (DDD)**: três aulas para começar ([`aulas-ddd/`](aulas-ddd/README.md)) e os cinco modelos abaixo, na pasta `exemplos-ddd/`.
 - **Lógica**: o motor de precificação (`exemplos-logic/`) e 15 algoritmos, de busca binária a fluxo máximo, em [`exemplos-algoritmos/`](exemplos-algoritmos/) (gerados por `scripts/build-algorithms.ts`, com oráculos em `src/shared/fixtures/oracles/`; histórico e resultados em [`docs/algorithm-score.md`](../docs/algorithm-score.md)).
+
+## Aulas de DDD em TypeScript
+
+Para quem está começando: três aulas curtas que ensinam DDD **pelo diagrama**. Cada aula é um diagrama em camadas (abre na visão 3D) e uma pasta de código TypeScript que compila e roda. No app, o painel da aula anda passo a passo: cada passo acende as peças do diagrama e mostra o trecho de código que as implementa.
+
+| Aula | O que acrescenta |
+| --- | --- |
+| [1 · Lista de tarefas](aulas-ddd/01-tarefas/README.md) | value object, aggregate root e invariante, command → evento, caso de uso |
+| [2 · Carrinho de compras](aulas-ddd/02-carrinho/README.md) | entity dentro do aggregate, invariante do conjunto, repository |
+| [3 · Pedido e estoque](aulas-ddd/03-pedidos/README.md) | dois aggregates ligados por eventos, policy, controller, read model |
 
 ## Exemplos de DDD
 
@@ -39,4 +49,4 @@ Peça: *"Leia o domínio em `exemplos-ddd/loja` com `domain_overview` e explique
 
 ## Garantias
 
-Os exemplos são definidos em `src/shared/examples.ts` e **testados**: todos os diagramas validam sem erros nem avisos, todo caso de uso é rastreado até um evento, o esqueleto de código de cada um compila com `tsc --strict` e os arquivos desta pasta estão em dia com as definições. Para regenerar depois de mudar uma definição: `npm run examples:build`.
+Os exemplos são definidos em `src/shared/examples.ts` e **testados**: todos os diagramas validam sem erros nem avisos, todo caso de uso é rastreado até um evento, o esqueleto de código de cada um compila com `tsc --strict` e os arquivos desta pasta estão em dia com as definições. As aulas (`src/shared/lessons.ts`) também: cada passo aponta peças que existem no diagrama, todo componente é explicado em algum passo, o código de cada aula compila com `tsc --strict` e o `exemplo.ts` roda e imprime o que o texto promete. Para regenerar depois de mudar uma definição: `npm run examples:build`.

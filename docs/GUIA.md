@@ -134,6 +134,7 @@ e **arraste** o item para o quadro. Precisa de algo que não existe? **Novo asse
 - **`N`** adiciona uma **nota** (útil para registrar decisões de arquitetura).
 - **`L`** (horizontal) / **`Shift+L`** (vertical) aplica o **auto-layout**; **`F`** ajusta o zoom para caber tudo.
 - **`Ctrl+Z` / `Ctrl+Y`** desfazem e refazem; **`Ctrl+D`** duplica; **`Del`** exclui.
+- **Visão 3D:** o botão **3D** na barra inferior mostra a arquitetura organizada como uma placa de circuito: cada componente vira um objeto 3D do seu tipo (servidor, banco, fila, gateway, nuvem…) com o logo do asset, numa grade; os grupos viram zonas e as conexões correm em trilhas pelos canais entre os componentes, na cor do tipo de conexão. Mesma câmera da visão 3D do modo Domain: orbitar (botão do meio, `Q`/`E`), zoom, buscar (`/`), isolar vizinhos (`I`). Arraste um componente para outra célula para movê-lo (o 2D acompanha; numa célula ocupada os dois trocam de lugar) e use **Shift + arrastar** de um componente a outro para ligá-los; a paleta traz a biblioteca inteira. A apresentação também roda no 3D, com o passo destacado e as conexões desenhadas. `Esc` volta ao 2D. Os modelos ficam em `assets-src/arch-parts.blend` (Blender) e são exportados para `public/models/arch/`.
 
 ### 4. Edite os detalhes no inspetor
 

@@ -245,19 +245,7 @@ export class IsoScene {
     this.scene.add(this.spotRings);
 
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.08;
-    this.controls.screenSpacePanning = true;
-    this.controls.minPolarAngle = 0.12;
-    this.controls.maxPolarAngle = 1.48;
-    this.controls.minZoom = 0.15;
-    this.controls.maxZoom = 6;
-    // navegação estilo Blender: botão do meio orbita, Shift + meio move (o OrbitControls troca para pan com Shift),
-    // Ctrl + meio dá zoom (onDown); a roda dá zoom na direção do cursor. Esquerdo no fundo também orbita (touchpad) e o
-    // direito move.
-    this.controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
-    this.controls.zoomToCursor = true;
+    this.controls = blenderControls(this.camera, this.renderer.domElement);
 
     const el = this.renderer.domElement;
     // na captura (antes do OrbitControls): começar num componente é arrastar uma conexão, não girar a câmera
@@ -432,7 +420,9 @@ export class IsoScene {
       const cur = this.links.filter((l) => s.conns.includes(l.id));
       for (const l of cur) this.fast.add(l.pulses);
       if (cur.length && !reducedMotion()) this.grow = { t0: performance.now(), links: cur };
-      // só o passo (e os de apoio): nos anéis o passo anterior costuma ficar longe e o enquadramento ficaria pequeno
+      // só o passo (e os de apoio): nos anéis o passo anterior costuma ficar longe e o enquadramento ficaria pequeno.
+      // A entrada da câmera (visão recém-montada) para aqui: senão ela termina por cima do voo até o passo.
+      this.introAnim = null;
       this.frameNodes(s.nodes);
     } else if (prev) this.frameNodes([...this.gears.keys()]);
     this.applyFocus();
@@ -1133,48 +1123,9 @@ export class IsoScene {
     if (bad) label.element.dataset.bad = "1";
     this.links.push({ id, from, to, rel, group: g, mats, label, tubes, xray, cone, pulses, port: portMark?.element });
   }
-  /**
-   * Rótulos pela proximidade: o tamanho acompanha o zoom (de longe, menores; de perto, normais) e, de longe, saem o papel
-   * entre parênteses e os rótulos das conexões. Depois, os que se encostam na tela são escondidos, mantendo os de maior
-   * prioridade: o componente selecionado, os nomes dos componentes, as conexões em foco e, por fim, os nomes das camadas
-   * (os maiores primeiro).
-   */
+  /** Rótulos pelo zoom e sem sobreposição (declutterLabels). */
   private fitLabels() {
-    const root = this.labels.domElement;
-    const scale = THREE.MathUtils.clamp(0.55 + (this.camera.zoom - 1) * 0.5, 0.5, 1.25);
-    root.style.setProperty("--iso-ls", scale.toFixed(3));
-    root.classList.toggle("iso3d-far", scale < 0.72);
-    const items = [...root.querySelectorAll<HTMLElement>(".iso3d-label")];
-    for (const el of items) el.classList.remove("iso3d-hidden");
-    // o nome do componente vence: o da camada (que a cor do anel e os outros setores já indicam) só aparece onde sobra
-    // espaço; apagados por último, para um nome fora do foco não esconder o de um vizinho aceso
-    const rank = (el: HTMLElement) => (el.dataset.sel === "1" ? 0 : el.classList.contains("iso3d-dim") ? 5 : el.querySelector(".iso3d-name") ? 1 : el.dataset.on === "1" ? 2 : el.querySelector(".iso3d-tier") ? 3 : 4);
-    const boxes = items
-      .filter((el) => el.offsetParent !== null && getComputedStyle(el.firstElementChild as Element).display !== "none")
-      .map((el) => ({ el, r: (el.firstElementChild as HTMLElement).getBoundingClientRect(), k: rank(el) }))
-      .filter((x) => x.r.width > 0)
-      .sort((a, b) => a.k - b.k || b.r.width * b.r.height - a.r.width * a.r.height);
-    const kept: DOMRect[] = [];
-    const pad = 3;
-    const hits = (r: DOMRect) => kept.some((k) => r.left < k.right + pad && r.right > k.left - pad && r.top < k.bottom + pad && r.bottom > k.top - pad);
-    for (const x of boxes) {
-      x.el.classList.remove("iso3d-alt");
-      if (!hits(x.r)) {
-        kept.push(x.r);
-        continue;
-      }
-      // nome de componente encostando em outro: tenta acima do componente antes de esconder
-      if (x.el.querySelector(".iso3d-name")) {
-        x.el.classList.add("iso3d-alt");
-        const r = (x.el.firstElementChild as HTMLElement).getBoundingClientRect();
-        if (!hits(r)) {
-          kept.push(r);
-          continue;
-        }
-        x.el.classList.remove("iso3d-alt");
-      }
-      x.el.classList.add("iso3d-hidden");
-    }
+    declutterLabels(this.labels.domElement, this.camera.zoom);
   }
 
   /** Canal no pé do degrau: fundo rebaixado e uma lâmina de fluido em volta do anel. */
@@ -1270,8 +1221,73 @@ export class IsoScene {
   }
 }
 
+/**
+ * Câmera ortográfica com navegação estilo Blender: botão do meio orbita, Shift + meio move (o OrbitControls troca para
+ * pan com Shift), Ctrl + meio dá zoom (decidido no pointerdown de quem usa); a roda dá zoom na direção do cursor.
+ * Esquerdo no fundo também orbita (touchpad) e o direito move.
+ */
+export function blenderControls(camera: THREE.OrthographicCamera, el: HTMLElement) {
+  const c = new OrbitControls(camera, el);
+  c.enableDamping = true;
+  c.dampingFactor = 0.08;
+  c.screenSpacePanning = true;
+  c.minPolarAngle = 0.12;
+  c.maxPolarAngle = 1.48;
+  c.minZoom = 0.15;
+  c.maxZoom = 6;
+  // navegação estilo Blender: botão do meio orbita, Shift + meio move (o OrbitControls troca para pan com Shift),
+  // Ctrl + meio dá zoom (onDown); a roda dá zoom na direção do cursor. Esquerdo no fundo também orbita (touchpad) e o
+  // direito move.
+  c.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN };
+  c.zoomToCursor = true;
+  return c;
+}
+
+/**
+ * Rótulos pela proximidade: o tamanho acompanha o zoom (de longe, menores; de perto, normais) e, de longe, saem o papel
+ * entre parênteses e os rótulos das conexões. Depois, os que se encostam na tela são escondidos, mantendo os de maior
+ * prioridade: o componente selecionado, os nomes dos componentes, as conexões em foco e, por fim, os nomes das camadas
+ * (os maiores primeiro).
+ */
+export function declutterLabels(root: HTMLElement, zoom: number) {
+  const scale = THREE.MathUtils.clamp(0.55 + (zoom - 1) * 0.5, 0.5, 1.25);
+  root.style.setProperty("--iso-ls", scale.toFixed(3));
+  root.classList.toggle("iso3d-far", scale < 0.72);
+  const items = [...root.querySelectorAll<HTMLElement>(".iso3d-label")];
+  for (const el of items) el.classList.remove("iso3d-hidden");
+  // o nome do componente vence: o da camada (que a cor do anel e os outros setores já indicam) só aparece onde sobra
+  // espaço; apagados por último, para um nome fora do foco não esconder o de um vizinho aceso
+  const rank = (el: HTMLElement) => (el.dataset.sel === "1" ? 0 : el.classList.contains("iso3d-dim") ? 5 : el.querySelector(".iso3d-name") ? 1 : el.dataset.on === "1" ? 2 : el.querySelector(".iso3d-tier") ? 3 : 4);
+  const boxes = items
+    .filter((el) => el.offsetParent !== null && getComputedStyle(el.firstElementChild as Element).display !== "none")
+    .map((el) => ({ el, r: (el.firstElementChild as HTMLElement).getBoundingClientRect(), k: rank(el) }))
+    .filter((x) => x.r.width > 0)
+    .sort((a, b) => a.k - b.k || b.r.width * b.r.height - a.r.width * a.r.height);
+  const kept: DOMRect[] = [];
+  const pad = 3;
+  const hits = (r: DOMRect) => kept.some((k) => r.left < k.right + pad && r.right > k.left - pad && r.top < k.bottom + pad && r.bottom > k.top - pad);
+  for (const x of boxes) {
+    x.el.classList.remove("iso3d-alt");
+    if (!hits(x.r)) {
+      kept.push(x.r);
+      continue;
+    }
+    // nome de componente encostando em outro: tenta acima do componente antes de esconder
+    if (x.el.querySelector(".iso3d-name")) {
+      x.el.classList.add("iso3d-alt");
+      const r = (x.el.firstElementChild as HTMLElement).getBoundingClientRect();
+      if (!hits(r)) {
+        kept.push(r);
+        continue;
+      }
+      x.el.classList.remove("iso3d-alt");
+    }
+    x.el.classList.add("iso3d-hidden");
+  }
+}
+
 /** Mistura duas cores no espaço sRGB (como o olho e o CSS), não no linear. */
-function mixSRGB(a: string | THREE.Color, b: string | THREE.Color, k: number) {
+export function mixSRGB(a: string | THREE.Color, b: string | THREE.Color, k: number) {
   const ca = new THREE.Color(a).getRGB({ r: 0, g: 0, b: 0 }, THREE.SRGBColorSpace);
   const cb = new THREE.Color(b).getRGB({ r: 0, g: 0, b: 0 }, THREE.SRGBColorSpace);
   return new THREE.Color().setRGB(ca.r + (cb.r - ca.r) * k, ca.g + (cb.g - ca.g) * k, ca.b + (cb.b - ca.b) * k, THREE.SRGBColorSpace);
@@ -1290,10 +1306,10 @@ const ARROW_LEN = 20;
 
 /** Anel do passo atual da apresentação (geometria única, escalada por componente). */
 const SPOT_RING = new THREE.TorusGeometry(1, 0.06, 8, 64);
-const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** Material da caixa invisível de clique dos componentes (o raycast não olha `visible` do material; o render pula). */
-const PROXY_MAT = new THREE.MeshBasicMaterial({ visible: false });
+export const PROXY_MAT = new THREE.MeshBasicMaterial({ visible: false });
 
 
 /** Arco de Bézier de A a B, acima do terreno (mais alto quanto mais longe), aberto `side` px para o lado. */
@@ -1309,7 +1325,7 @@ function arcCurve(A: THREE.Vector3, B: THREE.Vector3, side: number) {
 }
 
 /** Apaga (k < 1) ou devolve (k = 1) a opacidade original dos materiais. */
-function fade(mats: THREE.Material[], k: number) {
+export function fade(mats: THREE.Material[], k: number) {
   for (const m of mats) {
     const base = (m.userData.base ??= { opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite });
     const transparent = base.transparent || k < 1;
@@ -1321,9 +1337,9 @@ function fade(mats: THREE.Material[], k: number) {
 }
 
 /** O objeto e todos os pais estão visíveis (o raycast do three não olha `visible`). */
-function visibleUp(o: THREE.Object3D | null) {
+export function visibleUp(o: THREE.Object3D | null) {
   for (let x = o; x; x = x.parent) if (!x.visible) return false;
   return true;
 }
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
+export const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);

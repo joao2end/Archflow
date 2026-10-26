@@ -146,6 +146,26 @@ export function IconSvg({ icon, color, name, size = 28, x, y }: IconProps) {
   return <TextIcon text={initials(name)} color={color} size={size} pos={pos} />;
 }
 
+const xmlEsc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]!);
+
+/** O mesmo ícone de IconSvg como texto SVG autônomo (para virar imagem, ex.: o logo nos objetos da visão 3D). */
+export function iconMarkup(icon: string, color: string, name: string): string {
+  const svg = (vb: string, inner: string, extra = "") => `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" viewBox="${vb}"${extra}>${inner}</svg>`;
+  const text = (t: string) => {
+    const fs = t.length <= 2 ? 11 : t.length === 3 ? 9 : 7.5;
+    return svg("0 0 24 24", `<rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="${color}"/><text x="12" y="12.2" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="700" fill="#fff" font-family="Inter Tight, sans-serif">${xmlEsc(t)}</text>`);
+  };
+  const m = /^([ls]):(.+)$/.exec(icon);
+  if (m) {
+    const g = GEN[icon];
+    return g ? svg(`0 0 ${g.w} ${g.h}`, g.body) : text(initials(name));
+  }
+  if (icon.startsWith("g:")) return svg("0 0 24 24", (GLYPHS[icon.slice(2)] ?? GLYPHS.service).map((d) => `<path d="${d}"/>`).join(""), ` fill="none" stroke="${color}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"`);
+  if (icon.startsWith("t:")) return text(icon.slice(2));
+  if (/^(https?:|data:|\/)/.test(icon)) return svg("0 0 24 24", `<image href="${xmlEsc(icon)}" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`);
+  return text(initials(name));
+}
+
 function TextIcon({ text, color, size, pos }: { text: string; color: string; size: number; pos: object }) {
   const fs = text.length <= 2 ? 11 : text.length === 3 ? 9 : 7.5;
   return (

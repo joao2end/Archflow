@@ -20,25 +20,22 @@ import type { GroupEl, NodeEl } from "../shared/schema";
 import { IsoScene, REL_STYLE, VIOLATION_STYLE, type IsoTheme } from "./iso3d";
 import { RingAddMenu } from "./ringmenu";
 import { gearThumb } from "./isothumbs";
-import { docMode } from "../shared/schema";
+import { docMode, type DocMode } from "../shared/schema";
 import { getState, run, select, set, toast, toastError, useStore } from "./store";
+import { ArchView } from "./arch3d";
+import { ENTER_MS, LEAVE_MS, exitIso, readTheme, registerLeave, useIsoChrome, useTheme } from "./isoshell";
+export { exitIso };
 
-/** duração das transições de entrada e saída (ms) */
-const ENTER_MS = 220;
-const LEAVE_MS = 200;
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Monta a visão 3D quando ela está ligada e o diagrama tem o layout "camadas" (fica fora do Canvas: não o redesenha). */
-export function IsoGate() {
-  const on = useStore((s) => s.iso && docMode(s.doc) === "domain" && s.doc.groups.some((g) => g.ring));
-  return on ? <IsoView /> : null;
-}
+/** Visão 3D do diagrama, quando existe uma para ele: as camadas (domain) ou a placa (architecture). */
+export const iso3dKind = (doc: { mode?: DocMode; groups: GroupEl[]; nodes: NodeEl[] }) =>
+  docMode(doc) === "domain" && doc.groups.some((g) => g.ring) ? "rings" : docMode(doc) === "architecture" && doc.nodes.length > 0 ? "board" : null;
 
-let leave: (() => void) | null = null;
-/** Volta ao 2D com a transição de saída (sem a visão montada, só desliga). */
-export function exitIso() {
-  if (leave) leave();
-  else set({ iso: false });
+/** Monta a visão 3D quando ela está ligada e o diagrama tem uma (fica fora do Canvas: não o redesenha). */
+export function IsoGate() {
+  const kind = useStore((s) => (s.iso ? iso3dKind(s.doc) : null));
+  return kind === "rings" ? <IsoView /> : kind === "board" ? <ArchView /> : null;
 }
 
 /** Paleta: os tipos de cada camada, de dentro para fora (os mesmos do menu de clique). */
@@ -125,14 +122,12 @@ export function IsoView() {
   /** a cena pronta: os efeitos que a alimentam (documento, seleção, filtros…) dependem dela para rodar de novo */
   const [live, setLive] = useState<IsoScene | null>(null);
   useEffect(() => {
-    leave = () => {
+    registerLeave(() => {
       if (reducedMotion()) return set({ iso: false });
       setPhase("leave");
       setTimeout(() => set({ iso: false }), LEAVE_MS);
-    };
-    return () => {
-      leave = null;
-    };
+    });
+    return () => registerLeave(null);
   }, []);
 
   useEffect(() => {
@@ -195,37 +190,15 @@ export function IsoView() {
   useEffect(() => live?.setSelection(sel), [sel, live]);
   useEffect(() => live?.setTheme(theme), [theme, live]);
   useEffect(() => live?.setFilter({ match: matches ? matches.map((n) => n.id) : null, isolate, hiddenRels }), [matches, isolate, hiddenRels, doc, live]);
-  // no 3D, o cromo do 2D (ferramentas de desenho, paleta, barra lateral, minimapa, zoom do 2D) sai de cena
-  useEffect(() => {
-    document.documentElement.classList.add("iso-mode");
-    return () => document.documentElement.classList.remove("iso-mode");
-  }, []);
-  // o painel lateral começa abaixo da barra de cima, que quebra em duas linhas em telas estreitas
   const view = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const bar = document.querySelector<HTMLElement>(".topbar");
-    if (!bar) return;
-    // a segunda linha da barra pode transbordar da caixa dela: vale o que estiver mais embaixo
-    // (menus e balões soltos, posicionados por cima, não contam)
-    const inFlow = (e: HTMLElement) => !!e.offsetParent && !/absolute|fixed/.test(getComputedStyle(e).position);
-    const bottom = () => Math.max(bar.getBoundingClientRect().bottom, ...[...bar.querySelectorAll<HTMLElement>("*")].filter(inFlow).map((e) => e.getBoundingClientRect().bottom));
-    const fit = () => view.current?.style.setProperty("--iso-top", `${Math.round(bottom()) + 12}px`);
-    window.addEventListener("resize", fit);
-    const ro = new ResizeObserver(fit);
-    ro.observe(bar);
-    fit();
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", fit);
-    };
-  }, []);
+  useIsoChrome(view);
   const side = useRef<HTMLElement>(null);
   /** a cena se centra no espaço livre entre o painel lateral (edição) e o painel do passo a passo (apresentação) */
   const fitInsets = () => {
     const el = side.current;
     // em tela estreita o painel fica por cima, na largura toda: aí não desloca a cena
     const left = el && el.offsetWidth && el.offsetWidth < window.innerWidth * 0.6 ? el.getBoundingClientRect().right : 0;
-    const story = document.querySelector<HTMLElement>(".story-panel");
+    const story = document.querySelector<HTMLElement>(".story-panel, .lesson-panel");
     const right = story && story.offsetWidth < window.innerWidth * 0.6 ? window.innerWidth - story.getBoundingClientRect().left : 0;
     scene.current?.setInset(left, right);
   };
@@ -240,9 +213,9 @@ export function IsoView() {
   useEffect(() => {
     // o painel do passo a passo entra depois desta renderização
     const id = requestAnimationFrame(fitInsets);
-    scene.current?.setSpotlight(present ? spotlight : null);
+    scene.current?.setSpotlight(spotlight); // passo da apresentação ou da aula de DDD
     return () => cancelAnimationFrame(id);
-  }, [present, spotlight, live]);
+  }, [spotlight, live]);
   // a dica de controles some depois do primeiro gesto (ou de alguns segundos) e volta com "?"
   const [hint, setHint] = useState(true);
   useEffect(() => {
@@ -553,18 +526,4 @@ function PaletteTile({ pick, theme, armed, onDrag }: { pick: OnionPick; theme: I
       <span>{pick.label}</span>
     </button>
   );
-}
-
-/** Tema efetivo do app (o atributo data-theme da raiz, que já resolve "sistema"). */
-const readTheme = (): IsoTheme => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
-
-/** Tema efetivo do app, acompanhando as trocas. */
-function useTheme(): IsoTheme {
-  const [theme, setTheme] = useState<IsoTheme>(readTheme);
-  useEffect(() => {
-    const mo = new MutationObserver(() => setTheme(readTheme()));
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => mo.disconnect();
-  }, []);
-  return theme;
 }

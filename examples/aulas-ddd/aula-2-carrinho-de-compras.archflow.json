@@ -1,0 +1,719 @@
+{
+  "schema": "archflow/1",
+  "id": "aula-ddd-02-carrinho",
+  "title": "Aula 2 · Carrinho de compras",
+  "description": "Aula 2 de 3 de DDD em TypeScript: Um aggregate com partes: entity dentro do aggregate, invariantes que só a raiz garante e o repository que guarda o conjunto.",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "compras",
+      "label": "Compras",
+      "kind": "context",
+      "description": "O cliente escolhe produtos e quantidades até fechar o carrinho.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 2046,
+      "h": 2072,
+      "auto": true
+    },
+    {
+      "id": "anel-compras-drivers",
+      "label": "Frameworks & Drivers",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 804,
+        "layer": "drivers",
+        "frame": true,
+        "orbits": [
+          888
+        ]
+      },
+      "parent": "compras",
+      "x": 28,
+      "y": 54,
+      "w": 1990,
+      "h": 1990
+    },
+    {
+      "id": "anel-compras-drivers-top",
+      "label": "Atores",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 804,
+        "layer": "drivers",
+        "side": "top",
+        "orbits": [
+          888
+        ],
+        "start": -70.5,
+        "end": 70.5
+      },
+      "parent": "anel-compras-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1990,
+      "h": 1990
+    },
+    {
+      "id": "anel-compras-drivers-right",
+      "label": "Eventos externos",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 804,
+        "layer": "drivers",
+        "side": "right",
+        "orbits": [
+          888
+        ],
+        "start": 73.5,
+        "end": 142.5
+      },
+      "parent": "anel-compras-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1990,
+      "h": 1990
+    },
+    {
+      "id": "anel-compras-drivers-bottom",
+      "label": "Interfaces externas",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 804,
+        "layer": "drivers",
+        "side": "bottom",
+        "orbits": [
+          888
+        ],
+        "start": 145.5,
+        "end": 214.5
+      },
+      "parent": "anel-compras-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1990,
+      "h": 1990
+    },
+    {
+      "id": "anel-compras-drivers-left",
+      "label": "Sistemas",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 804,
+        "layer": "drivers",
+        "side": "left",
+        "orbits": [
+          888
+        ],
+        "start": 217.5,
+        "end": 286.5
+      },
+      "parent": "anel-compras-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1990,
+      "h": 1990
+    },
+    {
+      "id": "anel-compras-adapters",
+      "label": "Interface Adapters",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 543,
+        "layer": "adapters",
+        "frame": true,
+        "orbits": [
+          659
+        ]
+      },
+      "parent": "anel-compras-drivers",
+      "x": 231,
+      "y": 257,
+      "w": 1584,
+      "h": 1584
+    },
+    {
+      "id": "anel-compras-adapters-top",
+      "label": "Controllers",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 543,
+        "layer": "adapters",
+        "side": "top",
+        "orbits": [
+          659
+        ],
+        "start": -43.5,
+        "end": 43.5
+      },
+      "parent": "anel-compras-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1584,
+      "h": 1584
+    },
+    {
+      "id": "anel-compras-adapters-right",
+      "label": "Presenters",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 543,
+        "layer": "adapters",
+        "side": "right",
+        "orbits": [
+          659
+        ],
+        "start": 46.5,
+        "end": 133.5
+      },
+      "parent": "anel-compras-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1584,
+      "h": 1584
+    },
+    {
+      "id": "anel-compras-adapters-left",
+      "label": "Gateways",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 543,
+        "layer": "adapters",
+        "side": "left",
+        "orbits": [
+          659
+        ],
+        "start": 136.5,
+        "end": 313.5
+      },
+      "parent": "anel-compras-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1584,
+      "h": 1584
+    },
+    {
+      "id": "anel-compras-usecases",
+      "label": "Use Cases",
+      "kind": "layer",
+      "tag": "Regras de negócio da aplicação",
+      "color": "#ec6f78",
+      "ring": {
+        "inner": 282,
+        "layer": "usecases",
+        "orbits": [
+          398
+        ]
+      },
+      "parent": "anel-compras-adapters",
+      "x": 492,
+      "y": 518,
+      "w": 1062,
+      "h": 1062
+    },
+    {
+      "id": "anel-compras-entities",
+      "label": "Entities",
+      "kind": "layer",
+      "tag": "Regras de negócio corporativas",
+      "color": "#e3c84a",
+      "ring": {
+        "inner": 0,
+        "layer": "entities",
+        "orbits": [
+          158
+        ]
+      },
+      "parent": "anel-compras-usecases",
+      "x": 753,
+      "y": 779,
+      "w": 540,
+      "h": 540
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cliente",
+      "label": "Cliente",
+      "kind": "actor",
+      "parent": "anel-compras-drivers-top",
+      "x": 953,
+      "y": 91,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "montar-carrinho",
+      "label": "Montar o carrinho",
+      "kind": "domain",
+      "parent": "anel-compras-usecases",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Cliente",
+        "goal": "Escolher produtos e quantidades e fechar a compra"
+      },
+      "x": 1234,
+      "y": 698,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "carrinho",
+      "label": "Carrinho",
+      "kind": "domain",
+      "parent": "anel-compras-entities",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "no máximo 10 produtos diferentes",
+          "um carrinho fechado não muda mais",
+          "não se fecha um carrinho vazio"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "texto",
+            "key": true
+          },
+          {
+            "name": "itens",
+            "type": "Item do carrinho[]"
+          },
+          {
+            "name": "fechado",
+            "type": "boolean"
+          }
+        ]
+      },
+      "x": 953,
+      "y": 979,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "item-do-carrinho",
+      "label": "Item do carrinho",
+      "kind": "domain",
+      "parent": "anel-compras-entities",
+      "ddd": {
+        "role": "entity",
+        "invariants": [
+          "a quantidade fica entre 1 e 99"
+        ],
+        "properties": [
+          {
+            "name": "produtoId",
+            "type": "texto",
+            "key": true,
+            "description": "a identidade do item dentro do carrinho"
+          },
+          {
+            "name": "precoUnitario",
+            "type": "Dinheiro"
+          },
+          {
+            "name": "quantidade",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 1046,
+      "y": 851,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "dinheiro",
+      "label": "Dinheiro",
+      "kind": "domain",
+      "parent": "anel-compras-entities",
+      "ddd": {
+        "role": "value-object",
+        "invariants": [
+          "centavos inteiros, nunca negativos"
+        ],
+        "properties": [
+          {
+            "name": "centavos",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 1103,
+      "y": 1028,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "carrinhos",
+      "label": "Repositório de carrinhos",
+      "kind": "domain",
+      "parent": "anel-compras-adapters-left",
+      "ddd": {
+        "role": "repository",
+        "for": "carrinho"
+      },
+      "x": 487,
+      "y": 1445,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "adicionar-item",
+      "label": "Adicionar item",
+      "kind": "domain",
+      "parent": "anel-compras-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Pôr um produto no carrinho (ou somar à quantidade)"
+      },
+      "x": 1234,
+      "y": 1260,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "remover-item",
+      "label": "Remover item",
+      "kind": "domain",
+      "parent": "anel-compras-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Tirar um produto do carrinho"
+      },
+      "x": 672,
+      "y": 1260,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "fechar-carrinho",
+      "label": "Fechar carrinho",
+      "kind": "domain",
+      "parent": "anel-compras-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Encerrar a escolha e fixar o total"
+      },
+      "x": 672,
+      "y": 698,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "item-adicionado",
+      "label": "Item adicionado",
+      "kind": "domain",
+      "parent": "anel-compras-entities",
+      "ddd": {
+        "role": "domain-event"
+      },
+      "x": 953,
+      "y": 1137,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "item-removido",
+      "label": "Item removido",
+      "kind": "domain",
+      "parent": "anel-compras-entities",
+      "ddd": {
+        "role": "domain-event"
+      },
+      "x": 803,
+      "y": 1028,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "carrinho-fechado",
+      "label": "Carrinho fechado",
+      "kind": "domain",
+      "parent": "anel-compras-entities",
+      "ddd": {
+        "role": "domain-event",
+        "properties": [
+          {
+            "name": "totalEmCentavos",
+            "type": "inteiro"
+          }
+        ]
+      },
+      "x": 860,
+      "y": 851,
+      "w": 140,
+      "h": 140
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "carrinho-to-item-do-carrinho",
+      "from": "carrinho",
+      "to": "item-do-carrinho",
+      "type": "composition",
+      "label": "contains",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.9,
+      "labelOffset": 25
+    },
+    {
+      "id": "item-do-carrinho-to-dinheiro",
+      "from": "item-do-carrinho",
+      "to": "dinheiro",
+      "type": "composition",
+      "label": "preço",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.86,
+      "labelOffset": -25
+    },
+    {
+      "id": "adicionar-item-to-carrinho",
+      "from": "adicionar-item",
+      "to": "carrinho",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "adicionar-item-to-item-adicionado",
+      "from": "adicionar-item",
+      "to": "item-adicionado",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "remover-item-to-carrinho",
+      "from": "remover-item",
+      "to": "carrinho",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 445,
+          "y": 1403
+        },
+        {
+          "x": 854,
+          "y": 656
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "remover-item-to-item-removido",
+      "from": "remover-item",
+      "to": "item-removido",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fechar-carrinho-to-carrinho",
+      "from": "fechar-carrinho",
+      "to": "carrinho",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 818,
+          "y": 809
+        },
+        {
+          "x": 1042,
+          "y": 809
+        }
+      ],
+      "labelT": 0.5,
+      "labelOffset": -50
+    },
+    {
+      "id": "fechar-carrinho-to-carrinho-fechado",
+      "from": "fechar-carrinho",
+      "to": "carrinho-fechado",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.58,
+      "labelOffset": 25
+    },
+    {
+      "id": "adicionar-item-to-carrinhos",
+      "from": "adicionar-item",
+      "to": "carrinhos",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "port": {
+        "name": "CarrinhoRepository",
+        "operations": [
+          "buscar(id)",
+          "salvar(carrinho)"
+        ]
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "remover-item-to-carrinhos",
+      "from": "remover-item",
+      "to": "carrinhos",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "port": {
+        "name": "CarrinhoRepository",
+        "operations": [
+          "buscar(id)",
+          "salvar(carrinho)"
+        ]
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "fechar-carrinho-to-carrinhos",
+      "from": "fechar-carrinho",
+      "to": "carrinhos",
+      "type": "dependency",
+      "label": "uses",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "uses"
+      },
+      "port": {
+        "name": "CarrinhoRepository",
+        "operations": [
+          "buscar(id)",
+          "salvar(carrinho)"
+        ]
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "adicionar-item-to-montar-carrinho",
+      "from": "adicionar-item",
+      "to": "montar-carrinho",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "remover-item-to-montar-carrinho",
+      "from": "remover-item",
+      "to": "montar-carrinho",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "waypoints": [
+        {
+          "x": 1135,
+          "y": 1319
+        },
+        {
+          "x": 1192,
+          "y": 1218
+        }
+      ],
+      "labelT": 0.58
+    },
+    {
+      "id": "fechar-carrinho-to-montar-carrinho",
+      "from": "fechar-carrinho",
+      "to": "montar-carrinho",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.74
+    },
+    {
+      "id": "cliente-to-montar-carrinho",
+      "from": "cliente",
+      "to": "montar-carrinho",
+      "type": "association",
+      "label": "executa",
+      "routing": "elbow",
+      "animated": true,
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

@@ -1,0 +1,536 @@
+{
+  "schema": "archflow/1",
+  "id": "aula-ddd-01-tarefas",
+  "title": "Aula 1 · Lista de tarefas",
+  "description": "Aula 1 de 3 de DDD em TypeScript: O mínimo do DDD: um value object, um aggregate root, dois commands e os eventos que eles produzem.",
+  "mode": "domain",
+  "groups": [
+    {
+      "id": "tarefas",
+      "label": "Tarefas",
+      "kind": "context",
+      "description": "Tudo sobre registrar o que precisa ser feito e marcar o que já foi.",
+      "subdomain": "core",
+      "x": 0,
+      "y": 0,
+      "w": 1844,
+      "h": 1870,
+      "auto": true
+    },
+    {
+      "id": "anel-tarefas-drivers",
+      "label": "Frameworks & Drivers",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 703,
+        "layer": "drivers",
+        "frame": true,
+        "orbits": [
+          787
+        ]
+      },
+      "parent": "tarefas",
+      "x": 28,
+      "y": 54,
+      "w": 1788,
+      "h": 1788
+    },
+    {
+      "id": "anel-tarefas-drivers-top",
+      "label": "Atores",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 703,
+        "layer": "drivers",
+        "side": "top",
+        "orbits": [
+          787
+        ],
+        "start": -70.5,
+        "end": 70.5
+      },
+      "parent": "anel-tarefas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1788,
+      "h": 1788
+    },
+    {
+      "id": "anel-tarefas-drivers-right",
+      "label": "Eventos externos",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 703,
+        "layer": "drivers",
+        "side": "right",
+        "orbits": [
+          787
+        ],
+        "start": 73.5,
+        "end": 142.5
+      },
+      "parent": "anel-tarefas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1788,
+      "h": 1788
+    },
+    {
+      "id": "anel-tarefas-drivers-bottom",
+      "label": "Interfaces externas",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 703,
+        "layer": "drivers",
+        "side": "bottom",
+        "orbits": [
+          787
+        ],
+        "start": 145.5,
+        "end": 214.5
+      },
+      "parent": "anel-tarefas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1788,
+      "h": 1788
+    },
+    {
+      "id": "anel-tarefas-drivers-left",
+      "label": "Sistemas",
+      "kind": "layer",
+      "tag": "Frameworks e drivers",
+      "color": "#4aa8e8",
+      "ring": {
+        "inner": 703,
+        "layer": "drivers",
+        "side": "left",
+        "orbits": [
+          787
+        ],
+        "start": 217.5,
+        "end": 286.5
+      },
+      "parent": "anel-tarefas-drivers",
+      "x": 28,
+      "y": 54,
+      "w": 1788,
+      "h": 1788
+    },
+    {
+      "id": "anel-tarefas-adapters",
+      "label": "Interface Adapters",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "frame": true
+      },
+      "parent": "anel-tarefas-drivers",
+      "x": 231,
+      "y": 257,
+      "w": 1382,
+      "h": 1382
+    },
+    {
+      "id": "anel-tarefas-adapters-top",
+      "label": "Controllers",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "side": "top",
+        "start": -58.5,
+        "end": 58.5
+      },
+      "parent": "anel-tarefas-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1382,
+      "h": 1382
+    },
+    {
+      "id": "anel-tarefas-adapters-right",
+      "label": "Presenters",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "side": "right",
+        "start": 61.5,
+        "end": 178.5
+      },
+      "parent": "anel-tarefas-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1382,
+      "h": 1382
+    },
+    {
+      "id": "anel-tarefas-adapters-left",
+      "label": "Gateways",
+      "kind": "layer",
+      "tag": "Adaptadores de interface",
+      "color": "#3fbf7f",
+      "ring": {
+        "inner": 541,
+        "layer": "adapters",
+        "side": "left",
+        "start": 181.5,
+        "end": 298.5
+      },
+      "parent": "anel-tarefas-adapters",
+      "x": 231,
+      "y": 257,
+      "w": 1382,
+      "h": 1382
+    },
+    {
+      "id": "anel-tarefas-usecases",
+      "label": "Use Cases",
+      "kind": "layer",
+      "tag": "Regras de negócio da aplicação",
+      "color": "#ec6f78",
+      "ring": {
+        "inner": 282,
+        "layer": "usecases",
+        "orbits": [
+          398
+        ]
+      },
+      "parent": "anel-tarefas-adapters",
+      "x": 393,
+      "y": 419,
+      "w": 1058,
+      "h": 1058
+    },
+    {
+      "id": "anel-tarefas-entities",
+      "label": "Entities",
+      "kind": "layer",
+      "tag": "Regras de negócio corporativas",
+      "color": "#e3c84a",
+      "ring": {
+        "inner": 0,
+        "layer": "entities",
+        "orbits": [
+          158
+        ]
+      },
+      "parent": "anel-tarefas-usecases",
+      "x": 652,
+      "y": 678,
+      "w": 540,
+      "h": 540
+    }
+  ],
+  "nodes": [
+    {
+      "id": "usuario",
+      "label": "Usuário",
+      "kind": "actor",
+      "parent": "anel-tarefas-drivers-top",
+      "x": 852,
+      "y": 91,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "organizar-tarefas",
+      "label": "Organizar tarefas",
+      "kind": "domain",
+      "parent": "anel-tarefas-usecases",
+      "ddd": {
+        "role": "use-case",
+        "actor": "Usuário",
+        "goal": "Registrar o que precisa fazer e marcar o que já fez"
+      },
+      "x": 1197,
+      "y": 679,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "tarefa",
+      "label": "Tarefa",
+      "kind": "domain",
+      "parent": "anel-tarefas-entities",
+      "ddd": {
+        "role": "aggregate-root",
+        "invariants": [
+          "o título é sempre válido (é um Título)",
+          "uma tarefa concluída não volta a ser concluída"
+        ],
+        "properties": [
+          {
+            "name": "id",
+            "type": "texto",
+            "key": true
+          },
+          {
+            "name": "titulo",
+            "type": "Título"
+          },
+          {
+            "name": "concluida",
+            "type": "boolean"
+          }
+        ]
+      },
+      "x": 852,
+      "y": 878,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "titulo",
+      "label": "Título",
+      "kind": "domain",
+      "parent": "anel-tarefas-entities",
+      "ddd": {
+        "role": "value-object",
+        "invariants": [
+          "tem de 1 a 80 caracteres, sem espaços nas pontas"
+        ],
+        "properties": [
+          {
+            "name": "texto",
+            "type": "texto"
+          }
+        ]
+      },
+      "x": 989,
+      "y": 799,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "criar-tarefa",
+      "label": "Criar tarefa",
+      "kind": "domain",
+      "parent": "anel-tarefas-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Registrar uma tarefa nova com um título",
+        "properties": [
+          {
+            "name": "titulo",
+            "type": "texto"
+          }
+        ]
+      },
+      "x": 852,
+      "y": 1276,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "concluir-tarefa",
+      "label": "Concluir tarefa",
+      "kind": "domain",
+      "parent": "anel-tarefas-usecases",
+      "ddd": {
+        "role": "command",
+        "intent": "Marcar uma tarefa como feita",
+        "properties": [
+          {
+            "name": "tarefaId",
+            "type": "texto"
+          }
+        ]
+      },
+      "x": 507,
+      "y": 679,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "tarefa-criada",
+      "label": "Tarefa criada",
+      "kind": "domain",
+      "parent": "anel-tarefas-entities",
+      "ddd": {
+        "role": "domain-event",
+        "properties": [
+          {
+            "name": "tarefaId",
+            "type": "texto"
+          },
+          {
+            "name": "titulo",
+            "type": "texto"
+          }
+        ]
+      },
+      "x": 852,
+      "y": 1036,
+      "w": 140,
+      "h": 140
+    },
+    {
+      "id": "tarefa-concluida",
+      "label": "Tarefa concluída",
+      "kind": "domain",
+      "parent": "anel-tarefas-entities",
+      "ddd": {
+        "role": "domain-event",
+        "properties": [
+          {
+            "name": "tarefaId",
+            "type": "texto"
+          },
+          {
+            "name": "em",
+            "type": "data"
+          }
+        ]
+      },
+      "x": 715,
+      "y": 799,
+      "w": 140,
+      "h": 140
+    }
+  ],
+  "notes": [],
+  "connections": [
+    {
+      "id": "tarefa-to-titulo",
+      "from": "tarefa",
+      "to": "titulo",
+      "type": "composition",
+      "label": "contains",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "contains"
+      },
+      "labelT": 0.9,
+      "labelOffset": -50
+    },
+    {
+      "id": "criar-tarefa-to-tarefa",
+      "from": "criar-tarefa",
+      "to": "tarefa",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 810,
+          "y": 1218
+        },
+        {
+          "x": 1034,
+          "y": 1218
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "criar-tarefa-to-tarefa-criada",
+      "from": "criar-tarefa",
+      "to": "tarefa-criada",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "concluir-tarefa-to-tarefa",
+      "from": "concluir-tarefa",
+      "to": "tarefa",
+      "type": "dependency",
+      "label": "triggers",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "triggers"
+      },
+      "waypoints": [
+        {
+          "x": 897,
+          "y": 757
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "concluir-tarefa-to-tarefa-concluida",
+      "from": "concluir-tarefa",
+      "to": "tarefa-concluida",
+      "type": "async",
+      "label": "emits",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "emits"
+      },
+      "labelT": 0.5
+    },
+    {
+      "id": "criar-tarefa-to-organizar-tarefas",
+      "from": "criar-tarefa",
+      "to": "organizar-tarefas",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "waypoints": [
+        {
+          "x": 1034,
+          "y": 1218
+        }
+      ],
+      "labelT": 0.5
+    },
+    {
+      "id": "concluir-tarefa-to-organizar-tarefas",
+      "from": "concluir-tarefa",
+      "to": "organizar-tarefas",
+      "type": "realization",
+      "label": "realizes",
+      "routing": "elbow",
+      "animated": true,
+      "ddd": {
+        "rel": "realizes"
+      },
+      "labelT": 0.54
+    },
+    {
+      "id": "usuario-to-organizar-tarefas",
+      "from": "usuario",
+      "to": "organizar-tarefas",
+      "type": "association",
+      "label": "executa",
+      "routing": "elbow",
+      "animated": true,
+      "labelT": 0.5
+    }
+  ],
+  "customAssets": []
+}

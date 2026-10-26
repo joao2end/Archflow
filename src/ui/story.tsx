@@ -72,8 +72,8 @@ function storySpotlight(story: Story, at: number): Spotlight3D {
 let raf = 0;
 /** Interrompe a animação da câmera (ao sair do painel). */
 export const cancelCamera = () => cancelAnimationFrame(raf);
-/** Leva a câmera até as caixas, deixando livre a faixa do painel. */
-export function moveCameraTo(boxes: { x: number; y: number; w: number; h: number }[]) {
+/** Leva a câmera até as caixas, deixando livre a faixa do painel (`panelW`: largura do painel à direita). */
+export function moveCameraTo(boxes: { x: number; y: number; w: number; h: number }[], panelW = PANEL_W) {
   const el = document.querySelector("svg.canvas") as SVGSVGElement | null;
   if (!el || !boxes.length) return;
   const r = el.getBoundingClientRect();
@@ -82,7 +82,7 @@ export function moveCameraTo(boxes: { x: number; y: number; w: number; h: number
   const x2 = Math.max(...boxes.map((b) => b.x + b.w));
   const y2 = Math.max(...boxes.map((b) => b.y + b.h));
   const left = 70;
-  const right = r.width < 760 ? 40 : PANEL_W + 56;
+  const right = r.width < 760 ? 40 : panelW + 56;
   const aw = Math.max(240, r.width - left - right);
   const ah = Math.max(200, r.height - 150 - 110);
   const z = Math.min(1.15, Math.max(0.25, Math.min(aw / (x2 - x1), ah / (y2 - y1))));

@@ -29,6 +29,7 @@ import { validateDetailed } from "../shared/ops";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
+import { exitIso } from "./isoshell";
 import { getState, run, select, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
@@ -476,10 +477,12 @@ export function SubdomainField({ group, patch }: { group: GroupEl; patch: Patch 
 /**
  * Escolhe o tipo de diagrama no switch. NÃO converte o arquivo aberto: o explorador passa a mostrar só os diagramas do tipo
  * escolhido e abre a criação de um diagrama novo desse tipo. Voltar ao tipo do arquivo aberto só limpa o filtro.
+ * Na visão 3D o explorador fica escondido (o cromo do 2D sai de cena): a troca de modo volta ao 2D para ele aparecer.
  */
 export function switchMode(mode: DocMode) {
   const s = getState();
   if (docMode(s.doc) === mode) return set({ modeFilter: null, newDiagramFor: null });
+  if (s.iso) exitIso();
   set({ modeFilter: mode, panel: "files", newDiagramFor: mode });
 }
 
