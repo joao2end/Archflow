@@ -89,6 +89,8 @@ type Editing = { kind: "rename-file" | "rename-folder" | "new-file" | "new-folde
 
 export function FilesPanel() {
   const ws = useStore((s) => s.workspace);
+  /** com os exemplos abertos eles ocupam o painel inteiro: a árvore, o filtro e o «Referenciado por» saem de cena (uma rolagem só) */
+  const examplesOpen = useStore((s) => s.examples.open);
   const online = useStore((s) => s.online);
   const expandedMap = useStore((s) => s.expanded);
   const [q, setQ] = useState("");
@@ -326,13 +328,15 @@ export function FilesPanel() {
             <Glyph name="search" size={17} />
           </button>
         </div>
-        <label className="search" style={{ marginTop: 8 }}>
-          <Glyph name="search" size={16} />
-          <input placeholder="Filtrar diagramas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filtrar diagramas" />
-        </label>
+        {!examplesOpen && (
+          <label className="search" style={{ marginTop: 8 }}>
+            <Glyph name="search" size={16} />
+            <input placeholder="Filtrar diagramas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filtrar diagramas" />
+          </label>
+        )}
       </div>
 
-      {mode !== openMode && !q.trim() && (
+      {!examplesOpen && mode !== openMode && !q.trim() && (
         <div className="mode-note" role="status">
           <p>
             Mostrando diagramas de <b>{MODE_ICON[mode].label}</b>. O diagrama aberto é de {MODE_ICON[openMode].label} e não foi alterado: abra um da lista ou dê um título ao novo.
@@ -344,6 +348,7 @@ export function FilesPanel() {
           )}
         </div>
       )}
+      {!examplesOpen && (
       <div
         className={`lib-list tree ${dropOn === "" ? "drop" : ""}`}
         role="tree"
@@ -404,10 +409,11 @@ export function FilesPanel() {
           </>
         )}
       </div>
+      )}
 
       <ExamplesSection />
 
-      {ws.files.some((f) => f.refs?.includes(ws.current)) && (
+      {!examplesOpen && ws.files.some((f) => f.refs?.includes(ws.current)) && (
         <div className="backlinks" aria-label="Diagramas que referenciam este">
           <h4>Referenciado por</h4>
           {ws.files

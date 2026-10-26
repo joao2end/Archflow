@@ -6,7 +6,8 @@ import { exampleCatalog, installExample, set, useStore } from "./store";
 
 /**
  * Seção «Exemplos» do explorador: exemplos prontos de Arquitetura, Domínio e Lógica, do mais simples ao mais difícil.
- * Instalar cria os arquivos no projeto aberto (sem sobrescrever nada) e abre o principal.
+ * Instalar cria os arquivos no projeto aberto (sem sobrescrever nada) e abre o principal; os que têm aula guiada abrem
+ * com o painel da aula. Aberta, a seção ocupa o painel inteiro e o cabeçalho volta para os arquivos.
  */
 export function ExamplesSection() {
   const files = useStore((s) => s.workspace?.files);
@@ -18,6 +19,8 @@ export function ExamplesSection() {
   const have = useMemo(() => new Set(files?.map((f) => f.path) ?? []), [files]);
   const list = useMemo(() => exampleCatalog.filter((e) => e.mode === tab), [tab]);
   const hint = EXAMPLE_MODES.find((m) => m.mode === tab)?.hint;
+  /** todos os exemplos da aba têm aula: avisa uma vez, no topo, em vez de um selo em cada card */
+  const guided = list.length > 0 && list.every((e) => e.guided);
 
   const install = async (key: string) => {
     const ex = exampleCatalog.find((e) => e.key === key);
@@ -29,11 +32,11 @@ export function ExamplesSection() {
 
   return (
     <section className={`ex-section${open ? " open" : ""}`} aria-label="Exemplos">
-      <button className="ex-head" aria-expanded={open} aria-controls="ex-body" onClick={() => set({ examples: { open: !open, tab: chosen } })}>
-        <Glyph name="sparkle" size={16} />
+      <button className="ex-head" aria-expanded={open} aria-controls="ex-body" onClick={() => set({ examples: { open: !open, tab: chosen } })} data-tip={open ? "Voltar para os arquivos" : undefined} data-tip-pos="right">
+        {open ? <Glyph name="arrow-up" size={16} style={{ transform: "rotate(-90deg)" }} /> : <Glyph name="sparkle" size={16} />}
         <b>Exemplos</b>
         <span className="ex-count">{exampleCatalog.length}</span>
-        <Glyph name="chevron" size={15} className="ex-chev" />
+        {open ? <span className="ex-back">Arquivos</span> : <Glyph name="chevron" size={15} className="ex-chev" />}
       </button>
       {open && (
         <div className="ex-body" id="ex-body">
@@ -46,6 +49,11 @@ export function ExamplesSection() {
             ))}
           </div>
           {hint && <p className="ex-hint">{hint}</p>}
+          {guided && (
+            <p className="ex-guided">
+              <Glyph name="play" size={12} /> Cada exemplo abre com uma aula guiada: os passos acendem as peças e explicam o porquê.
+            </p>
+          )}
           {!online && <div className="callout warn">Sem armazenamento disponível: abra ou crie um projeto para instalar os exemplos.</div>}
           <ul className="ex-list" role="list">
             {list.map((ex) => {

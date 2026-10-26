@@ -2953,9 +2953,15 @@ svg.canvas.drag-over {
 .ex-head .ex-chev { margin-left: auto; transition: transform 0.15s ease; transform: rotate(-90deg); }
 .ex-section.open .ex-head .ex-chev { transform: rotate(90deg); }
 .ex-body { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; max-height: 36vh; overflow: auto; }
+/* aberta, a seção ocupa o painel no lugar da árvore: uma rolagem só, sem disputar altura */
+.ex-section.open { flex: 1 1 auto; border-top: 0; }
+.ex-section.open .ex-body { flex: 1 1 auto; max-height: none; }
+.ex-head .ex-back { margin-left: auto; font: 500 12px var(--sans); color: var(--ink-3); }
+.ex-guided { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 7px 10px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--ink); font: 500 12px/1.4 var(--sans); }
+.ex-guided svg { flex: none; margin-top: 2px; color: var(--primary-600); }
 .files-panel .lib-list { min-height: 110px; }
 .ex-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--s-mid); }
-.ex-tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 4px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 600 12px var(--sans); cursor: pointer; }
+.ex-tabs button { flex: 1; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 4px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 600 12px var(--sans); cursor: pointer; }
 .ex-tabs button small { font: 600 10.5px var(--sans); color: var(--ink-3); }
 .ex-tabs button.on { background: var(--primary-100); color: var(--ink); box-shadow: inset 0 0 0 1px var(--hairline); }
 .ex-tabs button:focus-visible, .ex-head:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
@@ -4542,6 +4548,26 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
   color: var(--ink-3);
   vertical-align: 0.25em;
 }
+/* em qual diagrama do exemplo o passo acontece */
+.lesson-where {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: -6px;
+  font: 600 11px var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.lesson-elsewhere {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.lesson-elsewhere p {
+  margin: 0;
+}
 .lesson-text {
   font-size: 13.5px;
   line-height: 1.55;
@@ -4704,6 +4730,15 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 @media (min-width: 701px) and (max-width: 950px) {
   .term-open .dock {
     top: 144px; /* o topbar quebra em duas linhas nessa faixa */
+  }
+}
+/* até 1260px a barra de desenho fica uma linha acima do zoom (até o topo dela são ~134px): os painéis laterais param antes */
+@media (min-width: 701px) and (max-width: 1260px) {
+  .library {
+    bottom: 148px;
+  }
+  .inspector {
+    max-height: calc(100vh - 232px - var(--term-h, 0px));
   }
 }
 @media (min-width: 951px) and (max-width: 1260px) {

@@ -3,7 +3,6 @@ import { DDD_ROLES } from "../shared/schema";
 import { buildStories, type Story } from "../shared/story";
 import { Glyph } from "./icons";
 import { getState, set, useStore, type Spotlight3D } from "./store";
-import { fitView } from "./keys";
 
 /* ───────── passo a passo do fluxo de um diagrama de domínio (modo apresentação) ───────── */
 
@@ -103,7 +102,8 @@ export function moveCameraTo(boxes: { x: number; y: number; w: number; h: number
 export function StoryPanel() {
   const doc = useStore((s) => s.doc);
   const stories = useMemo(() => buildStories(doc), [doc]);
-  const [open, setOpen] = useState(true);
+  /** o painel com o texto do passo: oculto ao apresentar (o passo a passo continua andando e destacando); S ou a pílula mostram */
+  const [shown, setShown] = useState(false);
   const [si, setSi] = useState(0);
   const [at, setAt] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -116,7 +116,7 @@ export function StoryPanel() {
 
   /* destaque no quadro (2D: CSS no canvas; 3D: o mesmo passo vai para o store e a visão 3D destaca e anima) */
   useEffect(() => {
-    if (!open || !story || !step) return;
+    if (!story || !step) return;
     const style = document.createElement("style");
     style.dataset.story = "";
     style.textContent = storyCss(story, idx);
@@ -126,18 +126,15 @@ export function StoryPanel() {
       style.remove();
       set({ spotlight: null });
     };
-  }, [open, story, idx]);
+  }, [story, idx]);
 
   /* a câmera acompanha o passo; o anterior entra no quadro para dar contexto (na visão 3D, a câmera 3D faz isso) */
   useEffect(() => {
-    if (!open || !story || !step || getState().iso) return;
+    if (!story || !step || getState().iso) return;
     const ids = new Set([step.id, ...step.extraIds, ...(idx > 0 ? [story.steps[idx - 1].id] : [])]);
     moveCameraTo(getState().doc.nodes.filter((n) => ids.has(n.id)));
-  }, [open, story?.id, idx]);
+  }, [story?.id, idx]);
   useEffect(() => () => cancelAnimationFrame(raf), []);
-  useEffect(() => {
-    if (!open) fitView();
-  }, [open]);
 
   useEffect(() => {
     setAt(0);
@@ -159,8 +156,7 @@ export function StoryPanel() {
     const key = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input,textarea,select") || e.ctrlKey || e.metaKey) return;
       const k = e.key;
-      if (k === "s" || k === "S") return setOpen((o) => !o);
-      if (!open) return;
+      if (k === "s" || k === "S") return setShown((o) => !o);
       if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown") (e.preventDefault(), setPlaying(false), go(idx + 1));
       else if (k === "ArrowLeft" || k === "ArrowUp" || k === "PageUp") (e.preventDefault(), setPlaying(false), go(idx - 1));
       else if (k === "Home") (e.preventDefault(), go(0));
@@ -174,10 +170,10 @@ export function StoryPanel() {
   const color = step.role === "actor" ? "#6c7a89" : step.role === "context" ? "#706fd3" : DDD_ROLES[step.role].color;
   const last = idx >= story.steps.length - 1;
 
-  if (!open)
+  if (!shown)
     return (
-      <button className="btn glass story-pill" onClick={() => setOpen(true)} data-tip="Mostrar o passo a passo (S)" data-tip-pos="left">
-        <Glyph name="play" size={16} /> Passo a passo
+      <button className="btn glass story-pill" onClick={() => setShown(true)} data-tip="Mostrar o texto do passo a passo (S) · setas avançam" data-tip-pos="left">
+        <Glyph name="play" size={16} /> Passo a passo {idx + 1}/{story.steps.length}
       </button>
     );
 
@@ -198,7 +194,7 @@ export function StoryPanel() {
             <b>{story.title}</b>
           )}
         </div>
-        <button className="btn ghost icon" onClick={() => setOpen(false)} aria-label="Ocultar o passo a passo" data-tip="Ocultar (S)" data-tip-pos="left">
+        <button className="btn ghost icon" onClick={() => setShown(false)} aria-label="Ocultar o passo a passo" data-tip="Ocultar (S)" data-tip-pos="left">
           <Glyph name="close" size={16} />
         </button>
       </header>

@@ -6,6 +6,7 @@
  * e chegam por um carregador, para o app buscá-los só quando a pessoa instalar (não entram no pacote principal).
  */
 import { ARCH_EXAMPLES } from "./arch.examples";
+import { exampleLessonOf } from "./example.lessons";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExampleFile, examplePath } from "./examples";
 import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
@@ -36,6 +37,8 @@ export interface CatalogExample {
   linked: boolean;
   /** aula de DDD (id em `LESSONS`): ao instalar, abre na visão 3D com o painel da aula */
   lesson?: string;
+  /** tem aula guiada (a de DDD ou a do exemplo, em `example.lessons.ts`): ao instalar ou abrir, o painel da aula aparece */
+  guided: boolean;
 }
 
 export const ARCH_DIR = "exemplos-arquitetura";
@@ -82,7 +85,8 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
     // o arquivo leva o título do diagrama (o app cria o arquivo a partir dele), que pode diferir do nome do exemplo
     const docTitle = a.doc().title;
     const path = pathOf(ARCH_DIR, docTitle);
-    return { key: `architecture:${a.id}`, mode: "architecture", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: docTitle, path, mode: "architecture", load: a.doc }], open: path, linked: false };
+    const key = `architecture:${a.id}`;
+    return { key, mode: "architecture", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: docTitle, path, mode: "architecture", load: a.doc }], open: path, linked: false, guided: !!exampleLessonOf(key) };
   });
 
   // as aulas vêm antes de tudo, na ordem delas: são a porta de entrada do DDD
@@ -97,6 +101,7 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
     open: lessonPath(l),
     linked: false,
     lesson: l.id,
+    guided: true,
   }));
 
   const domain: CatalogExample[] = byLevel(DDD_EXAMPLES).map((ex) => {
@@ -115,6 +120,7 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
       files: ex.files.map((f, i) => ({ title: f.title, path: docs[i].path, mode: f.mode, load: () => docs[i].doc() })),
       open: examplePath(ex, "visao-geral"),
       linked: true,
+      guided: !!exampleLessonOf(`domain:${ex.id}`),
     };
   });
 
@@ -130,10 +136,11 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
       files: [{ title: pricing.title, path: pathOf(LOGIC_DIR, pricing.title), mode: "logic", load: pricingDoc }],
       open: pathOf(LOGIC_DIR, pricing.title),
       linked: false,
+      guided: false,
     },
     ...byLevel(ALGORITHM_EXAMPLES).map((a): CatalogExample => {
       const path = pathOf(ALGORITHMS_DIR, a.title);
-      return { key: `logic:${a.file}`, mode: "logic", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: a.title, path, mode: "logic", load: () => loadAlgorithm(a.file) }], open: path, linked: false };
+      return { key: `logic:${a.file}`, mode: "logic", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: a.title, path, mode: "logic", load: () => loadAlgorithm(a.file) }], open: path, linked: false, guided: false };
     }),
   ];
   return [...architecture, ...lessons, ...domain, ...logic];

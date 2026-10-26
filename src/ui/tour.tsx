@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Doc } from "../shared/schema";
 import { buildTour, type Tour, type TourCard, type TourSlide } from "../shared/tour";
 import { Glyph } from "./icons";
-import { fitView } from "./keys";
 import { moveCameraTo, spotlightCss, cancelCamera } from "./story";
 import { getState, set, useStore, type Spotlight3D } from "./store";
 
@@ -52,7 +51,8 @@ function tourSpotlight(doc: Doc, tour: Tour, idx: number): Spotlight3D | null {
 export function TourPanel() {
   const doc = useStore((s) => s.doc);
   const tour = useMemo(() => buildTour(doc), [doc]);
-  const [open, setOpen] = useState(true);
+  /** o painel com o texto do slide: oculto ao apresentar (o roteiro continua andando e destacando); S ou a pílula mostram */
+  const [shown, setShown] = useState(false);
   const [at, setAt] = useState(0);
   const [playing, setPlaying] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -68,30 +68,27 @@ export function TourPanel() {
   }, [sig]);
 
   useEffect(() => {
-    if (!open || !slide || slide.overview) return;
+    if (!slide || slide.overview) return;
     const style = document.createElement("style");
     style.dataset.story = "";
     style.textContent = slideCss(slide);
     document.head.appendChild(style);
     return () => style.remove();
-  }, [open, slide, idx]);
+  }, [slide, idx]);
 
   /* na visão 3D o passo vai para o store: a cena destaca, desenha as conexões do passo e leva a câmera até ele */
   useEffect(() => {
-    if (!open || !slide) return;
+    if (!slide) return;
     set({ spotlight: tourSpotlight(getState().doc, tour, idx) });
     return () => set({ spotlight: null });
-  }, [open, sig, idx]);
+  }, [sig, idx]);
 
   useEffect(() => {
-    if (!open || !slide?.boxes.length || getState().iso) return;
+    if (!slide?.boxes.length || getState().iso) return;
     moveCameraTo(slide.boxes);
-  }, [open, sig, idx]);
+  }, [sig, idx]);
 
   useEffect(() => () => cancelCamera(), []);
-  useEffect(() => {
-    if (!open) fitView();
-  }, [open]);
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
   }, [idx, sig]);
@@ -107,8 +104,7 @@ export function TourPanel() {
     const key = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input,textarea,select,[contenteditable]") || e.ctrlKey || e.metaKey) return;
       const k = e.key;
-      if (k === "s" || k === "S") return setOpen((o) => !o);
-      if (!open) return;
+      if (k === "s" || k === "S") return setShown((o) => !o);
       if (k === "ArrowRight" || k === "ArrowDown" || k === "PageDown") (e.preventDefault(), setPlaying(false), go(idx + 1));
       else if (k === "ArrowLeft" || k === "ArrowUp" || k === "PageUp") (e.preventDefault(), setPlaying(false), go(idx - 1));
       else if (k === "Home") (e.preventDefault(), setPlaying(false), go(0));
@@ -121,10 +117,10 @@ export function TourPanel() {
   if (!slide) return null;
   const last = idx >= tour.slides.length - 1;
 
-  if (!open)
+  if (!shown)
     return (
-      <button className="btn glass story-pill" onClick={() => setOpen(true)} data-tip="Mostrar o roteiro (S)" data-tip-pos="left">
-        <Glyph name="play" size={16} /> Roteiro
+      <button className="btn glass story-pill" onClick={() => setShown(true)} data-tip="Mostrar o texto do roteiro (S) · setas avançam" data-tip-pos="left">
+        <Glyph name="play" size={16} /> Roteiro {idx + 1}/{tour.slides.length}
       </button>
     );
 
@@ -135,7 +131,7 @@ export function TourPanel() {
           <span className="story-kicker">{tour.auto ? "Roteiro automático" : "Apresentação"}</span>
           <b>{tour.title}</b>
         </div>
-        <button className="btn ghost icon" onClick={() => setOpen(false)} aria-label="Ocultar o roteiro" data-tip="Ocultar (S)" data-tip-pos="left">
+        <button className="btn ghost icon" onClick={() => setShown(false)} aria-label="Ocultar o roteiro" data-tip="Ocultar (S)" data-tip-pos="left">
           <Glyph name="close" size={16} />
         </button>
       </header>

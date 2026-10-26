@@ -1,5 +1,5 @@
 import { pricingDoc } from "../shared/logic.example";
-import { starterDoc } from "../shared/starter.example";
+import { lojaOnline } from "../shared/arch.examples";
 import { docMode } from "../shared/schema";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
@@ -44,7 +44,7 @@ export function EmptyHint() {
           <button
             className="btn"
             onClick={() => {
-              replaceDoc(logic ? pricingDoc() : starterDoc());
+              replaceDoc(logic ? pricingDoc() : lojaOnline());
               fitView(); // sem isso a vista continuava onde estava e o exemplo carregava fora da tela
               toast(`Exemplo ${logic ? "de precificação" : "da loja online"} carregado.`, true);
             }}

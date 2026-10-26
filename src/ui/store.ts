@@ -972,6 +972,7 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   const folder = (path: string) => path.slice(0, path.lastIndexOf("/"));
   if (ex.files.some((f) => have.has(f.path))) {
     await openDiagram(have.has(ex.open) ? ex.open : ex.files.find((f) => have.has(f.path))!.path);
+    if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula ocupa a direita: o explorador fecha para o diagrama aparecer
     toast(`O exemplo já está no projeto (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
     return false;
   }
@@ -992,7 +993,8 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
     if (f.path === ex.open) toOpen = name;
   }
   await openDiagram(toOpen);
-  if (ex.lesson) set({ lessonOpen: true, iso: true }); // a aula abre nas camadas 3D, com o painel dos passos
+  if (ex.lesson) set({ lessonOpen: true, iso: true }); // a aula de DDD abre nas camadas 3D, com o painel dos passos
+  else if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula do exemplo abre no 2D, no primeiro passo, sem o explorador
   toast(`Exemplo «${ex.title}» instalado em ${folder(ex.open)}`);
   return true;
 }

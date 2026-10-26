@@ -928,10 +928,13 @@ export function buildExampleDoc(f: ExampleFile, description?: string): Doc {
   return doc;
 }
 
+/** Id estável de um diagrama de exemplo: o mesmo exemplo gera sempre o mesmo id, e é por ele que o app acha a aula do exemplo. */
+export const exampleDocId = (ex: Pick<DddExample, "id">, file: string) => `ddd-${ex.id}-${file}`;
+
 /** Um diagrama de um exemplo (aplica as ops e o layout: é a parte cara, ~1–2 s por arquivo; por isso o catálogo só chama isto quando o exemplo é aberto). */
 export function buildExampleFile(ex: DddExample, f: ExampleFile): Doc {
   const doc = buildExampleDoc(f, f.file === "visao-geral" ? `${ex.title}: mapa de contextos. ${ex.summary}` : undefined);
-  doc.id = `ddd-${ex.id}-${f.file}`; // estável: o mesmo exemplo gera sempre o mesmo arquivo
+  doc.id = exampleDocId(ex, f.file);
   return doc;
 }
 
