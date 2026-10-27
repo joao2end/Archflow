@@ -24,6 +24,12 @@ for (const t of LOGIC_TOURS) {
       assert.equal(s.check(c), true, `«${s.title}» fica feito depois de «Fazer por mim»`);
     }
     assert.ok(tourDone(c.doc), "o diagrama montado valida e todos os exemplos batem");
+    // um Cenário por caso (as aulas 2 e 3 têm vários caminhos): cada um com um exemplo só
+    if (t.n > 1) {
+      const sc = c.doc.nodes.filter((n) => n.logic?.role === "scenario");
+      assert.ok(sc.length >= 4, `${sc.length} cenários`);
+      for (const n of sc) assert.equal(n.logic!.examples?.length, 1, `«${n.label}» tem um exemplo só`);
+    }
     // organizado: cada peça no seu lugar da grade, nenhuma em cima da outra
     const ns = c.doc.nodes;
     for (let i = 0; i < ns.length; i++)

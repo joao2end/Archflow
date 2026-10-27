@@ -168,12 +168,51 @@ function dataStep(o: { id: string; title: string; text: string; role: "input" | 
 }
 
 const ex = (name: string, given: Record<string, unknown>, expect: Record<string, unknown>) => ({ name, given, expect }) as LogicExample;
-const scenarioOk = (doc: Doc, min: number, extra: (exs: LogicExample[]) => boolean) => {
-  const s = nodesOf(doc, "scenario")[0];
-  const exs = s?.logic?.examples ?? [];
-  const rs = checkExamples(doc).filter((r) => r.node === s?.id);
-  return !!s && exs.length >= min && rs.length === exs.length && rs.every((r) => r.ok) && extra(exs);
-};
+/** Um caso do passo «um cenário por caso»: o nome do cenário, a frase e o exemplo (dado → esperado). */
+interface ScenarioCase {
+  label: string;
+  text: string;
+  ex: LogicExample;
+}
+/** O cenário ainda em branco: nasceu da Biblioteca com o caso inicial, que só espera `desfecho`. */
+const blankScenario = (n: NodeEl) => (n.logic?.examples ?? []).every((e) => Object.keys(e.expect).every((k) => k === "desfecho"));
+/** O cenário de um caso: um só exemplo, com os mesmos dados de entrada do caso. */
+const scenarioOf = (doc: Doc, c: ScenarioCase) =>
+  nodesOf(doc, "scenario").find((n) => (n.logic?.examples ?? []).length === 1 && Object.entries(c.ex.given).every(([k, v]) => JSON.stringify(n.logic!.examples![0].given[k]) === JSON.stringify(v)) && Object.keys(n.logic!.examples![0].expect).some((k) => k !== "desfecho"));
+const scenarioPasses = (doc: Doc, n?: NodeEl) => !!n && checkExamples(doc).filter((r) => r.node === n.id).every((r) => r.ok);
+
+/**
+ * Um Cenário por caso: cada caminho vira uma peça própria no quadro, com nome e um exemplo (o que entra e o que se
+ * espera). Os cenários descem numa coluna à direita do fluxo.
+ */
+function scenariosStep(o: { id: string; title: string; text: string; cases: ScenarioCase[]; pos: (i: number) => (d: Doc) => Pt }): TourStep {
+  const missing = (d: Doc) => o.cases.filter((c) => !scenarioOf(d, c) || !scenarioPasses(d, scenarioOf(d, c)));
+  const pending = (d: Doc) => nodesOf(d, "scenario").find(blankScenario);
+  const slot = (d: Doc) => o.pos(Math.min(nodesOf(d, "scenario").length, o.cases.length - 1))(d);
+  return {
+    id: o.id,
+    title: o.title,
+    text: o.text,
+    target: (c) => (pending(c.doc) ? ['[data-tour="examples"]', "@node"] : missing(c.doc).length ? ['[data-asset="logic-scenario"]'] : []),
+    node: pending,
+    motion: { kind: "drag", to: { world: slot } },
+    places: { scenario: slot },
+    ui: { panel: "assets", select: pending },
+    ops: (doc) =>
+      steps(
+        doc,
+        o.cases.map((c, i) => (d) => {
+          if (scenarioOf(d, c)) return { ops: [] };
+          const logic = { role: "scenario", text: c.text, examples: [c.ex] };
+          const b = pending(d);
+          if (b) return { ops: [{ op: "update", id: b.id, patch: { label: c.label, logic } } as Op] };
+          const p = o.pos(i)(d);
+          return { ops: [{ op: "add_node", id: fresh(d, `sc-${i + 1}`), label: c.label, x: p.x, y: p.y, asset: "logic-scenario", logic: logic as never } as Op] };
+        }),
+      ),
+    check: (c) => missing(c.doc).length === 0,
+  };
+}
 
 /* ═════════════════════════════ Aula 2 · Pontos de fidelidade ═════════════════════════════ */
 
@@ -192,7 +231,6 @@ const P2 = {
   faixa: slotAt("table", 280, 700),
   fechar: slotAt("rule", 280, 910),
   fim: slotAt("end", 280, 1080),
-  scenario: slotAt("scenario", 1080, 0),
 };
 const loopOf = (d: Doc) => nodesOf(d, "loop")[0];
 const multTable = (d: Doc) => nodesOf(d, "table").find((n) => /\bmult\s*:=/.test(JSON.stringify(n.logic)));
@@ -467,31 +505,24 @@ const aula2: TourStep[] = [
       return !!l?.parent && !!c.doc.groups.find((g) => g.id === l.parent)?.stage;
     },
   },
-  {
+  scenariosStep({
     id: "cenarios",
-    title: "Cenários: um por caminho",
+    title: "Um Cenário para cada caminho",
     text:
-      "Arraste um **Scenario** e, no Inspetor, monte um caso por caminho (use **+ Exemplo**):\n\n" +
-      "- bronze com compras `[{ valor: 100, categoria: \"farmacia\" }, { valor: 50, categoria: \"mercado\" }]` → `total = 275`, `faixa = \"comum\"`\n" +
-      "- ouro com `[{ valor: 300, categoria: \"farmacia\" }]` → `total = 1200`, `faixa = \"diamante\"`\n" +
-      "- bloqueado → `faixa = \"bloqueado\"`, `desfecho = \"erro\"`",
-    target: (c) => (nodesOf(c.doc, "scenario").length ? ['[data-tour="examples"]', "@node:scenario"] : ['[data-asset="logic-scenario"]']),
-    motion: { kind: "drag", to: { world: P2.scenario } },
-    ui: { panel: "assets", select: "scenario" },
-    ops: (d) => {
-      const examples = [
-        ex("bronze", { nivel: "bronze", compras: [{ valor: 100, categoria: "farmacia" }, { valor: 50, categoria: "mercado" }] }, { total: 275, faixa: "comum", desfecho: "ok" }),
-        ex("ouro vira diamante", { nivel: "ouro", compras: [{ valor: 300, categoria: "farmacia" }] }, { total: 1200, faixa: "diamante", desfecho: "ok" }),
-        ex("sem compras", { nivel: "prata", compras: [] }, { total: 0, faixa: "comum", desfecho: "ok" }),
-        ex("bloqueado", { nivel: "bloqueado", compras: [{ valor: 100, categoria: "farmacia" }] }, { total: 0, faixa: "bloqueado", desfecho: "erro" }),
-      ];
-      const s = nodesOf(d, "scenario")[0];
-      if (s) return [{ op: "update", id: s.id, patch: { label: "Clientes de exemplo", logic: { role: "scenario", text: "Um cliente por caminho", examples } } }];
-      const p = P2.scenario(d);
-      return [{ op: "add_node", id: "sc-pontos", label: "Clientes de exemplo", x: p.x, y: p.y, asset: "logic-scenario", logic: { role: "scenario", text: "Um cliente por caminho", examples } as never }];
-    },
-    check: (c) => scenarioOk(c.doc, 3, (exs) => exs.some((e) => e.expect.desfecho === "erro")),
-  },
+      "Cada caminho ganha o **seu** Cenário: arraste um **Scenario** por caso e, no Inspetor, dê o nome e ajuste o exemplo (o que entra e o que se espera):\n\n" +
+      "- *Bronze*: `nivel = \"bronze\"`, compras `[{ valor: 100, categoria: \"farmacia\" }, { valor: 50, categoria: \"mercado\" }]` → `total = 275`, `faixa = \"comum\"`\n" +
+      "- *Ouro vira diamante*: `nivel = \"ouro\"`, `[{ valor: 300, categoria: \"farmacia\" }]` → `total = 1200`, `faixa = \"diamante\"`\n" +
+      "- *Sem compras*: `nivel = \"prata\"`, `[]` → `total = 0`, `faixa = \"comum\"`\n" +
+      "- *Bloqueado*: `nivel = \"bloqueado\"` → `faixa = \"bloqueado\"`, `desfecho = \"erro\"`\n\n" +
+      "Um cenário por caso deixa cada caminho visível no quadro e mostra, sozinho, se ele ainda confere.",
+    pos: (i) => slotAt("scenario", 1080, i * 100),
+    cases: [
+      { label: "Bronze", text: "Cliente bronze com duas compras", ex: ex("bronze", { nivel: "bronze", compras: [{ valor: 100, categoria: "farmacia" }, { valor: 50, categoria: "mercado" }] }, { total: 275, faixa: "comum", desfecho: "ok" }) },
+      { label: "Ouro vira diamante", text: "Cliente ouro dobra e passa de mil pontos", ex: ex("ouro vira diamante", { nivel: "ouro", compras: [{ valor: 300, categoria: "farmacia" }] }, { total: 1200, faixa: "diamante", desfecho: "ok" }) },
+      { label: "Sem compras", text: "Mês sem compras: zero voltas no laço", ex: ex("sem compras", { nivel: "prata", compras: [] }, { total: 0, faixa: "comum", desfecho: "ok" }) },
+      { label: "Bloqueado", text: "Cliente bloqueado não pontua e sai pelo fim com erro", ex: ex("bloqueado", { nivel: "bloqueado", compras: [{ valor: 100, categoria: "farmacia" }] }, { total: 0, faixa: "bloqueado", desfecho: "erro" }) },
+    ],
+  }),
   {
     id: "testar",
     title: "Teste e acompanhe as voltas",
@@ -535,7 +566,7 @@ const P3 = {
   aprovar: slotAt("rule", -280, 1410),
   recusar: slotAt("rule", 280, 1410),
   fimOk: slotAt("end", -280, 1600),
-  scenario: slotAt("scenario", 1340, 0),
+  scenario: (i: number) => slotAt("scenario", 1340, i * 100),
 };
 const start3 = (d: Doc) => nodesOf(d, "start")[0];
 const valido = (d: Doc) => nodesOf(d, "decision").find((n) => /parcelas/.test(n.logic?.when ?? ""));
@@ -820,30 +851,29 @@ const aula3: TourStep[] = [
       return !!f?.parent && !!c.doc.groups.find((g) => g.id === f.parent)?.stage;
     },
   },
-  {
+  scenariosStep({
     id: "cenarios",
-    title: "Um cenário por desfecho",
+    title: "Um Cenário para cada desfecho",
     text:
-      "Arraste um **Scenario** com um caso por caminho: *aprovado* (renda 5000, valor 6000, 12 parcelas → `status = \"aprovado\"`), *negativado* (→ `\"revisao\"`), *parcela não cabe* (renda 1500 → `\"recusado\"`, `desfecho = \"erro\"`), *prazo inválido* (7 parcelas) e *bureau fora do ar* (cpf `\"00000000000\"` → `\"revisao\"`).",
-    target: (c) => (nodesOf(c.doc, "scenario").length ? ['[data-tour="examples"]', "@node:scenario"] : ['[data-asset="logic-scenario"]']),
-    motion: { kind: "drag", to: { world: P3.scenario } },
-    ui: { panel: "assets", select: "scenario" },
-    ops: (d) => {
+      "Cada desfecho ganha o **seu** Cenário. Arraste um **Scenario** por caso e, no Inspetor, dê o nome e ajuste o exemplo (renda 5000, valor 6000, 12 parcelas e cpf `\"12345678900\"`, salvo o que muda):\n\n" +
+      "- *Aprovado* → `parcela = 650`, `status = \"aprovado\"`\n" +
+      "- *Negativado fica em revisão*: `negativado = true` → `status = \"revisao\"`\n" +
+      "- *Parcela não cabe*: `renda = 1500` → `status = \"recusado\"`, `desfecho = \"erro\"`\n" +
+      "- *Prazo inválido*: `parcelas = 7` → `status = \"recusado\"`, `desfecho = \"erro\"`\n" +
+      "- *Bureau fora do ar*: `cpf = \"00000000000\"` → `status = \"revisao\"`\n\n" +
+      "Com um cenário por desfecho, cada caminho fica visível no quadro e mostra sozinho se ainda confere.",
+    pos: (i) => P3.scenario(i),
+    cases: (() => {
       const base = { cpf: "12345678900", renda: 5000, valor: 6000, parcelas: 12, negativado: false };
-      const examples = [
-        ex("aprovado", base, { parcela: 650, status: "aprovado", desfecho: "ok" }),
-        ex("negativado fica em revisão", { ...base, negativado: true }, { status: "revisao", motivo: "restrição no cadastro", desfecho: "ok" }),
-        ex("parcela não cabe", { ...base, renda: 1500 }, { status: "recusado", desfecho: "erro" }),
-        ex("prazo inválido", { ...base, parcelas: 7 }, { status: "recusado", motivo: "prazo inválido", desfecho: "erro" }),
-        ex("bureau fora do ar", { ...base, cpf: "00000000000" }, { status: "revisao", motivo: "bureau indisponível", desfecho: "ok" }),
+      return [
+        { label: "Aprovado", text: "Pedido dentro do limite e sem restrição", ex: ex("aprovado", base, { parcela: 650, status: "aprovado", desfecho: "ok" }) },
+        { label: "Negativado fica em revisão", text: "A trava mantém a revisão mesmo com a parcela cabendo", ex: ex("negativado", { ...base, negativado: true }, { status: "revisao", motivo: "restrição no cadastro", desfecho: "ok" }) },
+        { label: "Parcela não cabe", text: "Parcela acima de 30% da renda é recusada", ex: ex("parcela não cabe", { ...base, renda: 1500 }, { status: "recusado", desfecho: "erro" }) },
+        { label: "Prazo inválido", text: "Prazo fora de 6, 12 ou 24 meses", ex: ex("prazo inválido", { ...base, parcelas: 7 }, { status: "recusado", motivo: "prazo inválido", desfecho: "erro" }) },
+        { label: "Bureau fora do ar", text: "Sem resposta do bureau, o pedido vai para revisão", ex: ex("bureau fora do ar", { ...base, cpf: "00000000000" }, { status: "revisao", motivo: "bureau indisponível", desfecho: "ok" }) },
       ];
-      const s = nodesOf(d, "scenario")[0];
-      if (s) return [{ op: "update", id: s.id, patch: { label: "Pedidos de exemplo", logic: { role: "scenario", text: "Um pedido por desfecho", examples } } }];
-      const p = P3.scenario(d);
-      return [{ op: "add_node", id: "sc-credito", label: "Pedidos de exemplo", x: p.x, y: p.y, asset: "logic-scenario", logic: { role: "scenario", text: "Um pedido por desfecho", examples } as never }];
-    },
-    check: (c) => scenarioOk(c.doc, 4, (exs) => exs.some((e) => e.given.cpf === "00000000000") && exs.some((e) => e.given.negativado === true)),
-  },
+    })(),
+  }),
   {
     id: "3d",
     title: "Depure no 3D",
