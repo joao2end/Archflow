@@ -10,15 +10,15 @@ Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qu
 
 ## Aulas do diagrama lógico
 
-Para aprender o modo **Logic** (regras de negócio como fluxo que o app executa e confere), do simples ao complexo:
+Para aprender o modo **Logic** (regras de negócio como fluxo que o app executa e confere), do simples ao complexo. As três aulas são **tutoriais interativos**: instalam o diagrama vazio em `exemplos-logic/aulas/` e guiam você na própria interface. Cada passo destaca o botão, a peça da Biblioteca, o campo do Inspetor ou a seta de que fala e espera você fazer; **Fazer por mim** demonstra com um cursor animado. Abrir o diagrama de uma aula retoma o tutorial de onde parou (o botão **▶ Aula** no canto reabre).
 
-| Aula | Nível | Como é | O que ensina |
-| --- | --- | --- | --- |
-| 1 · Seu primeiro diagrama lógico | simples | **tutorial interativo**: você monta a regra do frete grátis na própria interface; o tutorial destaca o botão, a peça da Biblioteca ou o campo do Inspetor de cada passo e espera você fazer (**Fazer por mim** demonstra com um cursor animado) | Biblioteca e Inspetor, Início, Entrada, Resultado, Decisão, Ação, Fim, Conector e setas sim/não, mover peças, exemplos, cenário, teste e debug 3D |
-| 2 · Pontos de fidelidade | médio | aula guiada que monta o diagrama do zero, passo a passo | Loop «para cada», Variável acumulada, Tabela de decisão, Escolha (switch), fim com erro, etapas |
-| 3 · Aprovação de crédito | complexo | aula guiada que monta o diagrama do zero, passo a passo | gatilho webhook, Chamada HTTP com resposta simulada e seta «erro», Paralelo e Junção, travar/destravar, vários fins, um cenário por caminho |
+| Aula | Nível | O que ensina |
+| --- | --- | --- |
+| 1 · Seu primeiro diagrama lógico | simples | Biblioteca e Inspetor, Início, Entrada, Resultado, Decisão, Ação, Fim, mover peças, Conector e setas sim/não, exemplos, cenário, teste e debug 3D |
+| 2 · Pontos de fidelidade | médio | Variável com valor inicial, tipos de lista e união, Loop «para cada», Tabela de decisão, Escolha com casos nas setas e «outros», fim com erro, etapa, cenários por caminho |
+| 3 · Aprovação de crédito | complexo | gatilho webhook, Chamada HTTP com resposta simulada, «devolve» e falha (seta «erro»), Paralelo e Junção, travar/destravar, vários fins, etapa, um cenário por desfecho no debug 3D |
 
-As aulas instalam o diagrama vazio em `exemplos-logic/aulas/`. O tutorial está em `src/shared/logictour.ts` (passos, alvos e condições) e `src/ui/logictour.tsx` (destaque, balão e cursor); as aulas 2 e 3 em `src/shared/logic.lessons.ts`. Os testes conferem que o «Fazer por mim» de cada passo conclui o passo, que montar passo a passo chega a um diagrama que valida sem erros e com todos os exemplos e cenários batendo, e que cada passo aponta peças que existem.
+As aulas estão em `src/shared/logictours.ts` (a 1 em `logictour.ts`) e a sobreposição em `src/ui/logictour.tsx`. O teste confere, para cada aula, que o «Fazer por mim» de cada passo conclui o passo e que a regra montada valida, com todos os exemplos e cenários batendo.
 
 ## Aulas de DDD em TypeScript
 

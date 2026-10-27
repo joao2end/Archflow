@@ -10,8 +10,7 @@ import { exampleLessonOf } from "./example.lessons";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExampleFile, examplePath } from "./examples";
 import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
-import { LOGIC_LESSONS, LOGIC_TOUR_KEY, logicLessonPath, logicLessonStart, logicTourPath, logicTourStart } from "./logic.lessons";
-import { TOUR_TITLE } from "./logictour";
+import { LOGIC_TOURS, tourStartDoc } from "./logictours";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
 
@@ -41,8 +40,8 @@ export interface CatalogExample {
   lesson?: string;
   /** tem aula guiada (a de DDD ou a do exemplo, em `example.lessons.ts`): ao instalar ou abrir, o painel da aula aparece */
   guided: boolean;
-  /** é o tutorial interativo (`logictour.ts`): ao instalar, o tutorial guia na própria interface */
-  tour?: boolean;
+  /** aula em tutorial interativo (`logictours.ts`, a chave da aula): ao instalar, a aula guia na própria interface */
+  tour?: string;
 }
 
 export const ARCH_DIR = "exemplos-arquitetura";
@@ -129,36 +128,23 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
   });
 
   const pricing = pricingDoc();
-  // as aulas do diagrama lógico vêm antes, na ordem delas: são a porta de entrada do modo. Instalam o diagrama vazio:
-  // a aula o monta passo a passo
-  const tutorial: CatalogExample = {
-    key: LOGIC_TOUR_KEY,
+  // as aulas do diagrama lógico vêm antes, na ordem delas: são a porta de entrada do modo. Todas são tutoriais
+  // interativos: instalam o diagrama vazio e guiam a pessoa na própria interface
+  const lessons3: CatalogExample[] = LOGIC_TOURS.map((t) => ({
+    key: t.key,
     mode: "logic",
-    title: `Aula 1 · ${TOUR_TITLE} (tutorial)`,
-    level: "iniciante",
-    summary: "Tutorial interativo: você monta a regra do frete grátis na interface, do zero, com a Biblioteca, o Inspetor e o Conector; o tutorial aponta cada clique e espera você fazer.",
-    teaches: ["Biblioteca e Inspetor", "Início, Entrada, Resultado, Decisão, Ação e Fim", "Conector e setas sim/não", "exemplos, cenário e teste", "debug no 3D"],
-    files: [{ title: `Aula 1 · ${TOUR_TITLE}`, path: logicTourPath, mode: "logic", load: logicTourStart }],
-    open: logicTourPath,
+    title: `Aula ${t.n} · ${t.title}`,
+    level: t.level,
+    summary: t.summary,
+    teaches: t.teaches,
+    files: [{ title: `Aula ${t.n} · ${t.title}`, path: t.path, mode: "logic", load: () => tourStartDoc(t) }],
+    open: t.path,
     linked: false,
     guided: false,
-    tour: true,
-  };
-  const logicLessons: CatalogExample[] = LOGIC_LESSONS.map((l) => ({
-    key: `logic:aula-${l.id}`,
-    mode: "logic",
-    title: `Aula ${l.n} · ${l.title}`,
-    level: l.level,
-    summary: l.summary,
-    teaches: l.teaches,
-    files: [{ title: `Aula ${l.n} · ${l.title}`, path: logicLessonPath(l), mode: "logic", load: () => logicLessonStart(l) }],
-    open: logicLessonPath(l),
-    linked: false,
-    guided: true,
+    tour: t.key,
   }));
   const logic: CatalogExample[] = [
-    tutorial,
-    ...logicLessons,
+    ...lessons3,
     {
       key: "logic:precificacao",
       mode: "logic",

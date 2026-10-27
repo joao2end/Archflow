@@ -3,7 +3,6 @@ import { firstStepIn, guideOfDoc, type GuideStep } from "../shared/guides";
 import { LESSONS, codeRegion, lessonCodePath, type Lesson } from "../shared/lessons";
 import { orbitLook } from "../shared/onion";
 import { LOGIC_ROLES, docMode, type Doc, type NodeEl } from "../shared/schema";
-import { builtUpTo, opsToBuild } from "../shared/logic.lessons";
 import { Glyph } from "./icons";
 import { renderMarkdown } from "./markdown";
 import { cancelCamera, moveCameraTo, spotlightCss } from "./story";
@@ -68,27 +67,6 @@ export function LessonPanel() {
   const idx = guide ? Math.min(at, guide.steps.length - 1) : 0;
   const step = guide?.steps[idx];
 
-  /* aulas que montam o diagrama do zero: ao chegar num passo, as peças dele (e as dos passos anteriores que faltarem)
-     entram no diagrama, com desfazer. Voltar não apaga nada; o «até onde já montou» fica guardado por diagrama, para que
-     revisitar um passo não desfaça o que a pessoa mudou depois */
-  const built = useRef(new Map<string, number>());
-  useEffect(() => {
-    if (!open || !guide?.build) return;
-    const d = getState().doc;
-    const known = built.current.get(d.id) ?? builtUpTo(d, guide.steps);
-    if (idx > known) {
-      const ops = opsToBuild(d, guide.steps, known + 1, idx);
-      if (ops.length) run(ops);
-    }
-    built.current.set(d.id, Math.max(known, idx));
-  }, [open, guide?.key, idx, doc.id]);
-  /** recomeça a aula com o diagrama vazio (Ctrl+Z traz de volta) */
-  const restart = () => {
-    run([{ op: "clear" }]);
-    built.current.set(getState().doc.id, -1);
-    if (idx === 0) set({ sel: [] });
-    else setAt(0);
-  };
   /** o passo acontece no diagrama aberto (nos exemplos de Domínio ele pode estar em outro) */
   const here = !!step && (!step.doc || step.doc.id === doc.id);
   const focus = useMemo(() => (guide && here ? stepFocus(doc, guide.steps, idx) : null), [doc, guide, idx, here]);
@@ -174,7 +152,7 @@ export function LessonPanel() {
     else if (e.key === "ArrowLeft") (e.preventDefault(), e.stopPropagation(), go(idx - 1));
   };
   const openNext = async () => {
-    const ex = next ? exampleCatalog.find((e) => e.lesson === next.id) : guide.next && exampleCatalog.find((e) => e.key === guide.next!.key);
+    const ex = next && exampleCatalog.find((e) => e.lesson === next.id);
     if (!ex) return;
     setBusy(true);
     await installExample(ex);
@@ -191,11 +169,6 @@ export function LessonPanel() {
           <span className="story-kicker">{guide.kicker}</span>
           <b>{guide.title}</b>
         </div>
-        {guide.build && (
-          <button className="btn ghost icon sm" onClick={restart} aria-label="Recomeçar a aula do zero" data-tip="Recomeçar do zero: apaga o diagrama e volta ao primeiro passo (Ctrl+Z desfaz)" data-tip-pos="bottom">
-            <Glyph name="undo" size={14} />
-          </button>
-        )}
         {course && (
           <button className={`btn ghost icon sm${wide ? " active" : ""}`} onClick={() => setWide((w) => !w)} aria-pressed={wide} aria-label={wide ? "Estreitar o painel" : "Alargar o painel"} data-tip={wide ? "Estreitar" : "Alargar (o código cabe inteiro)"} data-tip-pos="bottom">
             <Glyph name="code" size={14} />
@@ -229,7 +202,6 @@ export function LessonPanel() {
           <>
             <div className="note-md lesson-text" dangerouslySetInnerHTML={{ __html: renderMarkdown(step.text) }} />
 
-            {guide.build && step.ops?.length ? <span className="lesson-built">Criado neste passo</span> : null}
             {(groups.length > 0 || nodes.length > 0) && (
               <div className="lesson-pieces" aria-label="Peças destacadas no diagrama">
                 {groups.map((g) => (
@@ -293,9 +265,9 @@ export function LessonPanel() {
           <button className="btn primary sm" onClick={() => go(idx + 1)}>
             Próximo →
           </button>
-        ) : next || guide.next ? (
+        ) : next ? (
           <button className="btn primary sm" onClick={() => void openNext()} disabled={busy}>
-            {busy ? "Abrindo…" : `${next ? `Aula ${next.n}` : guide.next!.label} →`}
+            {busy ? "Abrindo…" : `Aula ${next.n} →`}
           </button>
         ) : (
           <button className="btn primary sm" onClick={() => openExamples(docMode(doc))}>

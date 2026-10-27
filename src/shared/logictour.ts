@@ -16,7 +16,7 @@
 import { checkExamples, dataKey } from "./logic";
 import type { Op } from "./ops";
 import { validateDetailed } from "./ops";
-import type { Doc, LogicRole, NodeEl } from "./schema";
+import type { ConnectionEl, Doc, LogicRole, NodeEl } from "./schema";
 
 export interface TourCtx {
   doc: Doc;
@@ -27,14 +27,19 @@ export interface TourCtx {
   iso: boolean;
 }
 
+/** Um nó do quadro: o primeiro daquele papel que falta configurar, ou escolhido por uma função. */
+export type NodePick = LogicRole | ((doc: Doc) => NodeEl | undefined);
+
 export interface TourUi {
   panel?: "assets" | null;
   tool?: "select" | "connect";
   iso?: boolean;
   /** começa a reprodução do primeiro cenário */
   play?: boolean;
-  /** seleciona o nó do papel (para o Inspetor mostrá-lo) */
-  select?: LogicRole;
+  /** seleciona o nó (para o Inspetor mostrá-lo) */
+  select?: NodePick;
+  /** seleciona a seta do passo (`conn`), para o Inspetor da seta */
+  selectConn?: boolean;
 }
 
 export interface TourStep {
@@ -42,10 +47,17 @@ export interface TourStep {
   title: string;
   /** a instrução (markdown curto): o que fazer, onde e por quê */
   text: string;
-  /** onde apontar, em ordem de preferência */
-  target?: string[];
+  /**
+   * onde apontar, em ordem de preferência: seletor CSS, `@node:<papel>`, `@node` (o nó de `node`) ou `@conn` (a seta de
+   * `conn`). Pode depender do progresso: antes de arrastar a peça, a peça na Biblioteca; depois, o campo do Inspetor
+   */
+  target?: string[] | ((c: TourCtx) => string[]);
+  /** o nó que `@node` aponta */
+  node?: (doc: Doc) => NodeEl | undefined;
+  /** a seta que `@conn` aponta */
+  conn?: (doc: Doc) => ConnectionEl | undefined;
   /** o gesto que o cursor fantasma demonstra: clicar no alvo, ou arrastar do alvo até um ponto do quadro ou até um nó */
-  motion?: { kind: "click" } | { kind: "drag"; to: { world: (doc: Doc) => { x: number; y: number } } | { node: LogicRole } };
+  motion?: { kind: "click" } | { kind: "drag"; to: { world: (doc: Doc) => { x: number; y: number } } | { node: NodePick } };
   /** o que «Fazer por mim» muda no diagrama */
   ops?: (doc: Doc) => Op[];
   /** o que «Fazer por mim» muda na tela (antes das ops: abrir painel, escolher ferramenta, selecionar) */
@@ -63,6 +75,11 @@ const output = (doc: Doc) => nodesOf(doc, "output")[0];
 const writesFrete = (n: NodeEl) => (n.logic?.then ?? []).some((t) => /^\s*frete\s*:=/.test(t));
 const edge = (doc: Doc, from?: NodeEl, to?: NodeEl) => !!from && !!to && doc.connections.some((c) => c.from === from.id && c.to === to.id);
 const numberish = (t?: string) => !!t && /^(number|int|float|número|numero|decimal|inteiro)$/i.test(t.trim());
+
+/** O nó de uma escolha: pelo papel (`tourNode`) ou pela função. */
+export const pickNode = (doc: Doc, p: NodePick): NodeEl | undefined => (typeof p === "function" ? p(doc) : tourNode(doc, p));
+/** Os alvos do passo agora. */
+export const targetsNow = (s: TourStep, c: TourCtx): string[] => (typeof s.target === "function" ? s.target(c) : s.target ?? []);
 
 /** O nó que um alvo `@node:<papel>` aponta: o primeiro daquele papel que ainda falta configurar (ou o primeiro). */
 export function tourNode(doc: Doc, role: LogicRole): NodeEl | undefined {

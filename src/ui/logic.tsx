@@ -339,7 +339,9 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
             <span>A tabela em uma frase (para o negócio)</span>
             <TextField multiline value={l.text ?? ""} placeholder="Ex.: arredonda o preço conforme a faixa de valor" onCommit={(v) => upd({ text: v.trim() || undefined })} />
           </label>
+          <div data-tour="rows">
           <TableRowsEditor rows={l.rows ?? []} otherwise={l.otherwise} names={names} example={effectSample} sample={sample} onCommit={(rows, otherwise) => upd({ rows: rows.length ? rows : undefined, otherwise })} />
+          </div>
           <ExamplesEditor node={node} patch={patch} />
         </>
       )}
@@ -350,7 +352,7 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
             <TextField value={l.key ?? ""} placeholder={node.id.replace(/-/g, "_")} onCommit={(v) => upd({ key: v.trim() || undefined })} />
           </label>
           <TypeField value={l.type ?? ""} onCommit={(v) => upd({ type: v })} />
-          <label className="field">
+          <label className="field" data-tour="value">
             <span>{l.role === "variable" ? "Valor inicial (opcional)" : "Valor fixo (opcional)"}</span>
             <TextField
               value={l.value === undefined ? "" : showValue(l.value)}
@@ -382,7 +384,9 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
               <ConditionField label="Condição (vale = sim)" value={l.when ?? ""} names={names} onCommit={(v) => upd({ when: v })} />
             </div>
           ) : (
-            <ExprField label="Expressão que escolhe o caminho" value={l.on ?? ""} names={names} placeholder={sample} onCommit={(v) => upd({ on: v })} />
+            <div data-tour="on">
+              <ExprField label="Expressão que escolhe o caminho" value={l.on ?? ""} names={names} placeholder={sample} onCommit={(v) => upd({ on: v })} />
+            </div>
           )}
           <div className="callout">
             {l.role === "decision" ? 'Ligue duas setas saindo daqui: uma "sim" e uma "não" (selecione a seta e escolha a saída).' : 'Uma seta por valor (escolha a saída "valor" na seta) e uma "outros" para o resto.'}
@@ -396,7 +400,9 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
             <span>O que se repete (frase)</span>
             <TextField multiline value={l.text ?? ""} placeholder="Para cada item da lista, na ordem em que aparecem." onCommit={(v) => upd({ text: v.trim() || undefined })} />
           </label>
-          <ExprField label="Para cada item de (lista)" value={l.foreach ?? ""} names={names} placeholder="itens" onCommit={(v) => upd({ foreach: v, ...(v && l.until === "condicao" ? { until: undefined } : {}) })} />
+          <div data-tour="foreach">
+            <ExprField label="Para cada item de (lista)" value={l.foreach ?? ""} names={names} placeholder="itens" onCommit={(v) => upd({ foreach: v, ...(v && l.until === "condicao" ? { until: undefined } : {}) })} />
+          </div>
           {l.foreach && (
             <label className="field">
               <span>Nome do item em cada volta</span>
@@ -435,13 +441,17 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
           {l.role === "call" && (
             <>
               <RequestFields l={l} names={names} upd={upd} />
-              <ExprField label="Falha simulada quando (opcional)" value={l.falha ?? ""} names={names} placeholder={`${sample}_falhou`} onCommit={(v) => upd({ falha: v })} />
-              <StatementsField value={l.devolve ?? []} example={effectSample} onCommit={(lines) => upd({ devolve: lines })} label="O que devolve quando dá certo (um dado por linha)" />
+              <div data-tour="falha">
+                <ExprField label="Falha simulada quando (opcional)" value={l.falha ?? ""} names={names} placeholder={`${sample}_falhou`} onCommit={(v) => upd({ falha: v })} />
+              </div>
+              <div data-tour="devolve">
+                <StatementsField value={l.devolve ?? []} example={effectSample} onCommit={(lines) => upd({ devolve: lines })} label="O que devolve quando dá certo (um dado por linha)" />
+              </div>
               <div className="callout">Para testar o caminho de erro: quando esta condição vale no exemplo, o fluxo segue pela seta "erro" (selecione a seta e escolha a saída "erro"). Sem ela, a chamada sempre dá certo.</div>
             </>
           )}
           {l.role === "end" && (
-            <label className="field">
+            <label className="field" data-tour="outcome">
               <span>Desfecho</span>
               <select className="input" value={l.outcome ?? "ok"} onChange={(e) => upd({ outcome: e.target.value === "ok" ? undefined : e.target.value })}>
                 <option value="ok">ok</option>
@@ -795,7 +805,7 @@ function TypeField({ value, onCommit }: { value: string; onCommit: (v: string | 
   const r = recognize(draft);
   return (
     <>
-      <label className="field">
+      <label className="field" data-tour="type">
         <span>Tipo (como no TypeScript)</span>
         <TextField value={value} placeholder="number, string, boolean, int, string[], { preco: number }…" onDraft={setDraft} onCommit={(v) => onCommit(v.trim() || undefined)} />
       </label>
@@ -820,7 +830,7 @@ function TypeField({ value, onCommit }: { value: string; onCommit: (v: string | 
 /** O valor simulado de um Call HTTP ou de um nó Code (JSON): é o que os exemplos usam no lugar da rede e do TypeScript. */
 function MockField({ l, upd, label, placeholder }: { l: LogicNodeSpec; upd: (p: Record<string, unknown>) => void; label: string; placeholder: string }) {
   return (
-    <label className="field">
+    <label className="field" data-tour="mock">
       <span>{label}</span>
       <TextField
         multiline
@@ -848,7 +858,7 @@ function TriggerFields({ l, upd }: { l: LogicNodeSpec; upd: (p: Record<string, u
   const cronBad = t.kind === "agenda" && !/^\s*(\S+\s+){4}\S+\s*$/.test(t.cron ?? "");
   return (
     <>
-      <label className="field">
+      <label className="field" data-tour="trigger">
         <span>Gatilho (o que dispara o fluxo)</span>
         <select
           className="input"
@@ -916,7 +926,7 @@ function RequestFields({ l, names, upd }: { l: LogicNodeSpec; names: Record<stri
   const setReq = (p: Partial<LogicRequest>) => upd({ request: { ...r!, ...p } });
   if (!r)
     return (
-      <div className="callout">
+      <div className="callout" data-tour="request">
         Esta chamada é só um ponto do fluxo (simulada pelo app).{" "}
         <button className="btn" onClick={() => upd({ request: { method: "GET", url: '"https://api.exemplo.com/"' } })} data-tip="O código gerado (aba Código TypeScript) faz um fetch de verdade; a resposta fica em «resposta» e «status_http».">
           Transformar em chamada HTTP
@@ -969,7 +979,9 @@ function RequestFields({ l, names, upd }: { l: LogicNodeSpec; names: Record<stri
           Remover HTTP
         </button>
       </div>
-      <ExprField label="Endereço (expressão; texto fixo leva aspas)" value={r.url} names={names} placeholder={'"https://api.exemplo.com/clientes/" + cliente_id'} onCommit={(v) => v && setReq({ url: v })} />
+      <div data-tour="request">
+        <ExprField label="Endereço (expressão; texto fixo leva aspas)" value={r.url} names={names} placeholder={'"https://api.exemplo.com/clientes/" + cliente_id'} onCommit={(v) => v && setReq({ url: v })} />
+      </div>
       {pairs("Cabeçalhos (nome: expressão, um por linha)", "headers", 'Authorization: "Bearer " + token')}
       {r.method !== "GET" && r.method !== "DELETE" && pairs("Corpo JSON (campo: expressão, um por linha)", "body", "valor: total")}
       <MockField l={l} upd={upd} label="Resposta simulada nos exemplos (JSON)" placeholder={'{ "cidade": "São Paulo" }'} />
@@ -1051,7 +1063,7 @@ export function LogicConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
   if (!branches.length && role !== "switch") return <div className="callout">Seta simples: o fluxo segue para o próximo passo.</div>;
   return (
     <>
-      <label className="field">
+      <label className="field" data-tour="branch">
         <span>Saída de {LOGIC_ROLES[role].label}</span>
         <select className="input" value={cur} onChange={(e) => set(e.target.value)}>
           <option value="">— seta simples —</option>
@@ -1065,7 +1077,7 @@ export function LogicConnFields({ conn, patch }: { conn: ConnectionEl; patch: Pa
       </label>
       {cur && cur !== "case" && <div className="callout">{LOGIC_BRANCHES[cur as LogicBranch].hint}</div>}
       {cur === "case" && (
-        <div ref={wrap}>
+        <div ref={wrap} data-tour="case">
           <ExprField
             label={byCondition ? "Condição desta faixa (vale a primeira verdadeira, na ordem em que as setas foram criadas)" : "Valor deste caso"}
             value={conn.logic?.case ?? ""}

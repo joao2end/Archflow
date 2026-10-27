@@ -4580,7 +4580,6 @@ body.insp-resizing { cursor: ew-resize; user-select: none; }
 .lesson-text strong {
   color: var(--ink);
 }
-.lesson-built { display: block; margin: 4px 0 -2px; font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 .lesson-pieces {
   display: flex;
   flex-wrap: wrap;

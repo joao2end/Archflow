@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { ALGORITHMS_DIR, ALGORITHM_EXAMPLES, EXAMPLE_MODES, buildCatalog } from "./examples.catalog";
-import { LOGIC_LESSONS_DIR } from "./logic.lessons";
+import { LOGIC_LESSONS_DIR } from "./logictours";
 import { checkExamples } from "./logic";
 import { normalizeDoc, validateDetailed } from "./ops";
 import { docMode, type Doc } from "./schema";
@@ -59,7 +59,5 @@ test("as aulas do diagrama lógico abrem primeiro na seção Lógica, guiadas, n
   const aulas = logic.filter((x) => x.key.startsWith("logic:aula-"));
   assert.equal(aulas.length, 3);
   assert.deepEqual(logic.slice(0, 3), aulas, "as aulas vêm antes dos outros exemplos de lógica");
-  assert.ok(aulas[0].tour && !aulas[0].guided, "a Aula 1 é o tutorial interativo");
-  for (const a of aulas.slice(1)) assert.ok(a.guided, a.key);
-  for (const a of aulas) assert.ok(a.open.startsWith(`${LOGIC_LESSONS_DIR}/`), a.open);
+  for (const a of aulas) assert.ok(a.tour === a.key && !a.guided && a.open.startsWith(`${LOGIC_LESSONS_DIR}/`), `${a.key}: tutorial interativo na pasta das aulas`);
 });

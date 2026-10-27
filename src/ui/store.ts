@@ -227,7 +227,7 @@ export interface State {
   /** painel da aula de DDD aberto (quando o diagrama aberto é uma aula) */
   lessonOpen: boolean;
   /** tutorial interativo em andamento (o passo atual); só aparece no diagrama do tutorial */
-  tour: { step: number } | null;
+  tour: { key: string; step: number } | null;
   /** painel do terminal do Claude Code (modo agents) */
   termOpen: boolean;
   /** o bridge tem terminal? (undefined = ainda não sabemos); o botão da barra preenche */
@@ -978,7 +978,7 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   const folder = (path: string) => path.slice(0, path.lastIndexOf("/"));
   if (ex.files.some((f) => have.has(f.path))) {
     await openDiagram(have.has(ex.open) ? ex.open : ex.files.find((f) => have.has(f.path))!.path);
-    if (ex.tour) set({ tour: { step: 0 }, lessonOpen: false, panel: null, iso: false, tool: "select" });
+    if (ex.tour) set({ tour: null, lessonOpen: false, panel: null, iso: false, tool: "select" }); // a aula retoma sozinha ao abrir o diagrama dela
     else if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula ocupa a direita: o explorador fecha para o diagrama aparecer
     toast(`O exemplo já está no projeto (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
     return false;
@@ -1000,7 +1000,7 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
     if (f.path === ex.open) toOpen = name;
   }
   await openDiagram(toOpen);
-  if (ex.tour) set({ tour: { step: 0 }, lessonOpen: false, panel: null, iso: false, tool: "select" }); // o tutorial guia na própria interface
+  if (ex.tour) set({ tour: { key: ex.tour, step: 0 }, lessonOpen: false, panel: null, iso: false, tool: "select" }); // a aula guia na própria interface
   else if (ex.lesson) set({ lessonOpen: true, iso: true }); // a aula de DDD abre nas camadas 3D, com o painel dos passos
   else if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula do exemplo abre no 2D, no primeiro passo, sem o explorador
   toast(`Exemplo «${ex.title}» instalado em ${folder(ex.open)}`);
