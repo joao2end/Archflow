@@ -5018,6 +5018,8 @@ body:has(.flow-bar) .toast {
 .tour-bubble { position: fixed; z-index: 9001; width: min(340px, calc(100vw - 28px)); padding: 12px 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; background: var(--glass-strong); color: var(--ink); transition: left 200ms ease-out, top 200ms ease-out; }
 .tour-bubble header { display: flex; align-items: center; justify-content: space-between; }
 .tour-kicker { font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.tour-head-btns { display: flex; gap: 2px; }
+.tour-pill { font-weight: 700; }
 .tour-progress { height: 4px; border-radius: 999px; background: var(--primary-100); overflow: hidden; }
 .tour-progress i { display: block; height: 100%; background: var(--primary); transition: width 300ms ease-out; }
 .tour-bubble h3 { margin: 0; font: 700 15.5px var(--sans); }

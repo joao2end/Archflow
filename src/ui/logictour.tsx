@@ -49,6 +49,20 @@ function findTarget(s: TourStep): { el: Element; target: string } | null {
 
 const center = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
+/** Onde retomar: o primeiro passo que espera uma ação e ainda não está feito (diagrama vazio: a abertura). */
+function resumeAt(): number {
+  const c = ctxOf();
+  if (!c.doc.nodes.length) return 0;
+  const i = LOGIC_TOUR.findIndex((s) => s.check && !s.check(c));
+  return i < 0 ? LOGIC_TOUR.length - 1 : i;
+}
+
+/** Começa (ou continua) o tutorial no diagrama dele. */
+export const startLogicTour = () => set({ tour: { step: resumeAt() }, lessonOpen: false, iso: false });
+
+/** quem fechou o tutorial nesta sessão não o vê abrir sozinho de novo (o botão ▶ Tutorial continua no canto) */
+let dismissed = false;
+
 export function LogicTour() {
   const tour = useStore((s) => s.tour);
   const docId = useStore((s) => s.doc.id);
@@ -130,10 +144,29 @@ export function LogicTour() {
     setPos({ left, top: Math.min(Math.max(m, top), H - h - m) });
   }, [rect, idx, done, busy]);
 
-  if (!active) return null;
+  /* abrir o diagrama do tutorial (pelo explorador, ao reabrir o app) começa o tutorial onde parou */
+  const onTourDoc = docId === LOGIC_TOUR_DOC_ID;
+  useEffect(() => {
+    if (onTourDoc && !getState().tour && !dismissed) startLogicTour();
+  }, [onTourDoc]);
+
+  if (!active)
+    return onTourDoc ? (
+      <button className="btn glass lesson-pill tour-pill" onClick={startLogicTour} data-tip="Começar ou continuar o tutorial: ele mostra onde clicar e espera você fazer" data-tip-pos="left">
+        ▶ Tutorial
+      </button>
+    ) : null;
 
   const go = (n: number) => set({ tour: { step: Math.max(0, Math.min(LOGIC_TOUR.length - 1, n)) } });
-  const quit = () => set({ tour: null });
+  const quit = () => {
+    dismissed = true;
+    set({ tour: null });
+  };
+  /** apaga o que foi montado e volta à abertura (Ctrl+Z desfaz) */
+  const restart = () => {
+    run([{ op: "clear" }]);
+    set({ tour: { step: 0 }, sel: [], play: null, iso: false, tool: "select" });
+  };
   const last = idx === LOGIC_TOUR.length - 1;
   const usingFallback = where === '[aria-label="Biblioteca"]' && !!step.target?.some((t) => t.startsWith("[data-asset"));
   const nodeFallback = where.startsWith("@node:") && step.target?.[0] !== where;
@@ -227,9 +260,14 @@ export function LogicTour() {
           <span className="tour-kicker">
             Tutorial · passo {idx + 1} de {LOGIC_TOUR.length}
           </span>
-          <button className="btn ghost icon sm" onClick={quit} aria-label="Sair do tutorial" data-tip="Sair do tutorial" data-tip-pos="left">
-            ✕
-          </button>
+          <span className="tour-head-btns">
+            <button className="btn ghost icon sm" onClick={restart} aria-label="Recomeçar do zero" data-tip="Recomeçar do zero: apaga o diagrama e volta ao começo (Ctrl+Z desfaz)" data-tip-pos="left">
+              ↺
+            </button>
+            <button className="btn ghost icon sm" onClick={quit} aria-label="Fechar o tutorial" data-tip="Fechar (o botão ▶ Tutorial no canto reabre)" data-tip-pos="left">
+              ✕
+            </button>
+          </span>
         </header>
         <div className="tour-progress" aria-hidden>
           <i style={{ width: `${((idx + (done ? 1 : 0)) / LOGIC_TOUR.length) * 100}%` }} />
