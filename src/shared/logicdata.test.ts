@@ -62,3 +62,13 @@ test("L029/L030/L031: entrada escrita, resultado nunca escrito e variável sem v
   const clean = ids([data("ent", "input", "ent"), data("v", "variable", "v", { value: 0 }), data("o", "output", "o"), ...flowOps(["v := ent + 1", "o := v * 2"])]);
   for (const r of ["L029", "L030", "L031"]) assert.ok(!clean.includes(r), r);
 });
+
+test("L031/L007: o que uma tabela de decisão escreve conta como escrito, e o que ela escreve sem declarar avisa", () => {
+  const build = (ops: Op[]) => applyOps(emptyDoc("t", "logic"), ops).doc;
+  const rules = (ops: Op[]) => validateDetailed(build(ops)).map((i) => i.rule);
+  const table = (then: string): Op => ({ op: "add_node", id: "t", label: "t", logic: { role: "table", rows: [{ when: "ent > 0", then: [then] }], otherwise: [then] } as never });
+  const flowOps = (then: string): Op[] => [step("ini", "start"), table(then), step("a", "rule", { then: ["o := v"] }), step("fim", "end"), { op: "add_connection", from: "ini", to: "t" }, { op: "add_connection", from: "t", to: "a" }, { op: "add_connection", from: "a", to: "fim" }];
+  const base = [data("ent", "input", "ent"), data("v", "variable", "v"), data("o", "output", "o")];
+  assert.ok(!rules([...base, ...flowOps("v := 1")]).includes("L031"));
+  assert.ok(rules([...base, ...flowOps("w := 1")]).includes("L007"));
+});

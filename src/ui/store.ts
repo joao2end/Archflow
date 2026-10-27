@@ -178,6 +178,8 @@ export interface State {
   examples: { open: boolean; tab: DocMode | null };
   /** modo Logic: reprodução de um cenário (o caminho percorrido no fluxo, passo a passo) */
   play: Play | null;
+  /** o debug completo da reprodução (linha do tempo, porquê e variáveis) aberto em tela cheia; sem ele, só a pílula de controles */
+  playFull: boolean;
   /** velocidade da reprodução de cenários (1 = um passo a cada 0,85 s); lembrada entre sessões */
   playSpeed: number;
   /** modo da reprodução escolhido por último */
@@ -224,6 +226,8 @@ export interface State {
   spotlight: Spotlight3D | null;
   /** painel da aula de DDD aberto (quando o diagrama aberto é uma aula) */
   lessonOpen: boolean;
+  /** tutorial interativo em andamento (o passo atual); só aparece no diagrama do tutorial */
+  tour: { step: number } | null;
   /** painel do terminal do Claude Code (modo agents) */
   termOpen: boolean;
   /** o bridge tem terminal? (undefined = ainda não sabemos); o botão da barra preenche */
@@ -330,6 +334,7 @@ function init(): State {
     newDiagramFor: null,
     examples: { open: false, tab: null },
     play: null,
+    playFull: false,
     playSpeed: PLAY_SPEEDS.includes(read<number>(LS_PLAY_SPEED) ?? 0) ? read<number>(LS_PLAY_SPEED)! : 1,
     playMode: read<PlayMode>(LS_PLAY_MODE) === "debug" ? "debug" : "explain",
     expanded: read<Record<string, boolean>>(LS_TREE) ?? {},
@@ -361,6 +366,7 @@ function init(): State {
     iso: false,
     spotlight: null,
     lessonOpen: true,
+    tour: null,
     termOpen: false,
     termRequest: null,
     runNodeRequest: null,
@@ -972,7 +978,8 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   const folder = (path: string) => path.slice(0, path.lastIndexOf("/"));
   if (ex.files.some((f) => have.has(f.path))) {
     await openDiagram(have.has(ex.open) ? ex.open : ex.files.find((f) => have.has(f.path))!.path);
-    if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula ocupa a direita: o explorador fecha para o diagrama aparecer
+    if (ex.tour) set({ tour: { step: 0 }, lessonOpen: false, panel: null, iso: false, tool: "select" });
+    else if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula ocupa a direita: o explorador fecha para o diagrama aparecer
     toast(`O exemplo já está no projeto (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
     return false;
   }
@@ -993,7 +1000,8 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
     if (f.path === ex.open) toOpen = name;
   }
   await openDiagram(toOpen);
-  if (ex.lesson) set({ lessonOpen: true, iso: true }); // a aula de DDD abre nas camadas 3D, com o painel dos passos
+  if (ex.tour) set({ tour: { step: 0 }, lessonOpen: false, panel: null, iso: false, tool: "select" }); // o tutorial guia na própria interface
+  else if (ex.lesson) set({ lessonOpen: true, iso: true }); // a aula de DDD abre nas camadas 3D, com o painel dos passos
   else if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula do exemplo abre no 2D, no primeiro passo, sem o explorador
   toast(`Exemplo «${ex.title}» instalado em ${folder(ex.open)}`);
   return true;
@@ -1326,7 +1334,7 @@ export function setPlayMode(mode: PlayMode) {
 
 export function stopPlay() {
   stopTimer();
-  set({ play: null });
+  set({ play: null, playFull: false });
 }
 
 /* ───────── modo Logic: etapas (recolher num cartão-resumo / abrir os passos) ───────── */

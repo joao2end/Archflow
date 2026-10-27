@@ -6,7 +6,19 @@ Os exemplos do Archflow, por modo. A seção *Exemplos* do explorador instala qu
 
 - **Arquitetura**: loja online, API com fila, microsserviços e pipeline de dados (definidos em `src/shared/arch.examples.ts`; instalam em `exemplos-arquitetura/`).
 - **Domínio (DDD)**: três aulas para começar ([`aulas-ddd/`](aulas-ddd/README.md)) e os cinco modelos abaixo, na pasta `exemplos-ddd/`.
-- **Lógica**: o motor de precificação (`exemplos-logic/`) e 15 algoritmos, de busca binária a fluxo máximo, em [`exemplos-algoritmos/`](exemplos-algoritmos/) (gerados por `scripts/build-algorithms.ts`, com oráculos em `src/shared/fixtures/oracles/`; histórico e resultados em [`docs/algorithm-score.md`](../docs/algorithm-score.md)).
+- **Lógica**: três aulas do diagrama lógico (abaixo), o motor de precificação (`exemplos-logic/`) e 15 algoritmos, de busca binária a fluxo máximo, em [`exemplos-algoritmos/`](exemplos-algoritmos/) (gerados por `scripts/build-algorithms.ts`, com oráculos em `src/shared/fixtures/oracles/`; histórico e resultados em [`docs/algorithm-score.md`](../docs/algorithm-score.md)).
+
+## Aulas do diagrama lógico
+
+Para aprender o modo **Logic** (regras de negócio como fluxo que o app executa e confere), do simples ao complexo:
+
+| Aula | Nível | Como é | O que ensina |
+| --- | --- | --- | --- |
+| 1 · Seu primeiro diagrama lógico | simples | **tutorial interativo**: você monta a regra do frete grátis na própria interface; o tutorial destaca o botão, a peça da Biblioteca ou o campo do Inspetor de cada passo e espera você fazer (**Fazer por mim** demonstra com um cursor animado) | Biblioteca e Inspetor, Início, Entrada, Resultado, Decisão, Ação, Fim, Conector e setas sim/não, mover peças, exemplos, cenário, teste e debug 3D |
+| 2 · Pontos de fidelidade | médio | aula guiada que monta o diagrama do zero, passo a passo | Loop «para cada», Variável acumulada, Tabela de decisão, Escolha (switch), fim com erro, etapas |
+| 3 · Aprovação de crédito | complexo | aula guiada que monta o diagrama do zero, passo a passo | gatilho webhook, Chamada HTTP com resposta simulada e seta «erro», Paralelo e Junção, travar/destravar, vários fins, um cenário por caminho |
+
+As aulas instalam o diagrama vazio em `exemplos-logic/aulas/`. O tutorial está em `src/shared/logictour.ts` (passos, alvos e condições) e `src/ui/logictour.tsx` (destaque, balão e cursor); as aulas 2 e 3 em `src/shared/logic.lessons.ts`. Os testes conferem que o «Fazer por mim» de cada passo conclui o passo, que montar passo a passo chega a um diagrama que valida sem erros e com todos os exemplos e cenários batendo, e que cada passo aponta peças que existem.
 
 ## Aulas de DDD em TypeScript
 

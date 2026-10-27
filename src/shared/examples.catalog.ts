@@ -10,6 +10,8 @@ import { exampleLessonOf } from "./example.lessons";
 import { DDD_EXAMPLES, EXAMPLES_DIR, buildExampleFile, examplePath } from "./examples";
 import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
+import { LOGIC_LESSONS, LOGIC_TOUR_KEY, logicLessonPath, logicLessonStart, logicTourPath, logicTourStart } from "./logic.lessons";
+import { TOUR_TITLE } from "./logictour";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
 
@@ -39,6 +41,8 @@ export interface CatalogExample {
   lesson?: string;
   /** tem aula guiada (a de DDD ou a do exemplo, em `example.lessons.ts`): ao instalar ou abrir, o painel da aula aparece */
   guided: boolean;
+  /** é o tutorial interativo (`logictour.ts`): ao instalar, o tutorial guia na própria interface */
+  tour?: boolean;
 }
 
 export const ARCH_DIR = "exemplos-arquitetura";
@@ -125,7 +129,36 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
   });
 
   const pricing = pricingDoc();
+  // as aulas do diagrama lógico vêm antes, na ordem delas: são a porta de entrada do modo. Instalam o diagrama vazio:
+  // a aula o monta passo a passo
+  const tutorial: CatalogExample = {
+    key: LOGIC_TOUR_KEY,
+    mode: "logic",
+    title: `Aula 1 · ${TOUR_TITLE} (tutorial)`,
+    level: "iniciante",
+    summary: "Tutorial interativo: você monta a regra do frete grátis na interface, do zero, com a Biblioteca, o Inspetor e o Conector; o tutorial aponta cada clique e espera você fazer.",
+    teaches: ["Biblioteca e Inspetor", "Início, Entrada, Resultado, Decisão, Ação e Fim", "Conector e setas sim/não", "exemplos, cenário e teste", "debug no 3D"],
+    files: [{ title: `Aula 1 · ${TOUR_TITLE}`, path: logicTourPath, mode: "logic", load: logicTourStart }],
+    open: logicTourPath,
+    linked: false,
+    guided: false,
+    tour: true,
+  };
+  const logicLessons: CatalogExample[] = LOGIC_LESSONS.map((l) => ({
+    key: `logic:aula-${l.id}`,
+    mode: "logic",
+    title: `Aula ${l.n} · ${l.title}`,
+    level: l.level,
+    summary: l.summary,
+    teaches: l.teaches,
+    files: [{ title: `Aula ${l.n} · ${l.title}`, path: logicLessonPath(l), mode: "logic", load: () => logicLessonStart(l) }],
+    open: logicLessonPath(l),
+    linked: false,
+    guided: true,
+  }));
   const logic: CatalogExample[] = [
+    tutorial,
+    ...logicLessons,
     {
       key: "logic:precificacao",
       mode: "logic",

@@ -406,7 +406,13 @@ const str = (v: Value, what: string): string => {
   return v;
 };
 
-const same = (a: Value, b: Value): boolean => (Array.isArray(a) || Array.isArray(b) ? JSON.stringify(a) === JSON.stringify(b) : a === b);
+/** Igualdade pelo conteúdo: listas e objetos comparam campo a campo (a ordem dos campos não importa). */
+const same = (a: Value, b: Value): boolean => {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k) => k in b && same((a as unknown as Env)[k] as Value, (b as unknown as Env)[k] as Value));
+};
 
 export function evaluate(e: Expr, env: Env): Value {
   switch (e.t) {
@@ -626,25 +632,42 @@ export function branchesOf(e: Expr, names: Record<string, string> = {}, mark = f
 
 const OP_TEXT: Record<BinOp, string> = { "+": "+", "-": "-", "*": "*", "/": "/", "%": "%", "=": "=", "!=": "!=", "<": "<", "<=": "<=", ">": ">", ">=": ">=", em: "em", "nao-em": "nao em", e: "e", ou: "ou" };
 
-/** Expressão -> texto na mesma sintaxe que o parser lê (parênteses só onde a precedência exige). */
-export function print(e: Expr): string {
+/** Os operadores como no TypeScript (para mostrar o código a quem programa): `=` é `==`, `e` é `&&`, `ou` é `||`. */
+const OP_TS: Record<BinOp, string> = { ...OP_TEXT, "=": "==", "!=": "!=", e: "&&", ou: "||" };
+
+/**
+ * Expressão -> texto na mesma sintaxe que o parser lê (parênteses só onde a precedência exige). Com `ts`, na sintaxe
+ * do TypeScript: `==`, `&&`, `||`, `!x`, `c ? a : b`, `[..].includes(x)`, `true`/`false`/`null` e `5%` como `0.05`
+ * (só para mostrar: o app continua lendo a sintaxe dele).
+ */
+export function print(e: Expr, ts = false): string {
   const go = (x: Expr, parent: number): string => {
     switch (x.t) {
-      case "num": return x.pct ? `${Math.round(x.v * 1e11) / 1e9}%` : String(x.v);
+      case "num": return x.pct ? (ts ? String(Math.round(x.v * 1e9) / 1e9) : `${Math.round(x.v * 1e11) / 1e9}%`) : String(x.v);
       case "str": return JSON.stringify(x.v);
-      case "bool": return x.v ? "verdadeiro" : "falso";
-      case "nul": return "nulo";
+      case "bool": return ts ? String(x.v) : x.v ? "verdadeiro" : "falso";
+      case "nul": return ts ? "null" : "nulo";
       case "id": return x.name;
       case "list": return `[${x.items.map((i) => go(i, 0)).join(", ")}]`;
       case "idx": return `${go(x.x, 9)}[${go(x.i, 0)}]`;
       case "field": return `${go(x.x, 9)}.${x.name}`;
       case "call": return `${x.fn}(${x.args.map((i) => go(i, 0)).join(", ")})`;
-      case "un": return x.op === "-" ? `-${go(x.x, 7)}` : (parent > 2 ? `(nao ${go(x.x, 3)})` : `nao ${go(x.x, 3)}`);
-      case "if": { const t = `se ${go(x.c, 0)} entao ${go(x.a, 0)} senao ${go(x.b, 0)}`; return parent > 0 ? `(${t})` : t; }
+      case "un":
+        if (x.op === "-") return `-${go(x.x, 7)}`;
+        if (ts) return `!${go(x.x, 9)}`;
+        return parent > 2 ? `(nao ${go(x.x, 3)})` : `nao ${go(x.x, 3)}`;
+      case "if": { const t = ts ? `${go(x.c, 1)} ? ${go(x.a, 1)} : ${go(x.b, 1)}` : `se ${go(x.c, 0)} entao ${go(x.a, 0)} senao ${go(x.b, 0)}`; return parent > 0 ? `(${t})` : t; }
       case "bin": {
         const p = PREC[x.op] ?? 0;
+        if (ts && (x.op === "em" || x.op === "nao-em")) {
+          const t = `${x.op === "nao-em" ? "!" : ""}${go(x.r, 9)}.includes(${go(x.l, 0)})`;
+          return x.op === "nao-em" && parent > 8 ? `(${t})` : t;
+        }
         const cmp = p === 3;
-        const t = `${go(x.l, cmp ? p + 1 : p)} ${OP_TEXT[x.op]} ${go(x.r, p + 1)}`;
+        // no TypeScript, && dentro de || (e vice-versa) leva parênteses, para a leitura não depender da precedência
+        const mixed = (y: Expr) => ts && (x.op === "e" || x.op === "ou") && y.t === "bin" && (y.op === "e" || y.op === "ou") && y.op !== x.op;
+        const side = (y: Expr, pp: number) => (mixed(y) ? `(${go(y, 0)})` : go(y, pp));
+        const t = `${side(x.l, cmp ? p + 1 : p)} ${(ts ? OP_TS : OP_TEXT)[x.op]} ${side(x.r, p + 1)}`;
         return p < parent ? `(${t})` : t;
       }
     }
@@ -662,15 +685,25 @@ export function shortValue(v: unknown): string {
   return v === null ? "nulo" : v ? "verdadeiro" : "falso";
 }
 
+/** O valor inteiro, sem abreviar listas, objetos nem textos longos (para quem precisa ver tudo, como o debug do 3D). */
+export function fullValue(v: unknown, ts = false): string {
+  if (v === undefined) return "sem valor";
+  if (typeof v === "number") return String(Math.round(v * 1e6) / 1e6);
+  if (Array.isArray(v)) return `[${v.map((x) => fullValue(x, ts)).join(", ")}]`;
+  if (v !== null && typeof v === "object") return `{ ${Object.entries(v).map(([k, x]) => `${k}: ${fullValue(x, ts)}`).join(", ")} }`;
+  if (typeof v === "string") return JSON.stringify(v);
+  return v === null ? (ts ? "null" : "nulo") : ts ? String(v) : v ? "verdadeiro" : "falso";
+}
+
 /**
  * A expressão com os dados trocados pelos valores do momento (`v[meio] < x` → `3 < 4`), na mesma sintaxe do `print`.
  * Dentro de um E/OU, cada comparação ganha ✔ ou ✘, para ver qual parte decidiu. Partes que não dá para calcular ficam `?`.
  */
-export function withValues(e: Expr, env: Env): string {
+export function withValues(e: Expr, env: Env, show: (v: unknown) => string = shortValue, ts = false): string {
   const root = (x: Expr): string | undefined => (x.t === "id" ? x.name : x.t === "field" || x.t === "idx" ? root(x.x) : undefined);
   const val = (x: Expr) => {
     try {
-      return shortValue(evaluate(x, env));
+      return show(evaluate(x, env));
     } catch {
       const r = root(x);
       return r !== undefined && !(r in env) ? "sem valor" : "?";
@@ -694,20 +727,27 @@ export function withValues(e: Expr, env: Env): string {
         return isAccess(x) ? val(x) + (logical ? truth(x) : "") : val(x);
       case "list": return `[${x.items.map((i) => go(i, 0)).join(", ")}]`;
       case "call": return `${x.fn}(${x.args.map((i) => go(i, 0)).join(", ")})`;
-      case "un": return x.op === "-" ? `-${go(x.x, 7)}` : `nao ${go(x.x, 3)}${logical ? truth(x) : ""}`;
-      case "if": { const t = `se ${go(x.c, 0)} entao ${go(x.a, 0)} senao ${go(x.b, 0)}`; return parent > 0 ? `(${t})` : t; }
+      case "un": return x.op === "-" ? `-${go(x.x, 7)}` : ts ? `!${go(x.x, 9)}${logical ? truth(x) : ""}` : `nao ${go(x.x, 3)}${logical ? truth(x) : ""}`;
+      case "if": { const t = ts ? `${go(x.c, 1)} ? ${go(x.a, 1)} : ${go(x.b, 1)}` : `se ${go(x.c, 0)} entao ${go(x.a, 0)} senao ${go(x.b, 0)}`; return parent > 0 ? `(${t})` : t; }
       case "bin": {
         const p = PREC[x.op] ?? 0;
+        const OPS = ts ? OP_TS : OP_TEXT;
         if (x.op === "e" || x.op === "ou") {
-          const t = `${go(x.l, p, true)} ${OP_TEXT[x.op]} ${go(x.r, p + 1, true)}`;
+          const mixed = (y: Expr) => ts && y.t === "bin" && (y.op === "e" || y.op === "ou") && y.op !== x.op;
+          const side = (y: Expr, pp: number) => (mixed(y) ? `(${go(y, 0, true)})` : go(y, pp, true));
+          const t = `${side(x.l, p)} ${OPS[x.op]} ${side(x.r, p + 1)}`;
           return p < parent ? `(${t})` : t;
         }
+        if (ts && (x.op === "em" || x.op === "nao-em")) {
+          const t = `${x.op === "nao-em" ? "!" : ""}${go(x.r, 9)}.includes(${go(x.l, 0)})`;
+          return logical ? `${t}${truth(x)}` : t;
+        }
         const cmp = p === 3;
-        const t = `${go(x.l, cmp ? p + 1 : p)} ${OP_TEXT[x.op]} ${go(x.r, p + 1)}`;
+        const t = `${go(x.l, cmp ? p + 1 : p)} ${OPS[x.op]} ${go(x.r, p + 1)}`;
         const s = p < parent ? `(${t})` : t;
         return cmp && logical ? `${s}${truth(x)}` : s;
       }
-      default: return print(x);
+      default: return print(x, ts);
     }
   };
   return go(e, 0);

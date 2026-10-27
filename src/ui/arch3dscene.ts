@@ -1003,7 +1003,7 @@ export class ArchScene {
 const SPOT_RING = new THREE.TorusGeometry(1, 0.04, 8, 64);
 
 /** Retângulo de cantos arredondados no plano da forma (y invertido: girada −90° em X, o y da placa vira z). */
-function roundRect(x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(x: number, y: number, w: number, h: number, r: number) {
   const s = new THREE.Shape();
   const [x0, y0, x1, y1] = [x, -y - h, x + w, -y];
   s.moveTo(x0 + r, y0);
@@ -1019,10 +1019,10 @@ function roundRect(x: number, y: number, w: number, h: number, r: number) {
 }
 
 const seg = (pts: Pt[], i: number) => Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-const pathLength = (pts: Pt[]) => pts.reduce((s, _, i) => (i ? s + seg(pts, i) : 0), 0);
+export const pathLength = (pts: Pt[]) => pts.reduce((s, _, i) => (i ? s + seg(pts, i) : 0), 0);
 
 /** Encurta a polilinha em `d` px no fim (onde entra a seta). */
-function trimEnd(pts: Pt[], d: number): Pt[] {
+export function trimEnd(pts: Pt[], d: number): Pt[] {
   const out = pts.map((p) => ({ ...p }));
   while (out.length > 2 && seg(out, out.length - 1) <= d) {
     d -= seg(out, out.length - 1);
@@ -1039,7 +1039,7 @@ function trimEnd(pts: Pt[], d: number): Pt[] {
  * Fita plana ao longo da polilinha, com as juntas em meia-esquadria (os cantos de 45° não abrem nem sobrepõem);
  * u acompanha o comprimento (× uScale), para os pulsos andarem ao longo dela.
  */
-function ribbon(pts: Pt[], width: number, y: number, uScale = 1 / PULSE_TILE): THREE.BufferGeometry {
+export function ribbon(pts: Pt[], width: number, y: number, uScale = 1 / PULSE_TILE): THREE.BufferGeometry {
   const pos: number[] = [];
   const uv: number[] = [];
   const idx: number[] = [];

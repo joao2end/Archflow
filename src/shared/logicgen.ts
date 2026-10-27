@@ -104,7 +104,13 @@ export const truthy = (v: unknown): boolean => {
   if (typeof v !== "boolean") throw new FlowError("esperava verdadeiro ou falso, mas veio " + show(v));
   return v;
 };
-export const same = (a: unknown, b: unknown): boolean => (Array.isArray(a) || Array.isArray(b) ? JSON.stringify(a) === JSON.stringify(b) : a === b);
+/** Igualdade pelo conteúdo: listas e objetos comparam campo a campo (a ordem dos campos não importa). */
+export const same = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k) => k in b && same((a as Data)[k], (b as Data)[k]));
+};
 
 export const add = (l: unknown, r: unknown): any => (typeof l === "string" && typeof r === "string" ? l + r : num(l, "o lado esquerdo do +") + num(r, "o lado direito do +"));
 export const sub = (l: unknown, r: unknown): number => num(l, "o lado esquerdo do -") - num(r, "o lado direito do -");

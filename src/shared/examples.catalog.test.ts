@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { ALGORITHMS_DIR, ALGORITHM_EXAMPLES, EXAMPLE_MODES, buildCatalog } from "./examples.catalog";
+import { LOGIC_LESSONS_DIR } from "./logic.lessons";
 import { checkExamples } from "./logic";
 import { normalizeDoc, validateDetailed } from "./ops";
 import { docMode, type Doc } from "./schema";
@@ -50,5 +51,15 @@ test("cada algoritmo: o título do catálogo é o do diagrama, é Logic, valida 
 });
 
 test("os algoritmos ficam numa pasta própria dentro de exemplos-logic", () => {
-  for (const e of catalog().filter((x) => x.key.startsWith("logic:") && x.key !== "logic:precificacao")) assert.ok(e.open.startsWith(`${ALGORITHMS_DIR}/`), e.open);
+  for (const e of catalog().filter((x) => x.key.startsWith("logic:") && x.key !== "logic:precificacao" && !x.key.startsWith("logic:aula-"))) assert.ok(e.open.startsWith(`${ALGORITHMS_DIR}/`), e.open);
+});
+
+test("as aulas do diagrama lógico abrem primeiro na seção Lógica, guiadas, numa pasta própria", () => {
+  const logic = catalog().filter((x) => x.mode === "logic");
+  const aulas = logic.filter((x) => x.key.startsWith("logic:aula-"));
+  assert.equal(aulas.length, 3);
+  assert.deepEqual(logic.slice(0, 3), aulas, "as aulas vêm antes dos outros exemplos de lógica");
+  assert.ok(aulas[0].tour && !aulas[0].guided, "a Aula 1 é o tutorial interativo");
+  for (const a of aulas.slice(1)) assert.ok(a.guided, a.key);
+  for (const a of aulas) assert.ok(a.open.startsWith(`${LOGIC_LESSONS_DIR}/`), a.open);
 });

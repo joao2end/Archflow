@@ -153,15 +153,22 @@ let queue = Promise.resolve();
 
 /** Miniatura (data URL) do objeto de um asset: o mesmo modelo, cores e logo da cena, no ângulo isométrico. */
 export function partThumb(kind: string, look: { icon?: string; color: string; name: string }, theme: IsoTheme): Promise<string> {
-  const key = `${theme}|${kind}|${look.icon}|${look.color}`;
+  return thumbOf(`${theme}|${kind}|${look.icon}|${look.color}`, theme, async () => {
+    const parts = await loadParts();
+    const logo = look.icon ? logoTexture(look.icon, look.color, look.name) : undefined;
+    await logo?.ready;
+    return { tpl: parts.get(kind) ?? parts.get("service")!, look: { body: BODY[theme], accent: look.color, logo: logo?.tex } };
+  });
+}
+
+/** Miniatura de qualquer modelo (os da placa e os do fluxo do modo logic), na fila do único contexto WebGL das miniaturas. */
+export function thumbOf(key: string, theme: IsoTheme, make: () => Promise<{ tpl: THREE.Object3D; look: PartLook }>): Promise<string> {
   const hit = thumbs.get(key);
   if (hit) return hit;
   // uma por vez, em fila: o contexto WebGL é um só
   const job = queue.then(async () => {
-    const parts = await loadParts();
-    const logo = look.icon ? logoTexture(look.icon, look.color, look.name) : undefined;
-    await logo?.ready;
-    return draw(parts.get(kind) ?? parts.get("service")!, { body: BODY[theme], accent: look.color, logo: logo?.tex }, theme);
+    const { tpl, look } = await make();
+    return draw(tpl, look, theme);
   });
   queue = job.then(
     () => undefined,

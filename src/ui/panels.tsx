@@ -387,7 +387,7 @@ export function ZoomBar() {
       {has3d && (
         <>
           <div className="sep iso-keep" style={{ margin: "6px 4px" }} />
-          <button className={`btn ghost pct iso-toggle${iso ? " active" : ""}`} onClick={() => (iso ? exitIso() : set({ iso: true }))} aria-pressed={iso} aria-label="Visão isométrica 3D" data-tip={iso ? "Voltar à visão 2D (Esc)" : has3d === "board" ? "Visão isométrica 3D da arquitetura" : "Visão isométrica 3D das camadas"} data-tip-pos="top">
+          <button className={`btn ghost pct iso-toggle${iso ? " active" : ""}`} onClick={() => (iso ? exitIso() : set({ iso: true }))} aria-pressed={iso} aria-label="Visão isométrica 3D" data-tip={iso ? "Voltar à visão 2D (Esc)" : has3d === "board" ? "Visão isométrica 3D da arquitetura" : has3d === "flow" ? "Visão isométrica 3D do fluxo" : "Visão isométrica 3D das camadas"} data-tip-pos="top">
             3D
           </button>
         </>
@@ -618,6 +618,7 @@ export function Library() {
               <div
                 key={a.id}
                 className="asset"
+                data-asset={a.id}
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.setData("application/x-archflow-asset", a.id);

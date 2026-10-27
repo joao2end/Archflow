@@ -12,6 +12,7 @@ import { DrawBar } from "./ui/drawbar";
 import { PresentMode } from "./ui/present";
 import { PlayPanel } from "./ui/logic";
 import { LessonPanel } from "./ui/lessons";
+import { LogicTour } from "./ui/logictour";
 import { TerminalPanel } from "./ui/terminal";
 import { AgentRunPanel } from "./ui/agentrun";
 import type { TermApi } from "./ui/workflow";
@@ -20,6 +21,8 @@ import { startSync, useStore } from "./ui/store";
 export default function App() {
   const panel = useStore((s) => s.panel);
   const present = useStore((s) => s.present);
+  // reproduzindo um cenário, o inspetor sai de cena: a tela fica para o caminho e o painel da reprodução
+  const playing = useStore((s) => !!s.play);
   const agentsMode = useStore((s) => s.doc.mode === "agents");
   const [term, setTerm] = useState<TermApi>();
   useHotkeys();
@@ -39,7 +42,7 @@ export default function App() {
           <Dock />
           {panel === "assets" && <Library />}
           {panel === "files" && <FilesPanel />}
-          <Inspector />
+          {!playing && <Inspector />}
           <ZoomBar />
           <div className="hud corner-br">
             <ModeTools />
@@ -51,6 +54,7 @@ export default function App() {
         </>
       )}
       <PlayPanel />
+      <LogicTour />
       {agentsMode && !present && <AgentRunPanel term={term} />}
       {agentsMode && !present && <TerminalPanel onApi={setTerm} />}
       <Toast />

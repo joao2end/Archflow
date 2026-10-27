@@ -23,19 +23,26 @@ import { gearThumb } from "./isothumbs";
 import { docMode, type DocMode } from "../shared/schema";
 import { getState, run, select, set, toast, toastError, useStore } from "./store";
 import { ArchView } from "./arch3d";
+import { LogicView, hasLogic3d } from "./logic3d";
 import { ENTER_MS, LEAVE_MS, exitIso, readTheme, registerLeave, useIsoChrome, useTheme } from "./isoshell";
 export { exitIso };
 
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Visão 3D do diagrama, quando existe uma para ele: as camadas (domain) ou a placa (architecture). */
+/** Visão 3D do diagrama, quando existe uma para ele: as camadas (domain), a placa (architecture) ou o fluxo (logic). */
 export const iso3dKind = (doc: { mode?: DocMode; groups: GroupEl[]; nodes: NodeEl[] }) =>
-  docMode(doc) === "domain" && doc.groups.some((g) => g.ring) ? "rings" : docMode(doc) === "architecture" && doc.nodes.length > 0 ? "board" : null;
+  docMode(doc) === "domain" && doc.groups.some((g) => g.ring)
+    ? "rings"
+    : docMode(doc) === "architecture" && doc.nodes.length > 0
+      ? "board"
+      : docMode(doc) === "logic" && hasLogic3d(doc.nodes)
+        ? "flow"
+        : null;
 
 /** Monta a visão 3D quando ela está ligada e o diagrama tem uma (fica fora do Canvas: não o redesenha). */
 export function IsoGate() {
   const kind = useStore((s) => (s.iso ? iso3dKind(s.doc) : null));
-  return kind === "rings" ? <IsoView /> : kind === "board" ? <ArchView /> : null;
+  return kind === "rings" ? <IsoView /> : kind === "board" ? <ArchView /> : kind === "flow" ? <LogicView /> : null;
 }
 
 /** Paleta: os tipos de cada camada, de dentro para fora (os mesmos do menu de clique). */

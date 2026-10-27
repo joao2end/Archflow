@@ -1488,9 +1488,15 @@ function PlayCallout({ doc }: { doc: Doc }) {
     for (const c of st.changes) lines.push({ t: `${c.name} = ${shortValue(c.to)}  (era ${shortValue(c.from)})`, cls: "chg" });
     if (st.blocked.length) lines.push({ t: `travado, não mudou: ${st.blocked.join(", ")}`, cls: "err" });
     if (st.role === "rule" && !st.applied) lines.push({ t: "a condição não valeu: nada mudou", cls: "code" });
+    // o último passo diz se o cenário bate (o veredito fica no quadro, não só no painel)
+    if (play.k === steps.length - 1) {
+      const ex = doc.nodes.find((x) => x.id === play.scenario)?.logic?.examples?.[play.example];
+      const r = checkExamples(doc).find((x) => x.node === play.scenario && x.example === ex?.name);
+      if (r) lines.push(...(r.ok ? [{ t: "✔ bate com o esperado", cls: "ok" }] : r.problems.map((p) => ({ t: `✘ ${p}`, cls: "err" }))));
+    }
     if (!lines.length && !why.answer) return null;
     const shown = lines.slice(0, 7).map((l) => ({ ...l, t: truncate(l.t, 64) }));
-    if (lines.length > 7) shown.push({ t: `+${lines.length - 7} no painel`, cls: "code" });
+    if (lines.length > 7) shown.push({ t: `+${lines.length - 7} no debug em tela cheia`, cls: "code" });
     return { n, lines: shown, answer: why.answer, role: st.role, branch: st.branch };
   }, [doc, play]);
   if (!info) return null;

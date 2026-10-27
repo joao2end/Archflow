@@ -1206,7 +1206,7 @@ export function logicIssues(doc: Doc): Issue[] {
   const builtins = new Set(builtinWrites(doc));
   const readSet = new Set<string>();
   const loopVars = new Set(logicNodes(doc, "loop").filter((n) => n.logic!.foreach).map((n) => n.logic!.as ?? "item"));
-  for (const r of [...rules, ...logicNodes(doc, "call"), ...logicNodes(doc, "code")])
+  for (const r of steps)
     for (const src of effectsOf(r.logic!)) {
       try {
         const st = parseStatement(src);
@@ -1238,8 +1238,8 @@ export function logicIssues(doc: Doc): Issue[] {
         readSet.add(r);
         if (!declared(r) && !written.has(r) && !loopVars.has(r.split(".")[0]) && !builtins.has(r.split(".")[0])) add("L002", "aviso", n.id, `${where} lê "${r}", que não é um dado declarado nem escrito por outra ação`);
       }
-    if (l.role === "rule")
-      for (const src of l.then ?? []) {
+    if (l.role === "rule" || l.role === "table" || isCallLike(l.role))
+      for (const src of effectsOf(l)) {
         try {
           const s = parseStatement(src);
           if (s.t === "assign" && !declared(s.name)) add("L007", "aviso", n.id, `${where} escreve "${s.name}", que não é um dado declarado; crie um nó Variable (ou Output, se for o resultado) com key "${s.name}"`);

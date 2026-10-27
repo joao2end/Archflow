@@ -31,3 +31,6 @@ NUL
 public/assets/iso/
 scripts/blender/
 docs/assets/iso-components.png
+
+# backup automático do Blender
+*.blend1

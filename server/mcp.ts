@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode } from "../src/shared/schema";
+import { AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, LOGIC_BRANCH_KEYS, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -394,7 +394,7 @@ server.registerTool(
             .describe("modo domain: porta (inversão de dependência). A origem depende de uma interface da própria camada; o destino, mais externo, a implementa. Com porta, depender de uma camada externa não fere a regra de camadas (D034)."),
           logic: z
             .object({
-              branch: z.enum(["sim", "nao", "repete", "segue", "outros"]).optional().describe("modo logic: saída da decisão (sim/nao), do loop (repete/segue) ou da escolha (outros)"),
+              branch: z.enum(LOGIC_BRANCH_KEYS as [LogicBranch, ...LogicBranch[]]).optional().describe("modo logic: saída da decisão (sim/nao), do loop (repete/segue), da escolha (outros) ou da chamada/código que falhou (erro)"),
               case: z.string().optional().describe('modo logic, seta que sai de uma escolha: o valor do caso como expressão, ex.: "\\"lucro\\"" ou 3'),
             })
             .optional(),

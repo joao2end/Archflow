@@ -10,6 +10,8 @@ import { ARCH_EXAMPLES, archDocId } from "./arch.examples";
 import { exampleLessonOf } from "./example.lessons";
 import { DDD_EXAMPLES, exampleDocId, examplePath } from "./examples";
 import { LESSONS, lessonOfDoc, type Lesson } from "./lessons";
+import type { Op } from "./ops";
+import { LOGIC_LESSONS, logicLessonOfDoc } from "./logic.lessons";
 
 export interface GuideStep {
   title: string;
@@ -19,6 +21,8 @@ export interface GuideStep {
   code?: { file: string; region: string };
   /** o diagrama do passo, quando a aula atravessa vários (exemplos de Domínio) */
   doc?: { id: string; path: string; title: string };
+  /** aulas que montam o diagrama do zero: as peças que o passo acrescenta (o painel aplica ao chegar nele) */
+  ops?: Op[];
 }
 
 export interface Guide {
@@ -31,6 +35,10 @@ export interface Guide {
   exercises: string[];
   /** a aula de DDD em TypeScript por trás do guia (código, aula seguinte) */
   course?: Lesson;
+  /** a aula seguinte de uma série que não é a de DDD (as do diagrama lógico): o rótulo do botão e a chave no catálogo */
+  next?: { label: string; key: string };
+  /** a aula monta o diagrama do zero, passo a passo (os passos trazem `ops`) */
+  build?: boolean;
 }
 
 const cache = new Map<string, Guide | null>();
@@ -45,6 +53,20 @@ function build(docId: string): Guide | undefined {
   const course = lessonOfDoc({ id: docId });
   if (course)
     return { key: `aula:${course.id}`, kicker: `Aula ${course.n} de ${LESSONS.length} · DDD em TypeScript`, title: course.title, steps: course.steps, exercises: course.exercises, course };
+
+  const logic = logicLessonOfDoc(docId);
+  if (logic) {
+    const after = LOGIC_LESSONS.find((l) => l.n === logic.n + 1);
+    return {
+      key: `logic:aula-${logic.id}`,
+      kicker: `Aula ${logic.n} de ${LOGIC_LESSONS.length + 1} · Diagrama lógico`, // a Aula 1 é o tutorial interativo
+      title: logic.title,
+      steps: logic.steps,
+      exercises: logic.exercises,
+      build: true,
+      ...(after ? { next: { label: `Aula ${after.n}`, key: `logic:aula-${after.id}` } } : {}),
+    };
+  }
 
   const arch = ARCH_EXAMPLES.find((a) => archDocId(a.id) === docId);
   if (arch) {

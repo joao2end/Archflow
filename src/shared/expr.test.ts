@@ -223,3 +223,25 @@ test("explainError diz onde está o erro de sintaxe", () => {
   assert.ok(at("frete :=", "statement").startsWith("esperava um valor mas veio o fim do texto"));
   assert.match(at("um_nome_muito_comprido_aqui_para_testar_o_corte >"), /depois de «…[^»]{23,24}»/);
 });
+
+test("objetos comparam pelo conteúdo em =, em, contem e unicos (a ordem dos campos não importa)", () => {
+  const env = { x: { a: 1, b: [2] }, y: { b: [2], a: 1 }, z: { a: 2 } };
+  assert.equal(ev("x = y", env), true);
+  assert.equal(ev("x != z", env), true);
+  assert.equal(ev("x em [z, y]", env), true);
+  assert.equal(ev("contem([y], x)", env), true);
+  assert.deepEqual(ev("unicos([x, y, z])", env), [{ a: 1, b: [2] }, { a: 2 }]);
+  assert.equal(ev("[1, 2] = [2, 1]"), false);
+});
+
+test("print e withValues na sintaxe do TypeScript (só para mostrar)", async () => {
+  const { print, withValues } = await import("./expr");
+  const ts = (src: string) => print(parseExpr(src), true);
+  assert.equal(ts('a = 1 e nao b ou c != "x"'), '(a == 1 && !b) || c != "x"');
+  assert.equal(ts('uf em ["SP", "RJ"]'), '["SP", "RJ"].includes(uf)');
+  assert.equal(ts('x nao em [1]'), "![1].includes(x)");
+  assert.equal(ts("se p entao 5% senao nulo"), "p ? 0.05 : null");
+  assert.equal(ts("verdadeiro"), "true");
+  assert.equal(ts("a ou b e c"), "a || (b && c)", "&& dentro de || com parênteses");
+  assert.equal(withValues(parseExpr('x = 1 e uf em ["SP"]'), { x: 1, uf: "SP" }, undefined, true), '1 == 1 ✔ && ["SP"].includes("SP") ✔');
+});

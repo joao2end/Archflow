@@ -4,7 +4,7 @@ import { LOGIC_BRANCHES, LOGIC_HTTP_METHODS, LOGIC_TRIGGER_KINDS, LOGIC_ROLES, L
 import { printType, recognize } from "../shared/types";
 import { checkAssignment } from "../shared/typecheck";
 import { FUNCTIONS, explainError, findFunctions, readsOf, checkExpr, evaluate, explain, explainStatement, parseExpr, parseStatement, shortValue, SYNTAX_GUIDE } from "../shared/expr";
-import { jumpsFrom, loopTurns, nextVisit, playSteps, storyAt, turnHas, valuesAfter, whyOf } from "../shared/logicdebug";
+import { jumpsFrom, loopTurns, nextVisit, playSteps, storyAt, turnHas, valuesAfter, whyOf, type StoryItem } from "../shared/logicdebug";
 import { SOURCE_RE, hiddenBy, stageMembers, stageSummary } from "../shared/logicstages";
 import { COND_OPS, COND_OP_KEYS, autoQuote, firstProblem, fromText, toText, type Cond, type CondOp, type Group, type Item as CItem } from "../shared/conditions";
 import { FLOW_ROLES, branchLabel, caseLabel, checkExamples, dataNodes, dataTypeOf, outputOf, renameName, dataKey, dataNames, hasFlow, reshapeLogic, starterExample, usageOf, variableTimeline, visitedIds, type VarTrack } from "../shared/logic";
@@ -136,7 +136,7 @@ function ExamplesEditor({ node, patch }: { node: NodeEl; patch: Patch }) {
     };
   }, [doc, node.id, isScenario]);
   return (
-    <div className="field">
+    <div className="field" data-tour="examples">
       <span className="lbl-s">Exemplos {isScenario ? "(o fluxo inteiro)" : node.logic!.role === "rule" ? "(só esta ação)" : node.logic!.role === "table" ? "(só esta tabela)" : "(só este passo; esperado: caminho = \"sim\" ou \"nao\")"}</span>
       {examples.map((ex, i) => {
         const r = results.find((x) => x.example === ex.name);
@@ -181,7 +181,7 @@ function ExamplesEditor({ node, patch }: { node: NodeEl; patch: Patch }) {
           </div>
         );
       })}
-      <button className="btn" onClick={() => set([...examples, { name: `caso ${examples.length + 1}`, given: hint.blank.given, expect: hint.blank.expect }])}>
+      <button className="btn" data-tour="add-example" onClick={() => set([...examples, { name: `caso ${examples.length + 1}`, given: hint.blank.given, expect: hint.blank.expect }])}>
         + Exemplo
       </button>
     </div>
@@ -315,11 +315,13 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
             <input className="input" type="number" min={1} value={l.order ?? ""} onChange={(e) => upd({ order: e.target.value === "" ? undefined : +e.target.value })} />
           </label>
           )}
-          <label className="field">
+          <label className="field" data-tour="text">
             <span>Ação em uma frase (para o negócio)</span>
             <TextField multiline value={l.text ?? ""} placeholder="O que esta ação faz, em palavras de negócio." onCommit={(v) => upd({ text: v.trim() || undefined })} />
           </label>
-          <StatementsField value={l.then ?? []} example={effectSample} onCommit={(lines) => upd({ then: lines })} />
+          <div data-tour="then">
+            <StatementsField value={l.then ?? []} example={effectSample} onCommit={(lines) => upd({ then: lines })} />
+          </div>
           {(l.then ?? []).map((t, i) => {
             const err = checkExpr(t, "statement");
             return (
@@ -343,7 +345,7 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
       )}
       {isDataRole(l.role) && (
         <>
-          <label className="field">
+          <label className="field" data-tour="key">
             <span>Nome nas expressões</span>
             <TextField value={l.key ?? ""} placeholder={node.id.replace(/-/g, "_")} onCommit={(v) => upd({ key: v.trim() || undefined })} />
           </label>
@@ -371,12 +373,14 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
       )}
       {(l.role === "decision" || l.role === "switch") && (
         <>
-          <label className="field">
+          <label className="field" data-tour="text">
             <span>{l.role === "decision" ? "A pergunta em uma frase" : "O que decide o caminho (frase)"}</span>
             <TextField multiline value={l.text ?? ""} placeholder={l.role === "decision" ? "O pedido tem R$ 200 ou mais?" : "Qual a forma de pagamento?"} onCommit={(v) => upd({ text: v.trim() || undefined })} />
           </label>
           {l.role === "decision" ? (
-            <ConditionField label="Condição (vale = sim)" value={l.when ?? ""} names={names} onCommit={(v) => upd({ when: v })} />
+            <div data-tour="when">
+              <ConditionField label="Condição (vale = sim)" value={l.when ?? ""} names={names} onCommit={(v) => upd({ when: v })} />
+            </div>
           ) : (
             <ExprField label="Expressão que escolhe o caminho" value={l.on ?? ""} names={names} placeholder={sample} onCommit={(v) => upd({ on: v })} />
           )}
@@ -409,7 +413,7 @@ export function LogicFields({ node, patch }: { node: NodeEl; patch: Patch }) {
       )}
       {(l.role === "start" || l.role === "end" || l.role === "fork" || l.role === "join" || l.role === "call" || l.role === "code") && (
         <>
-          <label className="field">
+          <label className="field" data-tour="text">
             <span>Em uma frase</span>
             <TextField multiline value={l.text ?? ""} placeholder={l.role === "start" ? "O que entra e quando começa" : l.role === "end" ? "O que a lógica devolve" : "O que acontece aqui"} onCommit={(v) => upd({ text: v.trim() || undefined })} />
           </label>
@@ -1178,18 +1182,14 @@ export function PlayPanel() {
   const play = useStore((s) => s.play);
   const sidePanel = useStore((s) => s.panel === "files" || s.panel === "assets");
   const present = useStore((s) => s.present);
-  const hasInspector = useStore((s) => s.sel.length > 0);
   const selOne = useStore((s) => (s.sel.length === 1 ? s.sel[0] : null));
   const speed = useStore((s) => s.playSpeed);
   const doc = useStore((s) => s.doc);
   const steps = useMemo(() => (play ? playSteps(play.run) : []), [play?.run]);
   const lt = useMemo(() => loopTurns(steps), [steps]);
-  const [tab, setTab] = useState<"steps" | "vars">("steps");
-  // recolhido: só os controles e o passo atual, para ver o desenho inteiro
-  const [min, setMin] = useState(false);
-  // voltas abertas à mão (a volta do passo atual sempre fica aberta)
-  const [opened, setOpened] = useState<Set<number>>(new Set());
-  useEffect(() => setOpened(new Set()), [play?.run]);
+  // o dia a dia fica no quadro (o balão do passo e os valores nos cartões de dados) e aqui só a pílula de controles;
+  // o debug completo abre em tela cheia
+  const full = useStore((s) => s.playFull);
   const cur = play ? steps[play.k] : undefined;
   const node = cur ? doc.nodes.find((n) => n.id === cur.rule) : undefined;
   // passo escondido numa etapa recolhida: a câmera mira o cartão da etapa
@@ -1213,7 +1213,7 @@ export function PlayPanel() {
     if (inView) return;
     const z = Math.max(0.55, Math.min(1, view.z));
     setStore({ view: { z, x: r.width / 2 - (node.x + node.w / 2 + 120) * z, y: free / 2 - (node.y + node.h / 2) * z } });
-  }, [anchor?.id, play?.k, min]);
+  }, [anchor?.id, play?.k, full]);
   const k = play?.k;
   const len = play ? playLength(play) : 0;
   const jumps = useMemo(() => (k === undefined ? {} : jumpsFrom(steps, k, lt)), [steps, lt, k]);
@@ -1254,6 +1254,17 @@ export function PlayPanel() {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [k, len, jumps, explain, at]);
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setStore({ playFull: false });
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [full]);
   // clicar num passo do quadro leva à próxima vez que o fluxo passa por ele
   const lastSel = useRef(selOne);
   useEffect(() => {
@@ -1272,7 +1283,8 @@ export function PlayPanel() {
     if (i !== undefined) playGo(i);
   }, [selOne]);
   useEffect(() => {
-    document.querySelector(".lp-row.on, .lp-story.on")?.scrollIntoView({ block: "nearest" });
+    // o evento atual fica no meio do trilho
+    document.querySelector(".lp-ev.on")?.scrollIntoView({ block: "nearest", inline: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [k, explain]);
   if (!play || !cur) return null;
   const sc = doc.nodes.find((n) => n.id === play.scenario);
@@ -1281,7 +1293,10 @@ export function PlayPanel() {
   const last = len - 1;
   const roleName = (r?: string) => (r === "end" ? "Fim" : r === "start" ? "Início" : r && r in LOGIC_ROLES ? LOGIC_ROLES[r as LogicRole].label : "");
   const role = roleName(node?.logic?.role);
-  const roleMark: Record<string, string> = { decision: "◆", switch: "◆", loop: "↻", end: "■", start: "●", call: "↗", code: "{ }" };
+  const roleMark: Record<string, string> = { decision: "◆", switch: "◆", loop: "↻", end: "■", start: "▶", call: "↗", code: "{ }", table: "▦", fork: "⑂", join: "⑂" };
+  const storyMark: Record<StoryItem["kind"], string> = { start: "▶", stage: "▣", turn: "↻", decision: "◆", action: "●", end: "■", error: "!" };
+  const ans = (a: string) => (a === "não" || a === "nao" ? "nao" : a);
+  const changesText = (cs: { name: string; to: unknown }[]) => (cs.length ? `${cs.slice(0, 2).map((c) => `${c.name.replace(/_/g, " ")} ${fmt(c.to)}`).join(" · ")}${cs.length > 2 ? ` +${cs.length - 2}` : ""}` : "");
   const why = whyOf(doc, cur, valuesAfter(play.run, play.k));
   const text = (() => {
     if (cur.error) return `Erro: ${cur.error}`;
@@ -1308,17 +1323,6 @@ export function PlayPanel() {
       : [];
   const expected = ex ? Object.entries(ex.expect).filter(([key]) => key !== "caminho") : [];
   const saved = ex?.path && JSON.stringify(ex.path) === JSON.stringify(visitedIds(play.run));
-  const isOpen = (ti: number | undefined): boolean => {
-    for (let t = ti; t !== undefined; t = lt.turns[t].parent) if (!turnHas(lt.turns[t], play.k) && !opened.has(t)) return false;
-    return true;
-  };
-  const toggle = (ti: number) =>
-    setOpened((o) => {
-      const n = new Set(o);
-      if (n.has(ti)) n.delete(ti);
-      else n.add(ti);
-      return n;
-    });
   const turnAt = new Map(lt.turns.map((t, i) => [t.from, i]));
   const jumpBtn = (label: string, to: number | undefined, tip: string, glyph?: "step-back" | "step-fwd") => (
     <button className="btn ghost lp-jump" disabled={to === undefined} onClick={() => to !== undefined && playGo(to)} data-tip={tip} data-tip-pos="top">
@@ -1327,13 +1331,67 @@ export function PlayPanel() {
       {glyph === "step-fwd" && <Glyph name="step-fwd" size={13} />}
     </button>
   );
+  const prevAt = () => playGo(explain ? (story[play.k > story[at].k ? at : at - 1]?.k ?? 0) : play.k - 1);
+  const nextAt = () => playGo(explain ? (story[at + 1]?.k ?? play.k) : play.k + 1);
+  if (!full)
+    return (
+      <div className={`glass logic-play-panel lp-pill${present ? " present" : ""}`} role="region" aria-label="Reprodução do cenário">
+        <span className="lp-title" title={sc?.label}>
+          {sc?.label}
+        </span>
+        {result && (
+          <span className={`lp-verdict ${result.ok ? "ok" : "fail"}`} data-tip={result.ok ? "O fluxo devolve o que o cenário espera" : result.problems.join("\n")} data-tip-pos="top">
+            {result.ok ? "✔ bate" : `✘ ${result.problems.length}`}
+          </span>
+        )}
+        <div className="lp-ctl">
+          <button className="btn ghost" onClick={prevAt} aria-label={explain ? "Momento anterior" : "Passo anterior"} data-tip="Anterior (←)" data-tip-pos="top">
+            <Glyph name="step-back" size={16} />
+          </button>
+          <button className="btn primary" onClick={playToggle} aria-label={play.playing ? "Pausar" : "Reproduzir"} data-tip={play.playing ? "Pausar" : "Reproduzir"} data-tip-pos="top">
+            <Glyph name={play.playing ? "pause" : "play"} size={16} />
+          </button>
+          <button className="btn ghost" onClick={nextAt} aria-label={explain ? "Próximo momento" : "Próximo passo"} data-tip="Próximo (→)" data-tip-pos="top">
+            <Glyph name="step-fwd" size={16} />
+          </button>
+        </div>
+        {/* a régua: um traço por momento (ou passo); clicar leva até ele */}
+        <div className="lp-rule" role="group" aria-label={explain ? `Momento ${at + 1} de ${story.length}` : `Passo ${play.k + 1} de ${last + 1}`}>
+          {explain
+            ? story.map((it, i) => <button key={i} className={`${i < at ? "done" : ""}${i === at ? " on" : ""}${it.kind === "error" ? " err" : ""}`} onClick={() => playGo(it.k)} aria-label={`Momento ${i + 1}: ${it.title}`} data-tip={`${i + 1}. ${it.title}`} data-tip-pos="top" />)
+            : steps.map((st, i) => <button key={i} className={`${i < play.k ? "done" : ""}${i === play.k ? " on" : ""}${st.error ? " err" : ""}`} onClick={() => playGo(i)} aria-label={`Passo ${i + 1}: ${st.label}`} data-tip={`${i + 1}. ${st.label}`} data-tip-pos="top" />)}
+        </div>
+        <span className="lp-pos">{explain ? `${at + 1}/${story.length}` : `${play.k + 1}/${last + 1}`}</span>
+        <select className="input lp-speed" value={speed} onChange={(e) => setPlaySpeed(+e.target.value)} aria-label="Velocidade da reprodução" data-tip="Velocidade" data-tip-pos="top">
+          {PLAY_SPEEDS.map((v) => (
+            <option key={v} value={v}>
+              {String(v).replace(".", ",")}x
+            </option>
+          ))}
+        </select>
+        <span className="lp-win">
+          <button className="btn ghost icon" onClick={() => setStore({ playFull: true })} aria-label="Abrir o debug em tela cheia" data-tip="Debug em tela cheia: linha do tempo, porquê e variáveis" data-tip-pos="top">
+            <Glyph name="expand" size={16} />
+          </button>
+          <button className="btn ghost icon" onClick={stopPlay} aria-label="Fechar a reprodução" data-tip="Fechar" data-tip-pos="top">
+            ×
+          </button>
+        </span>
+      </div>
+    );
   return (
-    <div className={`glass logic-play-panel${sidePanel ? " beside-panel" : ""}${hasInspector && !present ? " with-inspector" : ""}${present ? " present" : ""}${min ? " min" : ""}`} role="region" aria-label="Reprodução do cenário">
+    <div className="glass logic-play-panel full" role="dialog" aria-modal="true" aria-label={`Debug do cenário ${sc?.label ?? ""}`}>
       <div className="lp-head">
         <div className="lp-title">
           {sc?.label}
           {ex?.name && ex.name !== sc?.label && !sc?.label?.includes(ex.name) && <small>{ex.name}</small>}
         </div>
+        {result && (
+          // o veredito vem antes de tudo: saber desde o 1º passo se o cenário bate muda o jeito de assistir
+          <span className={`lp-verdict ${result.ok ? "ok" : "fail"}`} data-tip={result.ok && expected.length ? expected.map(([key, v]) => `${key} = ${shortValue(v)}`).join("\n") : undefined} data-tip-pos="top">
+            {result.ok ? "✔ Bate com o esperado" : `✘ ${result.problems.length} diferença${result.problems.length > 1 ? "s" : ""}`}
+          </span>
+        )}
         <div className="lp-mode seg" role="radiogroup" aria-label="Modo da reprodução">
           <button role="radio" aria-checked={explain} className={explain ? "on" : ""} onClick={() => setPlayMode("explain")} data-tip="Explicar: anda por momentos (etapas, voltas, decisões) e conta em frases o que aconteceu" data-tip-pos="top">
             Explicar
@@ -1359,41 +1417,36 @@ export function PlayPanel() {
             <Glyph name="skip-end" size={16} />
           </button>
         </div>
-        <label className="lp-speed" data-tip="Velocidade da reprodução" data-tip-pos="top">
-          <span>Velocidade</span>
-          <select className="input" value={speed} onChange={(e) => setPlaySpeed(+e.target.value)} aria-label="Velocidade da reprodução">
-            {PLAY_SPEEDS.map((v) => (
-              <option key={v} value={v}>
-                {v === 1 ? "1x (normal)" : `${String(v).replace(".", ",")}x`}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select className="input lp-speed" value={speed} onChange={(e) => setPlaySpeed(+e.target.value)} aria-label="Velocidade da reprodução" data-tip="Velocidade" data-tip-pos="top">
+          {PLAY_SPEEDS.map((v) => (
+            <option key={v} value={v}>
+              {String(v).replace(".", ",")}x
+            </option>
+          ))}
+        </select>
         {saved ? (
           <span className="lp-saved" data-tip="Este caminho já está gravado no cenário: se o fluxo mudar e passar por outro lugar, o exemplo avisa">
-            ✔ Caminho gravado
+            ✔ Gravado
           </span>
         ) : (
-          <button className="btn" onClick={() => sc && ex && runOps([{ op: "update", id: sc.id, patch: { logic: { ...sc.logic, examples: sc.logic!.examples!.map((e, i) => (i === play.example ? { ...e, path: visitedIds(play.run) } : e)) } } }])} data-tip="Grava este caminho no cenário: se o fluxo mudar e passar por outro lugar, o exemplo avisa">
+          <button className="btn ghost" onClick={() => sc && ex && runOps([{ op: "update", id: sc.id, patch: { logic: { ...sc.logic, examples: sc.logic!.examples!.map((e, i) => (i === play.example ? { ...e, path: visitedIds(play.run) } : e)) } } }])} data-tip="Grava este caminho no cenário: se o fluxo mudar e passar por outro lugar, o exemplo avisa">
             Gravar caminho
           </button>
         )}
         <span className="lp-win">
-          <button className="btn ghost icon lp-min" onClick={() => setMin(!min)} aria-expanded={!min} aria-label={min ? "Expandir o painel" : "Recolher o painel"} data-tip={min ? "Expandir" : "Recolher: ver o desenho inteiro"}>
-            <Glyph name="chevron" size={16} />
+          <button className="btn ghost icon" onClick={() => setStore({ playFull: false })} aria-label="Sair da tela cheia (Esc)" data-tip="Voltar ao quadro (Esc)">
+            <Glyph name="collapse" size={16} />
           </button>
           <button className="btn ghost icon" onClick={stopPlay} aria-label="Fechar a reprodução" data-tip="Fechar">
             ×
           </button>
         </span>
       </div>
-      {result && (
-        // o veredito vem antes de tudo: saber desde o 1º passo se o cenário bate muda o jeito de assistir
-        <div className={`lp-verdict ${result.ok ? "ok" : "fail"}`}>
-          <span>{result.ok ? "✔ Bate com o esperado" : "✘ Não bate com o esperado"}</span>
-          {expected.length > 0 && result.ok && <span className="lp-expect">{expected.map(([key, v]) => `${key} = ${shortValue(v)}`).join(" · ")}</span>}
+
+      {wrong.length > 0 && (
+        <div className="lp-wrong">
           {wrong.map((w, i) => (
-            <span key={i} className="lp-expect">
+            <span key={i}>
               {w.p}
               {w.at !== undefined && (
                 <button className="btn ghost lp-jump" onClick={() => playGo(w.at!)} data-tip="Vai ao último passo que escreveu este dado">
@@ -1404,31 +1457,49 @@ export function PlayPanel() {
           ))}
         </div>
       )}
-      {explain ? (
-        <div className="lp-bar segs" role="group" aria-label={`Momento ${at + 1} de ${story.length}`}>
-          {story.map((it, i) => (
-            <button key={i} className={`${i <= at ? "on" : ""}${it.changes.length ? " chg" : ""}`} onClick={() => playGo(it.k)} aria-label={`Ir ao momento ${i + 1}: ${it.title}`} aria-current={i === at ? "step" : undefined} />
-          ))}
-        </div>
-      ) : last < 60 ? (
-        <div className="lp-bar segs" role="group" aria-label={`Progresso: passo ${play.k + 1} de ${last + 1}`}>
-          {steps.map((s, i) => (
-            <button key={i} className={`${i <= play.k ? "on" : ""}${s.changes.length ? " chg" : ""}`} onClick={() => playGo(i)} aria-label={`Ir ao passo ${i + 1}`} aria-current={i === play.k ? "step" : undefined} />
-          ))}
-        </div>
-      ) : (
-        <div className="lp-bar" role="progressbar" aria-label="Progresso do cenário" aria-valuemin={1} aria-valuemax={last + 1} aria-valuenow={play.k + 1}>
-          <i style={{ width: `${((play.k + 1) / (last + 1)) * 100}%` }} />
-        </div>
-      )}
-      {explain && story[at] && (
+
+      {/* a linha do tempo: um evento por momento (Explicar) ou por passo (Depurar), na ordem em que aconteceram */}
+      <div className="lp-track" role="list" aria-label={explain ? `Momento ${at + 1} de ${story.length}` : `Passo ${play.k + 1} de ${last + 1}`}>
+        {explain
+          ? story.map((it, i) => (
+              <button key={i} role="listitem" className={`lp-ev ${it.kind}${i === at ? " on" : ""}${i < at ? " done" : ""}${it.changes.length ? " chg" : ""}`} aria-current={i === at ? "step" : undefined} onClick={() => playGo(it.k)}>
+                <i className="lp-ev-dot" aria-hidden>{storyMark[it.kind]}</i>
+                <span className="lp-ev-body">
+                  <span className="lp-ev-top">
+                    <small>{i + 1}</small>
+                    <b>{it.title}</b>
+                  </span>
+                  {it.answer ? <em className={`lp-ans ${ans(it.answer)}`}>{it.answer}</em> : it.changes.length > 0 && <span className="lp-ev-chg">{changesText(it.changes)}</span>}
+                </span>
+              </button>
+            ))
+          : steps.flatMap((st, i) => {
+              const ti = turnAt.get(i);
+              const t = ti !== undefined ? lt.turns[ti] : undefined;
+              return [
+                t && (
+                  <span key={`t${i}`} className={`lp-ev-turn${turnHas(t, play.k) ? " cur" : ""}`} role="listitem">
+                    ↻ volta {t.turn}
+                  </span>
+                ),
+                <button key={i} role="listitem" className={`lp-ev ${st.role}${i === play.k ? " on" : ""}${i < play.k ? " done" : ""}${st.changes.length ? " chg" : ""}${st.error ? " error" : ""}`} aria-current={i === play.k ? "step" : undefined} onClick={() => playGo(i)}>
+                  <i className="lp-ev-dot" aria-hidden>{roleMark[st.role] ?? "●"}</i>
+                  <span className="lp-ev-body">
+                    <span className="lp-ev-top">
+                      <small>{i + 1}</small>
+                      <b>{st.label}</b>
+                    </span>
+                    {st.branch ? <em className={`lp-ans ${ans(st.branch)}`}>{st.branch === "nao" ? "não" : st.branch}</em> : st.changes.length > 0 && <span className="lp-ev-chg">{changesText(st.changes)}</span>}
+                  </span>
+                </button>,
+              ];
+            })}
+      </div>
+
+      <div className="lp-full-body">
+      {/* o evento atual, em detalhe */}
+      {explain && story[at] ? (
         <div className="lp-now lp-tell" aria-live="polite">
-          <div className="lp-now-head">
-            <b>
-              {at + 1}/{story.length} · {story[at].title}
-            </b>
-            {story[at].answer && <em className={`lp-ans ${story[at].answer === "não" ? "nao" : story[at].answer}`}>{story[at].answer}</em>}
-          </div>
           {story[at].text && <p className="lp-say">{story[at].text}</p>}
           {story[at].changes.length > 0 && (
             <div className="lp-net">
@@ -1447,131 +1518,66 @@ export function PlayPanel() {
             </div>
           )}
         </div>
-      )}
-      <div className="lp-now" aria-live="polite" hidden={explain}>
-        <div className="lp-now-head">
-          <b>
-            Passo {play.k + 1} de {last + 1} · {role} {cur.label}
-          </b>
-          {jumps.loop && (
-            <span className="lp-loopctx" data-tip="O laço em que este passo está">
-              ↻ {jumps.loop.label} · volta {jumps.loop.turn} de {jumps.loop.turns}
+      ) : (
+        <div className="lp-now" aria-live="polite">
+          <div className="lp-now-head">
+            <b>
+              {role} {cur.label}
+            </b>
+            {jumps.loop && (
+              <span className="lp-loopctx" data-tip="O laço em que este passo está">
+                ↻ {jumps.loop.label} · volta {jumps.loop.turn} de {jumps.loop.turns}
+              </span>
+            )}
+            <span className="lp-jumps" role="group" aria-label="Saltos">
+              {jumpBtn("mudança", jumps.prevChange, "Mudança de dado anterior (Shift+←)", "step-back")}
+              {jumpBtn("mudança", jumps.nextChange, "Próxima mudança de dado (Shift+→)", "step-fwd")}
+              {jumps.loop && (
+                <>
+                  <span className="lp-jsep" aria-hidden />
+                  {jumpBtn("volta", jumps.prevTurn, "Começo desta volta (ou a anterior)", "step-back")}
+                  {jumpBtn("volta", jumps.nextTurn, "Próxima volta do laço", "step-fwd")}
+                  {jumpBtn("sair do laço", jumps.exitLoop, "Pula as voltas que faltam e vai aonde o laço termina")}
+                </>
+              )}
             </span>
-          )}
-        </div>
-        {text && <div>{text}</div>}
-        {why.lines.length > 0 && (
-          <div className="lp-why">
-            <span className="lp-why-l">Por quê</span>
-            <div className="lp-why-body">
-              {why.lines.map((l, i) => (
-                <div key={i} className="lp-why-row">
-                  <code>{l.code}</code>
-                  {l.values && l.values !== l.code && (
-                    <>
-                      <span aria-hidden>→</span>
-                      <code className="vals">{l.values}</code>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-            {why.answer && <em className={`lp-ans ${cur.branch ?? ""}`}>{why.answer}</em>}
           </div>
-        )}
-        {cur.changes.map((c, i) => (
-          <span key={i} className="lp-chg">
-            {c.name.replace(/_/g, " ")}: {fmt(c.from)} → {fmt(c.to)}
-          </span>
-        ))}
-        {cur.locked.length > 0 && <span className="lp-chg">trava {cur.locked.join(", ")}</span>}
-        {cur.blocked.length > 0 && <span className="lp-chg">travado, não mudou: {cur.blocked.join(", ")}</span>}
-      </div>
-      <div className="lp-jumps" role="group" aria-label="Saltos" hidden={explain}>
-        {jumpBtn("mudança", jumps.prevChange, "Mudança de dado anterior (Shift+←)", "step-back")}
-        {jumpBtn("mudança", jumps.nextChange, "Próxima mudança de dado (Shift+→)", "step-fwd")}
-        {jumps.loop && (
-          <>
-            <span className="lp-jsep" aria-hidden />
-            {jumpBtn("volta", jumps.prevTurn, "Começo desta volta (ou a anterior)", "step-back")}
-            {jumpBtn("volta", jumps.nextTurn, "Próxima volta do laço", "step-fwd")}
-            {jumpBtn("sair do laço", jumps.exitLoop, "Pula as voltas que faltam e vai aonde o laço termina")}
-          </>
-        )}
-        <span className="lp-jhint">clique num passo do quadro para ir até ele</span>
-      </div>
-      <div className="play-tabs" role="tablist" aria-label="O que mostrar">
-        <button role="tab" aria-selected={tab === "steps"} className={tab === "steps" ? "on" : ""} onClick={() => setTab("steps")}>
-          Passos
-        </button>
-        <button role="tab" aria-selected={tab === "vars"} className={tab === "vars" ? "on" : ""} onClick={() => setTab("vars")} data-tip="Cada variável do valor inicial ao final, com todas as alterações">
-          Variáveis
-        </button>
-      </div>
-      <div className="lp-cols">
-        <div className={`lp-col${tab === "steps" ? " active" : ""}`}>
-          <div className="lp-col-title">{explain ? "Momentos" : "Passos"}</div>
-          {explain && (
-            <div className="lp-list">
-              {story.map((it, i) => (
-                <div key={i} className={`lp-story ${it.kind}${i === at ? " on" : ""}${i < at ? " done" : ""}`} role="button" tabIndex={0} onClick={() => playGo(it.k)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), playGo(it.k))}>
-                  <i>{i + 1}</i>
-                  <span>
-                    <b>{it.title}</b>
-                    {it.answer && <em className={`lp-ans ${it.answer === "não" ? "nao" : it.answer}`}>{it.answer}</em>}
-                    {it.changes.length > 0 && <small> · {it.changes.slice(0, 3).map((c) => `${c.name.replace(/_/g, " ")} ${fmt(c.to)}`).join(", ")}{it.changes.length > 3 ? "…" : ""}</small>}
-                  </span>
-                </div>
-              ))}
+          {text && <div>{text}</div>}
+          {why.lines.length > 0 && (
+            <div className="lp-why">
+              <span className="lp-why-l">Por quê</span>
+              <div className="lp-why-body">
+                {why.lines.map((l, i) => (
+                  <div key={i} className="lp-why-row">
+                    <code>{l.code}</code>
+                    {l.values && l.values !== l.code && (
+                      <>
+                        <span aria-hidden>→</span>
+                        <code className="vals">{l.values}</code>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {why.answer && <em className={`lp-ans ${cur.branch ?? ""}`}>{why.answer}</em>}
             </div>
           )}
-          <div className="lp-list" hidden={explain}>
-            {steps.map((s, i) => {
-              const ti = turnAt.get(i);
-              const t = ti !== undefined ? lt.turns[ti] : undefined;
-              const here = t ? turnHas(t, play.k) : false;
-              const header = t && isOpen(t.parent) && (
-                <div key={`t${i}`} className={`lp-turn${here ? " cur" : ""}${isOpen(ti) ? " open" : ""}`} style={{ marginLeft: t.depth * 14 }} role="button" tabIndex={0} aria-expanded={isOpen(ti)} onClick={() => (here ? playGo(t.from) : toggle(ti!))} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), here ? playGo(t.from) : toggle(ti!))}>
-                  <Glyph name="chevron" size={12} />
-                  <b>↻ Volta {t.turn}</b>
-                  <span>
-                    {t.label} · {t.to - t.from + 1} passos{t.changed.length ? ` · muda ${t.changed.slice(0, 4).join(", ")}${t.changed.length > 4 ? "…" : ""}` : " · nada muda"}
-                  </span>
-                  {!here && (
-                    <button className="btn ghost lp-jump" onClick={(e) => (e.stopPropagation(), playGo(t.from))}>
-                      ir
-                    </button>
-                  )}
-                </div>
-              );
-              if (!isOpen(lt.turnOf[i])) return header || null;
-              const depth = lt.turnOf[i] !== undefined ? lt.turns[lt.turnOf[i]!].depth + 1 : 0;
-              return [
-                header,
-                <div key={i} className={`lp-row${i === play.k ? " on" : ""}${i < play.k ? " done" : ""}`} style={depth ? { marginLeft: depth * 14 } : undefined} role="button" tabIndex={0} aria-current={i === play.k ? "step" : undefined} onClick={() => playGo(i)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), playGo(i))}>
-                  <i>{i + 1}</i>
-                  <span className={`lp-kind ${s.role}`} aria-label={roleName(s.role)} data-tip={roleName(s.role)}>
-                    {roleMark[s.role] ?? "▪"}
-                  </span>
-                  <span>
-                    {s.label}
-                    {s.branch && <em className={`lp-ans ${s.branch}`}>{s.branch === "nao" ? "não" : s.branch}</em>}
-                    {s.changes.length ? ` · ${s.changes.slice(0, 4).map((c) => `${c.name.replace(/_/g, " ")} ${fmt(c.to)}`).join(", ")}${s.changes.length > 4 ? ` e mais ${s.changes.length - 4}` : ""}` : ""}
-                  </span>
-                </div>,
-              ];
-            })}
-          </div>
-          <div className="lp-hint" aria-hidden hidden={explain}>
-            <kbd>←</kbd> <kbd>→</kbd> passo · <kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd> mudança de dado
-          </div>
+          {cur.changes.map((c, i) => (
+            <span key={i} className="lp-chg">
+              {c.name.replace(/_/g, " ")}: {fmt(c.from)} → {fmt(c.to)}
+            </span>
+          ))}
+          {cur.locked.length > 0 && <span className="lp-chg">trava {cur.locked.join(", ")}</span>}
+          {cur.blocked.length > 0 && <span className="lp-chg">travado, não mudou: {cur.blocked.join(", ")}</span>}
         </div>
-        <div className={`lp-col${tab === "vars" ? " active" : ""}`}>
-          <div className="lp-col-title">Variáveis</div>
-          <div className="lp-list">
-            <VarTimeline run={play.run} k={explain && story[at] ? story[at].end : play.k} />
-          </div>
+      )}
+
+      <div className="lp-full-vars" aria-label="Variáveis">
+        <div className="lp-col-title">Variáveis</div>
+        <div className="lp-list">
+          <VarTimeline run={play.run} k={explain && story[at] ? story[at].end : play.k} />
         </div>
+      </div>
       </div>
     </div>
   );
@@ -1585,7 +1591,7 @@ export function ScenarioPlay({ node }: { node: NodeEl }) {
     <div className="field">
       <span className="lbl-s">Reproduzir o caminho</span>
       {examples.map((e, i) => (
-        <button key={i} className="btn" onClick={() => startPlay(node.id, i)} style={{ justifyContent: "flex-start" }}>
+        <button key={i} className="btn" data-tour={i === 0 ? "play" : undefined} onClick={() => startPlay(node.id, i)} style={{ justifyContent: "flex-start" }}>
           <Glyph name="play" size={14} /> {e.name}
           {e.path ? ` · ${e.path.length} passos gravados` : ""}
         </button>
