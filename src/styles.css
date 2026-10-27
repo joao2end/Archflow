@@ -5014,6 +5014,11 @@ body:has(.flow-bar) .toast {
 .tour-ring { position: fixed; z-index: 9000; border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 3px var(--primary), 0 0 0 200vmax rgba(10, 12, 20, 0.28); transition: left 180ms ease-out, top 180ms ease-out, width 180ms ease-out, height 180ms ease-out; animation: tour-pulse 1.6s ease-in-out infinite; }
 .tour-ring.done { box-shadow: 0 0 0 3px #3aa76d, 0 0 0 200vmax rgba(10, 12, 20, 0.18); animation: none; }
 @keyframes tour-pulse { 50% { outline: 6px solid color-mix(in srgb, var(--primary) 30%, transparent); outline-offset: 4px; } }
+/* o lugar da peça pedida: contorno tracejado no tamanho da peça, no ponto da grade da aula */
+.tour-slot { position: fixed; z-index: 8999; pointer-events: none; display: grid; place-items: center; border: 2px dashed var(--primary); border-radius: 12px; background: color-mix(in srgb, var(--primary) 10%, transparent); animation: tour-slot 1.4s ease-in-out infinite; }
+.tour-slot span { padding: 2px 10px; border-radius: 999px; background: var(--primary); color: #fff; font: 700 12px var(--sans); white-space: nowrap; }
+@keyframes tour-slot { 50% { background: color-mix(in srgb, var(--primary) 20%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .tour-slot { animation: none; } }
 .tour-bubble { position: fixed; z-index: 9001; width: min(340px, calc(100vw - 28px)); padding: 12px 14px; border-radius: 16px; display: flex; flex-direction: column; gap: 8px; background: var(--glass-strong); color: var(--ink); transition: left 200ms ease-out, top 200ms ease-out; }
 .tour-bubble header { display: flex; align-items: center; justify-content: space-between; }
 .tour-kicker { font: 800 10.5px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }

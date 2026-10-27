@@ -10,9 +10,9 @@
  * falta; fechado, o botão ▶ no canto o reabre.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { pickNode, targetsNow, tourNode, type TourCtx, type TourStep } from "../shared/logictour";
+import { ROLE_WIDTH, pickNode, slotFor, targetsNow, tourNode, type TourCtx, type TourStep } from "../shared/logictour";
 import { tourByKey, tourOfDoc, type LogicTourDef } from "../shared/logictours";
-import type { LogicRole } from "../shared/schema";
+import type { Doc, LogicRole } from "../shared/schema";
 import { renderMarkdown } from "./markdown";
 import { fitView } from "./keys";
 import { exampleCatalog, getState, installExample, openExamples, run, set, startPlay, useStore } from "./store";
@@ -62,6 +62,23 @@ function findTarget(s: TourStep): { el: Element; target: string } | null {
 
 const center = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
+/* ───────── lugar marcado: cada peça que o passo pede tem um lugar na grade da aula ───────── */
+
+/** altura com que cada papel nasce (para o contorno do lugar ter o tamanho da peça) */
+const ROLE_HEIGHT: Partial<Record<LogicRole, number>> = { decision: 87, rule: 93, table: 154, call: 115, loop: 87, switch: 87, fork: 26, join: 26, start: 60, end: 60, scenario: 73 };
+const roleOfAsset = (t: string) => /data-asset="logic-([a-z]+)"/.exec(t)?.[1] as LogicRole | undefined;
+/** O papel da peça que o passo pede agora: a da Biblioteca apontada, ou a do nó a mover. */
+function wantedRole(s: TourStep): LogicRole | undefined {
+  const t = targetsNow(s, ctxOf());
+  const asset = t.map(roleOfAsset).find(Boolean);
+  if (asset) return asset;
+  const moving = s.motion?.kind === "drag" && "world" in s.motion.to ? t.find((x) => x.startsWith("@node:")) : undefined;
+  return moving ? (moving.slice(6) as LogicRole) : undefined;
+}
+/** Os papéis que o passo pode criar (para encaixar no lugar a peça solta em qualquer ponto). */
+const rolesOf = (s: TourStep): Set<LogicRole> => new Set([...targetsNow(s, ctxOf()).map(roleOfAsset).filter((r): r is LogicRole => !!r), ...(Object.keys(s.places ?? {}) as LogicRole[])]);
+const without = (doc: Doc, id: string): Doc => ({ ...doc, nodes: doc.nodes.filter((n) => n.id !== id) });
+
 /** Onde retomar: o primeiro passo que espera uma ação e ainda não está feito (diagrama vazio: a abertura). */
 function resumeAt(def: LogicTourDef): number {
   const c = ctxOf();
@@ -96,6 +113,8 @@ export function LogicTour() {
   const bubble = useRef<HTMLDivElement>(null);
   /** sem posição ainda (primeiro quadro), o balão fica invisível: assim não desliza do canto da tela */
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const view = useStore((s) => s.view);
+  const iso = useStore((s) => s.iso);
 
   const def = tourOfDoc(docId);
   const steps = def?.steps ?? [];
@@ -140,6 +159,48 @@ export function LogicTour() {
     const t = setTimeout(() => set({ tour: { key: def.key, step: Math.min(idx + 1, steps.length - 1) } }), 900);
     return () => clearTimeout(t);
   }, [done, active, idx, def?.key]);
+
+  /* o lugar da peça pedida agora, em coordenadas do quadro */
+  const role = active && step && !done ? wantedRole(step) : undefined;
+  const slot = role && step ? slotFor(step, getState().doc, role) : undefined;
+  const ghost = slot && role && !iso ? { left: slot.x * view.z + view.x, top: slot.y * view.z + view.y, width: (ROLE_WIDTH[role] ?? 300) * view.z, height: (ROLE_HEIGHT[role] ?? 64) * view.z } : null;
+
+  /* a peça solta em qualquer ponto encaixa no lugar dela (só quando nasce: depois, mover é com a pessoa) */
+  const known = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    known.current = new Set(getState().doc.nodes.map((n) => n.id));
+  }, [idx, def?.key, active]);
+  useEffect(() => {
+    if (!active || !step) return;
+    const d = getState().doc;
+    const fresh = d.nodes.filter((n) => !known.current.has(n.id));
+    if (!fresh.length) return;
+    const roles = rolesOf(step);
+    const moves = [];
+    for (const n of fresh) {
+      known.current.add(n.id);
+      const r = n.logic?.role;
+      if (!r || !roles.has(r)) continue;
+      const p = slotFor(step, without(d, n.id), r);
+      if (p && (Math.abs(n.x - p.x) > 24 || Math.abs(n.y - p.y) > 24)) moves.push({ op: "update" as const, id: n.id, patch: { x: p.x, y: p.y } });
+    }
+    if (moves.length) run(moves);
+  });
+
+  /* o lugar fora da tela: a tela rola até ele (uma vez por passo) */
+  const shown = useRef("");
+  useEffect(() => {
+    if (!slot || !role || iso) return;
+    const k = `${def?.key}:${idx}:${role}`;
+    if (shown.current === k) return;
+    shown.current = k;
+    const v = getState().view;
+    const x = slot.x * v.z + v.x;
+    const y = slot.y * v.z + v.y;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    if (x < 100 || y < 90 || x + (ROLE_WIDTH[role] ?? 300) * v.z > W - 400 || y + 120 * v.z > H - 110) set({ view: { ...v, x: W * 0.42 - slot.x * v.z, y: H * 0.42 - slot.y * v.z } });
+  }, [slot?.x, slot?.y, role, idx, iso]);
 
   /* o balão fica ao lado do alvo, dentro da tela */
   useLayoutEffect(() => {
@@ -274,6 +335,11 @@ export function LogicTour() {
 
   return (
     <>
+      {ghost && (
+        <div className="tour-slot" style={ghost} aria-hidden>
+          <span>Solte aqui</span>
+        </div>
+      )}
       {rect && (
         <div
           className={`tour-ring${done ? " done" : ""}`}

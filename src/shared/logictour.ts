@@ -58,6 +58,11 @@ export interface TourStep {
   conn?: (doc: Doc) => ConnectionEl | undefined;
   /** o gesto que o cursor fantasma demonstra: clicar no alvo, ou arrastar do alvo até um ponto do quadro ou até um nó */
   motion?: { kind: "click" } | { kind: "drag"; to: { world: (doc: Doc) => { x: number; y: number } } | { node: NodePick } };
+  /**
+   * o lugar (canto de cima à esquerda, no quadro) de cada peça que o passo pede, por papel: o tutorial o marca com um
+   * contorno «Solte aqui» e encaixa ali a peça solta em outro ponto. Sem isto, vale o destino do gesto (`motion`)
+   */
+  places?: Partial<Record<LogicRole, (doc: Doc) => { x: number; y: number }>>;
   /** o que «Fazer por mim» muda no diagrama */
   ops?: (doc: Doc) => Op[];
   /** o que «Fazer por mim» muda na tela (antes das ops: abrir painel, escolher ferramenta, selecionar) */
@@ -88,26 +93,35 @@ export function tourNode(doc: Doc, role: LogicRole): NodeEl | undefined {
   return all[0];
 }
 
-/* ───────── posições («Fazer por mim» põe cada peça num lugar que forma o fluxo de cima para baixo) ───────── */
+/* ───────── lugares: cada aula é uma grade fixa em volta do Início ─────────
+   O fluxo desce numa coluna central, alinhado pelo centro das peças; ramos ficam lado a lado; os dados numa coluna à
+   esquerda; o cenário à direita. `slotAt(papel, centro x, topo)` dá o canto de cima à esquerda da peça daquele papel com
+   o centro em `centro x` (relativo ao centro do Início) e o topo em `topo` (relativo ao topo do Início). */
 
-const origin = (doc: Doc) => {
+/** largura com que cada papel nasce no quadro (para alinhar pelo centro) */
+export const ROLE_WIDTH: Partial<Record<LogicRole, number>> = { start: 280, end: 280, decision: 330, rule: 330, table: 480, loop: 340, switch: 380, call: 340, fork: 280, join: 280, input: 250, output: 250, variable: 250, scenario: 320 };
+export const slotAt = (role: LogicRole, cx: number, top: number) => (doc: Doc) => {
   const s = first(doc, "start");
-  return s ? { x: s.x, y: s.y } : { x: 0, y: 0 };
+  const ox = s ? s.x + s.w / 2 : (ROLE_WIDTH.start ?? 280) / 2;
+  const oy = s ? s.y : 0;
+  return { x: Math.round(ox + cx - (ROLE_WIDTH[role] ?? 300) / 2), y: Math.round(oy + top) };
 };
-const at = (dx: number, dy: number) => (doc: Doc) => {
-  const o = origin(doc);
-  return { x: o.x + dx, y: o.y + dy };
-};
+/** O lugar da peça de um papel neste passo: o marcado em `places`, ou o destino do gesto. */
+export function slotFor(step: TourStep, doc: Doc, role?: LogicRole): { x: number; y: number } | undefined {
+  if (role && step.places?.[role]) return step.places[role]!(doc);
+  return step.motion?.kind === "drag" && "world" in step.motion.to ? step.motion.to.world(doc) : undefined;
+}
+
 const POS = {
-  start: (doc: Doc) => (first(doc, "start") ? origin(doc) : { x: 0, y: 0 }),
-  input: at(-360, 0),
-  output: at(-360, 140),
-  decisionDrop: at(260, 40),
-  decision: at(0, 170),
-  ruleSim: at(-170, 340),
-  ruleNao: at(170, 340),
-  end: at(0, 510),
-  scenario: at(380, 0),
+  start: slotAt("start", 0, 0),
+  input: slotAt("input", -620, 0),
+  output: slotAt("output", -620, 100),
+  decisionDrop: slotAt("decision", 460, 0),
+  decision: slotAt("decision", 0, 150),
+  ruleSim: slotAt("rule", -220, 320),
+  ruleNao: slotAt("rule", 220, 320),
+  end: slotAt("end", 0, 500),
+  scenario: slotAt("scenario", 680, 0),
 };
 const place = (id: string, role: LogicRole, p: { x: number; y: number }, extra: Record<string, unknown> = {}, label?: string): Op => ({ op: "add_node", id, ...(label ? { label } : {}), x: Math.round(p.x), y: Math.round(p.y), asset: `logic-${role}`, logic: { role, ...extra } as never });
 const patchLogic = (n: NodeEl | undefined, p: Record<string, unknown>): Op[] => (n ? [{ op: "update", id: n.id, patch: { logic: { ...n.logic, ...p } } }] : []);
@@ -275,6 +289,7 @@ export const LOGIC_TOUR: TourStep[] = [
     text: "A **Ação** muda dados. Precisamos de duas: uma para o frete grátis (*sim*) e outra para o frete fixo (*não*). Arraste **Action** duas vezes, abaixo da Decisão.",
     target: ['[data-asset="logic-rule"]'],
     motion: { kind: "drag", to: { world: POS.ruleSim } },
+    places: { rule: (doc) => (nodesOf(doc, "rule").length < 1 ? POS.ruleSim(doc) : POS.ruleNao(doc)) },
     ui: { panel: "assets" },
     ops: (doc) => {
       const have = nodesOf(doc, "rule").length;

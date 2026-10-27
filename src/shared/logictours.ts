@@ -14,7 +14,7 @@
  * todos os passos conclui cada passo e chega a uma regra que valida e cujos exemplos e cenários batem.
  */
 import { checkExamples, dataKey } from "./logic";
-import { LOGIC_TOUR, TOUR_TITLE, type TourCtx, type TourStep } from "./logictour";
+import { LOGIC_TOUR, TOUR_TITLE, slotAt, type TourCtx, type TourStep } from "./logictour";
 import type { Op } from "./ops";
 import { emptyDoc, type ConnectionEl, type Doc, type LogicExample, type LogicRole, type NodeEl } from "./schema";
 
@@ -78,14 +78,6 @@ function blank(doc: Doc, n: NodeEl): boolean {
 }
 const blankOf = (doc: Doc, role: LogicRole) => nodesOf(doc, role).find((n) => blank(doc, n));
 
-const origin = (doc: Doc): Pt => {
-  const s = nodesOf(doc, "start")[0];
-  return s ? { x: s.x, y: s.y } : { x: 0, y: 0 };
-};
-const at = (dx: number, dy: number) => (doc: Doc): Pt => {
-  const o = origin(doc);
-  return { x: o.x + dx, y: o.y + dy };
-};
 const fresh = (doc: Doc, id: string) => {
   let k = id;
   for (let i = 2; doc.nodes.some((n) => n.id === k) || doc.groups.some((g) => g.id === k); i++) k = `${id}-${i}`;
@@ -185,20 +177,22 @@ const scenarioOk = (doc: Doc, min: number, extra: (exs: LogicExample[]) => boole
 
 /* ═════════════════════════════ Aula 2 · Pontos de fidelidade ═════════════════════════════ */
 
+/* a grade da Aula 2 (centro x relativo ao centro do Início, topo relativo ao topo): o laço com o corpo à direita, a
+   escolha abaixo com os dois caminhos lado a lado, a faixa e o fim descendo pela direita; dados à esquerda */
 const P2 = {
-  start: (d: Doc) => (nodesOf(d, "start")[0] ? origin(d) : { x: 0, y: 0 }),
-  data: (i: number) => at(-420, i * 110),
-  loop: at(0, 150),
-  table: at(340, 150),
-  somar: at(340, 300),
-  sw: at(0, 330),
-  dobrar: at(220, 480),
-  bloquear: at(-200, 480),
-  fimErro: at(-200, 640),
-  faixa: at(220, 640),
-  fechar: at(220, 800),
-  fim: at(220, 960),
-  scenario: at(720, 0),
+  start: slotAt("start", 0, 0),
+  data: (i: number) => slotAt("input", -800, i * 100),
+  loop: slotAt("loop", 0, 150),
+  table: slotAt("table", 560, 150),
+  somar: slotAt("rule", 560, 350),
+  sw: slotAt("switch", 0, 350),
+  dobrar: slotAt("rule", 280, 520),
+  bloquear: slotAt("rule", -280, 520),
+  fimErro: slotAt("end", -280, 700),
+  faixa: slotAt("table", 280, 700),
+  fechar: slotAt("rule", 280, 910),
+  fim: slotAt("end", 280, 1080),
+  scenario: slotAt("scenario", 1080, 0),
 };
 const loopOf = (d: Doc) => nodesOf(d, "loop")[0];
 const multTable = (d: Doc) => nodesOf(d, "table").find((n) => /\bmult\s*:=/.test(JSON.stringify(n.logic)));
@@ -378,6 +372,7 @@ const aula2: TourStep[] = [
     target: (c) => (!bloquear(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : !nodesOf(c.doc, "end").some((e) => e.logic?.outcome === "erro") ? (nodesOf(c.doc, "end").length ? ['[data-tour="outcome"]', "@node:end"] : ['[data-asset="logic-end"]']) : ['[aria-label="Conector"]']),
     node: (d) => blankOf(d, "rule") ?? bloquear(d),
     motion: { kind: "drag", to: { world: P2.bloquear } },
+    places: { rule: P2.bloquear, end: P2.fimErro },
     ui: { panel: "assets", select: (d) => blankOf(d, "rule") ?? bloquear(d) },
     ops: (d) =>
       steps(d, [
@@ -416,6 +411,7 @@ const aula2: TourStep[] = [
     target: (c) => (!faixaTable(c.doc) ? (blankOf(c.doc, "table") ? ['[data-tour="rows"]', "@node"] : ['[data-asset="logic-table"]']) : !fechar(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[data-asset="logic-end"]', '[aria-label="Conector"]']),
     node: (d) => blankOf(d, "table") ?? blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P2.faixa } },
+    places: { table: P2.faixa, rule: P2.fechar, end: P2.fim },
     ui: { panel: "assets", select: (d) => blankOf(d, "table") ?? blankOf(d, "rule") },
     ops: (d) =>
       steps(d, [
@@ -516,28 +512,30 @@ const aula2: TourStep[] = [
 
 /* ═════════════════════════════ Aula 3 · Aprovação de crédito ═════════════════════════════ */
 
+/* a grade da Aula 3: o fluxo desce pelo centro; recusas e revisões à direita; os dois ramos do paralelo lado a lado;
+   entradas e resultados numa coluna à esquerda e as variáveis numa coluna mais à esquerda */
 const P3 = {
-  start: (d: Doc) => (nodesOf(d, "start")[0] ? origin(d) : { x: 0, y: 0 }),
-  data: (i: number) => at(-440, i * 100),
-  vars: (i: number) => at(-780, i * 100),
-  valido: at(0, 160),
-  invalido: at(380, 160),
-  recusado: at(380, 1520),
-  bureau: at(0, 320),
-  semBureau: at(380, 320),
-  revisaoFim: at(720, 320),
-  fork: at(0, 480),
-  taxa: at(-190, 630),
-  limite: at(190, 630),
-  join: at(0, 780),
-  parcela: at(0, 930),
-  negativado: at(0, 1080),
-  revisao: at(380, 1080),
-  cabe: at(0, 1230),
-  aprovar: at(-190, 1380),
-  recusar: at(190, 1380),
-  fimOk: at(-190, 1530),
-  scenario: at(1060, 0),
+  start: slotAt("start", 0, 0),
+  data: (i: number) => slotAt("input", -900, i * 100),
+  vars: (i: number) => slotAt("variable", -1220, i * 100),
+  valido: slotAt("decision", 0, 150),
+  invalido: slotAt("rule", 520, 150),
+  recusado: slotAt("end", 560, 1600),
+  bureau: slotAt("call", 0, 330),
+  semBureau: slotAt("rule", 520, 330),
+  revisaoFim: slotAt("end", 940, 360),
+  fork: slotAt("fork", 0, 520),
+  taxa: slotAt("table", -320, 600),
+  limite: slotAt("rule", 320, 600),
+  join: slotAt("join", 0, 800),
+  parcela: slotAt("rule", 0, 880),
+  negativado: slotAt("decision", 0, 1060),
+  revisao: slotAt("rule", 520, 1060),
+  cabe: slotAt("decision", 0, 1240),
+  aprovar: slotAt("rule", -280, 1410),
+  recusar: slotAt("rule", 280, 1410),
+  fimOk: slotAt("end", -280, 1600),
+  scenario: slotAt("scenario", 1340, 0),
 };
 const start3 = (d: Doc) => nodesOf(d, "start")[0];
 const valido = (d: Doc) => nodesOf(d, "decision").find((n) => /parcelas/.test(n.logic?.when ?? ""));
@@ -645,6 +643,7 @@ const aula3: TourStep[] = [
     target: (c) => (!invalido(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : !recusadoEnd(c.doc) ? (blankOf(c.doc, "end") ? ['[data-tour="outcome"]', "@node:end"] : ['[data-asset="logic-end"]']) : ['[aria-label="Conector"]']),
     node: (d) => blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.invalido } },
+    places: { rule: P3.invalido, end: P3.recusado },
     ui: { panel: "assets", select: (d) => blankOf(d, "rule") },
     ops: (d) =>
       steps(d, [
@@ -661,6 +660,7 @@ const aula3: TourStep[] = [
       "O app não acessa a rede: os exemplos usam a **Resposta simulada**. Na Chamada, escreva `{ \"score\": 720 }`. Crie uma **Variável** `score` (`int`) e, em **O que devolve quando dá certo**, escreva `score := resposta.score`.",
     target: (c) => (!dataNode(c.doc, "score") ? (blankOf(c.doc, "variable") ? ['[data-tour="key"]', "@node:variable"] : ['[data-asset="logic-variable"]']) : bureau(c.doc)?.logic?.mock === undefined ? ['[data-tour="mock"]', "@node:call"] : ['[data-tour="devolve"]', "@node:call"]),
     motion: { kind: "click" },
+    places: { variable: P3.vars(0) },
     ui: { select: "call" },
     ops: (d) => {
       const c = bureau(d);
@@ -675,6 +675,7 @@ const aula3: TourStep[] = [
       "Taxa e limite não dependem um do outro. Arraste um **Fork** (Paralelo) para baixo da Chamada e um **Join** (Junção) mais abaixo. Ligue **Chamada → Paralelo**: é a seta normal da chamada, de quando ela dá certo.",
     target: (c) => (!nodesOf(c.doc, "fork").length ? ['[data-asset="logic-fork"]'] : !nodesOf(c.doc, "join").length ? ['[data-asset="logic-join"]'] : ['[aria-label="Conector"]', "@node:call"]),
     motion: { kind: "drag", to: { world: P3.fork } },
+    places: { fork: P3.fork, join: P3.join },
     ui: { panel: "assets" },
     ops: (d) =>
       steps(d, [
@@ -693,6 +694,7 @@ const aula3: TourStep[] = [
     target: (c) => (!bureau(c.doc)?.logic?.falha ? ['[data-tour="falha"]', "@node:call"] : !semBureau(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:call"]),
     node: (d) => blankOf(d, "rule"),
     motion: { kind: "click" },
+    places: { rule: P3.semBureau, end: P3.revisaoFim },
     ui: { select: "call" },
     ops: (d) =>
       steps(d, [
@@ -715,6 +717,7 @@ const aula3: TourStep[] = [
     target: (c) => (!taxaTable(c.doc) ? (blankOf(c.doc, "table") ? ['[data-tour="rows"]', "@node"] : ['[data-asset="logic-table"]']) : !limiteRule(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:fork"]),
     node: (d) => blankOf(d, "table") ?? blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.taxa } },
+    places: { table: P3.taxa, rule: P3.limite, variable: (d) => (dataNode(d, "taxa") ? P3.vars(2)(d) : P3.vars(1)(d)) },
     ui: { panel: "assets", select: (d) => blankOf(d, "table") ?? blankOf(d, "rule") },
     ops: (d) =>
       steps(d, [
@@ -740,6 +743,7 @@ const aula3: TourStep[] = [
     target: (c) => (!dataNode(c.doc, "parcela") ? ['[data-asset="logic-variable"]', '[data-tour="key"]'] : !parcelaRule(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:join"]),
     node: (d) => blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.parcela } },
+    places: { variable: P3.vars(3), rule: P3.parcela },
     ui: { panel: "assets", select: (d) => blankOf(d, "rule") },
     ops: (d) =>
       steps(d, [
@@ -758,6 +762,7 @@ const aula3: TourStep[] = [
     target: (c) => (!negativado(c.doc) ? (blankOf(c.doc, "decision") ? ['[data-tour="when"]', "@node"] : ['[data-asset="logic-decision"]']) : !revisaoRule(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]']),
     node: (d) => blankOf(d, "decision") ?? blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.negativado } },
+    places: { decision: P3.negativado, rule: P3.revisao },
     ui: { panel: "assets", select: (d) => blankOf(d, "decision") ?? blankOf(d, "rule") },
     ops: (d) =>
       steps(d, [
@@ -775,6 +780,7 @@ const aula3: TourStep[] = [
     target: (c) => (!cabe(c.doc) ? (blankOf(c.doc, "decision") ? ['[data-tour="when"]', "@node"] : ['[data-asset="logic-decision"]']) : !aprovar(c.doc) || !recusar(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:decision"]),
     node: (d) => blankOf(d, "decision") ?? blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.cabe } },
+    places: { decision: P3.cabe, rule: (d) => (aprovar(d) || blankOf(d, "rule") ? P3.recusar(d) : P3.aprovar(d)), end: P3.fimOk },
     ui: { panel: "assets", select: (d) => blankOf(d, "decision") ?? blankOf(d, "rule") },
     ops: (d) =>
       steps(d, [

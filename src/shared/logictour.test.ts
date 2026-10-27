@@ -24,6 +24,14 @@ for (const t of LOGIC_TOURS) {
       assert.equal(s.check(c), true, `«${s.title}» fica feito depois de «Fazer por mim»`);
     }
     assert.ok(tourDone(c.doc), "o diagrama montado valida e todos os exemplos batem");
+    // organizado: cada peça no seu lugar da grade, nenhuma em cima da outra
+    const ns = c.doc.nodes;
+    for (let i = 0; i < ns.length; i++)
+      for (let j = i + 1; j < ns.length; j++) {
+        const [a, b] = [ns[i], ns[j]];
+        const hit = a.x < b.x + b.w + 8 && b.x < a.x + a.w + 8 && a.y < b.y + b.h + 8 && b.y < a.y + a.h + 8;
+        assert.ok(!hit, `«${a.label}» e «${b.label}» se sobrepõem`);
+      }
   });
 
   test(`aula ${t.n} · ${t.title}: todo passo que espera uma ação sabe demonstrar; a aula aponta a seguinte`, () => {
