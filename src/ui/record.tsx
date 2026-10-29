@@ -36,6 +36,12 @@ let touched = 0;
 /** o prompt de compartilhamento tira o navegador da tela cheia; isso não deve encerrar a apresentação */
 export const recordingGrace = () => st.starting || st.active || Date.now() - touched < 15000;
 
+/** data e hora locais para o nome do arquivo (2026-10-29-22-05-31): o toISOString daria a hora UTC, outro dia à noite */
+const localStamp = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+};
+
 const pickMime = () =>
   ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) ?? "";
 
@@ -101,7 +107,7 @@ export async function startRecording() {
       if (chunks.length) {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(new Blob(chunks, { type }));
-        a.download = `gravacao-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${type.includes("mp4") ? "mp4" : "webm"}`;
+        a.download = `gravacao-${localStamp(new Date())}.${type.includes("mp4") ? "mp4" : "webm"}`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 10000);
         toast("Gravação salva");
