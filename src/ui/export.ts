@@ -27,7 +27,7 @@ export function importJson(file: File) {
       const raw = JSON.parse(t);
       if (!raw || (!raw.nodes && !raw.elements)) throw new Error("Arquivo não parece um diagrama Archflow");
       replaceDoc(normalizeDoc(raw));
-      toast("Diagrama importado");
+      toast("Diagrama importado", true); // substituiu o diagrama inteiro: o aviso oferece desfazer, como ao carregar um exemplo
     } catch (e) {
       toastError("Falha ao importar: " + (e instanceof Error ? e.message : e));
     }

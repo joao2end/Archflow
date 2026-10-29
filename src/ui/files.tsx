@@ -157,7 +157,16 @@ export function FilesPanel() {
             </button>
             <label className="btn" style={{ cursor: "pointer" }}>
               <Glyph name="upload" size={16} /> Importar…
-              <input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
+              <input
+                type="file"
+                accept=".json,application/json"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) importJson(f);
+                  e.target.value = ""; // o mesmo arquivo de novo também dispara a importação
+                }}
+              />
             </label>
           </div>
         </div>
