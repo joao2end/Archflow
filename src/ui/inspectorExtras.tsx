@@ -130,12 +130,26 @@ export function EndpointsSection({ node }: { node: NodeEl }) {
     <div className="field">
       <span className="lbl-s">Endpoints e comunicação ({eps.length})</span>
       {eps.map((n) => (
-        <div key={n.id} className="ep-row" onClick={() => select([n.id])} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && select([n.id])}>
+        <div
+          key={n.id}
+          className="ep-row"
+          onClick={() => select([n.id])}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            // só a própria linha: o Enter no × (remover) subia até aqui e selecionava o endpoint recém-apagado
+            if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+            e.preventDefault();
+            select([n.id]);
+          }}
+        >
           {n.endpoint && <EpBadge e={n.endpoint} />}
           <span className="ep-row-path">{n.endpoint?.path ?? n.label}</span>
           <button
             className="btn ghost icon sm"
             aria-label={`Remover ${n.label}`}
+            data-tip="Remover"
+            data-tip-pos="top"
             onClick={(ev) => {
               ev.stopPropagation();
               run([{ op: "remove", id: n.id }]);
