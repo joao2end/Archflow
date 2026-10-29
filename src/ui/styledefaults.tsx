@@ -1,11 +1,11 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, GROUP_KINDS, INFRA_CONNECTION_TYPES, NODE_KINDS, docMode, type ConnectionType, type GroupKind, type NodeKind, type Routing } from "../shared/schema";
 import { RICH_FONTS, type RichFont } from "../shared/richtext";
 import { BG_PRESETS, PresetPattern } from "./bgpresets";
 import { ColorPicker } from "./colorpicker";
 import { Glyph } from "./icons";
 import { INK_COLORS } from "./ink";
-import { applyStyleToSelection, DEFAULT_BG, setPrefs, setStyleDefaults, toastError, useStore, type BgPattern, type ElementDefaults } from "./store";
+import { applyStyleToSelection, beginTyping, DEFAULT_BG, endTyping, setPrefs, setStyleDefaults, toastError, useStore, type BgPattern, type ElementDefaults } from "./store";
 
 export const FILL_COLORS = ["#ffffff", "#f7f1e3", "#eef2f7", "#e8f3ec", "#fdf0f0", "#2d2a2e", "#14161c"];
 export const PALETTE = ["#706fd3", "#2f80ed", "#14a38b", "#e08a1e", "#c2410c", "#d6453d", "#7a5af8", "#7a7a8c"];
@@ -36,6 +36,9 @@ function ConnSample({ type }: { type: ConnectionType }) {
 /** Cor de fundo + transparência do corpo de um componente ou grupo. */
 export function FillControls({ el, patch }: { el: { fill?: string; fillOpacity?: number }; patch: (p: Record<string, unknown>) => void }) {
   const transp = Math.round((1 - (el.fillOpacity ?? 1)) * 100);
+  // arrastar a transparência muda o diagrama a cada passo: com o foco no controle, tudo é um só ponto de desfazer
+  const sliding = useRef(false);
+  useEffect(() => () => void (sliding.current && endTyping()), []);
   return (
     <>
       <span className="lbl-s">Cor de fundo</span>
@@ -48,7 +51,16 @@ export function FillControls({ el, patch }: { el: { fill?: string; fillOpacity?:
       </div>
       <label className="field">
         <span>Transparência do fundo · {transp}%</span>
-        <input type="range" min={0} max={100} value={transp} onChange={(e) => patch({ fillOpacity: +e.target.value === 0 ? undefined : 1 - +e.target.value / 100 })} aria-label="Transparência do fundo" />
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={transp}
+          onChange={(e) => patch({ fillOpacity: +e.target.value === 0 ? undefined : 1 - +e.target.value / 100 })}
+          aria-label="Transparência do fundo"
+          onFocus={() => ((sliding.current = true), beginTyping())}
+          onBlur={() => ((sliding.current = false), endTyping())}
+        />
       </label>
     </>
   );
