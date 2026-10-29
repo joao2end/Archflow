@@ -296,7 +296,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
         <div className="prompts-head">{tabs}</div>
         {!lib.workflows.length && (
           <div className="pane-empty">
-            <p>Workflows são nós do diagrama: adicione um «Workflow» na paleta e ligue prompts a ele com setas step.</p>
+            <p>Workflows são componentes do diagrama: adicione um «Workflow» pela <b>Biblioteca</b> (B) e ligue prompts a ele com setas step.</p>
           </div>
         )}
         <div className="prompts-list" role="list" aria-label="Workflows do diagrama">

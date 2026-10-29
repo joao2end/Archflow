@@ -161,7 +161,7 @@ export function PromptsSidebar({ projectId, canRunActive, onRun, term }: { proje
           )}
           {!legacy && !lib.prompts.length && (
             <div className="pane-empty">
-              <p>Prompts são nós do diagrama: adicione um «Prompt» na paleta, escreva o texto no inspetor e execute aqui com um clique.</p>
+              <p>Prompts são componentes do diagrama: adicione um «Prompt» pela <b>Biblioteca</b> (B), escreva o texto no Inspetor e execute aqui com um clique.</p>
             </div>
           )}
           <div className="prompts-list" role="list" aria-label="Prompts do diagrama">
