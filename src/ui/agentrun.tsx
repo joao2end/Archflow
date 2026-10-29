@@ -38,7 +38,13 @@ const when = (ms: number) => new Date(ms).toLocaleString("pt-BR", { day: "2-digi
 /** Modos aceitos pelo bridge (`SAFE_PERMISSION_MODES`); `acceptEdits` é o padrão no canvas porque os passos gravam arquivos. */
 const PERM_LABEL: Record<string, string> = { acceptEdits: "Aceitar edições de arquivos", "": "Padrão (gravações negadas)", plan: "Só planejar, sem editar" };
 
-const secs = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+/** duração legível em pt-BR: 850 ms · 1,5 s · 5 min 12 s (um passo do Claude Code leva minutos; «312.4 s» não se lê) */
+const secs = (ms: number) => {
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  if (ms < 59_950) return `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+};
 
 export function AgentRunPanel({ term }: { term?: TermApi }) {
   const doc = useStore((s) => s.doc);
