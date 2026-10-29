@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { searchAssets } from "../shared/catalog";
-import { NODE_KINDS, type Asset, type NodeEl, type NodeKind } from "../shared/schema";
+import { assetsForMode, searchAssets } from "../shared/catalog";
+import { NODE_KINDS, docMode, type Asset, type NodeEl, type NodeKind } from "../shared/schema";
 import { AssetBadge, Glyph } from "./icons";
 import { allKnownAssets, getState, lookupAsset, saveAsset, toast, useStore } from "./store";
 
@@ -46,6 +46,7 @@ export function TechPicker({ node, patch }: { node: NodeEl; patch: (p: Record<st
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const library = useStore((s) => s.library);
+  const mode = useStore((s) => docMode(s.doc));
   const asset = lookupAsset(node.asset);
 
   useEffect(() => {
@@ -69,7 +70,9 @@ export function TechPicker({ node, patch }: { node: NodeEl; patch: (p: Record<st
     return () => (cancelAnimationFrame(raf), clearTimeout(t));
   }, [open]);
 
-  const results = useMemo(() => (open ? searchAssets(allKnownAssets(), q).filter((a) => !a.endpoint).slice(0, 60) : []), [open, q, library]);
+  // as mesmas peças que a Biblioteca mostra neste modo: trocar um serviço por uma peça de Domínio, Lógica ou Agents
+  // mudaria o tipo sem os campos que ele pede
+  const results = useMemo(() => (open ? searchAssets(assetsForMode(allKnownAssets(), mode), q).filter((a) => !a.endpoint).slice(0, 60) : []), [open, q, library, mode]);
   useEffect(() => setIdx(0), [q]);
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-i="${idx}"]`)?.scrollIntoView({ block: "nearest" });
