@@ -694,6 +694,9 @@ export function ProjectsModal() {
 
 /* ───────── busca rápida (Ctrl+O) ───────── */
 
+/** minúsculas e sem acentos: «aprovacao» encontra «Aprovação» (como o filtro da ajuda de atalhos) */
+const fold = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
 export function QuickSwitcher() {
   const ws = useStore((s) => s.workspace);
   const [q, setQ] = useState("");
@@ -702,27 +705,37 @@ export function QuickSwitcher() {
 
   const results = useMemo(() => {
     if (!ws) return [];
-    const toks = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const toks = fold(q).split(/\s+/).filter(Boolean);
     const score = (f: FileNode) => {
-      const hay = `${f.title} ${f.path}`.toLowerCase();
-      if (!toks.every((t) => hay.includes(t))) return -1;
-      return (f.title.toLowerCase().startsWith(toks[0] ?? "") ? 2 : 0) + (f.path === ws.current ? -1 : 0);
+      const hay = fold(`${f.title} ${f.path}`);
+      if (!toks.every((t) => hay.includes(t))) return null;
+      // o diagrama aberto vem por último, mas aparece (antes o -1 dele caía no filtro de «não casou»)
+      return (fold(f.title).startsWith(toks[0] ?? "") ? 2 : 0) + (f.path === ws.current ? -1 : 0);
     };
     return ws.files
       .map((f) => [f, score(f)] as const)
-      .filter(([, s]) => s >= 0)
+      .filter((r): r is readonly [FileNode, number] => r[1] !== null)
       .sort((a, b) => b[1] - a[1] || b[0].updatedAt - a[0].updatedAt)
       .map(([f]) => f)
       .slice(0, 40);
   }, [q, ws]);
 
-  // destaca no título o trecho que casou com o que foi digitado
-  const toks = useMemo(() => q.toLowerCase().split(/\s+/).filter(Boolean), [q]);
+  // destaca no título o trecho que casou com o que foi digitado (compara sem acentos, marca o texto original)
+  const toks = useMemo(() => fold(q).split(/\s+/).filter(Boolean), [q]);
   const mark = (text: string) => {
     if (!toks.length) return text;
-    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const rx = new RegExp(`(${toks.map(esc).join("|")})`, "ig");
-    return text.split(rx).map((part, k) => (k % 2 ? <mark key={k}>{part}</mark> : part));
+    const chars = [...text];
+    const at: number[] = []; // para cada letra da versão sem acentos, a letra original de onde ela veio
+    const flat = chars.map((c, ci) => [...fold(c)].map((x) => (at.push(ci), x)).join("")).join("");
+    const hit = chars.map(() => false);
+    for (const t of toks) for (let k = flat.indexOf(t); k >= 0; k = flat.indexOf(t, k + 1)) for (let j = k; j < k + t.length; j++) hit[at[j]] = true;
+    const parts: ReactNode[] = [];
+    for (let a = 0, b = 0; a < chars.length; a = b) {
+      while (b < chars.length && hit[b] === hit[a]) b++;
+      const piece = chars.slice(a, b).join("");
+      parts.push(hit[a] ? <mark key={a}>{piece}</mark> : piece);
+    }
+    return parts;
   };
   const canCreate = !!q.trim() && !results.some((f) => f.title.toLowerCase() === q.trim().toLowerCase());
   const total = results.length + (canCreate ? 1 : 0);
