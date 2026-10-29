@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeDoc } from "../shared/ops";
-import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, type Doc } from "../shared/schema";
+import { AGENT_ROLES, CONNECTION_TYPES, DDD_ROLES, ENDPOINT_PROTOCOLS, LOGIC_ROLES, NODE_KINDS, endpointBadge, endpointColor, type Doc, type NodeEl } from "../shared/schema";
 import { DiagramDefs, Edge, GroupShape, NodeShape, NoteShape, ViewerAssets, computeEdges, computeOwnerLinks, sortedGroups } from "./Canvas";
 import { contentBounds } from "./geometry";
 import { Glyph } from "./icons";
@@ -8,12 +8,17 @@ import { fetchDiagram, openRef, set } from "./store";
 
 type Step = { diagram: string; node?: string };
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+/** o nome do componente ou grupo na ponta de uma conexão (o id só se ele não existir) */
+const labelOf = (d: Doc, id: string) => d.nodes.find((n) => n.id === id)?.label ?? d.groups.find((g) => g.id === id)?.label ?? id;
+/** o tipo, como o Inspetor o mostra: o papel (Domain, Logic, Agents) ou o rótulo curto do tipo */
+const kindLabel = (n: NodeEl) =>
+  (n.ddd && DDD_ROLES[n.ddd.role]?.label) || (n.logic && LOGIC_ROLES[n.logic.role]?.label) || (n.agent && AGENT_ROLES[n.agent.role]?.label) || NODE_KINDS[n.kind]?.split(" / ")[0] || n.kind;
 const nameOf = (p: string) => p.split("/").pop()?.replace(".archflow.json", "") ?? p;
 
 /**
  * Visualizador (somente leitura) de outro diagrama do projeto, em modal.
  * Clicar numa referência dentro dele carrega o diagrama seguinte no próprio modal;
- * as setas ← → percorrem o histórico de navegação do modal.
+ * Alt+← / Alt+→ percorrem o histórico de navegação do modal.
  */
 export function DiagramViewer({ diagram, node }: { diagram: string; node?: string }) {
   const [hist, setHist] = useState<Step[]>([{ diagram, node }]);
@@ -216,7 +221,7 @@ export function DiagramViewer({ diagram, node }: { diagram: string; node?: strin
               <button className="btn ghost icon sm" style={{ float: "right" }} onClick={() => setSel(null)} aria-label="Fechar detalhes">
                 <Glyph name="close" size={14} />
               </button>
-              <div className="kicker">{picked.kind}</div>
+              <div className="kicker">{kindLabel(picked)}</div>
               <h3>{picked.label}</h3>
               {picked.technology && <p className="muted">{picked.technology}</p>}
               {picked.endpoint && (
@@ -242,7 +247,7 @@ export function DiagramViewer({ diagram, node }: { diagram: string; node?: strin
                 <p className="muted">
                   {doc.connections
                     .filter((c) => c.from === picked.id || c.to === picked.id)
-                    .map((c) => `${CONNECTION_TYPES[c.type].label}: ${c.from === picked.id ? "→ " + c.to : c.from + " →"}`)
+                    .map((c) => `${CONNECTION_TYPES[c.type].label}: ${c.from === picked.id ? "→ " + labelOf(doc, c.to) : labelOf(doc, c.from) + " →"}`)
                     .join(" · ")}
                 </p>
               )}
