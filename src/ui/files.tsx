@@ -241,6 +241,7 @@ export function FilesPanel() {
         role="treeitem"
         aria-selected={active}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return; // Enter no «⋯» é dele (abre o menu), não abre o diagrama
           if (e.key === "Enter") void openDiagram(f.path);
           if (e.key === "F2") setEdit({ kind: "rename-file", path: f.path });
         }}
@@ -277,6 +278,7 @@ export function FilesPanel() {
           role="treeitem"
           aria-expanded={open}
           onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return; // Enter/Espaço no «⋯» é dele (abre o menu), não abre/fecha a pasta
             if (e.key === "Enter" || e.key === " ") toggleFolder(n.path);
             if (e.key === "F2") setEdit({ kind: "rename-folder", path: n.path });
           }}

@@ -392,7 +392,7 @@ export function TerminalPanel({ onApi }: { onApi?: (api: TermApi) => void } = {}
       <div className="term-head">
         <div className="term-tabs" role="tablist">
           {sessions.map((s) => (
-            <div key={s.id} role="tab" aria-selected={s.id === activeId} tabIndex={0} className={`term-tab${s.id === activeId ? " on" : ""}${s.code !== undefined ? " dead" : ""}`} onClick={() => setActiveId(s.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setActiveId(s.id)}>
+            <div key={s.id} role="tab" aria-selected={s.id === activeId} tabIndex={0} className={`term-tab${s.id === activeId ? " on" : ""}${s.code !== undefined ? " dead" : ""}`} onClick={() => setActiveId(s.id)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && setActiveId(s.id)}>
               <span className="term-tab-t">{s.title}</span>
               {s.code !== undefined && <small>saiu</small>}
               <button className="term-x" aria-label={`Fechar ${s.title}`} data-tip="Encerrar esta sessão" data-tip-pos="top" onClick={(e) => (e.stopPropagation(), void close(s.id))}>×</button>
