@@ -388,7 +388,7 @@ function PortFields({ conn, patch }: { conn: ConnectionEl; patch: Patch }) {
         <>
           <label className="field">
             <span>Interface (porta)</span>
-            <TextField value={port.name} placeholder={portName(to)} onCommit={(v) => v.trim() && patch({ port: { ...port, name: v.trim() } })} />
+            <TextField value={port.name} placeholder={portName(to)} onCommit={(v) => patch({ port: { ...port, name: v.trim() || portName(to) } })} />
           </label>
           <label className="field">
             <span>Operações (uma por linha)</span>
