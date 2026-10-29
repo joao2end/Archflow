@@ -186,11 +186,11 @@ export function FilesPanel() {
     setEdit({ kind, path: folder, mode: mode ?? (kind === "new-file" ? filterMode : undefined) }); // sem tipo explícito, o novo diagrama é do tipo mostrado
   };
 
-  const commitEdit = (value: string) => {
+  const commitEdit = (value: string, initial = "") => {
     const v = value.trim();
     const e = edit;
     setEdit(null);
-    if (!e || !v) return;
+    if (!e || !v || v === initial) return; // sair sem mudar o nome não renomeia
     if (e.kind === "new-file") void newDiagram(v, e.path, e.mode);
     else if (e.kind === "new-folder") void createFolder(join(e.path, v)).then(() => e.path && toggleFolder(e.path, true));
     else if (e.kind === "rename-file") void renameDiagram(e.path, v);
@@ -213,13 +213,11 @@ export function FilesPanel() {
       defaultValue={initial}
       placeholder={placeholder}
       onFocus={(e) => e.currentTarget.select()}
-      onBlur={(e) => commitEdit(e.target.value)}
+      onBlur={(e) => commitEdit(e.target.value, initial)}
       onKeyDown={(e) => {
+        e.stopPropagation(); // as teclas são do nome: na linha, Enter abriria o diagrama e Espaço abriria/fecharia a pasta
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          setEdit(null);
-        }
+        if (e.key === "Escape") setEdit(null);
       }}
     />
   );
