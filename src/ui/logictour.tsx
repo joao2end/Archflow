@@ -134,6 +134,17 @@ export function LogicTour() {
         scrolled = f.target;
         f.el.scrollIntoView({ block: "nearest" });
       }
+      // o nó ou a seta fora da área livre da tela: a tela vai até ele (uma vez por alvo; depois, rolar é com a pessoa)
+      if (f && (f.target.startsWith("@node") || f.target === "@conn") && scrolled !== f.target) {
+        scrolled = f.target;
+        const c = center(f.el.getBoundingClientRect());
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        if (c.x < 90 || c.x > W - 380 || c.y < 70 || c.y > H - 90) {
+          const v = getState().view;
+          set({ view: { ...v, x: v.x + W * 0.42 - c.x, y: v.y + H * 0.42 - c.y } });
+        }
+      }
       const r = f?.el.getBoundingClientRect() ?? null;
       setRect((old) => (old && r && old.x === r.x && old.y === r.y && old.width === r.width && old.height === r.height ? old : r));
       setWhere(f?.target ?? "");
