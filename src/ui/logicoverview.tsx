@@ -71,12 +71,19 @@ export function OverviewTab() {
           <span>
             <b>{s.steps}</b> passos
           </span>
-          <span className={s.scenarios.ok === s.scenarios.total ? "ok" : "fail"}>
-            <b>
-              {s.scenarios.ok}/{s.scenarios.total}
-            </b>{" "}
-            cenários batem{s.scenarios.failures ? ` (${s.scenarios.failures} de falha)` : ""}
-          </span>
+          {/* sem cenários nada foi provado: neutro, não o verde de «0/0 batem» */}
+          {s.scenarios.total ? (
+            <span className={s.scenarios.ok === s.scenarios.total ? "ok" : "fail"}>
+              <b>
+                {s.scenarios.ok}/{s.scenarios.total}
+              </b>{" "}
+              cenários batem{s.scenarios.failures ? ` (${s.scenarios.failures} de falha)` : ""}
+            </span>
+          ) : (
+            <span>
+              <b>Nenhum</b> cenário ainda
+            </span>
+          )}
         </div>
       </section>
       {s.stages.length > 0 && (
