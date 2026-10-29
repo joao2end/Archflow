@@ -503,7 +503,7 @@ export function PresentMode() {
           </button>
         ))}
         <div className="rule" />
-        {tool === "eraser" && <EraseModes />}
+        {tool === "eraser" && <EraseModes present />}
         {(tool === "pen" || tool === "highlight") && optsFor === tool && <InkOptions tool={tool} color={color} onClose={() => setOptsFor(null)} />}
         <div className="swatches" role="radiogroup" aria-label="Cor">
           {COLORS.map((c) => (

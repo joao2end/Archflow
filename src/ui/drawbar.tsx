@@ -18,7 +18,6 @@ export function DrawBar() {
   const tool = useStore((s) => s.tool);
   const color = useStore((s) => s.inkColor);
   const inkTool = tool === "pen" || tool === "highlight";
-  // opções recolhidas pelo usuário; reabrem ao trocar de ferramenta
   // as opções só abrem ao clicar numa cor; trocar de ferramenta as fecha
   const [optsFor, setOptsFor] = useState<Tool | null>(null);
   useEffect(() => setOptsFor((o) => (o === tool ? o : null)), [tool]);
@@ -43,12 +42,13 @@ export function DrawBar() {
   );
 }
 
-/** Modo da borracha: só desenhos à mão livre ou tudo (componentes, textos, notas, conexões). */
-export function EraseModes() {
+/** Modo da borracha: só desenhos à mão livre ou tudo (componentes, textos, notas, conexões). Na apresentação, «tudo» é
+ * só o que se anotou nela: o diagrama não é apagado. */
+export function EraseModes({ present = false }: { present?: boolean }) {
   const mode = useStore((s) => s.eraseMode);
   const opts = [
     { id: "ink" as const, label: "Só desenho", tip: "Apaga apenas os traços de caneta e marca-texto." },
-    { id: "all" as const, label: "Tudo", tip: "Apaga também componentes, textos, listas, notas e conexões." },
+    { id: "all" as const, label: "Tudo", tip: present ? "Apaga também os textos e listas da apresentação. O diagrama não é apagado." : "Apaga também componentes, textos, listas, notas e conexões." },
   ];
   return (
     <div className="glass ink-opts erase-modes" role="radiogroup" aria-label="Modo da borracha">
