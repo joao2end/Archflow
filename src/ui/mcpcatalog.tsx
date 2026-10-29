@@ -220,7 +220,7 @@ export function CatalogMcp({ q }: { q: string }) {
             onClick={() => add(e)}
             role="button"
             tabIndex={0}
-            onKeyDown={(ev) => ev.key === "Enter" && add(e)}
+            onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && (ev.preventDefault(), add(e))}
             data-tip={mcpSummary(e)}
             data-tip-pos="right"
           >

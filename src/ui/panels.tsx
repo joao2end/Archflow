@@ -182,7 +182,7 @@ export function TopBar() {
           role="button"
           tabIndex={0}
           onClick={() => set({ modal: { type: "projects" } })}
-          onKeyDown={(e) => e.key === "Enter" && set({ modal: { type: "projects" } })}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), set({ modal: { type: "projects" } }))}
         >
           <span className="dot" />
           {!hidden && (!online ? "Offline" : storage === "local" ? "Memória do navegador" : "MCP sincronizado")}
@@ -530,7 +530,7 @@ function CatalogSkills({ q }: { q: string }) {
             onClick={() => add(e)}
             role="button"
             tabIndex={0}
-            onKeyDown={(ev) => ev.key === "Enter" && add(e)}
+            onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && (ev.preventDefault(), add(e))}
             data-tip={`${e.repo} · ${e.skillPath}`}
             data-tip-pos="right"
           >
@@ -627,7 +627,7 @@ export function Library() {
                 onClick={() => addAtCenter(a.id)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && addAtCenter(a.id)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), addAtCenter(a.id))}
                 onMouseEnter={(e) => showTip(a, e.currentTarget)}
                 onFocus={(e) => showTip(a, e.currentTarget)}
                 onMouseLeave={() => setTip(null)}
