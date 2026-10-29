@@ -42,6 +42,8 @@ export function duplicateSelection() {
       created.push(nid);
     }
   }
+  // nada duplicável (nada selecionado, só grupos ou conexões): sem isto, um passo de desfazer vazio e a seleção perdida
+  if (!created.length) return void toast("Nada para duplicar: selecione componentes ou notas");
   // conexões internas à seleção também são duplicadas
   for (const c of s.doc.connections) {
     if (map.has(c.from) && map.has(c.to)) {
