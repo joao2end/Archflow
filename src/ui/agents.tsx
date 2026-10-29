@@ -248,7 +248,7 @@ const MODEL_OPTIONS = ["inherit", "sonnet", "opus", "haiku"];
 
 /** ref estável (um ref em linha seria refeito a cada tecla e encerraria a sessão no meio da digitação): ao desmontar com o
  * foco no campo, encerra a sessão de digitação que o onFocus abriu */
-const endTypingOnUnmount = (el: HTMLInputElement | null) => () => void (el && document.activeElement === el && endTyping());
+const endTypingOnUnmount = (el: HTMLElement | null) => () => void (el && document.activeElement === el && endTyping());
 
 function AgentRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
   const doc = useStore((s) => s.doc);
@@ -1082,14 +1082,14 @@ function SkillWriteTab({ node, agent, patch, upd }: TabProps) {
       <div className="grid2">
         <label className="field">
           <span>Nome</span>
-          <input className="input" value={node.label} onChange={(e) => patch({ label: e.target.value })} aria-describedby="skill-slug" />
+          <input className="input" value={node.label} ref={endTypingOnUnmount} onFocus={beginTyping} onBlur={endTyping} onChange={(e) => patch({ label: e.target.value })} aria-describedby="skill-slug" />
           <small id="skill-slug" className="skill-slug">
             vira <code>skills/{name}/SKILL.md</code>
           </small>
         </label>
         <label className="field">
           <span>Description (quando o agente deve usar) · {agent.description?.length ?? 0}</span>
-          <textarea className="input" rows={2} value={agent.description ?? ""} placeholder="Use quando for revisar código: aponta estilo, testes faltando e falhas de segurança." onChange={(e) => upd({ description: e.target.value || undefined })} />
+          <textarea className="input" rows={2} value={agent.description ?? ""} placeholder="Use quando for revisar código: aponta estilo, testes faltando e falhas de segurança." ref={endTypingOnUnmount} onFocus={beginTyping} onBlur={endTyping} onChange={(e) => upd({ description: e.target.value || undefined })} />
         </label>
       </div>
 
