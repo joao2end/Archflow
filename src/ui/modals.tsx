@@ -762,6 +762,9 @@ function readLayoutCfg(): LayoutCfg {
 }
 
 function GapRow({ label, axis, value, onChange }: { label: string; axis: "x" | "y"; value: number; onChange: (n: number) => void }) {
+  // o campo mostra o que se digita e o valor (já limitado) segue junto: mostrar o limite a cada tecla trocava o «1» de
+  // «120» pelo mínimo (16) no meio da digitação. Ao sair, o campo passa a mostrar o valor limitado
+  const [draft, setDraft] = useState<string | null>(null);
   return (
     <div className="lay-gap">
       <span className="lay-gap-lbl">
@@ -772,7 +775,18 @@ function GapRow({ label, axis, value, onChange }: { label: string; axis: "x" | "
       </span>
       <input type="range" aria-label={`Espaçamento ${label.toLowerCase()}`} min={GAP_MIN} max={GAP_MAX} step={4} value={value} onChange={(e) => onChange(Number(e.target.value))} />
       <span className="lay-num">
-        <input type="number" aria-label={`${label} (px)`} min={GAP_MIN} max={GAP_MAX} value={value} onChange={(e) => onChange(clampGap(Number(e.target.value)))} />
+        <input
+          type="number"
+          aria-label={`${label} (px)`}
+          min={GAP_MIN}
+          max={GAP_MAX}
+          value={draft ?? value}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            onChange(clampGap(Number(e.target.value)));
+          }}
+          onBlur={() => setDraft(null)}
+        />
         px
       </span>
     </div>
