@@ -14,7 +14,7 @@ import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
 import { OverviewTab, ScenarioMatrixTab } from "./logicoverview";
-import { HARNESS_TARGETS, allKnownAssets, copyText, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore, type LogicTab } from "./store";
+import { HARNESS_TARGETS, allKnownAssets, copyText, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, toastError, useStore, type LogicTab } from "./store";
 import type { HarnessTarget } from "../shared/agentgen";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
@@ -830,7 +830,8 @@ function LayoutModal({ direction: initial }: { direction: "LR" | "TB" }) {
     }
     const r = run([{ op: "layout", style, direction, gapX, gapY, routing: routing === "keep" ? undefined : routing }]);
     close();
-    toast(r[0]?.ok === false ? r[0].error ?? "Não foi possível aplicar o layout" : style === "onion" ? "Camadas aplicadas" : style === "timeline" ? "Linha do tempo aplicada" : style === "grouped" ? "Agrupado por tipo" : "Layout automático aplicado");
+    if (r[0]?.ok === false) return toastError(r[0].error ?? "Não foi possível aplicar o layout"); // falha com o aviso de erro, que fica mais tempo
+    toast(style === "onion" ? "Camadas aplicadas" : style === "timeline" ? "Linha do tempo aplicada" : style === "grouped" ? "Agrupado por tipo" : "Layout automático aplicado");
   };
   return (
     <Modal
