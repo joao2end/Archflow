@@ -202,7 +202,7 @@ export function StoryPanel() {
 
       <div className="story-progress" role="group" aria-label={`Passo ${idx + 1} de ${story.steps.length}`}>
         {story.steps.map((s, i) => (
-          <button key={s.id} className={i === idx ? "on" : i < idx ? "done" : ""} onClick={() => (setPlaying(false), go(i))} aria-label={`Ir ao passo ${i + 1}: ${s.title}`} aria-current={i === idx ? "step" : undefined} title={`${i + 1}. ${s.title}`} />
+          <button key={s.id} className={i === idx ? "on" : i < idx ? "done" : ""} onClick={() => (setPlaying(false), go(i))} aria-label={`Ir ao passo ${i + 1}: ${s.title}`} aria-current={i === idx ? "step" : undefined} data-tip={`${i + 1}. ${s.title}`} data-tip-pos="bottom" />
         ))}
       </div>
 
