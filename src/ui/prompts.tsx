@@ -17,6 +17,9 @@ import { WorkflowsPane, type TermApi } from "./workflow";
 
 export type RunTarget = "new" | "active";
 
+/** por que o Executar está desabilitado (como no workflow sem passos) */
+const NO_TEXT = "Prompt sem texto: escreva-o no Inspetor do nó";
+
 /** Biblioteca antiga do projeto (`GET /api/prompts`); vazia se não existe ou o bridge não responde. */
 async function legacyLibrary(): Promise<PromptLibrary | undefined> {
   try {
@@ -171,7 +174,7 @@ export function PromptsSidebar({ projectId, canRunActive, onRun, term }: { proje
                   <span>{x.name}</span>
                   {x.agent && <small>{x.agent}</small>}
                 </button>
-                <button className="btn ghost icon sm run" aria-label={`Executar ${x.name}`} title={promptVars(x.text).length ? "Preencher as variáveis e executar" : "Executar no terminal"} disabled={!x.text.trim()} onClick={() => quickRun(x)}>▶</button>
+                <button className="btn ghost icon sm run" aria-label={`Executar ${x.name}`} title={!x.text.trim() ? NO_TEXT : promptVars(x.text).length ? "Preencher as variáveis e executar" : "Executar no terminal"} disabled={!x.text.trim()} onClick={() => quickRun(x)}>▶</button>
               </div>
             ))}
           </div>
@@ -198,7 +201,7 @@ export function PromptsSidebar({ projectId, canRunActive, onRun, term }: { proje
               </div>
             )}
             <div className="pane-actions">
-              <button className="btn primary sm" disabled={!p.text.trim()} onClick={() => send(p, values)} title="Digita o texto no Claude Code (sem Enter). O harness é sincronizado antes.">Executar</button>
+              <button className="btn primary sm" disabled={!p.text.trim()} onClick={() => send(p, values)} title={p.text.trim() ? "Digita o texto no Claude Code (sem Enter). O harness é sincronizado antes." : NO_TEXT}>Executar</button>
               <button className="btn sm" onClick={() => edit(p.id)} title="Seleciona o prompt no diagrama; o texto se edita no inspetor">Editar no diagrama</button>
             </div>
           </div>
