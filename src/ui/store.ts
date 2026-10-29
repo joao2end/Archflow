@@ -980,8 +980,9 @@ export async function installExample(ex: CatalogExample): Promise<boolean> {
   if (ex.files.some((f) => have.has(f.path))) {
     await openDiagram(have.has(ex.open) ? ex.open : ex.files.find((f) => have.has(f.path))!.path);
     if (ex.tour) set({ tour: null, lessonOpen: false, panel: null, iso: false, tool: "select" }); // a aula retoma sozinha ao abrir o diagrama dela
+    else if (ex.lesson) set({ lessonOpen: true, iso: true }); // como ao instalar: a aula de DDD abre nas camadas 3D
     else if (ex.guided) set({ lessonOpen: true, panel: null }); // a aula ocupa a direita: o explorador fecha para o diagrama aparecer
-    toast(`O exemplo já está no projeto (${folder(ex.open)}). Apague o arquivo ou a pasta para reinstalar.`);
+    toast(`Exemplo «${ex.title}» aberto: ele já estava em ${folder(ex.open)}. Para reinstalar, apague o arquivo ou a pasta.`);
     return false;
   }
   let toOpen = ex.open;
