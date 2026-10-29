@@ -34,9 +34,15 @@ export function applyAgentTemplate(id: string, at?: { x: number; y: number }) {
   const before = new Set(state.doc.nodes.map((n) => n.id));
   const added = out.doc.nodes.filter((n) => !before.has(n.id));
   setTimeout(() => fitView(null, added.map((n) => ({ x: n.x, y: n.y, w: n.w, h: n.h }))), 0);
-  const skills = added.filter((n) => n.agent?.role === "skill").length;
+  // o que entrou, por papel (antes, prompts e workflows do modelo eram contados como «ferramentas/skill»)
+  const count = (role: string) => added.filter((n) => n.agent?.role === role).length;
+  const skills = count("skill");
+  const parts = ([["agent", "agente", "agentes"], ["skill", "skill", "skills"], ["tool", "ferramenta", "ferramentas"], ["prompt", "prompt", "prompts"], ["workflow", "workflow", "workflows"]] as const)
+    .map(([role, one, many]) => [count(role), one, many] as const)
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
   toast(
-    `${tpl.name} aplicado: ${result.agentIds.length} agente${result.agentIds.length > 1 ? "s" : ""}, ${added.length - result.agentIds.length} ferramenta${added.length - result.agentIds.length === 1 ? "" : "s"}/skill${result.reused ? ` (${result.reused} já existiam e foram reaproveitadas)` : ""}.${skills ? ` ${skills} skill(s) do catálogo ainda sem conteúdo: abra cada uma para baixar.` : ""}`,
+    `${tpl.name} aplicado: ${parts.join(", ") || "nada novo"}${result.reused ? ` (${result.reused} já existiam e foram reaproveitados)` : ""}.${skills ? ` ${skills === 1 ? "A skill do catálogo ainda está" : "As skills do catálogo ainda estão"} sem conteúdo: abra cada uma para baixar.` : ""}`,
   );
 }
 
@@ -65,7 +71,7 @@ export function CatalogAgents({ q }: { q: string }) {
             onClick={() => applyAgentTemplate(t.id)}
             role="button"
             tabIndex={0}
-            onKeyDown={(ev) => ev.key === "Enter" && applyAgentTemplate(t.id)}
+            onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && (ev.preventDefault(), applyAgentTemplate(t.id))}
             data-tip={t.agents.map((a) => a.label).join(" · ")}
             data-tip-pos="right"
           >
