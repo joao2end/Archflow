@@ -241,6 +241,7 @@ function InterfaceModal({ id }: { id: string }) {
     const ops = spec.operations.filter((o) => o.name.trim());
     run([{ op: "update", id, patch: { interface: remove ? undefined : { ...spec, name: spec.name || `${from} → ${to}`, operations: ops } } }]);
     close();
+    toast(remove ? "Interface removida" : "Interface salva", remove); // o mesmo aviso de fechar pelo X; remover oferece desfazer
   };
 
   return (
