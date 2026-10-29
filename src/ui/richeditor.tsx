@@ -77,6 +77,15 @@ function linePrefix(el: Ta, prefix: string | ((i: number) => string), strip: Reg
   replaceRange(el, ls, le, out, ls, ls + out.length);
 }
 
+/** Tab com seleção / Shift+Tab: indenta ou recua em 2 espaços cada linha tocada pela seleção. */
+function indent(el: Ta, out: boolean) {
+  const { selectionStart: s, selectionEnd: e, value: v } = el;
+  const ls = v.lastIndexOf("\n", s - 1) + 1;
+  const le = v.indexOf("\n", e) < 0 ? v.length : v.indexOf("\n", e);
+  const res = v.slice(ls, le).split("\n").map((l) => (out ? l.replace(/^ {1,2}/, "") : "  " + l)).join("\n");
+  if (res !== v.slice(ls, le)) replaceRange(el, ls, le, res, ls, ls + res.length);
+}
+
 function codeBlock(el: Ta) {
   const { selectionStart: s, selectionEnd: e, value: v } = el;
   const body = v.slice(s, e) || "código";
@@ -400,7 +409,9 @@ export function RichEditor({
         } else if (e.key === "Tab" && !mod) {
           e.preventDefault();
           const { selectionStart: s, selectionEnd: end } = el;
-          replaceRange(el, s, end, "  ", s + 2, s + 2);
+          // com seleção, indenta as linhas (trocar a seleção por espaços apagava o texto); Shift+Tab recua
+          if (e.shiftKey || s !== end) indent(el, e.shiftKey);
+          else replaceRange(el, s, end, "  ", s + 2, s + 2);
         } else if (e.key === "Enter" && !e.shiftKey && !mod && continueList(el)) e.preventDefault();
       }}
     />
