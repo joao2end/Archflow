@@ -21,7 +21,7 @@ export function EmptyHint() {
       <h2>{domain ? "Comece pelo domínio" : logic ? "Comece pela regra" : agents ? "Comece pelo time" : "Comece seu diagrama"}</h2>
       <p>
         {logic
-          ? "Abra a biblioteca e arraste um Início, depois uma Ação e um Dado; ligue-os na ordem em que valem e adicione um Cenário com números reais para o quadro conferir o fluxo sozinho. Ou peça ao seu agente via MCP."
+          ? "Abra a biblioteca e arraste um Start, um Input (o dado que entra) e uma Ação; ligue-os na ordem em que valem e adicione um Scenario com números reais para o quadro conferir o fluxo sozinho. Ou peça ao seu agente via MCP."
           : domain
           ? "Desenhe um grupo «context» (tecla G) para o bounded context e arraste da biblioteca um Use Case, um Command e um Aggregate Root. Ou peça ao seu agente via MCP (add_use_cases)."
           : agents

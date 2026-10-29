@@ -332,7 +332,7 @@ const aula2: TourStep[] = [
     id: "tabela",
     title: "A Tabela de decisão: o multiplicador",
     text:
-      "Quando cada caminho só **atribui um valor**, use a **Tabela**. Arraste **Table** para a direita do Loop e, no Inspetor, preencha as linhas em ordem (vale a **primeira** verdadeira):\n\n" +
+      "Quando cada caminho só **atribui um valor**, use a **Tabela**. Arraste-a para a direita do Loop e, no Inspetor, preencha as linhas em ordem (vale a **primeira** verdadeira):\n\n" +
       "- `compra.categoria = \"farmacia\"` → `mult := 2`\n" +
       "- `compra.categoria em [\"mercado\", \"padaria\"]` → `mult := 1.5`\n" +
       "- **senão** → `mult := 1`",
@@ -349,7 +349,7 @@ const aula2: TourStep[] = [
   {
     id: "somar",
     title: "A Ação que acumula",
-    text: "Arraste uma **Action** para baixo da Tabela, com o efeito `pontos := pontos + piso(compra.valor * mult)`. `piso` tira a fração.",
+    text: "Arraste uma **Ação** para baixo da Tabela, com o efeito `pontos := pontos + piso(compra.valor * mult)`. `piso` tira a fração.",
     target: pieceOrField("rule", ['[data-tour="then"]'], (d) => (somar(d) ? undefined : blankOf(d, "rule"))),
     node: (d) => blankOf(d, "rule") ?? somar(d),
     motion: { kind: "drag", to: { world: P2.somar } },
@@ -393,7 +393,7 @@ const aula2: TourStep[] = [
   {
     id: "ouro",
     title: "O caminho do ouro",
-    text: "Arraste uma **Action** com o efeito `pontos := pontos * 2`: cliente ouro ganha o dobro.",
+    text: "Arraste uma **Ação** com o efeito `pontos := pontos * 2`: cliente ouro ganha o dobro.",
     target: pieceOrField("rule", ['[data-tour="then"]'], (d) => (dobrar(d) ? undefined : blankOf(d, "rule"))),
     node: (d) => blankOf(d, "rule") ?? dobrar(d),
     motion: { kind: "drag", to: { world: P2.dobrar } },
@@ -405,7 +405,7 @@ const aula2: TourStep[] = [
     id: "bloqueado",
     title: "O caminho do bloqueado: um Fim com erro",
     text:
-      "Arraste uma **Action** com os efeitos `total := 0` e `faixa := \"bloqueado\"` (um por linha), e um **End** abaixo dela. No Inspetor do End, mude o **Desfecho** para **erro**: é um caminho de negócio previsto.\n\n" +
+      "Arraste uma **Ação** com os efeitos `total := 0` e `faixa := \"bloqueado\"` (um por linha), e um **End** abaixo dela. No Inspetor do End, mude o **Desfecho** para **erro**: é um caminho de negócio previsto.\n\n" +
       "Ligue a Ação ao End com o Conector.",
     target: (c) => (!bloquear(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : !nodesOf(c.doc, "end").some((e) => e.logic?.outcome === "erro") ? (nodesOf(c.doc, "end").length ? ['[data-tour="outcome"]', "@node:end"] : ['[data-asset="logic-end"]']) : ['[aria-label="Conector"]']),
     node: (d) => blankOf(d, "rule") ?? bloquear(d),
@@ -445,7 +445,7 @@ const aula2: TourStep[] = [
     title: "A faixa e o fechamento",
     text:
       "Mais uma **Tabela**, pela faixa: `pontos >= 1000` → `faixa := \"diamante\"`, `pontos >= 300` → `faixa := \"ouro\"`, **senão** `faixa := \"comum\"` (a ordem importa).\n\n" +
-      "Abaixo dela, uma **Action** `total := pontos` e um **End** (desfecho ok). Ligue Tabela → Ação → End.",
+      "Abaixo dela, uma **Ação** `total := pontos` e um **End** (desfecho ok). Ligue Tabela → Ação → End.",
     target: (c) => (!faixaTable(c.doc) ? (blankOf(c.doc, "table") ? ['[data-tour="rows"]', "@node"] : ['[data-asset="logic-table"]']) : !fechar(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[data-asset="logic-end"]', '[aria-label="Conector"]']),
     node: (d) => blankOf(d, "table") ?? blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P2.faixa } },
@@ -637,7 +637,7 @@ const aula3: TourStep[] = [
     id: "validar",
     title: "Validar antes de gastar",
     text:
-      "Arraste uma **Decision** para baixo do Início com a condição `valor > 0 e parcelas em [6, 12, 24]` (no campo da condição, use a forma de texto se preferir) e ligue **Início → Decisão**.\n\n" +
+      "Arraste uma **Decisão** para baixo do Início com a condição `valor > 0 e parcelas em [6, 12, 24]` (no campo da condição, use a forma de texto se preferir) e ligue **Início → Decisão**.\n\n" +
       "Validar cedo evita chamar o bureau, que custa, com um pedido que seria recusado de qualquer jeito.",
     target: (c) => (valido(c.doc) ? ['[aria-label="Conector"]', "@node:start"] : blankOf(c.doc, "decision") ? ['[data-tour="when"]', "@node"] : ['[data-asset="logic-decision"]']),
     node: (d) => blankOf(d, "decision"),
@@ -670,7 +670,7 @@ const aula3: TourStep[] = [
     id: "invalido",
     title: "Pedido inválido: recusar",
     text:
-      "Arraste uma **Action** à direita da Decisão com `status := \"recusado\"` e `motivo := \"prazo inválido\"`, e um **End** com desfecho **erro** (*Recusado*). Ligue **Decisão → Ação** (a segunda seta: **não**) e **Ação → End**.",
+      "Arraste uma **Ação** à direita da Decisão com `status := \"recusado\"` e `motivo := \"prazo inválido\"`, e um **End** com desfecho **erro** (*Recusado*). Ligue **Decisão → Ação** (a segunda seta: **não**) e **Ação → End**.",
     target: (c) => (!invalido(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : !recusadoEnd(c.doc) ? (blankOf(c.doc, "end") ? ['[data-tour="outcome"]', "@node:end"] : ['[data-asset="logic-end"]']) : ['[aria-label="Conector"]']),
     node: (d) => blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.invalido } },
@@ -721,7 +721,7 @@ const aula3: TourStep[] = [
     title: "Quando a chamada falha: a seta «erro»",
     text:
       "Na Chamada, preencha **Falha simulada quando** com `cpf = \"00000000000\"`: nos exemplos com esse CPF, o fluxo segue pela seta **erro**.\n\n" +
-      "Crie uma **Action** `status := \"revisao\"`, `motivo := \"bureau indisponível\"` e um **End** (ok, *Revisão manual*). Ligue **Chamada → Ação**: a segunda seta de uma chamada nasce **erro**. E **Ação → End**.",
+      "Crie uma **Ação** `status := \"revisao\"`, `motivo := \"bureau indisponível\"` e um **End** (ok, *Revisão manual*). Ligue **Chamada → Ação**: a segunda seta de uma chamada nasce **erro**. E **Ação → End**.",
     target: (c) => (!bureau(c.doc)?.logic?.falha ? ['[data-tour="falha"]', "@node:call"] : !semBureau(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:call"]),
     node: (d) => blankOf(d, "rule"),
     motion: { kind: "click" },
@@ -743,7 +743,7 @@ const aula3: TourStep[] = [
     id: "ramos",
     title: "Os dois ramos do paralelo",
     text:
-      "Crie as **Variáveis** `taxa` e `limite` (`number`). Ramo 1: uma **Tabela** pelo score (`score >= 800` → `taxa := 1.5%`, `score >= 650` → `taxa := 2.5%`, senão `taxa := 4%`). Ramo 2: uma **Action** `limite := arredondar(renda * 30%, 2)`.\n\n" +
+      "Crie as **Variáveis** `taxa` e `limite` (`number`). Ramo 1: uma **Tabela** pelo score (`score >= 800` → `taxa := 1.5%`, `score >= 650` → `taxa := 2.5%`, senão `taxa := 4%`). Ramo 2: uma **Ação** `limite := arredondar(renda * 30%, 2)`.\n\n" +
       "Ligue **Paralelo → Tabela**, **Paralelo → Ação**, e as duas à **Junção**. Um ramo não pode escrever o que o outro lê.",
     target: (c) => (!taxaTable(c.doc) ? (blankOf(c.doc, "table") ? ['[data-tour="rows"]', "@node"] : ['[data-asset="logic-table"]']) : !limiteRule(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:fork"]),
     node: (d) => blankOf(d, "table") ?? blankOf(d, "rule"),
@@ -770,7 +770,7 @@ const aula3: TourStep[] = [
   {
     id: "parcela",
     title: "A parcela, depois da Junção",
-    text: "Crie a **Variável** `parcela` (`number`) e uma **Action** abaixo da Junção: `parcela := arredondar(valor * (1 + taxa * parcelas) / parcelas, 2)`. Ligue **Junção → Ação**: ela usa os dois ramos, por isso vem depois.",
+    text: "Crie a **Variável** `parcela` (`number`) e uma **Ação** abaixo da Junção: `parcela := arredondar(valor * (1 + taxa * parcelas) / parcelas, 2)`. Ligue **Junção → Ação**: ela usa os dois ramos, por isso vem depois.",
     target: (c) => (!dataNode(c.doc, "parcela") ? ['[data-asset="logic-variable"]', '[data-tour="key"]'] : !parcelaRule(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:join"]),
     node: (d) => blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.parcela } },
@@ -788,7 +788,7 @@ const aula3: TourStep[] = [
     id: "travar",
     title: "Travar: um valor que nada adiante muda",
     text:
-      "Cliente **negativado** vai para revisão mesmo que a parcela caiba. Arraste uma **Decision** `negativado` e uma **Action** com `status := \"revisao\"`, `motivo := \"restrição no cadastro\"`, `travar status` e `travar motivo`.\n\n" +
+      "Cliente **negativado** vai para revisão mesmo que a parcela caiba. Arraste uma **Decisão** `negativado` e uma **Ação** com `status := \"revisao\"`, `motivo := \"restrição no cadastro\"`, `travar status` e `travar motivo`.\n\n" +
       "Ligue **Parcela → Decisão** e **Decisão → Ação** (o **sim**). Daqui em diante, `status := ...` não muda o valor: o debug mostra a escrita barrada.",
     target: (c) => (!negativado(c.doc) ? (blankOf(c.doc, "decision") ? ['[data-tour="when"]', "@node"] : ['[data-asset="logic-decision"]']) : !revisaoRule(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]']),
     node: (d) => blankOf(d, "decision") ?? blankOf(d, "rule"),
@@ -807,7 +807,7 @@ const aula3: TourStep[] = [
     id: "decidir",
     title: "A decisão final",
     text:
-      "Uma **Decision** `parcela <= limite`, ligada pelo **não** da *Negativado?* e pela saída de *Prender em revisão*. No **sim**, uma **Action** `status := \"aprovado\"`, `motivo := \"\"` e um **End** ok (*Decidido*). No **não**, uma **Action** que **destrava** e recusa: `destravar status`, `destravar motivo`, `status := \"recusado\"`, `motivo := \"parcela acima de 30% da renda\"`, ligada ao End *Recusado*.",
+      "Uma **Decisão** `parcela <= limite`, ligada pelo **não** da *Negativado?* e pela saída de *Prender em revisão*. No **sim**, uma **Ação** `status := \"aprovado\"`, `motivo := \"\"` e um **End** ok (*Decidido*). No **não**, uma **Ação** que **destrava** e recusa: `destravar status`, `destravar motivo`, `status := \"recusado\"`, `motivo := \"parcela acima de 30% da renda\"`, ligada ao End *Recusado*.",
     target: (c) => (!cabe(c.doc) ? (blankOf(c.doc, "decision") ? ['[data-tour="when"]', "@node"] : ['[data-asset="logic-decision"]']) : !aprovar(c.doc) || !recusar(c.doc) ? (blankOf(c.doc, "rule") ? ['[data-tour="then"]', "@node"] : ['[data-asset="logic-rule"]']) : ['[aria-label="Conector"]', "@node:decision"]),
     node: (d) => blankOf(d, "decision") ?? blankOf(d, "rule"),
     motion: { kind: "drag", to: { world: P3.cabe } },

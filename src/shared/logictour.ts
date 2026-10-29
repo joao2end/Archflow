@@ -221,7 +221,7 @@ export const LOGIC_TOUR: TourStep[] = [
   {
     id: "decisao",
     title: "Arraste uma Decisão",
-    text: "A **Decisão** faz uma pergunta sim/não e escolhe por qual seta o fluxo segue. Arraste a peça **Decision** para o quadro.",
+    text: "A **Decisão** faz uma pergunta sim/não e escolhe por qual seta o fluxo segue. Arraste essa peça da Biblioteca para o quadro.",
     target: ['[data-asset="logic-decision"]'],
     motion: { kind: "drag", to: { world: POS.decisionDrop } },
     ui: { panel: "assets" },
@@ -286,7 +286,7 @@ export const LOGIC_TOUR: TourStep[] = [
   {
     id: "acoes",
     title: "Arraste duas Ações",
-    text: "A **Ação** muda dados. Precisamos de duas: uma para o frete grátis (*sim*) e outra para o frete fixo (*não*). Arraste **Action** duas vezes, abaixo da Decisão.",
+    text: "A **Ação** muda dados. Precisamos de duas: uma para o frete grátis (*sim*) e outra para o frete fixo (*não*). Arraste a **Ação** duas vezes, abaixo da Decisão.",
     target: ['[data-asset="logic-rule"]'],
     motion: { kind: "drag", to: { world: POS.ruleSim } },
     places: { rule: (doc) => (nodesOf(doc, "rule").length < 1 ? POS.ruleSim(doc) : POS.ruleNao(doc)) },
