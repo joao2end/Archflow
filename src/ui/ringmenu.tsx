@@ -6,6 +6,26 @@
 import { onionPicks, type OnionPick } from "../shared/onion";
 import { getState, run, set, toastError, useStore } from "./store";
 
+/** `ref` de um menu de contexto aberto no ponto do clique: perto da borda direita ou de baixo, empurra o menu para dentro
+ * da tela. Mede o menu montado e de novo a cada mudança de tamanho (os itens podem mudar logo depois de abrir). */
+export function keepInView(el: HTMLElement | null) {
+  if (!el) return;
+  const x = el.offsetLeft;
+  const y = el.offsetTop;
+  const fit = () => {
+    // mede no canto, com espaço: colado na borda o texto quebraria e o menu pareceria mais estreito do que é. O tamanho
+    // é o de layout (offset*), não o da caixa na tela: a animação de abertura ainda está em escala reduzida
+    el.style.left = el.style.top = "0px";
+    const m = 8;
+    el.style.left = `${Math.max(m, Math.min(x, window.innerWidth - el.offsetWidth - m))}px`;
+    el.style.top = `${Math.max(m, Math.min(y, window.innerHeight - el.offsetHeight - m))}px`;
+  };
+  fit();
+  const ro = new ResizeObserver(fit);
+  ro.observe(el);
+  return () => ro.disconnect();
+}
+
 export function RingAddMenu({ x, y, groupId, onClose }: { x: number; y: number; groupId: string; onClose: () => void }) {
   const g = useStore((s) => s.doc.groups.find((q) => q.id === groupId));
   if (!g?.ring) return null;
@@ -18,9 +38,10 @@ export function RingAddMenu({ x, y, groupId, onClose }: { x: number; y: number; 
   };
   return (
     <div
+      ref={keepInView}
       className="glass ctx-menu"
       data-ui
-      style={{ left: Math.min(x, window.innerWidth - 250), top: Math.min(y, window.innerHeight - 260) }}
+      style={{ left: x, top: y }}
       role="menu"
       aria-label={`Adicionar em ${g.label}`}
       onPointerDown={(e) => e.stopPropagation()}

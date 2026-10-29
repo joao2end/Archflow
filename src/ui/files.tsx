@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { docMode, type DocMode } from "../shared/schema";
 import { Glyph } from "./icons";
 import { exportJson, importJson } from "./export";
+import { keepInView } from "./ringmenu";
 import {
   addRefNode, createFolder, exportLocalProject, importLocalProject, deleteDiagram, deleteFolder, duplicateDiagram, fsList, fsMkdir, isExpanded, moveDiagram, newDiagram, openDiagram, renameDiagram, renameFolder,
   set, toggleFolder, projectCreate, projectOpen, projectRemove, projectSwitch, useStore, type FileNode, type FolderNode,
@@ -177,7 +178,7 @@ export function FilesPanel() {
   const openMenu = (e: React.MouseEvent, m: Omit<Menu, "x" | "y">) => {
     e.preventDefault();
     e.stopPropagation();
-    setMenu({ ...m, x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 260) });
+    setMenu({ ...m, x: e.clientX, y: e.clientY });
   };
 
   const startNew = (kind: "new-file" | "new-folder", folder: string, mode?: DocMode) => {
@@ -467,7 +468,7 @@ export function FilesPanel() {
       </div>
 
       {menu && (
-        <div className="glass ctx-menu" style={{ left: menu.x, top: menu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()}>
+        <div ref={keepInView} className="glass ctx-menu" style={{ left: menu.x, top: menu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()}>
           {menu.kind === "file" && (
             <>
               <button onClick={() => (void openDiagram(menu.path), setMenu(null))}>

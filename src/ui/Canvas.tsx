@@ -1,5 +1,5 @@
 import { createContext, memo, type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
-import { RingAddMenu } from "./ringmenu";
+import { RingAddMenu, keepInView } from "./ringmenu";
 import { ONION_PREFIX, insideGroupShape, onionPicks, orbitLook, orbits, polar } from "../shared/onion";
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
@@ -2227,7 +2227,7 @@ export function Canvas() {
       setMenu(null);
       setPaneMenu(null);
       select([t.id]);
-      setNodeMenu({ x: Math.min(e.clientX, window.innerWidth - 270), y: Math.min(e.clientY, window.innerHeight - 390), id: t.id });
+      setNodeMenu({ x: e.clientX, y: e.clientY, id: t.id });
       return;
     }
     if (!t?.id || (t.role !== "conn" && t.role !== "wp" && t.role !== "wp-add")) {
@@ -2235,7 +2235,7 @@ export function Canvas() {
       setNodeMenu(null);
       if (!t?.id && !getState().tool.match(/^(pen|highlight|eraser)$/)) {
         e.preventDefault();
-        setPaneMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 140), at: toWorld(e) });
+        setPaneMenu({ x: e.clientX, y: e.clientY, at: toWorld(e) });
       } else setPaneMenu(null);
       return;
     }
@@ -2256,8 +2256,8 @@ export function Canvas() {
     }
     select([t.id]);
     setMenu({
-      x: Math.min(e.clientX, window.innerWidth - 230),
-      y: Math.min(e.clientY, window.innerHeight - 130),
+      x: e.clientX,
+      y: e.clientY,
       conn: t.id,
       at,
       idx: t.role === "wp" ? Number(dataset.idx) : idx,
@@ -2502,7 +2502,7 @@ export function Canvas() {
       if (!n) return null;
       const pick = (mode: FlowMode) => (setNodeMenu(null), inspectFlow(n.id, mode));
       return (
-        <div className="glass ctx-menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+        <div ref={keepInView} className="glass ctx-menu" style={{ left: nodeMenu.x, top: nodeMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
           <div className="ctx-title">{n.label}</div>
           <button role="menuitem" onClick={() => pick("both")}>
             Inspecionar fluxo
@@ -2555,7 +2555,7 @@ export function Canvas() {
     })()}
     {ringMenu && <RingAddMenu x={ringMenu.x} y={ringMenu.y} groupId={ringMenu.id} onClose={() => setRingMenu(null)} />}
     {paneMenu && (
-      <div className="glass ctx-menu" style={{ left: paneMenu.x, top: paneMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+      <div ref={keepInView} className="glass ctx-menu" style={{ left: paneMenu.x, top: paneMenu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
         <button role="menuitem" disabled={!hasClipboard()} onClick={() => (setPaneMenu(null), pasteClipboard(paneMenu.at))}>
           Colar aqui
           <kbd>Ctrl+V</kbd>
@@ -2572,7 +2572,7 @@ export function Canvas() {
     )}
     {flow && focus && <FlowBar id={focus.id} mode={focus.mode} flow={flow} />}
     {menu && menuConn && (
-      <div className="glass ctx-menu" style={{ left: menu.x, top: menu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+      <div ref={keepInView} className="glass ctx-menu" style={{ left: menu.x, top: menu.y }} role="menu" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
         {menu.onPoint ? (
           <button role="menuitem" className="danger" onClick={() => editWaypoints(menu.conn, (w) => w.filter((_, i) => i !== menu.idx))}>
             Remover este ponto
