@@ -962,11 +962,11 @@ export function Inspector() {
           </div>
         </div>
         <div className="field">
-          <span className="lbl-s">Curva</span>
+          <span className="lbl-s">Pontos do traçado</span>
           <button className="btn" disabled={!conn.waypoints?.length} onClick={() => patch({ waypoints: undefined })}>
-            Resetar curva{conn.waypoints?.length ? ` (${conn.waypoints.length} ponto${conn.waypoints.length > 1 ? "s" : ""})` : ""}
+            Remover os pontos{conn.waypoints?.length ? ` (${conn.waypoints.length})` : ""}
           </button>
-          <div className="callout">Com a conexão selecionada, arraste o “•” no meio do traçado para curvá-la; arraste os círculos para ajustar; duplo clique num círculo o remove.</div>
+          <div className="callout">Com a conexão selecionada, arraste o “•” no meio do traçado para criar um ponto e dobrá-la ali; arraste os círculos para ajustar; duplo clique num círculo o remove.</div>
         </div>
         {t.motion !== "none" && (
           <div className="toggle">

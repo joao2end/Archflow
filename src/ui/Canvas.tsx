@@ -2586,7 +2586,7 @@ export function Canvas() {
           <>
             <hr />
             <button role="menuitem" onClick={() => editWaypoints(menu.conn, () => [])}>
-              Resetar curva ({menuConn.waypoints.length} ponto{menuConn.waypoints.length > 1 ? "s" : ""})
+              Remover os pontos ({menuConn.waypoints.length})
             </button>
           </>
         )}
