@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetsForMode, searchAssets } from "../shared/catalog";
-import { NODE_KINDS, docMode, type Asset, type NodeEl, type NodeKind } from "../shared/schema";
+import { NODE_KIND_SHORT, docMode, type Asset, type NodeEl, type NodeKind } from "../shared/schema";
 import { AssetBadge, Glyph } from "./icons";
 import { allKnownAssets, getState, lookupAsset, saveAsset, toast, useStore } from "./store";
 
@@ -118,7 +118,7 @@ export function TechPicker({ node, patch }: { node: NodeEl; patch: (p: Record<st
                 <AssetBadge asset={a} size={26} />
                 <span className="tech-opt-main">
                   <b>{a.name}</b>
-                  <small>{a.category} · {NODE_KINDS[a.kind as NodeKind]?.split(" / ")[0].split(",")[0]}</small>
+                  <small>{a.category} · {NODE_KIND_SHORT[a.kind as NodeKind]}</small>
                 </span>
                 {a.id === node.asset && <Glyph name="check" size={14} />}
               </button>

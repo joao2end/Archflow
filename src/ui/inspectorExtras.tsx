@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, endpointLabel, type EndpointProtocol, type EndpointSpec, type NodeEl } from "../shared/schema";
+import { ENDPOINT_PROTOCOLS, NODE_KIND_SHORT, endpointBadge, endpointColor, endpointLabel, type EndpointProtocol, type EndpointSpec, type NodeEl, type NodeKind } from "../shared/schema";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { fetchOutline, openRef, openViewer, run, select, useStore, type Outline } from "./store";
@@ -218,7 +218,7 @@ export function RefPicker({ node, patch }: { node: NodeEl; patch: Patch }) {
               {outline?.nodes.map((n) => (
                 <option key={n.id} value={n.id}>
                   {n.owner ? "↳ " : ""}
-                  {n.label} ({n.kind})
+                  {n.label} ({NODE_KIND_SHORT[n.kind as NodeKind] ?? n.kind})
                 </option>
               ))}
             </select>

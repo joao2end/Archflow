@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeDoc } from "../shared/ops";
-import { AGENT_ROLES, CONNECTION_TYPES, DDD_ROLES, ENDPOINT_PROTOCOLS, LOGIC_ROLES, NODE_KINDS, endpointBadge, endpointColor, type Doc, type NodeEl } from "../shared/schema";
+import { AGENT_ROLES, CONNECTION_TYPES, DDD_ROLES, ENDPOINT_PROTOCOLS, LOGIC_ROLES, NODE_KIND_SHORT, endpointBadge, endpointColor, type Doc, type NodeEl } from "../shared/schema";
 import { DiagramDefs, Edge, GroupShape, NodeShape, NoteShape, ViewerAssets, computeEdges, computeOwnerLinks, sortedGroups } from "./Canvas";
 import { contentBounds } from "./geometry";
 import { Glyph } from "./icons";
@@ -12,7 +12,7 @@ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const labelOf = (d: Doc, id: string) => d.nodes.find((n) => n.id === id)?.label ?? d.groups.find((g) => g.id === id)?.label ?? id;
 /** o tipo, como o Inspetor o mostra: o papel (Domain, Logic, Agents) ou o rótulo curto do tipo */
 const kindLabel = (n: NodeEl) =>
-  (n.ddd && DDD_ROLES[n.ddd.role]?.label) || (n.logic && LOGIC_ROLES[n.logic.role]?.label) || (n.agent && AGENT_ROLES[n.agent.role]?.label) || NODE_KINDS[n.kind]?.split(" / ")[0] || n.kind;
+  (n.ddd && DDD_ROLES[n.ddd.role]?.label) || (n.logic && LOGIC_ROLES[n.logic.role]?.label) || (n.agent && AGENT_ROLES[n.agent.role]?.label) || NODE_KIND_SHORT[n.kind] || n.kind;
 const nameOf = (p: string) => p.split("/").pop()?.replace(".archflow.json", "") ?? p;
 
 /**

@@ -28,6 +28,26 @@ export type NodeKind =
   | "logic"
   | "agent";
 
+/** Rótulo curto de cada tipo (listas, selos): NODE_KINDS são descrições e cortá-las dava «Cliente (web». */
+export const NODE_KIND_SHORT: Record<NodeKind, string> = {
+  service: "Serviço",
+  client: "Cliente",
+  actor: "Pessoa",
+  database: "Banco de dados",
+  cache: "Cache",
+  queue: "Fila",
+  gateway: "Gateway",
+  external: "Sistema externo",
+  ai: "IA",
+  infra: "Infraestrutura",
+  library: "Biblioteca",
+  endpoint: "Endpoint",
+  system: "Outro diagrama",
+  domain: "Domínio",
+  logic: "Lógica",
+  agent: "Agente",
+};
+
 export const NODE_KINDS: Record<NodeKind, string> = {
   service: "Serviço / API / aplicação backend",
   client: "Cliente (web, mobile, desktop, CLI)",
