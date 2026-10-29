@@ -657,6 +657,9 @@ export function ProjectsModal() {
                 (local && confirmDel === v.id ? (
                   <div className="file-actions on">
                     <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>Apagar os dados?</span>
+                    <button className="btn sm" onClick={() => setConfirmDel(null)}>
+                      Cancelar
+                    </button>
                     <button
                       className="btn sm danger"
                       onClick={() => {
@@ -665,9 +668,6 @@ export function ProjectsModal() {
                       }}
                     >
                       Excluir
-                    </button>
-                    <button className="btn sm" onClick={() => setConfirmDel(null)}>
-                      Cancelar
                     </button>
                   </div>
                 ) : (
