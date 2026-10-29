@@ -1205,8 +1205,12 @@ export const loadHarnessSync = () => call<{ targets: HarnessTarget[] }>("/api/ha
 export const loadHarnessSyncState = () => call<{ targets: HarnessTarget[]; configured: boolean }>("/api/harness/settings");
 export const saveHarnessSync = (targets: HarnessTarget[]) =>
   guard(async () => {
-    const r = await call<{ targets: HarnessTarget[] }>("/api/harness/settings", { targets });
-    toast(r.targets.length ? `Harness sincronizado automaticamente: ${r.targets.join(" + ")}` : "Sincronização automática do harness desligada");
+    const r = await call<{ targets: HarnessTarget[]; removed?: string[]; kept?: string[] }>("/api/harness/settings", { targets });
+    const names = r.targets.map((t) => HARNESS_TARGETS.find((x) => x.id === t)?.label ?? t).join(" e ");
+    // a ferramenta desmarcada perde o que o Archflow gravou nela; o que foi editado à mão fica (e o aviso diz)
+    const gone = r.removed?.length ? ` · ${r.removed.length} arquivo(s) gerados apagados da ferramenta desmarcada` : "";
+    const kept = r.kept?.length ? ` · ${r.kept.length} editado(s) à mão ficaram: ${r.kept.slice(0, 3).join(", ")}${r.kept.length > 3 ? "…" : ""}` : "";
+    toast(`${r.targets.length ? `Agentes e skills vão para: ${names}` : "Nenhuma ferramenta marcada: nada é gravado sozinho"}${gone}${kept}`);
     return r.targets;
   });
 

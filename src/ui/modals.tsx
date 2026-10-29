@@ -549,7 +549,8 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
   const [auto, setAuto] = useState<HarnessTarget[] | undefined>();
   const [configured, setConfigured] = useState(true);
   useEffect(() => {
-    if (tab === "harness" && storage === "server" && !auto) loadHarnessSyncState().then((r) => { setAuto(r.targets); setConfigured(r.configured ?? true); }, () => setAuto([]));
+    // a aba abre na ferramenta do projeto (se só o Cursor está marcado, mostrar .claude/ seria o convite errado)
+    if (tab === "harness" && storage === "server" && !auto) loadHarnessSyncState().then((r) => { setAuto(r.targets); setConfigured(r.configured ?? true); if (r.targets.length === 1) setTarget(r.targets[0]); }, () => setAuto([]));
   }, [tab, storage, auto]);
   const toggleAuto = (t: HarnessTarget) => {
     const next = auto?.includes(t) ? auto.filter((x) => x !== t) : [...(auto ?? []), t];
@@ -628,15 +629,15 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
               : <>Sem servidor local, o harness sai como <code>.zip</code> com a árvore <code>{root}/</code> pronta: descompacte na raiz do seu repositório. Rode <code>npm run dev</code> para gravar direto no projeto.</>}
           </div>
           {onDisk && (
-            <div className="callout" role="group" aria-label="Sincronização automática">
-              <strong>Sincronizar automaticamente</strong> a cada edição deste diagrama:{" "}
+            <div className="callout" role="group" aria-label="Ferramentas deste projeto">
+              <strong>Ferramentas deste projeto</strong>: o Archflow grava os agentes e as skills só nelas, e regrava a cada edição deste diagrama.{" "}
               {HARNESS_TARGETS.map((t) => (
                 <label key={t.id} style={{ marginRight: 14, whiteSpace: "nowrap" }}>
                   <input type="checkbox" checked={!!auto?.includes(t.id)} disabled={!auto || !configured} onChange={() => toggleAuto(t.id)} /> {t.label} <code>{t.root}/</code>
                 </label>
               ))}
               {!configured && <div className="callout warn" style={{ marginTop: 6 }}>O projeto ainda não foi configurado: a sincronização só funciona depois de criar ou abrir o projeto na tela de boas-vindas.</div>}
-              <div style={{ opacity: 0.8, marginTop: 4 }}>Arquivos que saem do diagrama são apagados; arquivos que você editou à mão não são sobrescritos (o botão ⬇ força). O controle fica em <code>archflow.agents.json</code>.</div>
+              <div style={{ opacity: 0.8, marginTop: 4 }}>Desmarcar uma ferramenta apaga dela os arquivos que o Archflow gerou; os que você editou à mão ficam. Arquivos que saem do diagrama também são apagados, e editados à mão não são sobrescritos (o botão ⬇ força). O controle fica em <code>archflow.agents.json</code>.</div>
             </div>
           )}
           {files.length ? <pre className="code">{text}</pre> : <div className="callout warn">Nada a exportar: o time precisa de pelo menos um agente, ou de uma skill no grupo Global (ou ligada a um agente por <code>uses-skill</code>).</div>}

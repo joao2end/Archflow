@@ -147,3 +147,21 @@ test("harnessDiff: só leitura; aponta ausente, alterado e sobra do diagrama", (
     rmSync(d, { recursive: true, force: true });
   }
 });
+
+test("ferramenta desmarcada (lista vazia nas pastas dela): sai o que o Archflow gravou, fica o editado e a outra ferramenta", () => {
+  const d = mkdtempSync(join(tmpdir(), "archflow-untarget-"));
+  try {
+    const at = (p: string) => join(d, ...p.split("/"));
+    syncHarness(d, [f(".claude/agents/a.md", "A")], [".claude", ".mcp.json"], "time.archflow.json");
+    syncHarness(d, [f(".cursor/agents/a.md", "A"), f(".cursor/rules/r.mdc", "R")], [".cursor"], "time.archflow.json");
+    writeFileSync(at(".cursor/rules/r.mdc"), "EDITADO À MÃO");
+    const r = syncHarness(d, [], [".cursor"], "time.archflow.json");
+    assert.deepEqual(r.removed, [".cursor/agents/a.md"]);
+    assert.deepEqual(r.conflicts, [".cursor/rules/r.mdc"]);
+    assert.ok(!existsSync(at(".cursor/agents")), "pasta que ficou vazia sai junto");
+    assert.equal(readFileSync(at(".cursor/rules/r.mdc"), "utf8"), "EDITADO À MÃO");
+    assert.equal(readFileSync(at(".claude/agents/a.md"), "utf8"), "A", "a ferramenta que continua marcada não é tocada");
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});

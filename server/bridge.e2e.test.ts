@@ -181,6 +181,13 @@ test("o harness é regravado sozinho a cada edição do diagrama agents (alvo po
   await sleep(1500);
   assert.equal(readFileSync(join(root, ".claude", "agents", "revisor.md"), "utf8"), "meu texto");
   assert.match(readFileSync(join(root, ".cursor", "agents", "revisor.md"), "utf8"), /outra descrição/);
+
+  // desmarcar o Cursor: sai o .cursor/ que o Archflow gerou; o .claude/ (com a edição manual) fica
+  const off = await api<{ targets: string[]; removed: string[] }>("/api/harness/settings", { targets: ["claude"] });
+  assert.deepEqual(off.json.targets, ["claude"]);
+  assert.ok(off.json.removed.includes(".cursor/agents/revisor.md"), "o gerado no Cursor é apagado");
+  assert.ok(!existsSync(join(root, ".cursor", "agents")), "sem pasta do Cursor para apagar à mão");
+  assert.equal(readFileSync(join(root, ".claude", "agents", "revisor.md"), "utf8"), "meu texto");
 });
 
 test("env-check: só diz se a variável existe, nunca o valor", async () => {

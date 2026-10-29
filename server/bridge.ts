@@ -918,10 +918,20 @@ function setHarnessTargets(input: { targets?: unknown }) {
   } catch {
     /* recria */
   }
+  const before = harnessTargets();
   const targets = HARNESS_TARGETS.filter((t) => (input.targets as string[]).includes(t));
   atomicWrite(path, JSON.stringify({ ...meta, harness: { targets } }, null, 2));
+  // ferramenta desmarcada: sai o que o Archflow gravou nela (pelo manifesto, só o que continua intacto; o que foi
+  // editado à mão fica e volta como conflito). Assim .cursor/ não precisa ser apagado à mão
+  const removed: string[] = [];
+  const kept: string[] = [];
+  for (const t of before.filter((t) => !targets.includes(t))) {
+    const r = syncHarness(dir, [], rootsOf(t), current);
+    removed.push(...r.removed);
+    kept.push(...r.conflicts);
+  }
   scheduleHarnessSync(0);
-  return { targets };
+  return { targets, removed, kept };
 }
 
 let harnessTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1049,7 +1059,7 @@ function parseCliSkills(stdout: string): CliSkill[] | undefined {
 
 /**
  * Instala skill(s) de um repositório GitHub com `npx skills add` (CLI `skills`, hub skills.sh) dentro
- * do projeto aberto: `.agents/skills/<slug>/`, links em `.claude/skills/` e `.cursor/skills/`, e
+ * do projeto aberto: `.agents/skills/<slug>/`, links nas pastas das ferramentas do projeto (`harness.targets`), e
  * `skills-lock.json`. Sem slug (URL do repositório, não de uma skill) instala todas as que o CLI achar.
  * O hash devolvido é o do app (`hashSkillContent`), para o drift bater com o fetch do catálogo curado;
  * o `computedHash` do lock continua sendo o sha256 do CLI.
@@ -1063,7 +1073,9 @@ export async function installSkillFromCatalog(input: { repo?: unknown; skillPath
   const cached = input.force ? undefined : findDownloaded(repo, skillPath, slug);
   if (cached) return { installed: [{ ...cached, tags: "instalada" }], project: project?.name, cached: true };
   if (!dir) throw new HttpError(422, "nenhum projeto em disco está aberto");
-  const args = ["--yes", "skills", "add", repo, "-a", "claude-code", "-a", "cursor", "-y", "--json"];
+  // só as ferramentas que o projeto usa (Ferramentas deste projeto, no modal Agents): sem isso o CLI criava .cursor/skills sempre
+  const agents = (harnessTargets().length ? harnessTargets() : (["claude"] as HarnessTarget[])).flatMap((t) => ["-a", t === "claude" ? "claude-code" : "cursor"]);
+  const args = ["--yes", "skills", "add", repo, ...agents, "-y", "--json"];
   if (slug) args.splice(4, 0, "-s", slug);
   const r = await runSkills(args);
   const parsed = parseCliSkills(r.stdout);
