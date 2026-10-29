@@ -412,6 +412,7 @@ export function endTyping() {
   typing = false;
   typingPushed = false;
 }
+export const isTypingSession = () => typing;
 /** Atualização "ao vivo" (arrastar) — sem histórico até endTx. */
 export function beginTx() {
   txBase = state.doc;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { Glyph } from "./icons";
+import { beginTyping, endTyping, isTypingSession } from "./store";
 
 /* ───────── conversões ───────── */
 
@@ -155,12 +156,17 @@ export function ColorPicker({ value, onChange, swatchColor, label = "Cor persona
     };
   }, [open, place]);
 
-  // ao abrir, lê as recentes; ao fechar, guarda a cor escolhida se ela mudou
+  // ao abrir, lê as recentes; ao fechar, guarda a cor escolhida se ela mudou. Aberto, é uma sessão de edição: arrastar
+  // na área de cor muda o diagrama a cada movimento, e tudo vira um só ponto de desfazer (se o editor de texto já abriu
+  // a dele, vale a dele)
   useEffect(() => {
     if (!open) return;
     startHex.current = lastHex.current = value;
     setRecent(loadRecent());
+    const session = !isTypingSession();
+    if (session) beginTyping();
     return () => {
+      if (session) endTyping();
       if (lastHex.current.toLowerCase() !== startHex.current.toLowerCase()) saveRecent(lastHex.current);
     };
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
