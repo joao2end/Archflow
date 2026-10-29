@@ -11,7 +11,7 @@ import { renderMarkdown } from "./markdown";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { insertBlock, RichEditor, RichToolbar } from "./richeditor";
-import { installGithubSkills, searchSkillsHub, topSkillsHub, listSkillSources, addSkillSource, refreshSkillSources, removeSkillSource, indexedSkills, loadDownloadedSkills, renameNode, checkMcpEnv, probeMcpServer, plugTool, convertLegacyTools, runInTerminal, runNodeInTerminal, setPromptAgent, addWorkflowStep, reorderWorkflowSteps, type SkillSourceInfo, run, set, toast, toastError, useStore } from "./store";
+import { installGithubSkills, searchSkillsHub, topSkillsHub, listSkillSources, addSkillSource, refreshSkillSources, removeSkillSource, indexedSkills, loadDownloadedSkills, renameNode, checkMcpEnv, probeMcpServer, plugTool, convertLegacyTools, runInTerminal, runNodeInTerminal, setPromptAgent, addWorkflowStep, reorderWorkflowSteps, type SkillSourceInfo, beginTyping, endTyping, run, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
 
@@ -246,6 +246,10 @@ function WorkflowRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNo
 
 const MODEL_OPTIONS = ["inherit", "sonnet", "opus", "haiku"];
 
+/** ref estável (um ref em linha seria refeito a cada tecla e encerraria a sessão no meio da digitação): ao desmontar com o
+ * foco no campo, encerra a sessão de digitação que o onFocus abriu */
+const endTypingOnUnmount = (el: HTMLInputElement | null) => () => void (el && document.activeElement === el && endTyping());
+
 function AgentRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNodeSpec; upd: (p: Record<string, unknown>) => void }) {
   const doc = useStore((s) => s.doc);
   const avail = useStore((s) => s.termAvail);
@@ -262,7 +266,17 @@ function AgentRoleFields({ node, agent, upd }: { node: NodeEl; agent: AgentNodeS
       {!agent.description && <div className="callout warn">Sem description o orquestrador nunca sabe quando chamar este agente (A001).</div>}
       <label className="field">
         <span>Model</span>
-        <input className="input" list="agent-models" value={agent.model ?? ""} placeholder="inherit" onChange={(e) => upd({ model: e.target.value || undefined })} />
+        {/* digitar o nome do modelo é um só ponto de desfazer, como nos campos de texto do Inspetor; o inspetor pode
+            desmontar com o foco aqui (troca de seleção): a limpeza do ref encerra a sessão */}
+        <input
+          className="input"
+          list="agent-models"
+          value={agent.model ?? ""}
+          placeholder="inherit"
+          ref={endTypingOnUnmount}
+          onFocus={beginTyping}
+          onBlur={endTyping}
+          onChange={(e) => upd({ model: e.target.value || undefined })} />
         <datalist id="agent-models">
           {MODEL_OPTIONS.map((m) => (
             <option key={m} value={m} />
