@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MCP_CATALOG, parseMcpInput, searchMcpCatalog, type McpCatalogEntry } from "../shared/mcpcatalog";
+import { MCP_CATALOG, norm, parseMcpInput, searchMcpCatalog, type McpCatalogEntry } from "../shared/mcpcatalog";
 import { NATIVE_TOOLS } from "../shared/schema";
 import { ToolEditor } from "./agents";
 import { Glyph } from "./icons";
@@ -80,8 +80,9 @@ export function ToolModal({ id, tab: initial }: { id: string; tab?: "search" | "
 
   const local = useMemo(() => searchMcpCatalog(query), [query]);
   const natives = useMemo(() => {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return Object.entries(NATIVE_TOOLS).filter(([n, d]) => words.every((w) => `${n} ${d} nativa tool`.toLowerCase().includes(w)));
+    // sem acentos, como o catálogo curado logo abaixo na mesma lista
+    const words = norm(query).split(/\s+/).filter(Boolean);
+    return Object.entries(NATIVE_TOOLS).filter(([n, d]) => words.every((w) => norm(`${n} ${d} nativa tool`).includes(w)));
   }, [query]);
   const remoteOnly = remote.filter((r) => !MCP_CATALOG.some((c) => c.id === r.id || (c.url && c.url === r.url)));
   const parsed = useMemo(() => (paste.trim() ? parseMcpInput(paste) : undefined), [paste]);

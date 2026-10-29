@@ -108,7 +108,8 @@ export function findMcpCatalogEntry(id: string, extra: McpCatalogEntry[] = []): 
   return [...MCP_CATALOG, ...extra].find((e) => e.id === id);
 }
 
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+/** minúsculas e sem acentos, para buscar «le arquivos» e achar «Lê arquivos» */
+export const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** Busca por nome, descrição e tags (todas as palavras precisam casar). Vazio = tudo. */
 export function searchMcpCatalog(query: string, extra: McpCatalogEntry[] = []): McpCatalogEntry[] {
