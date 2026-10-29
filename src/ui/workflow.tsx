@@ -14,6 +14,9 @@ import { PaneHead } from "./panekit";
 import { useStore } from "./store";
 import { allowableTools, loadAllowed, saveAllowed } from "./toolperms";
 
+/** por que o Executar está desabilitado (title nativo: desabilitado, o botão não recebe os eventos do tooltip do app) */
+const NO_STEPS = "Sem passos: ligue prompts a este workflow com setas step";
+
 export interface TermApi {
   startExec(args: string[], title: string): Promise<{ id: string } | undefined>;
   /** sessão interativa (passo manual); `prefill` é digitado sem Enter quando o claude estiver pronto */
@@ -306,7 +309,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
                 <span>{w.name}</span>
                 <small>{w.steps.length} {w.steps.length === 1 ? "passo" : "passos"}</small>
               </button>
-              <button className="btn ghost icon sm run" aria-label={`Executar ${w.name}`} title="Executar" disabled={!w.steps.length} onClick={() => quickRun(w)}>▶</button>
+              <button className="btn ghost icon sm run" aria-label={`Executar ${w.name}`} title={w.steps.length ? "Executar" : NO_STEPS} disabled={!w.steps.length} onClick={() => quickRun(w)}>▶</button>
             </div>
           ))}
         </div>
@@ -372,7 +375,7 @@ export function WorkflowsPane({ tabs, lib, projectId, term, focus, onEdit }: { t
       </div>
       <div className="pane-foot">
         <div className="pane-actions">
-          <button className="btn primary sm" disabled={!wf.steps.length} onClick={start}>Executar</button>
+          <button className="btn primary sm" disabled={!wf.steps.length} onClick={start} title={wf.steps.length ? undefined : NO_STEPS}>Executar</button>
           <button className="btn sm" onClick={() => onEdit(wf.id)} title="Seleciona o workflow no diagrama; os passos se editam no inspetor">Editar no diagrama</button>
         </div>
       </div>
