@@ -487,6 +487,14 @@ export function toastError(msg: string) {
   toast(msg, false, true);
 }
 
+/** Copia para a área de transferência e avisa; se o navegador negar (permissão, página sem foco), diz como copiar à mão. */
+export function copyText(text: string, msg = "Copiado para a área de transferência") {
+  return navigator.clipboard.writeText(text).then(
+    () => toast(msg),
+    () => toastError("Não deu para copiar: selecione o texto e use Ctrl+C."),
+  );
+}
+
 export function allKnownAssets(): Asset[] {
   const lib = new Map(state.library.map((a) => [a.id, a]));
   const fromDoc = allAssets(state.doc).filter((a) => !a.builtin);

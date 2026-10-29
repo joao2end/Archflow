@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SKILL_MD } from "../shared/skill.generated";
 import { Glyph } from "./icons";
-import { toast, toastError, useStore } from "./store";
+import { copyText, toast, toastError, useStore } from "./store";
 
 interface Launch {
   command: string;
@@ -37,7 +37,7 @@ const PLACEHOLDER: McpInfo = {
   skill: { file: "~/.claude/skills/archflow/SKILL.md", installed: false },
 };
 
-const copy = (t: string, msg = "Copiado") => navigator.clipboard.writeText(t).then(() => toast(msg));
+const copy = (t: string, msg = "Copiado") => copyText(t, msg);
 /** Instalação da skill pelo CLI `skills` (lê skills/archflow/SKILL.md do repositório no GitHub). */
 const SKILL_NPX = "npx skills add joao2end/Archflow --skill archflow";
 const SKILL_NPX_CC = "npx skills add joao2end/Archflow --skill archflow -a claude-code -y";

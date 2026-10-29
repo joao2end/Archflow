@@ -14,7 +14,7 @@ import { DddGuide, openDddGuide } from "./dddguide";
 import { DiagramViewer } from "./viewer";
 import { severityOrder, useDomainIssues } from "./domain";
 import { OverviewTab, ScenarioMatrixTab } from "./logicoverview";
-import { HARNESS_TARGETS, allKnownAssets, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore, type LogicTab } from "./store";
+import { HARNESS_TARGETS, allKnownAssets, copyText, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, useStore, type LogicTab } from "./store";
 import type { HarnessTarget } from "../shared/agentgen";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
@@ -347,7 +347,7 @@ function LlmModal() {
       foot={
         <button
           className="btn primary"
-          onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}
+          onClick={() => copyText(text)}
         >
           <Glyph name="copy" size={16} /> Copiar
         </button>
@@ -410,7 +410,7 @@ function DomainModal({ tab: initial }: { tab?: "issues" | "overview" | "code" })
             >
               <Glyph name="file-plus" size={16} /> Novo mapa de contextos
             </button>
-            <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+            <button className="btn primary" onClick={() => copyText(text)}>
               <Glyph name="copy" size={16} /> Copiar
             </button>
           </>
@@ -480,7 +480,7 @@ function LogicModal({ tab: initial }: { tab?: LogicTab }) {
       title="Lógica de negócio"
       onClose={close}
       foot={
-        <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+        <button className="btn primary" onClick={() => copyText(text)}>
           <Glyph name="copy" size={16} /> Copiar
         </button>
       }
@@ -577,7 +577,7 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
               Importar do projeto
             </button>
           )}
-          <button className="btn primary" onClick={() => navigator.clipboard.writeText(text).then(() => toast("Copiado para a área de transferência"))}>
+          <button className="btn primary" onClick={() => copyText(text)}>
             <Glyph name="copy" size={16} /> Copiar
           </button>
         </>
