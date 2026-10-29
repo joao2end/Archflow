@@ -177,7 +177,7 @@ export function enterPresent() {
 
 export function exitPresent() {
   if (!getState().present) return;
-  set({ present: false, panel: saved?.panel === "styles" ? null : saved?.panel ?? "assets", tool: saved?.tool === "hand" ? "select" : saved?.tool ?? "select", ...(saved ? { view: saved.view } : {}) });
+  set({ present: false, panel: saved ? (saved.panel === "styles" ? null : saved.panel) : "assets", tool: saved?.tool === "hand" ? "select" : saved?.tool ?? "select", ...(saved ? { view: saved.view } : {}) });
   saved = null;
   if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
 }
