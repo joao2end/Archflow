@@ -13,6 +13,8 @@ export function Minimap() {
   const view = useStore((s) => s.view);
   const sel = useStore((s) => s.sel);
   const dragging = useRef(false);
+  /** os limites do mapa ficam parados durante o arrasto: senão a vista, que entra neles, muda a escala e foge do cursor */
+  const frozen = useRef<{ mx1: number; my1: number; mx2: number; my2: number } | null>(null);
   // nós com problema de validação (Domain/Logic) aparecem em vermelho/âmbar: o mapa mostra ONDE olhar, não só onde a tela está
   const flagged = useMemo(() => {
     const m = new Map<string, "erro" | "aviso">();
@@ -24,7 +26,8 @@ export function Minimap() {
     return m;
   }, [doc]);
   const boxes = [...doc.groups, ...doc.nodes, ...doc.notes];
-  if (!boxes.length || sel.length) return null; // com seleção, o inspetor ocupa este canto
+  const hide = () => ((dragging.current = false), (frozen.current = null), null); // escondido no meio do arrasto, o pointerup não chega
+  if (!boxes.length || sel.length) return hide(); // com seleção, o inspetor ocupa este canto
 
   const x1 = Math.min(...boxes.map((b) => b.x));
   const y1 = Math.min(...boxes.map((b) => b.y));
@@ -36,13 +39,10 @@ export function Minimap() {
   const vw = window.innerWidth / view.z;
   const vh = window.innerHeight / view.z;
   const fits = vx <= x1 && vy <= y1 && vx + vw >= x2 && vy + vh >= y2;
-  if (fits) return null; // tudo já está à vista
+  if (fits) return hide(); // tudo já está à vista
 
   // o mapa cobre o diagrama e a janela atual, para o retângulo da vista nunca sair dele
-  const mx1 = Math.min(x1, vx);
-  const my1 = Math.min(y1, vy);
-  const mx2 = Math.max(x2, vx + vw);
-  const my2 = Math.max(y2, vy + vh);
+  const { mx1, my1, mx2, my2 } = frozen.current ?? { mx1: Math.min(x1, vx), my1: Math.min(y1, vy), mx2: Math.max(x2, vx + vw), my2: Math.max(y2, vy + vh) };
   const k = Math.min((W - PAD * 2) / (mx2 - mx1), (H - PAD * 2) / (my2 - my1));
   const ox = (W - (mx2 - mx1) * k) / 2 - mx1 * k;
   const oy = (H - (my2 - my1) * k) / 2 - my1 * k;
@@ -73,12 +73,13 @@ export function Minimap() {
         }}
         onPointerDown={(e) => {
           dragging.current = true;
+          frozen.current = { mx1, my1, mx2, my2 };
           e.currentTarget.setPointerCapture(e.pointerId);
           goTo(e);
         }}
         onPointerMove={(e) => dragging.current && goTo(e)}
-        onPointerUp={() => (dragging.current = false)}
-        onPointerCancel={() => (dragging.current = false)}
+        onPointerUp={() => ((dragging.current = false), (frozen.current = null))}
+        onPointerCancel={() => ((dragging.current = false), (frozen.current = null))}
       >
         {doc.groups.map((g) =>
           g.ring ? (
