@@ -57,7 +57,15 @@ export function insertBlock(el: Ta, text: string) {
 /** Envolve a seleção com marcadores (ou os remove, se já estiverem em volta). */
 function wrap(el: Ta, before: string, after = before, placeholder = "texto") {
   const { selectionStart: s, selectionEnd: e, value: v } = el;
-  if (v.slice(s - before.length, s) === before && v.slice(e, e + after.length) === after) {
+  let on = v.slice(s - before.length, s) === before && v.slice(e, e + after.length) === after;
+  if (on && /^\*+$/.test(before) && before === after) {
+    // `*` e `**` dividem a mesma sequência de asteriscos: em «**x**» o itálico não está ligado (a sequência par é só o
+    // negrito), em «***x***» estão os dois. Conta a sequência dos dois lados para decidir
+    let n = 0;
+    while (v[s - 1 - n] === "*" && v[e + n] === "*") n++;
+    on = before.length === 1 ? n % 2 === 1 : n >= 2;
+  }
+  if (on) {
     replaceRange(el, s - before.length, e + after.length, v.slice(s, e), s - before.length, e - before.length);
     return;
   }
