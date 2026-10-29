@@ -3,7 +3,7 @@ import { contentBounds } from "./geometry";
 import type { Box } from "../shared/schema";
 import { presetById } from "./bgpresets";
 import { getState, replaceDoc, resolvedTheme, toast, toastError } from "./store";
-import { normalizeDoc } from "../shared/ops";
+import { normalizeDoc, slug } from "../shared/ops";
 
 export function download(name: string, blob: Blob) {
   const a = document.createElement("a");
@@ -13,7 +13,8 @@ export function download(name: string, blob: Blob) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
-const fileBase = (doc: Doc) => doc.title.replace(/[^\w\-]+/g, "_").slice(0, 40) || "diagrama";
+/** o título sem acentos nem símbolos («Aprovação de crédito» → aprovacao-de-credito), como na exportação por seções */
+const fileBase = (doc: Doc) => (doc.title.trim() ? slug(doc.title) : "") || "diagrama";
 
 export function exportJson() {
   const { doc } = getState();

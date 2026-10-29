@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { FlowMode } from "./flow";
-import { applyOps, allAssets, fitGroup, normalizeDoc, uniqueId, type Op, type OpResult } from "../shared/ops";
+import { applyOps, allAssets, fitGroup, normalizeDoc, slug, uniqueId, type Op, type OpResult } from "../shared/ops";
 import { buildCatalog, type CatalogExample } from "../shared/examples.catalog";
 import { runFlow, runPipeline, hasFlow, isFlowNode, starterExample, type Run } from "../shared/logic";
 import { storyAt, storyOf, type StoryItem } from "../shared/logicdebug";
@@ -1141,7 +1141,7 @@ export function startSync() {
 export async function exportLocalProject() {
   if (state.storage !== "local" || !localMod) return;
   const bundle = localMod.exportBundle();
-  download(`${localMod.bundleName().replace(/[^\w\-]+/g, "_")}.archflow-project.json`, new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
+  download(`${slug(localMod.bundleName())}.archflow-project.json`, new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
 }
 export const importLocalProject = (file: File) =>
   guard(async () => {
