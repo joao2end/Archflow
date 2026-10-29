@@ -30,7 +30,7 @@ import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
 import { TextField } from "./panels";
 import { exitIso } from "./isoshell";
-import { getState, run, select, set, toast, toastError, useStore } from "./store";
+import { copyText, getState, run, select, set, toast, toastError, useStore } from "./store";
 
 type Patch = (p: Record<string, unknown>) => void;
 
@@ -191,7 +191,18 @@ const PASTE_HELP = [
 function PropertiesEditor({ role, value, onChange }: { role: DddRole; value: PropertySpec[]; onChange: (v: PropertySpec[]) => void }) {
   const [paste, setPaste] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  /** nome recusado (vazio ou repetido): muda a key do campo para ele voltar a mostrar o nome que ficou */
+  const [refused, setRefused] = useState(0);
   const title = PROP_TITLE[role] ?? "Propriedades";
+  const rename = (i: number, raw: string) => {
+    const name = raw.trim();
+    if (name === value[i].name) return;
+    if (!name || value.some((x, k) => k !== i && x.name.toLowerCase() === name.toLowerCase())) {
+      if (name) toastError(`Já existe uma propriedade «${name}»`);
+      return setRefused((n) => n + 1);
+    }
+    edit(i, { name });
+  };
   const edit = (i: number, p: Partial<PropertySpec>) => onChange(value.map((x, k) => (k === i ? { ...x, ...p } : x)));
   const add = () => {
     let n = value.length + 1;
@@ -206,7 +217,7 @@ function PropertiesEditor({ role, value, onChange }: { role: DddRole; value: Pro
     setPaste(null);
     setErr("");
   };
-  const copy = () => navigator.clipboard?.writeText(propertiesToJson(value)).then(() => toast("JSON copiado"), () => toastError("Não foi possível copiar"));
+  const copy = () => copyText(propertiesToJson(value), "JSON copiado");
   return (
     <div className="field props-editor">
       <span className="lbl-s">
@@ -219,7 +230,8 @@ function PropertiesEditor({ role, value, onChange }: { role: DddRole; value: Pro
       </datalist>
       {value.map((p, i) => (
         <div className="prop-row" key={i}>
-          <TextField value={p.name} placeholder="nome" label={`Nome da propriedade ${i + 1}`} onCommit={(v) => v.trim() && !value.some((x, k) => k !== i && x.name.toLowerCase() === v.trim().toLowerCase()) && edit(i, { name: v.trim() })} />
+          {/* só ao sair do campo: gravando a cada tecla, «id» com outro «id» já existente ficava gravado como «i» */}
+          <TextField key={`name-${refused}`} deferred value={p.name} placeholder="nome" label={`Nome da propriedade ${i + 1}`} onCommit={(v) => rename(i, v)} />
           <TypeField value={p.type ?? ""} onCommit={(v) => edit(i, { type: v.trim() || undefined })} label={`Tipo da propriedade ${p.name}`} />
           <button className={`prop-flag${p.key ? " on" : ""}`} onClick={() => edit(i, { key: p.key ? undefined : true })} aria-pressed={!!p.key} aria-label={`${p.name}: identificador`} data-tip="Identificador (identidade do elemento)">
             #
