@@ -126,7 +126,7 @@ export function McpBody() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setChecks((x) => ({ ...x, [c.id]: { ok: false, problems: [msg] } }));
-      if (!quiet) toast(msg);
+      if (!quiet) toastError(msg);
     } finally {
       setBusy("");
     }
@@ -226,7 +226,7 @@ export function McpBody() {
                 );
               })}
               <div className="mcp-actions">
-                <button className="btn primary sm" disabled={!!busy} onClick={installAll}>
+                <button className="btn primary sm" disabled={!!busy || !info.clients.some((x) => x.exists)} onClick={installAll} data-tip={info.clients.some((x) => x.exists) ? undefined : "Nenhum cliente encontrado neste computador"} data-tip-pos="top">
                   Instalar em tudo e testar
                 </button>
               </div>
