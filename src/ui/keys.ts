@@ -137,7 +137,8 @@ export function selectNext(dir: 1 | -1) {
   const items = [...s.doc.nodes, ...s.doc.notes];
   if (!items.length) return;
   const cur = items.findIndex((b) => s.sel[0] === b.id);
-  const next = items[(cur + dir + items.length) % items.length];
+  // sem seleção, Tab começa no primeiro e Shift+Tab no último (o -1 de «nenhum» daria o penúltimo)
+  const next = items[cur < 0 ? (dir > 0 ? 0 : items.length - 1) : (cur + dir + items.length) % items.length];
   select([next.id]);
   const { x, y, z } = s.view;
   const sx = next.x * z + x;
