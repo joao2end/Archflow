@@ -395,17 +395,18 @@ export function TerminalPanel({ onApi }: { onApi?: (api: TermApi) => void } = {}
             <div key={s.id} role="tab" aria-selected={s.id === activeId} tabIndex={0} className={`term-tab${s.id === activeId ? " on" : ""}${s.code !== undefined ? " dead" : ""}`} onClick={() => setActiveId(s.id)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setActiveId(s.id)}>
               <span className="term-tab-t">{s.title}</span>
               {s.code !== undefined && <small>saiu</small>}
-              <button className="term-x" aria-label={`Fechar ${s.title}`} title="Encerrar esta sessão" onClick={(e) => (e.stopPropagation(), void close(s.id))}>×</button>
+              <button className="term-x" aria-label={`Fechar ${s.title}`} data-tip="Encerrar esta sessão" data-tip-pos="top" onClick={(e) => (e.stopPropagation(), void close(s.id))}>×</button>
             </div>
           ))}
           <div className="term-new-wrap">
+            {/* title nativo, não data-tip: desabilitado, o botão não recebe os eventos do mouse que o tooltip do app usa, e o motivo («claude não encontrado») é justamente o que importa */}
             <button className="btn ghost icon sm" disabled={busy || live >= max || !claude.found} aria-label="Nova sessão do Claude Code" title={!claude.found ? "claude não encontrado no PATH" : live >= max ? `Máximo de ${max} sessões abertas: feche alguma com ×` : `Nova sessão do Claude Code${claude.version ? ` (${claude.version})` : ""}`} onClick={() => void start()}>+</button>
             <MoreMenu glyph="▾" label="Outros tipos de sessão" items={[{ label: "Novo shell", onClick: () => void start({ program: "shell" }), disabled: busy || live >= max }]} />
           </div>
         </div>
-        {live >= max - 1 && <small className="term-count" title="Sessões abertas / máximo (somando todos os projetos)">{live}/{max}</small>}
-        <button className={`btn ghost sm${promptsOpen ? " active" : ""}`} aria-pressed={promptsOpen} onClick={togglePrompts} title="Prompts e workflows do diagrama">Prompts</button>
-        <button className="btn ghost icon sm" aria-label="Recolher o terminal" title="Recolher (as sessões continuam rodando)" onClick={() => setStore({ termOpen: false })}>⌄</button>
+        {live >= max - 1 && <small className="term-count" data-tip="Sessões abertas / máximo (somando todos os projetos)" data-tip-pos="top">{live}/{max}</small>}
+        <button className={`btn ghost sm${promptsOpen ? " active" : ""}`} aria-pressed={promptsOpen} onClick={togglePrompts} data-tip="Prompts e workflows do diagrama" data-tip-pos="top">Prompts</button>
+        <button className="btn ghost icon sm" aria-label="Recolher o terminal" data-tip="Recolher (as sessões continuam rodando)" data-tip-pos="left" onClick={() => setStore({ termOpen: false })}>⌄</button>
       </div>
       {notice && (
         <div className={`term-note ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>
