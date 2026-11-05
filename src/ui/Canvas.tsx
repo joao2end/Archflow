@@ -3,7 +3,8 @@ import { RingAddMenu, keepInView } from "./ringmenu";
 import { ONION_PREFIX, insideGroupShape, onionPicks, orbitLook, orbits, polar } from "../shared/onion";
 import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
-import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, docMode, isDataRole } from "../shared/schema";
+import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, SQL_ROLES, docMode, isDataRole } from "../shared/schema";
+import { SQL_HEAD, SQL_LINE, SQL_MAX_LINES, sqlLines, sqlTitle } from "../shared/sql";
 import { checkExamples } from "../shared/logic";
 import { explain, parseExpr, shortValue } from "../shared/expr";
 import { edgeIdsOf, dataKey, dataNames, dataNodes, logicStatus, nextExit, relatedTo } from "../shared/logic";
@@ -558,6 +559,52 @@ const refName = (n: NodeEl) => {
   return `↗ ${base}${n.ref?.node ? ` › ${n.ref.node}` : ""}`;
 };
 
+/**
+ * Peça de consulta SQL: cabeçalho com o selo do papel (TABLE, WHERE, SELECT…) e o nome, e embaixo as linhas — as colunas
+ * da tabela, a condição do filtro, o GROUP BY — em fonte mono, como uma tabela de diagrama ER.
+ */
+const SqlShape = memo(function SqlShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
+  const spec = n.sql!;
+  const role = SQL_ROLES[spec.role];
+  const all = sqlLines(spec);
+  const rows = all.length > SQL_MAX_LINES ? [...all.slice(0, SQL_MAX_LINES - 1), `+${all.length - SQL_MAX_LINES + 1} mais`] : all;
+  const bw = Math.max(46, role.badge.length * 7.6 + 16);
+  const title = sqlTitle(n);
+  // o apelido da tabela já está no título («clientes c»); na subconsulta, o subtítulo diz se é CTE ou tabela derivada
+  const sub = spec.role === "subquery" ? (spec.cte ? "CTE" : "tabela derivada") : undefined;
+  return (
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${role.label}: ${title}${all.length ? ` — ${all.join(", ")}` : ""}`} transform={`translate(${n.x},${n.y})`} className={`node sql sql-${spec.role}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--sc" as string]: role.color }}>
+      <title>{[title, role.label, ...all, n.description].filter(Boolean).join("\n")}</title>
+      <rect className="node-body" width={n.w} height={n.h} rx={14} filter="url(#shadow)" style={fillStyle(n)} />
+      <path className="sql-head" d={`M0 14a14 14 0 0 1 14-14h${n.w - 28}a14 14 0 0 1 14 14v${SQL_HEAD - 14}h-${n.w}z`} pointerEvents="none" />
+      <rect className="node-ring" width={n.w} height={n.h} rx={14} pointerEvents="none" />
+      <rect x={9} y={9} width={bw} height={SQL_HEAD - 18} rx={6} fill={role.color} pointerEvents="none" />
+      <text x={9 + bw / 2} y={SQL_HEAD / 2 + 0.5} className="ep-badge sql-badge" pointerEvents="none">
+        {role.badge}
+      </text>
+      <text className="sql-title" x={bw + 18} y={sub ? SQL_HEAD / 2 - 3 : SQL_HEAD / 2 + 4.5} pointerEvents="none">
+        {truncate(title, Math.floor((n.w - bw - 30) / 7.6))}
+      </text>
+      {sub && (
+        <text className="sql-sub" x={bw + 18} y={SQL_HEAD / 2 + 10} pointerEvents="none">
+          {sub}
+        </text>
+      )}
+      {rows.map((r, i) => (
+        <text key={i} className={`sql-line${i === SQL_MAX_LINES - 1 && all.length > SQL_MAX_LINES ? " more" : ""}`} x={14} y={SQL_HEAD + 18 + i * SQL_LINE} pointerEvents="none">
+          {truncate(r, Math.floor((n.w - 26) / 6.3))}
+        </text>
+      ))}
+      {!rows.length && (
+        <text className="sql-line more" x={14} y={SQL_HEAD + 20} pointerEvents="none">
+          {spec.role === "filter" ? "sem condição" : "vazio"}
+        </text>
+      )}
+      {(hovered || selected) && <Handles id={n.id} w={n.w} h={n.h} />}
+    </g>
+  );
+});
+
 /** Assets personalizados do diagrama exibido (no visualizador, o diagrama é outro). */
 export const ViewerAssets = createContext<Asset[] | null>(null);
 
@@ -572,6 +619,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, st
   if (n.kind === "logic" && n.logic && LOGIC_ROLES[n.logic.role]) return <LogicShape n={n} selected={selected} hot={hot} hovered={hovered} status={status} gap={gap} names={names ?? NO_NAMES} viz={viz} badge={badge} visits={visits} liveValue={liveValue} row={row} />;
   if (orbits(n) && n.parent?.startsWith(ONION_PREFIX)) return <OrbitShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
+  if (n.kind === "sql" && n.sql && SQL_ROLES[n.sql.role]) return <SqlShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}${runMark ? ` run-${runMark}` : ""}`}>
       {n.ref && (
@@ -2145,7 +2193,7 @@ export function Canvas() {
               from: d.from,
               to,
               ...(logic ? { logic } : {}),
-              ...(docMode(s.doc) === "domain" || docMode(s.doc) === "logic" || docMode(s.doc) === "agents"
+              ...(docMode(s.doc) !== "architecture"
                 ? {}
                 : { type: s.defaults.connType, ...(s.defaults.connRouting !== "curve" ? { routing: s.defaults.connRouting } : {}) }),
             },
@@ -2306,7 +2354,7 @@ export function Canvas() {
     if (t?.id && t.role !== "handle" && t.role !== "open-ref") {
       select([t.id]);
       set({ focusTick: getState().focusTick + 1 });
-      if (t.role === "conn" && getState().doc.mode !== "agents") set({ modal: { type: "interface", id: t.id } }); // relações de agents não têm contrato de interface
+      if (t.role === "conn" && getState().doc.mode !== "agents" && getState().doc.mode !== "sql") set({ modal: { type: "interface", id: t.id } }); // relações de agents e de sql não têm contrato de interface
     }
   };
 
@@ -2376,7 +2424,7 @@ export function Canvas() {
     <svg
       ref={svgRef}
       role="application"
-      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : docMode(doc) === "agents" ? "agentes de IA" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
+      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : docMode(doc) === "agents" ? "agentes de IA" : docMode(doc) === "sql" ? "consulta SQL" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
       aria-roledescription="quadro branco"
       className={`canvas${dragOver ? " drag-over" : ""}`}
       style={{ cursor, ["--z" as string]: view.z }}

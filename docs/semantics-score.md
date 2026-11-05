@@ -57,6 +57,24 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `uses-tool` | CLARO | `semantics` em `AGENT_RELS` e pares em `AGENT_REL_PAIRS`: agent → tool; `allow` limita as tools de um servidor MCP |
 | `usage` (campo da relação) | CLARO | COMO o agente usa o destino; vai para o corpo do agente; sem ele, A018 |
 
+## Papéis SQL (`sql.role`)
+
+| Item | Status | Nota |
+|---|---|---|
+| `table` | CLARO | fonte de linhas; `table`/`alias`/`columns` (colunas só documentam); vira FROM ou JOIN |
+| `subquery` | CLARO | fonte que é uma consulta; `query`, `alias` (obrigatório), `cte` (WITH em vez de tabela derivada), `name` (nome no WITH quando o apelido é outro), `columns` |
+| `filter` | CLARO | `condition` vira WHERE; vários filtros em sequência somam com AND |
+| `aggregate` | CLARO | `groupBy` vira GROUP BY; `having` vira HAVING |
+| `sort` | CLARO | `orderBy` vira ORDER BY; `limit`/`offset` viram LIMIT/OFFSET |
+| `result` | CLARO | `columns` vira a lista do SELECT (vazio = *); `distinct` vira SELECT DISTINCT; um Resultado = uma consulta gerada |
+
+## Relações do modo sql (`SqlRel`)
+
+| Item | Status | Nota |
+|---|---|---|
+| `join` | CLARO | fonte → fonte (`SQL_REL_PAIRS`); `join` = inner/left/right/full/cross, `on` = condição (ou USING); a origem é o lado esquerdo; type fixo `association` |
+| `flow` | CLARO | fonte ou etapa → próxima etapa; a ordem do SQL é WHERE → GROUP BY → ORDER BY → SELECT (S011 avisa fora dela); type fixo `data` |
+
 ## Campos DDD
 
 | Item | Status | Nota |

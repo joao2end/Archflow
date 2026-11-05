@@ -2831,6 +2831,7 @@ svg.canvas.drag-over {
 .mode-select.domain { background: #9a6212; box-shadow: 0 1px 4px rgba(154, 98, 18, 0.4); } /* branco AA (5:1) */
 .mode-select.logic { background: #0b7a84; box-shadow: 0 1px 4px rgba(11, 122, 132, 0.4); } /* branco AA (5:1) */
 .mode-select.agents { background: #2a5cb8; box-shadow: 0 1px 4px rgba(42, 92, 184, 0.4); } /* branco AA (5:1); o #5b8def do ícone é claro demais */
+.mode-select.sql { background: #1f7a5f; box-shadow: 0 1px 4px rgba(31, 122, 95, 0.4); } /* branco AA (5,3:1) */
 :root[data-theme="dark"] .mode-select.architecture { color: #19181a; } /* texto branco sobre o roxo claro do escuro dava ~3:1 */
 .mode-select:hover { filter: brightness(1.08); }
 .mode-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
@@ -2843,6 +2844,15 @@ svg.canvas.drag-over {
 .mode-menu .domain .mode-dot { background: #9a6212; }
 .mode-menu .logic .mode-dot { background: #0b7a84; }
 .mode-menu .agents .mode-dot { background: #2a5cb8; }
+.mode-menu .sql .mode-dot { background: #1f7a5f; }
+
+/* ───────── modo sql: peças da consulta como tabelas de diagrama ER ───────── */
+.node.sql .sql-head { fill: color-mix(in srgb, var(--sc) 14%, transparent); }
+.node.sql .sql-badge { font-size: 10px; letter-spacing: 0.06em; }
+.node.sql .sql-title { font: 650 13.5px var(--sans); fill: var(--ink); letter-spacing: -0.005em; }
+.node.sql .sql-sub { font: 500 10.5px var(--sans); fill: var(--ink-2); }
+.node.sql .sql-line { font: 500 11px ui-monospace, "SF Mono", Consolas, monospace; fill: var(--ink); }
+.node.sql .sql-line.more { fill: var(--ink-2); font-style: italic; }
 :root[data-theme="dark"] .mode-menu .architecture .mode-dot { color: #19181a; }
 .mode-opt-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .mode-opt-main b { font: 650 13px var(--sans); }

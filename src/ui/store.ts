@@ -80,6 +80,8 @@ export interface Spotlight3D {
 export type Tool = "select" | "hand" | "group" | "note" | "connect" | "pen" | "highlight" | "eraser" | "text" | "list";
 /** Abas do modal do modo Logic. */
 export type LogicTab = "overview" | "scenarios" | "issues" | "text" | "code";
+/** Abas do modal do modo SQL. */
+export type SqlTab = "sql" | "import" | "issues" | "text";
 export type Modal =
   | { type: "asset"; id?: string }
   | { type: "interface"; id: string }
@@ -87,6 +89,7 @@ export type Modal =
   | { type: "domain"; tab?: "issues" | "overview" | "code" }
   | { type: "logic"; tab?: LogicTab }
   | { type: "agents"; tab?: "issues" | "text" | "harness" }
+  | { type: "sql"; tab?: SqlTab }
   | { type: "skill"; id: string; tab?: "catalog" | "write" }
   | { type: "tool"; id: string; tab?: "search" | "paste" | "manual" }
   | { type: "ddd-guide" }

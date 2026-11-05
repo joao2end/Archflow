@@ -5,7 +5,7 @@
  * Limites: sem pasta em disco, sem MCP e sem edição externa (Git/editor).
  */
 import { createDoc, normalizeDoc, slug } from "../shared/ops";
-import { docMode, emptyDoc, type Doc, type DocMode } from "../shared/schema";
+import { DOC_MODE_KEYS, docMode, emptyDoc, isDocMode, type Doc, type DocMode } from "../shared/schema";
 import type { FileNode, FolderNode } from "./store";
 
 const EXT = ".archflow.json";
@@ -353,8 +353,8 @@ async function route(path: string, method: string, q: URLSearchParams, b: any): 
 
   /* diagramas */
   if (path === "/api/diagrams" && method === "POST") {
-    if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic" && b.mode !== "agents") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic, agents`);
-    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture", b.blank === true);
+    if (b.mode != null && !isDocMode(b.mode)) throw new HttpError(400, `mode inválido "${b.mode}". Válidos: ${DOC_MODE_KEYS.join(", ")}`);
+    const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), isDocMode(b.mode) ? b.mode : "architecture", b.blank === true);
     return { name: rel, ...workspaceInfo() };
   }
   if (path === "/api/project/docs" && method === "GET") return { files: Object.entries(project.files).map(([p, f]) => ({ path: p, doc: f.doc })) };

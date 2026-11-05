@@ -119,6 +119,7 @@ const NODE_ROLE: Record<NodeKind, string> = {
   domain: "Domínio",
   logic: "Lógica",
   agent: "Agente",
+  sql: "Peça da consulta",
 };
 
 const GROUP_ROLE: Record<GroupKind, string> = {

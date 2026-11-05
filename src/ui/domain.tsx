@@ -503,9 +503,10 @@ const MODES: [DocMode, string, string][] = [
   ["domain", "Domain", "DDD: contextos, aggregates, commands, eventos e casos de uso"],
   ["logic", "Logic", "Regras de negócio em ordem, dados e exemplos que se verificam sozinhos"],
   ["agents", "Agents", "Time de agentes de IA, skills e como se plugam; exporta harness pro Claude Code ou Cursor"],
+  ["sql", "SQL", "Consultas SQL: tabelas, joins, filtros e o resultado; cola uma consulta ou gera o SQL do quadro"],
 ];
 
-/** Seletor Arch | Domain | Logic na barra superior (listbox próprio: o popup do <select> nativo não aceita o estilo do app). */
+/** Seletor Arch | Domain | Logic | Agents | SQL na barra superior (listbox próprio: o popup do <select> nativo não aceita o estilo do app). */
 export function ModeSwitch() {
   const doc = useStore((s) => s.doc);
   const file = useStore((s) => s.file);
@@ -592,15 +593,16 @@ export function ModeSwitch() {
   );
 }
 
-const ISSUE_MODAL = { logic: "logic", agents: "agents", domain: "domain" } as const;
+const ISSUE_MODAL = { logic: "logic", agents: "agents", domain: "domain", sql: "sql" } as const;
 const ISSUE_TIP = {
   logic: "Validação das regras (roda os exemplos) e texto para IA",
   agents: "Validação do time de agentes e texto para IA",
   domain: "Validação, visão geral do projeto e código",
+  sql: "Validação da consulta, o SQL gerado e texto para IA",
 };
-const ISSUE_NAME = { logic: "fluxo", agents: "time", domain: "domínio" };
+const ISSUE_NAME = { logic: "do fluxo", agents: "do time", domain: "do domínio", sql: "da consulta" };
 
-/** Ferramentas do diagrama aberto (Domain, Logic, Agents): validação com a contagem de erros/avisos e, no Domain, o guia de DDD. */
+/** Ferramentas do diagrama aberto (Domain, Logic, Agents, SQL): validação com a contagem de erros/avisos e, no Domain, o guia de DDD. */
 export function ModeTools() {
   const doc = useStore((s) => s.doc);
   const mode = docMode(doc);
@@ -618,7 +620,7 @@ export function ModeTools() {
         data-tip={`${ISSUE_TIP[mode]}
 ${errors} erro(s), ${warns} aviso(s)`}
         data-tip-pos="top"
-        aria-label={`Validação do ${ISSUE_NAME[mode]}: ${errors} erros, ${warns} avisos`}
+        aria-label={`Validação ${ISSUE_NAME[mode]}: ${errors} erros, ${warns} avisos`}
       >
         <Glyph name={state === "ok" ? "check" : "alert"} size={14} />
         {summary}
@@ -631,6 +633,11 @@ ${errors} erro(s), ${warns} aviso(s)`}
       {mode === "agents" && (
         <button className="mode-guide" onClick={() => set({ modal: { type: "agents", tab: "harness" } })} data-tip="Exportar o harness: subagentes e skills para o Claude Code ou o Cursor" data-tip-pos="top" aria-label="Exportar o harness">
           <Glyph name="download" size={11} />
+        </button>
+      )}
+      {mode === "sql" && (
+        <button className="mode-guide" onClick={() => set({ modal: { type: "sql", tab: "sql" } })} data-tip="Ver e copiar o SQL montado a partir do quadro" data-tip-pos="top" aria-label="Ver o SQL gerado">
+          <Glyph name="code" size={11} />
         </button>
       )}
     </div>

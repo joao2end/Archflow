@@ -1,5 +1,7 @@
 import { pricingDoc } from "../shared/logic.example";
 import { lojaOnline } from "../shared/arch.examples";
+import { SQL_EXAMPLES, sqlExampleDoc } from "../shared/sql.example";
+import { openSqlModal } from "./sql";
 import { docMode } from "../shared/schema";
 import { openDddGuide } from "./dddguide";
 import { Glyph } from "./icons";
@@ -15,15 +17,18 @@ export function EmptyHint() {
   const domain = mode === "domain";
   const logic = mode === "logic";
   const agents = mode === "agents";
+  const sql = mode === "sql";
   if (!empty) return null;
   return (
     <div className={`empty-hint${panel ? " beside-panel" : ""}`} role="note">
-      <h2>{domain ? "Comece pelo domínio" : logic ? "Comece pela regra" : agents ? "Comece pelo time" : "Comece seu diagrama"}</h2>
+      <h2>{domain ? "Comece pelo domínio" : logic ? "Comece pela regra" : agents ? "Comece pelo time" : sql ? "Comece pela consulta" : "Comece seu diagrama"}</h2>
       <p>
         {logic
           ? "Abra a biblioteca e arraste um Start, um Input (o dado que entra) e uma Ação; ligue-os na ordem em que valem e adicione um Scenario com números reais para o quadro conferir o fluxo sozinho. Ou peça ao seu agente via MCP."
           : domain
           ? "Desenhe um grupo «context» (tecla G) para o bounded context e arraste da biblioteca um Use Case, um Command e um Aggregate Root. Ou peça ao seu agente via MCP (add_use_cases)."
+          : sql
+          ? "Cole uma consulta SELECT e o quadro a desenha: as tabelas com as colunas usadas, os joins e o caminho WHERE → GROUP BY → ORDER BY → SELECT. Ou arraste da biblioteca uma Tabela e um Resultado e ligue-os; o SQL sai do quadro."
           : agents
           ? "Arraste da biblioteca um Agent e escreva a description (quando o orquestrador deve chamá-lo); depois uma Skill e ligue com uma seta uses-skill, ou solte-a dentro de um grupo «global» (tecla G) para valer para todos os agentes."
           : "Abra a biblioteca e arraste uma tecnologia para o quadro, ou veja um exemplo pronto para entender como o quadro lê. Também dá para pedir ao seu agente via MCP."}
@@ -32,6 +37,11 @@ export function EmptyHint() {
         <button className="btn primary" onClick={() => set({ panel: open ? null : "assets" })}>
           <Glyph name="library" size={17} /> {open ? "Fechar biblioteca" : "Abrir biblioteca"}
         </button>
+        {sql && (
+          <button className="btn" onClick={() => openSqlModal("import")}>
+            <Glyph name="code" size={16} /> Colar uma consulta
+          </button>
+        )}
         {domain && (
           <button className="btn" onClick={openDddGuide}>
             <Glyph name="play" size={16} /> Guia de DDD
@@ -44,9 +54,9 @@ export function EmptyHint() {
           <button
             className="btn"
             onClick={() => {
-              replaceDoc(logic ? pricingDoc() : lojaOnline());
+              replaceDoc(logic ? pricingDoc() : sql ? sqlExampleDoc(SQL_EXAMPLES[0]) : lojaOnline());
               fitView(); // sem isso a vista continuava onde estava e o exemplo carregava fora da tela
-              toast(`Exemplo ${logic ? "de precificação" : "da loja online"} carregado.`, true);
+              toast(`Exemplo ${logic ? "de precificação" : sql ? "de consulta (melhores clientes)" : "da loja online"} carregado.`, true);
             }}
           >
             <Glyph name="sparkle" size={17} /> Ver exemplo pronto

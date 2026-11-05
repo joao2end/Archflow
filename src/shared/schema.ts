@@ -26,7 +26,8 @@ export type NodeKind =
   | "system"
   | "domain"
   | "logic"
-  | "agent";
+  | "agent"
+  | "sql";
 
 /** Rótulo curto de cada tipo (listas, selos): NODE_KINDS são descrições e cortá-las dava «Cliente (web». */
 export const NODE_KIND_SHORT: Record<NodeKind, string> = {
@@ -46,6 +47,7 @@ export const NODE_KIND_SHORT: Record<NodeKind, string> = {
   domain: "Domínio",
   logic: "Lógica",
   agent: "Agente",
+  sql: "SQL",
 };
 
 export const NODE_KINDS: Record<NodeKind, string> = {
@@ -65,6 +67,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   domain: "Elemento do modelo de domínio (DDD): o papel (aggregate-root, command, domain-event...) está em `ddd.role`. Só existe em diagramas de modo `domain`",
   logic: "Elemento da lógica de negócio: o papel (action, decision, input, output, variable, scenario…) está em `logic.role`. Só existe em diagramas de modo `logic`",
   agent: "Agente de IA ou skill: o papel (agent, skill) está em `agent.role`. Só existe em diagramas de modo `agents`",
+  sql: "Peça de uma consulta SQL: o papel (table, subquery, filter, aggregate, sort, result) está em `sql.role`. Só existe em diagramas de modo `sql`",
 };
 
 export type GroupKind =
@@ -405,20 +408,142 @@ export interface AgentConnSpec {
   expects?: string[];
 }
 
+/* ───────── modo sql (diagramas de consultas SQL) ───────── */
+
+/**
+ * Peças de uma consulta: as fontes (tabelas e subconsultas, ligadas entre si por joins) e as etapas por onde as linhas
+ * passam até o resultado (filter → aggregate → sort → result), na ordem lógica de execução do SELECT.
+ */
+export type SqlRole = "table" | "subquery" | "filter" | "aggregate" | "sort" | "result";
+
+export interface SqlNodeSpec {
+  role: SqlRole;
+  /** table: nome da tabela, com o schema se houver (ex.: "vendas.pedidos") */
+  table?: string;
+  /** table/subquery: apelido usado na consulta (ex.: "p"); na subquery é obrigatório */
+  alias?: string;
+  /** table: colunas usadas na consulta (só documentação); result: as expressões do SELECT (ex.: "SUM(p.total) AS total") */
+  columns?: string[];
+  /** subquery: a consulta interna (SQL) */
+  query?: string;
+  /** subquery: sai como CTE (WITH alias AS (…)) em vez de tabela derivada no FROM */
+  cte?: boolean;
+  /** subquery CTE: o nome no WITH quando a consulta a usa com outro apelido (WITH resumo AS (…) … JOIN resumo r); ausente = o apelido */
+  name?: string;
+  /** filter: a condição do WHERE */
+  condition?: string;
+  /** aggregate: as expressões do GROUP BY */
+  groupBy?: string[];
+  /** aggregate: a condição do HAVING */
+  having?: string;
+  /** sort: os itens do ORDER BY (ex.: "total DESC") */
+  orderBy?: string[];
+  /** sort: LIMIT */
+  limit?: number;
+  /** sort: OFFSET */
+  offset?: number;
+  /** result: SELECT DISTINCT */
+  distinct?: boolean;
+}
+export type SqlField = Exclude<keyof SqlNodeSpec, "role">;
+
+export const SQL_ROLES: Record<SqlRole, { label: string; hint: string; color: string; badge: string; fields: SqlField[] }> = {
+  table: {
+    label: "Tabela",
+    hint: "Tabela de onde as linhas vêm (FROM ou JOIN). Tem nome, apelido e as colunas que a consulta usa; liga-se a outras fontes por setas join.",
+    color: "#2f68b8",
+    badge: "TABLE",
+    fields: ["table", "alias", "columns"],
+  },
+  subquery: {
+    label: "Subconsulta",
+    hint: "Consulta usada como fonte: uma CTE (WITH apelido AS (…)) ou uma tabela derivada no FROM. Precisa de apelido; entra em joins como uma tabela.",
+    color: "#6a4cba",
+    badge: "CTE",
+    fields: ["alias", "query", "cte", "name", "columns"],
+  },
+  filter: {
+    label: "Filtro (WHERE)",
+    hint: "Condição que cada linha precisa cumprir antes de agrupar. Vários filtros em sequência se somam com AND.",
+    color: "#a85d12",
+    badge: "WHERE",
+    fields: ["condition"],
+  },
+  aggregate: {
+    label: "Agrupamento (GROUP BY)",
+    hint: "Junta as linhas pelas expressões do GROUP BY; o HAVING filtra os grupos depois de agregados (ex.: COUNT(*) > 1).",
+    color: "#1f7f73",
+    badge: "GROUP",
+    fields: ["groupBy", "having"],
+  },
+  sort: {
+    label: "Ordenação (ORDER BY)",
+    hint: "Ordena o resultado (ORDER BY) e, se quiser, corta as linhas com LIMIT e OFFSET.",
+    color: "#a8407f",
+    badge: "ORDER",
+    fields: ["orderBy", "limit", "offset"],
+  },
+  result: {
+    label: "Resultado (SELECT)",
+    hint: "O que a consulta devolve: as colunas e expressões do SELECT (vazio = *), com DISTINCT opcional. É o fim do fluxo.",
+    color: "#1a7f45",
+    badge: "SELECT",
+    fields: ["columns", "distinct"],
+  },
+};
+export const SQL_ROLE_KEYS = Object.keys(SQL_ROLES) as SqlRole[];
+
+/** Fontes de linhas (entram em joins); as demais são etapas do fluxo. */
+export const SQL_SOURCE_ROLES: SqlRole[] = ["table", "subquery"];
+
+export type SqlJoinType = "inner" | "left" | "right" | "full" | "cross";
+export const SQL_JOIN_TYPES: Record<SqlJoinType, { label: string; keyword: string; hint: string }> = {
+  inner: { label: "Inner", keyword: "INNER JOIN", hint: "Só as linhas que casam nos dois lados." },
+  left: { label: "Left", keyword: "LEFT JOIN", hint: "Todas as linhas da origem da seta; do destino, só as que casam (o resto vem NULL)." },
+  right: { label: "Right", keyword: "RIGHT JOIN", hint: "Todas as linhas do destino da seta; da origem, só as que casam." },
+  full: { label: "Full", keyword: "FULL OUTER JOIN", hint: "Todas as linhas dos dois lados, casando quando der." },
+  cross: { label: "Cross", keyword: "CROSS JOIN", hint: "Produto cartesiano: cada linha da origem com cada linha do destino, sem condição." },
+};
+export const SQL_JOIN_KEYS = Object.keys(SQL_JOIN_TYPES) as SqlJoinType[];
+
+export type SqlRel = "join" | "flow";
+export const SQL_RELS: Record<SqlRel, { label: string; semantics: string; type: ConnectionType }> = {
+  join: { label: "join", semantics: "fonte → fonte: junta as linhas das duas fontes pela condição `on` (tipo em `join`: inner, left, right, full, cross). A origem da seta é o lado esquerdo do JOIN.", type: "association" },
+  flow: { label: "flow", semantics: "fonte ou etapa → próxima etapa: as linhas seguem nesta ordem até o resultado (FROM → WHERE → GROUP BY → ORDER BY → SELECT).", type: "data" },
+};
+export const SQL_REL_KEYS = Object.keys(SQL_RELS) as SqlRel[];
+
+export const SQL_REL_PAIRS: Record<SqlRel, { from: SqlRole[]; to: SqlRole[] }[]> = {
+  join: [{ from: ["table", "subquery"], to: ["table", "subquery"] }],
+  flow: [{ from: ["table", "subquery", "filter", "aggregate", "sort"], to: ["filter", "aggregate", "sort", "result"] }],
+};
+
+/** Campos próprios de uma conexão do modo sql. */
+export interface SqlConnSpec {
+  rel: SqlRel;
+  /** join: tipo do JOIN (padrão inner) */
+  join?: SqlJoinType;
+  /** join: a condição do ON (ex.: "p.cliente_id = c.id"); USING (col) também vale */
+  on?: string;
+}
+
 /* ───────── modo domínio (DDD) ───────── */
 
-/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD) · `agents` = time de agentes de IA. */
-export type DocMode = "architecture" | "domain" | "logic" | "agents";
+/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD) · `agents` = time de agentes de IA · `sql` = consultas SQL. */
+export type DocMode = "architecture" | "domain" | "logic" | "agents" | "sql";
 
 export const DOC_MODES: Record<DocMode, { label: string; hint: string }> = {
   architecture: { label: "Architecture", hint: "Arquitetura: serviços, bancos, filas, nuvem e rede." },
   domain: { label: "Domain", hint: "Domínio (DDD): bounded contexts, aggregates, commands, eventos e casos de uso." },
   logic: { label: "Logic", hint: "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos." },
   agents: { label: "Agents", hint: "Agentes de IA: subagentes, skills (do catálogo ou próprias) e como se plugam; exporta como harness para Claude Code ou Cursor." },
+  sql: { label: "SQL", hint: "Consultas SQL: tabelas, joins, filtros, agrupamentos e o resultado; cola uma consulta para diagramá-la ou gera o SQL do quadro." },
 };
+export const DOC_MODE_KEYS = Object.keys(DOC_MODES) as DocMode[];
 
-export const docMode = (doc: { mode?: DocMode }): DocMode =>
-  doc.mode === "domain" ? "domain" : doc.mode === "logic" ? "logic" : doc.mode === "agents" ? "agents" : "architecture";
+export const isDocMode = (m: unknown): m is DocMode => typeof m === "string" && (DOC_MODE_KEYS as string[]).includes(m);
+
+export const docMode = (doc: { mode?: DocMode }): DocMode => (isDocMode(doc.mode) ? doc.mode : "architecture");
 
 export type DddRole =
   | "aggregate-root"
@@ -843,6 +968,8 @@ export interface Asset {
   logic?: LogicNodeSpec;
   /** valores padrão quando o asset é um papel do time de agentes; só entra em diagramas de modo agents */
   agent?: AgentNodeSpec;
+  /** valores padrão quando o asset é uma peça de consulta; só entra em diagramas de modo sql */
+  sql?: SqlNodeSpec;
   icon: string;
   color: string;
   /** Qual problema a tecnologia resolve */
@@ -900,6 +1027,8 @@ export interface NodeEl extends Base, Box {
   source?: string;
   /** agente de IA / skill (kind "agent"): papel e campos do papel */
   agent?: AgentNodeSpec;
+  /** peça de consulta SQL (kind "sql"): papel e campos do papel */
+  sql?: SqlNodeSpec;
 }
 
 /** Anel do layout "camadas": raio interno (0 = disco) e, num setor, os ângulos em graus (0 = topo, sentido horário). */
@@ -1024,6 +1153,8 @@ export interface ConnectionEl {
   logic?: LogicConnSpec;
   /** semântica do modo agents: uses-skill ou delegates */
   agent?: AgentConnSpec;
+  /** semântica do modo sql: join entre fontes ou flow até o resultado */
+  sql?: SqlConnSpec;
 }
 
 /** Um slide do roteiro de apresentação (modo architecture). */
@@ -1068,7 +1199,7 @@ export function emptyDoc(title = "Novo diagrama", mode: DocMode = "architecture"
     id: "diagram-" + Math.random().toString(36).slice(2, 8),
     title,
     description: "",
-    ...(mode === "domain" || mode === "logic" || mode === "agents" ? { mode } : {}),
+    ...(mode !== "architecture" ? { mode } : {}),
     groups: [],
     nodes: [],
     notes: [],

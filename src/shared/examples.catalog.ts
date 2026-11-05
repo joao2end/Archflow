@@ -1,5 +1,5 @@
 /**
- * Catálogo único de exemplos da seção «Exemplos» do app: Arquitetura, Domínio (DDD) e Lógica.
+ * Catálogo único de exemplos da seção «Exemplos» do app: Arquitetura, Domínio (DDD), Lógica e SQL.
  *
  * Cada exemplo é uma pasta do projeto com um ou mais diagramas. Arquitetura e Domínio saem de listas de ops (código); os
  * algoritmos de Lógica são arquivos `examples/exemplos-algoritmos/*.archflow.json` (gerados por `scripts/build-algorithms.ts`)
@@ -11,6 +11,7 @@ import { DDD_EXAMPLES, EXAMPLES_DIR, buildExampleFile, examplePath } from "./exa
 import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
 import { LOGIC_TOURS, tourStartDoc } from "./logictours";
+import { SQL_EXAMPLES, sqlExampleDoc } from "./sql.example";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
 
@@ -47,6 +48,7 @@ export interface CatalogExample {
 export const ARCH_DIR = "exemplos-arquitetura";
 export const LOGIC_DIR = "exemplos-logic";
 export const ALGORITHMS_DIR = `${LOGIC_DIR}/algoritmos`;
+export const SQL_DIR = "exemplos-sql";
 
 const pathOf = (dir: string, title: string) => `${dir}/${slug(title)}.archflow.json`;
 
@@ -162,13 +164,18 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
       return { key: `logic:${a.file}`, mode: "logic", title: a.title, level: a.level, summary: a.summary, teaches: a.teaches, files: [{ title: a.title, path, mode: "logic", load: () => loadAlgorithm(a.file) }], open: path, linked: false, guided: false };
     }),
   ];
-  return [...architecture, ...lessons, ...domain, ...logic];
+  const sql: CatalogExample[] = SQL_EXAMPLES.map((ex) => {
+    const path = pathOf(SQL_DIR, ex.title);
+    return { key: `sql:${ex.id}`, mode: "sql", title: ex.title, level: ex.level, summary: ex.summary, teaches: ex.teaches, files: [{ title: ex.title, path, mode: "sql", load: () => sqlExampleDoc(ex) }], open: path, linked: false, guided: false };
+  });
+  return [...architecture, ...lessons, ...domain, ...logic, ...sql];
 }
 
 export const EXAMPLE_MODES: { mode: DocMode; label: string; hint: string }[] = [
   { mode: "architecture", label: "Arquitetura", hint: "Componentes, grupos e conexões: o desenho de um sistema." },
   { mode: "domain", label: "Domínio", hint: "DDD: contextos, aggregates, comandos e eventos." },
   { mode: "logic", label: "Lógica", hint: "Regras e algoritmos como fluxo que o app executa e confere." },
+  { mode: "sql", label: "SQL", hint: "Consultas desenhadas na ordem em que o banco as executa: fontes, joins, filtros e o resultado." },
 ];
 
 export { EXAMPLES_DIR };

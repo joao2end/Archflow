@@ -59,7 +59,7 @@ import { checkExpects, missingOutputs, type FsEntry } from "../src/shared/expect
 import { getRun, listRuns, resumeFiles, RunStoreError, saveRun, snapshotStep } from "./runstore";
 import { applyOps, createDoc, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { normalizeLibrary } from "../src/shared/prompts";
-import { docMode, emptyDoc, type Doc, type DocMode } from "../src/shared/schema";
+import { DOC_MODE_KEYS, docMode, emptyDoc, isDocMode, type Doc, type DocMode } from "../src/shared/schema";
 import { SKILL_MD } from "../src/shared/skill.generated";
 import { hashSkillContent, parseSkillMarkdown, skillInstallSlug } from "../src/shared/skillcatalog";
 
@@ -1361,8 +1361,8 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     /* diagramas */
     if (path === "/api/diagrams" && m === "POST") {
       const b = await body(req);
-      if (b.mode != null && b.mode !== "architecture" && b.mode !== "domain" && b.mode !== "logic" && b.mode !== "agents") throw new HttpError(400, `mode inválido "${b.mode}". Válidos: architecture, domain, logic, agents`);
-      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", b.mode === "domain" || b.mode === "logic" || b.mode === "agents" ? b.mode : "architecture", b.blank === true);
+      if (b.mode != null && !isDocMode(b.mode)) throw new HttpError(400, `mode inválido "${b.mode}". Válidos: ${DOC_MODE_KEYS.join(", ")}`);
+      const rel = createDiagram(String(b.title || "Novo diagrama"), String(b.folder ?? ""), b.source ?? "file", isDocMode(b.mode) ? b.mode : "architecture", b.blank === true);
       return ws(res, { name: rel });
     }
     if (path === "/api/diagrams/open" && m === "POST") {
@@ -1613,7 +1613,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     if (path === "/api/schema") {
       res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
       const wanted = url.searchParams.get("mode");
-      return void res.end(schemaGuide(wanted === "domain" || wanted === "logic" || wanted === "agents" || wanted === "architecture" ? wanted : docMode(doc)));
+      return void res.end(schemaGuide(isDocMode(wanted) ? wanted : docMode(doc)));
     }
     if (path === "/api/events") {
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });

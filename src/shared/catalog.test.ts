@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AGENTS_CATEGORY, ASSET_CATEGORIES, BUILTIN_ASSETS, DOMAIN_CATEGORY, LOGIC_CATEGORY, assetsForMode, searchAssets } from "./catalog";
+import { AGENTS_CATEGORY, ASSET_CATEGORIES, BUILTIN_ASSETS, DOMAIN_CATEGORY, LOGIC_CATEGORY, SQL_CATEGORY, assetsForMode, searchAssets } from "./catalog";
 import { applyOps } from "./ops";
-import { AGENT_ROLE_KEYS, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLE_KEYS, emptyDoc, type Asset } from "./schema";
+import { AGENT_ROLE_KEYS, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLE_KEYS, SQL_ROLE_KEYS, emptyDoc, type Asset } from "./schema";
 
 const domainAssets = BUILTIN_ASSETS.filter((a) => a.category === DOMAIN_CATEGORY);
 
@@ -31,8 +31,11 @@ test("assetsForMode: architecture esconde Domain; domain mostra só Domain + Gen
   assert.equal(arch.some((a) => a.category === DOMAIN_CATEGORY), false);
   const logicAssets = BUILTIN_ASSETS.filter((a) => a.category === LOGIC_CATEGORY);
   const agentAssets = BUILTIN_ASSETS.filter((a) => a.category === AGENTS_CATEGORY);
+  const sqlAssets = BUILTIN_ASSETS.filter((a) => a.category === SQL_CATEGORY);
   assert.equal(arch.some((a) => a.category === AGENTS_CATEGORY), false);
-  assert.equal(arch.length, BUILTIN_ASSETS.length - domainAssets.length - logicAssets.length - agentAssets.length, "architecture também esconde Logic e Agents");
+  assert.equal(arch.length, BUILTIN_ASSETS.length - domainAssets.length - logicAssets.length - agentAssets.length - sqlAssets.length, "architecture também esconde Logic, Agents e SQL");
+  const sq = assetsForMode(BUILTIN_ASSETS, "sql");
+  assert.deepEqual(sq.map((a) => a.id), [...SQL_ROLE_KEYS.map((r) => `sql-${r}`), "diagram-ref"], "SQL primeiro, depois a referência a outro diagrama");
   const ag = assetsForMode(BUILTIN_ASSETS, "agents");
   assert.deepEqual(ag.map((a) => a.id), AGENT_ROLE_KEYS.map((r) => `agent-${r}`), "modo agents mostra só os papéis do time");
   const lg = assetsForMode(BUILTIN_ASSETS, "logic");

@@ -13,11 +13,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, LOGIC_BRANCH_KEYS, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
+import { AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
 import { generateHarness } from "../src/shared/agentgen";
+import { SqlParseError, generateSql, sqlToOps } from "../src/shared/sqlgen";
 import { SKILL_MD } from "../src/shared/skill.generated";
 import pkg from "../package.json" with { type: "json" };
 
@@ -98,7 +99,7 @@ const ifaceSchema = z.object({
   ),
 });
 
-const modeEnum = z.enum(["architecture", "domain", "logic"]);
+const modeEnum = z.enum(DOC_MODE_KEYS as [DocMode, ...DocMode[]]);
 const logicValue: z.ZodType = z.lazy(() => z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(logicValue), z.record(z.string(), logicValue)]));
 const logicNodeSchema = z
   .object({
@@ -179,6 +180,33 @@ const agentConnSchema = z
   })
   .describe("modo agents");
 
+const sqlNodeSchema = z
+  .object({
+    role: z.enum(SQL_ROLE_KEYS as [string, ...string[]]).describe(SQL_ROLE_KEYS.map((r) => `${r}: ${SQL_ROLES[r].hint}`).join(" · ")),
+    table: z.string().optional().describe("table: nome da tabela, com schema se houver (ex.: vendas.pedidos)"),
+    alias: z.string().optional().describe("table/subquery: apelido usado nas expressões (ex.: p); obrigatório na subquery"),
+    columns: z.array(z.string()).optional().describe("table: colunas usadas (documentação) · subquery: colunas de saída · result: expressões do SELECT (vazio = *)"),
+    query: z.string().optional().describe("subquery: a consulta interna (SQL)"),
+    cte: z.boolean().optional().describe("subquery: sai como CTE (WITH alias AS (…)) em vez de tabela derivada"),
+    name: z.string().optional().describe("subquery com cte: o nome no WITH quando a consulta usa a CTE com outro apelido (WITH resumo AS (…) … JOIN resumo r → name resumo, alias r)"),
+    condition: z.string().optional().describe("filter: a condição do WHERE"),
+    groupBy: z.array(z.string()).optional().describe("aggregate: expressões do GROUP BY"),
+    having: z.string().optional().describe("aggregate: condição do HAVING"),
+    orderBy: z.array(z.string()).optional().describe("sort: itens do ORDER BY (ex.: \"total DESC\")"),
+    limit: z.number().int().min(0).optional().describe("sort: LIMIT"),
+    offset: z.number().int().min(0).optional().describe("sort: OFFSET"),
+    distinct: z.boolean().optional().describe("result: SELECT DISTINCT"),
+  })
+  .describe("modo sql");
+
+const sqlConnSchema = z
+  .object({
+    rel: z.enum(SQL_REL_KEYS as [string, ...string[]]).describe(Object.entries(SQL_RELS).map(([k, r]) => `${k}: ${r.semantics}`).join(" · ") + " O `type` é inferido da relação."),
+    join: z.enum(SQL_JOIN_KEYS as [string, ...string[]]).optional().describe(SQL_JOIN_KEYS.map((k) => `${k}: ${SQL_JOIN_TYPES[k].hint}`).join(" · ") + " Padrão inner."),
+    on: z.string().optional().describe("join: a condição do ON (ex.: p.cliente_id = c.id) ou USING (col)"),
+  })
+  .describe("modo sql");
+
 const dddNodeSchema = z
   .object({
     role: z.enum(DDD_ROLE_KEYS as [string, ...string[]]).describe(DDD_ROLE_KEYS.map((r) => `${r}: ${DDD_ROLES[r].hint}`).join(" · ")),
@@ -215,7 +243,7 @@ const dddNodeSchema = z
 server.registerTool(
   "get_schema_guide",
   {
-    description: "Leia primeiro: vocabulário (kinds, tipos de conexão) e fluxo recomendado. `mode` escolhe o guia (architecture | domain); omitido, usa o modo do diagrama aberto.",
+    description: "Leia primeiro: vocabulário (kinds, tipos de conexão) e fluxo recomendado. `mode` escolhe o guia (architecture | domain | logic | agents | sql); omitido, usa o modo do diagrama aberto.",
     inputSchema: { mode: modeEnum.optional() },
   },
   async ({ mode }) => text(schemaGuide((mode as DocMode | undefined) ?? docMode(await getDoc()))),
@@ -278,17 +306,18 @@ server.registerTool(
 server.registerTool(
   "add_components",
   {
-    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset; no modo logic, use `logic` (kind vira \"logic\").",
+    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset; no modo logic, use `logic` (kind vira \"logic\"); no modo sql, use `sql` (kind vira \"sql\") — ou import_sql para montar o quadro de uma consulta.",
     inputSchema: {
       components: z.array(
         z.object({
           id: z.string().optional().describe("slug estável, ex.: orders-api"),
           label: z.string().optional(),
           asset: z.string().optional(),
-          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic", "agent"]).optional(),
+          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic", "agent", "sql"]).optional(),
           ddd: dddNodeSchema.optional(),
           agent: agentNodeSchema.optional(),
           logic: logicNodeSchema.optional(),
+          sql: sqlNodeSchema.optional(),
           technology: z.string().optional().describe("stack/versão: 'Laravel 11 / PHP 8.3'"),
           description: z.string().optional().describe("responsabilidade do componente"),
           parent: z.string().optional(),
@@ -385,6 +414,7 @@ server.registerTool(
             })
             .optional(),
           agent: agentConnSchema.optional(),
+          sql: sqlConnSchema.optional(),
           port: z
             .object({
               name: z.string().describe('nome da interface, ex.: "RepositorioDePedidos"'),
@@ -578,7 +608,7 @@ server.registerTool(
   "generate_code",
   {
     description:
-      "Modo logic: gera TypeScript EXECUTÁVEL do fluxo (runtime.ts, <fluxo>.ts com `run(input, deps)` e <fluxo>.test.ts com um teste por exemplo de cenário); Call com `request` vira fetch de verdade. Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Modo agents: gera o harness do time (`.claude/agents/*.md` + `.claude/skills/<nome>/SKILL.md`, ou os equivalentes em `.cursor/`); com `write: true` grava direto na pasta do projeto aberto. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
+      "Modo logic: gera TypeScript EXECUTÁVEL do fluxo (runtime.ts, <fluxo>.ts com `run(input, deps)` e <fluxo>.test.ts com um teste por exemplo de cenário); Call com `request` vira fetch de verdade. Modo domain: gera o esqueleto de código do diagrama aberto (um diretório por bounded context, application → domain): aggregates com entities e value objects, eventos, interfaces de repository, commands e handlers, policies, sagas, decisões (classes tipadas pelos ramos), read models e use-cases.md com o rastreio. Modo sql: devolve a consulta SELECT montada a partir do quadro (uma por Resultado). Modo agents: gera o harness do time (`.claude/agents/*.md` + `.claude/skills/<nome>/SKILL.md`, ou os equivalentes em `.cursor/`); com `write: true` grava direto na pasta do projeto aberto. Devolve os arquivos em Markdown (caminho + conteúdo) para você gravar no projeto do usuário; a lógica fica como TODO. Rode validate_diagram antes: o código herda as lacunas do modelo.",
     inputSchema: {
       language: z.enum(CODEGEN_LANGUAGES).optional().describe("padrão e único hoje: typescript"),
       target: z.enum(["claude", "cursor"]).optional().describe("modo agents: para qual ferramenta gerar o harness (padrão claude)"),
@@ -588,7 +618,11 @@ server.registerTool(
   async ({ language, target, write }) => {
     const doc = await getDoc();
     const mode = docMode(doc);
-    if (mode === "architecture") return text(`o diagrama aberto está em modo "${mode}"; gere código a partir de um diagrama de domínio, de lógica ou de agents`, true);
+    if (mode === "architecture") return text(`o diagrama aberto está em modo "${mode}"; gere código a partir de um diagrama de domínio, de lógica, de agents ou de sql`, true);
+    if (mode === "sql") {
+      const sql = generateSql(doc);
+      return text(sql ? "```sql\n" + sql + "\n```" : "nada a gerar: o quadro não tem um Resultado (role result) ligado às fontes por setas flow");
+    }
     if (mode === "agents") {
       if (write) {
         const r = await post("/api/harness", { target: target ?? "claude" });
@@ -601,6 +635,36 @@ server.registerTool(
     return text(files.length ? `${files.length} arquivo(s)
 
 ${filesToMarkdown(files)}` : "nada a gerar: o diagrama não tem elementos de domínio (ou, no modo logic, passos do fluxo)");
+  },
+);
+
+server.registerTool(
+  "import_sql",
+  {
+    description:
+      "Modo sql: lê uma consulta SELECT e monta o quadro dela — uma `table` por tabela (com as colunas que a consulta usa), CTEs e subconsultas do FROM como `subquery`, setas join com tipo e ON, e o fluxo WHERE → GROUP BY/HAVING → ORDER BY/LIMIT → SELECT. Por padrão SUBSTITUI o conteúdo do diagrama aberto; `replace: false` acrescenta ao lado. UNION e instruções que não são SELECT são recusadas com o motivo.",
+    inputSchema: {
+      query: z.string().describe("uma consulta SELECT (WITH … SELECT também vale)"),
+      replace: z.boolean().optional().describe("padrão true: limpa o quadro antes; false acrescenta"),
+    },
+  },
+  async ({ query, replace }) => {
+    const doc = await getDoc();
+    if (docMode(doc) !== "sql") return text(`o diagrama aberto está em modo "${docMode(doc)}"; crie um com new_diagram mode "sql" ou use set_diagram_info mode "sql"`, true);
+    const keep = replace === false;
+    let built;
+    try {
+      built = sqlToOps(query, keep ? [...doc.nodes, ...doc.groups, ...doc.notes, ...doc.connections].map((e) => e.id) : []);
+    } catch (e) {
+      return text(`não consegui ler a consulta: ${e instanceof SqlParseError || e instanceof Error ? e.message : String(e)}`, true);
+    }
+    const out = await ops([...(keep ? [] : [{ op: "clear" } as Op]), ...built.ops]);
+    const failed = out.results.filter((r) => !r.ok);
+    const lines = [`peças: ${built.ops.filter((o) => o.op === "add_node").length} · setas: ${built.ops.filter((o) => o.op === "add_connection").length}${failed.length ? ` · recusadas: ${failed.length}` : ""}`];
+    for (const f of failed) lines.push(`- ${f.error}`);
+    for (const w of built.warnings) lines.push(`aviso: ${w}`);
+    lines.push("", "Confira com validate_diagram e generate_code (o SQL gerado do quadro).");
+    return text(lines.join("\n"), failed.length > 0);
   },
 );
 
@@ -715,8 +779,8 @@ server.registerTool(
 server.registerTool(
   "new_diagram",
   {
-    description: "Cria um diagrama novo (.archflow.json) no projeto, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD); depois chame get_schema_guide.",
-    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao projeto, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain") },
+    description: "Cria um diagrama novo (.archflow.json) no projeto, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD), sql um diagrama de consulta SQL; depois chame get_schema_guide.",
+    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao projeto, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain | logic | agents | sql") },
   },
   async ({ title, folder, mode }) => text("criado.\n" + fmtWorkspace(await post("/api/diagrams", { title, folder, mode, source: "mcp" }))),
 );

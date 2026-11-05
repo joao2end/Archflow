@@ -1,6 +1,6 @@
 ---
 name: archflow
-description: Desenha e edita diagramas de arquitetura de software no Archflow (quadro branco com MCP). Use quando o usuário pedir para desenhar, documentar, revisar ou evoluir uma arquitetura — serviços, bancos, filas, APIs, endpoints, fronteiras de nuvem/rede — ou mencionar Archflow, "diagrama de arquitetura", projeto de diagramas ou as tools add_components/connect/auto_layout. Também modela o DOMÍNIO com DDD (bounded contexts, aggregates, commands, eventos, casos de uso, context map): use quando o usuário falar de DDD, domínio, casos de uso, event storming ou pedir para transformar requisitos em modelo. Também modela REGRAS DE NEGÓCIO como fluxo executável (modo logic: regras em ordem, decisões, laços, dados e exemplos que o app executa): use quando o usuário falar de regra de negócio, engine de preço/cálculo, fluxo de decisão, elegibilidade, "se… então…" ou pedir exemplos verificáveis.
+description: Desenha e edita diagramas de arquitetura de software no Archflow (quadro branco com MCP). Use quando o usuário pedir para desenhar, documentar, revisar ou evoluir uma arquitetura — serviços, bancos, filas, APIs, endpoints, fronteiras de nuvem/rede — ou mencionar Archflow, "diagrama de arquitetura", projeto de diagramas ou as tools add_components/connect/auto_layout. Também modela o DOMÍNIO com DDD (bounded contexts, aggregates, commands, eventos, casos de uso, context map): use quando o usuário falar de DDD, domínio, casos de uso, event storming ou pedir para transformar requisitos em modelo. Também modela REGRAS DE NEGÓCIO como fluxo executável (modo logic: regras em ordem, decisões, laços, dados e exemplos que o app executa): use quando o usuário falar de regra de negócio, engine de preço/cálculo, fluxo de decisão, elegibilidade, "se… então…" ou pedir exemplos verificáveis. Também DIAGRAMA CONSULTAS SQL (modo sql: tabelas, joins, WHERE, GROUP BY, ORDER BY e o SELECT; importa uma consulta e gera o SQL do quadro): use quando o usuário pedir para desenhar, explicar ou revisar uma query.
 ---
 
 # Archflow — como diagramar arquitetura via MCP
@@ -75,7 +75,7 @@ Com `asset`, o `kind` já vem do catálogo — não repita.
 
 ## Modo domain (DDD): do caso de uso ao modelo
 
-Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio), `logic` (as regras do negócio, ver mais abaixo) ou `agents` (time de agentes de IA, ver «Modo agents»). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
+Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio), `logic` (as regras do negócio, ver mais abaixo) `agents` (time de agentes de IA, ver «Modo agents») ou `sql` (uma consulta SELECT, ver «Modo sql»). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
 
 Estrutura no projeto: **um diagrama por bounded context** + um **mapa de contextos** (visão geral), tudo em `dominio/`.
 
@@ -132,6 +132,15 @@ Relações (`connect` com `agent: { rel, usage }`; o `type` vem da relação): `
 Fluxo: `new_diagram` com `mode: "agents"` → `add_components` (agentes, skills, tools) → `connect` (com `usage`) → `validate_diagram` (erros A001, A002, A010, A011, A013 primeiro; A006 = skill do catálogo ainda sem conteúdo) → `generate_code` com `target` `claude` ou `cursor` (`write: true` grava na pasta do projeto). Com o projeto em disco, o app regrava o harness sozinho a cada edição (alvos em `.archflow/project.json`; o controle fica em `archflow.agents.json`: apaga o que saiu do diagrama e **não sobrescreve** `.md` que o usuário editou à mão; `.mcp.json` é mesclado por servidor). Para trazer um harness existente (`.claude/agents/` e `.claude/skills/` do projeto aberto) para o diagrama, use `import_harness`: sem `apply` só mostra o que seria importado (ops e o que não volta: a «como usa» das setas, delegates, tools e mcpServers); com `apply: true` aplica. O usuário testa o time no próprio app: o botão **Terminal** abre o Claude Code na pasta do projeto (você não precisa abrir nem controlar esse terminal; o que ele executa é o harness gravado).
 
 O que dizer ao usuário depois de gerar: **o Claude Code pede para aprovar cada servidor de `.mcp.json` na primeira vez** (fica «Pending approval» até lá) e, para servidor MCP **inline** num agente, para **confiar na pasta**; as `${VAR}` precisam existir no ambiente dele. No Cursor o MCP vale para o projeto todo (`.cursor/mcp.json`, `${env:VAR}`), sem isolamento por agente. Sem nenhuma tool nativa ligada, o agente herda todas as tools (inclusive MCP); com alguma, `tools:` vira lista de permissão e o Archflow soma as `mcp__…`.
+
+## Modo sql: uma consulta SELECT desenhada
+
+Quinto modo (`mode: "sql"`): o quadro é **uma consulta** na ordem lógica em que o banco a executa. **Chame `get_schema_guide` antes** e não use assets de tecnologia.
+
+- **Tem a consulta em texto? Use `import_sql { query }`**: monta o quadro inteiro (substitui o conteúdo; `replace: false` acrescenta). Entende WITH, DISTINCT, joins (inner/left/right/full/cross/vírgula), subconsultas no FROM, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT/OFFSET, TOP e FETCH FIRST; recusa UNION e o que não é SELECT, com o motivo.
+- Do zero: `add_components` com `sql: { role, ... }` (kind vira `sql`): `table` (`table`, `alias`, `columns`), `subquery` (`alias`, `query`, `cte`, `name`), `filter` (`condition`), `aggregate` (`groupBy`, `having`), `sort` (`orderBy`, `limit`, `offset`), `result` (`columns`, `distinct`).
+- `connect` com `sql: { rel }` (o `type` vem da relação; omitido, é deduzido do par): `join` entre fontes (`join`: inner|left|right|full|cross, `on`: a condição; a origem da seta é o lado esquerdo) e `flow` da tabela do FROM pelas etapas até o `result`.
+- Fluxo: `new_diagram` com `mode: "sql"` → `import_sql` (ou componentes + connect) → `auto_layout` → `validate_diagram` (S001 sem Resultado, S010 join sem ON, S007 fluxo bifurcado são erros) → `generate_code` devolve o SQL montado do quadro. Expressões viajam como texto: use os apelidos (`p.total`).
 
 ## Convenções que evitam retrabalho
 

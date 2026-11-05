@@ -16,6 +16,9 @@ import { severityOrder, useDomainIssues } from "./domain";
 import { OverviewTab, ScenarioMatrixTab } from "./logicoverview";
 import { HARNESS_TARGETS, allKnownAssets, copyText, exportHarness, importHarness, fetchProjectDocs, getState, harnessFiles, loadHarnessSync, loadHarnessSyncState, lookupAsset, newAssetId, newDiagram, run, saveAsset, saveHarnessSync, select, set, toast, toastError, useStore, type LogicTab } from "./store";
 import type { HarnessTarget } from "../shared/agentgen";
+import { generateSql } from "../shared/sqlgen";
+import { importSql } from "./sql";
+import type { SqlTab } from "./store";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -647,6 +650,93 @@ function AgentsModal({ tab: initial }: { tab?: "issues" | "text" | "harness" }) 
   );
 }
 
+/* ───────── sql: o SQL gerado, importar uma consulta, validação e texto ───────── */
+
+function SqlModal({ tab: initial }: { tab?: SqlTab }) {
+  const doc = useStore((s) => s.doc);
+  const [tab, setTab] = useState<SqlTab>(initial ?? "sql");
+  const [draft, setDraft] = useState("");
+  const issues = useDomainIssues();
+  const sql = useMemo(() => generateSql(doc), [doc]);
+  const text = tab === "text" ? describe(doc) : tab === "sql" ? sql : tab === "import" ? draft : issues.map(issueText).join("\n");
+  const count = (s: Issue["severity"]) => issues.filter((i) => i.severity === s).length;
+  const empty = !doc.nodes.length;
+  const submit = () => draft.trim() && importSql(draft) && close();
+  return (
+    <Modal
+      wide
+      title="Consulta SQL"
+      onClose={close}
+      foot={
+        tab === "import" ? (
+          <button className="btn primary" disabled={!draft.trim()} onClick={submit} data-tip={draft.trim() ? (empty ? undefined : "Substitui o conteúdo do quadro (Ctrl+Z desfaz)") : "Cole uma consulta SELECT no campo"} data-tip-pos="top">
+            <Glyph name="sparkle" size={16} /> {empty ? "Diagramar a consulta" : "Substituir o quadro"}
+          </button>
+        ) : (
+          <button className="btn primary" disabled={!text} onClick={() => copyText(text)} data-tip={text ? undefined : "Nada para copiar: o quadro ainda não tem um Resultado"} data-tip-pos="top">
+            <Glyph name="copy" size={16} /> Copiar
+          </button>
+        )
+      }
+    >
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>O quadro é uma consulta SELECT na ordem em que o banco a executa: fontes ligadas por joins, depois WHERE, GROUP BY, ORDER BY e o SELECT. A aba SQL é a consulta montada a partir do quadro; Importar faz o caminho inverso.</p>
+      <div className="tabs seg" role="tablist">
+        <button role="tab" aria-selected={tab === "sql"} className={tab === "sql" ? "active" : ""} onClick={() => setTab("sql")}>
+          SQL
+        </button>
+        <button role="tab" aria-selected={tab === "import"} className={tab === "import" ? "active" : ""} onClick={() => setTab("import")}>
+          Importar consulta
+        </button>
+        <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
+          Validação ({count("erro")} erros · {count("aviso")} avisos · {count("dica")} dicas)
+        </button>
+        <button role="tab" aria-selected={tab === "text"} className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>
+          Texto (para IA)
+        </button>
+      </div>
+      {tab === "sql" && (sql ? <pre className="code">{sql}</pre> : <div className="callout">Nada a gerar ainda: ligue as fontes a um Resultado (SELECT) com setas flow, ou cole uma consulta na aba Importar consulta.</div>)}
+      {tab === "import" && (
+        <>
+          <label className="field">
+            <span>Consulta SELECT</span>
+            <textarea
+              className="input mono"
+              rows={12}
+              aria-label="Consulta SELECT"
+              value={draft}
+              autoFocus
+              spellCheck={false}
+              placeholder={"SELECT c.nome, SUM(p.total) AS total\nFROM clientes c\nJOIN pedidos p ON p.cliente_id = c.id\nWHERE p.status = 'pago'\nGROUP BY c.nome\nORDER BY total DESC\nLIMIT 10"}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && (e.preventDefault(), submit())}
+            />
+          </label>
+          <div className="callout">
+            Entende WITH (CTEs), DISTINCT, joins (inner, left, right, full, cross e vírgula), subconsultas no FROM, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT/OFFSET, TOP e FETCH FIRST. UNION e instruções que não são SELECT ficam de fora. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> diagrama.
+          </div>
+        </>
+      )}
+      {tab === "issues" &&
+        (issues.length ? (
+          <ul className="issue-list" aria-label="Avisos de validação">
+            {issues.map((i, k) => (
+              <li key={k}>
+                <button className={`issue ${i.severity}`} disabled={!i.target} onClick={() => i.target && (select([i.target]), close())} data-tip={i.target ? "Selecionar no quadro" : undefined} data-tip-pos="left">
+                  <span className="issue-rule">{i.rule}</span>
+                  <span className="issue-sev">{i.severity}</span>
+                  <span className="issue-msg">{i.message}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="callout">Nenhum problema encontrado nesta consulta.</div>
+        ))}
+      {tab === "text" && <pre className="code">{text}</pre>}
+    </Modal>
+  );
+}
+
 /* ───────── MCP ───────── */
 
 function McpModal() {
@@ -931,6 +1021,8 @@ export function Modals() {
       return <LogicModal tab={m.tab} />;
     case "agents":
       return <AgentsModal tab={m.tab} />;
+    case "sql":
+      return <SqlModal tab={m.tab} />;
     case "skill":
       return <SkillModal key={m.id} id={m.id} tab={m.tab} />;
     case "tool":
