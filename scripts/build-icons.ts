@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { BUILTIN_ASSETS } from "../src/shared/catalog";
+import { BUILTIN_ASSETS, FILE_FORMATS } from "../src/shared/catalog";
 
 const sets: Record<string, any> = {
   l: JSON.parse(readFileSync("node_modules/@iconify-json/logos/icons.json", "utf8")),
@@ -7,7 +7,7 @@ const sets: Record<string, any> = {
 };
 const out: Record<string, { body: string; w: number; h: number }> = {};
 const missing: string[] = [];
-for (const a of BUILTIN_ASSETS) {
+for (const a of [...BUILTIN_ASSETS, ...Object.values(FILE_FORMATS)]) {
   const m = /^([ls]):(.+)$/.exec(a.icon);
   if (!m || out[a.icon]) continue;
   const set = sets[m[1]];

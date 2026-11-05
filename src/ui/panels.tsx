@@ -1,7 +1,7 @@
 import { ColorPicker } from "./colorpicker";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { assetsForMode, searchAssets } from "../shared/catalog";
+import { assetsForMode, displayAsset, FILE_FORMATS, searchAssets } from "../shared/catalog";
 import { ASSET_CATEGORIES } from "../shared/catalog";
 import { CONNECTION_TYPES, CONNECTION_TYPE_KEYS, DDD_BADGES, DDD_ROLES, GROUP_KINDS, LOGIC_ROLES, AGENT_ROLES, INFRA_CONNECTION_TYPES, NODE_KINDS, docMode, type ConnectionType, type GroupKind, type NodeKind, type Routing } from "../shared/schema";
 import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domain";
@@ -818,7 +818,7 @@ export function Inspector() {
   );
 
   if (node) {
-    const asset = lookupAsset(node.asset);
+    const asset = displayAsset(lookupAsset(node.asset), node.props);
     const groups = doc.groups;
     const isLogic = node.kind === "logic" && !!node.logic;
     const isAgent = node.kind === "agent" && !!node.agent;
@@ -850,6 +850,7 @@ export function Inspector() {
           <span>Nome</span>
           <TextField id="insp-first" value={node.label} onCommit={(v) => patch({ label: v || node.label })} />
         </label>
+        {node.asset === "file" && <FileFormatField node={node} patch={patch} />}
         {isDomain && !isLogic && <DomainFields node={node} patch={patch} />}
         {isLogic && <LogicFields node={node} patch={patch} />}
         {isAgent && <AgentFields node={node} patch={patch} />}
@@ -1162,6 +1163,29 @@ function ContextPicker({ node }: { node: NodeEl }) {
         {contexts.map((g) => (
           <option key={g.id} value={g.id}>
             {g.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Componente "Arquivo": o formato (props.format) escolhe o ícone do nó. */
+function FileFormatField({ node, patch }: { node: NodeEl; patch: (p: Partial<NodeEl>) => void }) {
+  const cur = node.props?.format?.toLowerCase() ?? "";
+  const set = (format: string) => {
+    const { format: _, ...rest } = node.props ?? {};
+    const props = format ? { ...rest, format } : rest;
+    patch({ props: Object.keys(props).length ? props : undefined });
+  };
+  return (
+    <label className="field">
+      <span>Tipo de arquivo</span>
+      <select className="input" value={FILE_FORMATS[cur] ? cur : ""} onChange={(e) => set(e.target.value)}>
+        <option value="">Genérico</option>
+        {Object.entries(FILE_FORMATS).map(([k, f]) => (
+          <option key={k} value={k}>
+            {f.label}
           </option>
         ))}
       </select>

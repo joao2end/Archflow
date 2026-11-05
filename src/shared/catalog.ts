@@ -25,6 +25,7 @@ const rows: Row[] = [
   ["mobile-app", "App Mobile", "Genéricos", "g:mobile", "#706fd3", "client", "Interface nativa/híbrida em dispositivos móveis.", "App iOS/Android/Flutter/React Native.", "ios android"],
   ["service", "Serviço", "Genéricos", "g:service", "#706fd3", "service", "Encapsular uma capacidade de negócio.", "Microsserviço ou módulo de backend genérico.", "microservice api backend"],
   ["database", "Banco de Dados", "Genéricos", "g:database", "#2f80ed", "database", "Persistir dados de forma durável.", "Banco de dados genérico (relacional ou NoSQL).", "db storage"],
+  ["file", "Arquivo", "Genéricos", "g:file", "#5b8def", "database", "Trocar ou guardar dados como arquivo (CSV, JSON, Parquet, PDF).", "Arquivo ou conjunto de arquivos: export, import, planilha, log, relatório. O formato fica em props.format (csv, json, xlsx, parquet, pdf…) e muda o ícone.", "arquivos file csv json parquet excel xlsx planilha pdf log export import upload storage"],
   ["queue", "Fila / Broker", "Genéricos", "g:queue", "#e08a1e", "queue", "Desacoplar produtores e consumidores.", "Fila de mensagens ou tópico de eventos.", "mensageria broker topic"],
   ["cache", "Cache", "Genéricos", "g:cache", "#d6453d", "cache", "Reduzir latência e carga no banco.", "Cache em memória.", "memoria"],
   ["gateway", "API Gateway", "Genéricos", "g:gateway", "#706fd3", "gateway", "Ponto único de entrada: roteamento, auth, rate limit.", "API gateway / reverse proxy / BFF.", "proxy edge bff"],
@@ -74,6 +75,7 @@ const rows: Row[] = [
   ["neo4j", "Neo4j", "Bancos de Dados", "l:neo4j", "#018bff", "database", "Relacionamentos complexos via grafo.", "", "grafo"],
   ["influxdb", "InfluxDB", "Bancos de Dados", "l:influxdb-icon", "#22adf6", "database", "Séries temporais e métricas.", "", "timeseries"],
   ["snowflake", "Snowflake", "Bancos de Dados", "l:snowflake-icon", "#29b5e8", "database", "Data warehouse em nuvem com separação storage/compute.", "", "dw analytics"],
+  ["clickhouse", "ClickHouse", "Bancos de Dados", "s:clickhouse", "#ffcc01", "database", "Analytics em tempo real sobre bilhões de linhas (OLAP colunar).", "Banco colunar open source para consultas analíticas rápidas.", "olap analytics colunar dw"],
   ["elasticsearch", "Elasticsearch", "Bancos de Dados", "s:elasticsearch", "#005571", "database", "Busca full-text e analytics em logs.", "", "search"],
   ["redis", "Redis", "Bancos de Dados", "l:redis", "#d82c20", "cache", "Cache, sessões, filas leves e rate limit em memória.", "", "cache"],
   ["memcached", "Memcached", "Bancos de Dados", "l:memcached", "#4a8c3b", "cache", "Cache distribuído simples chave-valor.", "", "cache"],
@@ -359,6 +361,31 @@ const agentAssets: Asset[] = AGENT_ROLE_KEYS.map((role) => ({
   tags: AGENT_TAGS[role].split(" "),
   builtin: true,
 }));
+
+/** Formatos do componente "Arquivo": `props.format` escolhe o ícone e a cor do nó. */
+export const FILE_FORMATS: Record<string, { label: string; icon: string; color: string }> = {
+  csv: { label: "CSV", icon: "t:CSV", color: "#1d6f42" },
+  json: { label: "JSON", icon: "l:json", color: "#5a5a5a" },
+  xlsx: { label: "Excel", icon: "s:microsoftexcel", color: "#217346" },
+  parquet: { label: "Parquet", icon: "s:apacheparquet", color: "#50abf1" },
+  avro: { label: "Avro", icon: "s:apacheavro", color: "#1a73a8" },
+  pdf: { label: "PDF", icon: "t:PDF", color: "#e5252a" },
+  docx: { label: "Word", icon: "s:microsoftword", color: "#2b579a" },
+  md: { label: "Markdown", icon: "l:markdown", color: "#333333" },
+  html: { label: "HTML", icon: "l:html-5", color: "#e34f26" },
+  xml: { label: "XML", icon: "s:xml", color: "#005fad" },
+  yaml: { label: "YAML", icon: "l:yaml", color: "#cb171e" },
+  txt: { label: "Texto / log", icon: "t:TXT", color: "#6b7280" },
+  image: { label: "Imagem", icon: "t:IMG", color: "#9b59b6" },
+  svg: { label: "SVG", icon: "l:svg", color: "#ffb13b" },
+  zip: { label: "ZIP", icon: "t:ZIP", color: "#a67c52" },
+};
+
+/** O asset como o nó o mostra: um "Arquivo" com `props.format` conhecido troca ícone, cor e nome pelos do formato. */
+export function displayAsset<A extends Pick<Asset, "id" | "icon" | "color" | "name">>(asset: A | undefined, props?: Record<string, string>): A | undefined {
+  const f = asset?.id === "file" ? FILE_FORMATS[props?.format?.toLowerCase() ?? ""] : undefined;
+  return f ? { ...asset!, icon: f.icon, color: f.color, name: `Arquivo ${f.label}` } : asset;
+}
 
 const generic = base.filter((a) => a.category === "Genéricos");
 export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...logicAssets, ...agentAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];

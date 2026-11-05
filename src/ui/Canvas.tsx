@@ -17,6 +17,7 @@ import { CONNECTION_TYPES, ENDPOINT_PROTOCOLS, endpointBadge, endpointColor, typ
 import { truncate, wrapLabel } from "../shared/text";
 import { FONT_CSS, parseInline, parseRich, plainText, type BlockKind, type Span } from "../shared/richtext";
 import { IconSvg } from "./icons";
+import { displayAsset } from "../shared/catalog";
 import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./richeditor";
 import { SUMMARY_COLS, SUMMARY_PAD, contains, edgeGeoms, logicSummaryBox, summaryText, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
@@ -563,7 +564,7 @@ export const ViewerAssets = createContext<Asset[] | null>(null);
 export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, status, gap, names, viz, badge, visits, liveValue, row }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean; status?: "ok" | "fail" | "none"; gap?: string[]; names?: Record<string, string>; viz?: Viz; badge?: number; visits?: number; liveValue?: LiveValue; row?: string }) {
   const extra = useContext(ViewerAssets);
   const runMark = useNodeRunMark(n.id);
-  const asset = extra?.find((a) => a.id === n.asset) ?? lookupAsset(n.asset);
+  const asset = displayAsset(extra?.find((a) => a.id === n.asset) ?? lookupAsset(n.asset), n.props);
   const color = asset?.color ?? "#706fd3";
   const chars = Math.floor((n.w - 78) / 7);
   if (n.kind === "endpoint" && n.endpoint) return <EndpointShape n={n} selected={selected} hot={hot} hovered={hovered} />;
