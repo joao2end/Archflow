@@ -8,6 +8,9 @@ import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domai
 import { LogicConnFields, LogicFields, StageFields } from "./logic";
 import { AgentConnFields, AgentFields } from "./agents";
 import { SqlConnFields, SqlFields } from "./sql";
+import { BrainConnFields, BrainFields } from "./brainstorm";
+import { brainColor } from "../shared/brainstorm";
+import { BRAIN_SHAPES } from "../shared/schema";
 import { CatalogAgents } from "./agentcatalog";
 import { CatalogMcp } from "./mcpcatalog";
 import { TerminalButton } from "./terminal";
@@ -825,6 +828,8 @@ export function Inspector() {
     const isAgent = node.kind === "agent" && !!node.agent;
     const isSql = node.kind === "sql" && !!node.sql && !!SQL_ROLES[node.sql.role];
     const srole = isSql ? SQL_ROLES[node.sql!.role] : undefined;
+    const isBrain = node.kind === "shape" && !!node.brain && !!BRAIN_SHAPES[node.brain.shape];
+    const bshape = isBrain ? BRAIN_SHAPES[node.brain!.shape] : undefined;
     const isDomain = (node.kind === "domain" && !!node.ddd) || isLogic;
     const role = node.ddd ? DDD_ROLES[node.ddd.role] : undefined;
     const lrole = node.logic ? LOGIC_ROLES[node.logic.role] : undefined;
@@ -832,25 +837,25 @@ export function Inspector() {
     // modo domain: o inspetor só mostra o que faz sentido no modelo de domínio (sem tecnologia, endpoints, categoria de
     // infraestrutura, cor de fundo nem propriedades soltas; o grupo é o bounded context)
     const domainDoc = docMode(doc) === "domain";
-    const badgeAsset = isLogic && lrole ? { icon: `t:${lrole.badge}`, color: lrole.color, name: lrole.label } : isAgent && arole ? { icon: `t:${arole.badge}`, color: arole.color, name: arole.label } : srole ? { icon: `t:${srole.badge}`, color: srole.color, name: srole.label } : isDomain && role ? { icon: `t:${DDD_BADGES[node.ddd!.role]}`, color: role.color, name: role.label } : asset;
+    const badgeAsset = isLogic && lrole ? { icon: `t:${lrole.badge}`, color: lrole.color, name: lrole.label } : isAgent && arole ? { icon: `t:${arole.badge}`, color: arole.color, name: arole.label } : srole ? { icon: `t:${srole.badge}`, color: srole.color, name: srole.label } : bshape ? { icon: `g:bs-${node.brain!.shape}`, color: brainColor(node.brain!), name: bshape.label } : isDomain && role ? { icon: `t:${DDD_BADGES[node.ddd!.role]}`, color: role.color, name: role.label } : asset;
     return (
       <aside className="hud glass inspector" aria-label="Propriedades do componente">
         <InspectorGrip />
         <div className="insp-head">
           {badgeAsset ? <AssetBadge asset={badgeAsset} size={46} /> : <AssetBadge asset={{ icon: `t:${node.label.slice(0, 2).toUpperCase()}`, color: "#706fd3", name: node.label }} size={46} />}
           <div>
-            <div className="kicker">{isLogic && lrole ? `Logic · ${lrole.label}` : isAgent && arole ? `Agents · ${arole.label}` : srole ? `SQL · ${srole.label}` : isDomain && role ? `Domain · ${role.label}` : NODE_KINDS[node.kind].split(" / ")[0]}</div>
+            <div className="kicker">{isLogic && lrole ? `Logic · ${lrole.label}` : isAgent && arole ? `Agents · ${arole.label}` : srole ? `SQL · ${srole.label}` : bshape ? `Brain Storm · ${bshape.label}` : isDomain && role ? `Domain · ${role.label}` : NODE_KINDS[node.kind].split(" / ")[0]}</div>
             <div className="ttl" role="heading" aria-level={2}>{node.label}</div>
           </div>
         </div>
-        {!isDomain && !isAgent && !isSql && !domainDoc && asset?.problem && (
+        {!isDomain && !isAgent && !isSql && !isBrain && !domainDoc && asset?.problem && (
           <div className="callout">
             <b>{asset.name}</b> resolve: {asset.problem}
           </div>
         )}
-        {!isDomain && !isAgent && !isSql && !domainDoc && <TechPicker node={node} patch={patch} />}
+        {!isDomain && !isAgent && !isSql && !isBrain && !domainDoc && <TechPicker node={node} patch={patch} />}
         <label className="field">
-          <span>Nome</span>
+          <span>{isBrain ? "Texto" : "Nome"}</span>
           <TextField id="insp-first" value={node.label} onCommit={(v) => patch({ label: v || node.label })} />
         </label>
         {node.asset === "file" && <FileFormatField node={node} patch={patch} />}
@@ -858,22 +863,24 @@ export function Inspector() {
         {isLogic && <LogicFields node={node} patch={patch} />}
         {isAgent && <AgentFields node={node} patch={patch} />}
         {isSql && <SqlFields node={node} patch={patch} />}
+        {isBrain && <BrainFields node={node} patch={patch} />}
         {node.kind === "endpoint" ? (
           <EndpointFields node={node} patch={patch} />
-        ) : isDomain || isAgent || isSql || domainDoc ? null : (
+        ) : isDomain || isAgent || isSql || isBrain || domainDoc ? null : (
           <label className="field">
             <span>Tecnologia / versão</span>
             <TextField value={node.technology ?? ""} placeholder="ex.: Laravel 11 · PHP 8.3" onCommit={(v) => patch({ technology: v || undefined })} />
           </label>
         )}
         <label className="field">
-          <span>{domainDoc ? "Descrição" : "Responsabilidade (o que faz)"}</span>
-          <TextField multiline value={node.description ?? ""} placeholder={domainDoc ? "O que é no negócio e por que existe — LLMs leem isto." : "Descreva em 1–2 frases — LLMs leem isto."} onCommit={(v) => patch({ description: v || undefined })} />
+          <span>{domainDoc ? "Descrição" : isBrain ? "Detalhe (aparece na forma, se couber)" : "Responsabilidade (o que faz)"}</span>
+          <TextField multiline value={node.description ?? ""} placeholder={domainDoc ? "O que é no negócio e por que existe — LLMs leem isto." : isBrain ? "Uma frase curta que complementa o texto." : "Descreva em 1–2 frases — LLMs leem isto."} onCommit={(v) => patch({ description: v || undefined })} />
         </label>
         {domainDoc ? (
           <ContextPicker node={node} />
         ) : (
         <div className="grid2">
+          {!isBrain && (
           <label className="field">
             <span>Categoria</span>
             <select
@@ -884,7 +891,7 @@ export function Inspector() {
               onChange={(e) => patch({ kind: e.target.value as NodeKind }, "node")}
             >
               {Object.entries(NODE_KINDS)
-                .filter(([k]) => (k !== "endpoint" || node.kind === "endpoint") && (k !== "domain" || node.kind === "domain") && (k !== "logic" || node.kind === "logic") && (k !== "agent" || node.kind === "agent") && (k !== "sql" || node.kind === "sql")) // endpoint exigiria protocolo e dono; domain/logic/agent exigiriam um papel: nascem na biblioteca ou no painel do modo
+                .filter(([k]) => (k !== "endpoint" || node.kind === "endpoint") && (k !== "domain" || node.kind === "domain") && (k !== "logic" || node.kind === "logic") && (k !== "agent" || node.kind === "agent") && (k !== "sql" || node.kind === "sql") && (k !== "shape" || node.kind === "shape")) // endpoint exigiria protocolo e dono; domain/logic/agent exigiriam um papel: nascem na biblioteca ou no painel do modo
                 .map(([k, v]) => (
                   <option key={k} value={k}>
                     {v.split(" / ")[0].split(",")[0]}
@@ -892,8 +899,9 @@ export function Inspector() {
                 ))}
             </select>
           </label>
+          )}
           <label className="field">
-            <span>Grupo</span>
+            <span>{isBrain ? "Área" : "Grupo"}</span>
             <select className="input" value={node.parent ?? ""} onChange={(e) => patch({ parent: e.target.value || undefined })}>
               <option value="">— nenhum —</option>
               {groups.map((g) => (
@@ -905,10 +913,10 @@ export function Inspector() {
           </label>
         </div>
         )}
-        {!domainDoc && <FillControls el={node} patch={(p) => patch(p, "node")} />}
+        {!domainDoc && !isBrain && <FillControls el={node} patch={(p) => patch(p, "node")} />}
         {(node.kind === "system" || node.ref) && <RefPicker node={node} patch={patch} />}
-        {!domainDoc && node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && node.kind !== "logic" && node.kind !== "agent" && node.kind !== "sql" && !node.ref && <EndpointsSection node={node} />}
-        {!domainDoc && <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />}
+        {!domainDoc && node.kind !== "endpoint" && node.kind !== "system" && node.kind !== "domain" && node.kind !== "logic" && node.kind !== "agent" && node.kind !== "sql" && !isBrain && !node.ref && <EndpointsSection node={node} />}
+        {!domainDoc && !isBrain && <Props value={node.props ?? {}} onChange={(p) => patch({ props: Object.keys(p).length ? p : undefined })} />}
         <div className="callout" style={{ fontFamily: "ui-monospace,Consolas,monospace", fontSize: 11.5 }}>
           id: {node.id}
         </div>
@@ -922,20 +930,21 @@ export function Inspector() {
     const domainConn = docMode(doc) === "domain";
     const agentsConn = docMode(doc) === "agents";
     const sqlConn = docMode(doc) === "sql";
+    const brainConn = docMode(doc) === "brainstorm";
     const name = (x: string) => doc.nodes.find((n) => n.id === x)?.label ?? doc.groups.find((g) => g.id === x)?.label ?? x;
     return (
       <aside className="hud glass inspector" aria-label="Propriedades da conexão">
         <InspectorGrip />
         <div className="insp-head">
           <div>
-            <div className="kicker">{docMode(doc) === "logic" ? "Seta do fluxo" : agentsConn ? `Relação${conn.agent ? ` · ${conn.agent.rel}` : ""}` : sqlConn ? `Relação${conn.sql ? ` · ${conn.sql.rel}` : ""}` : `Conexão · ${t.label}`}</div>
+            <div className="kicker">{docMode(doc) === "logic" ? "Seta do fluxo" : agentsConn ? `Relação${conn.agent ? ` · ${conn.agent.rel}` : ""}` : sqlConn ? `Relação${conn.sql ? ` · ${conn.sql.rel}` : ""}` : brainConn ? "Traço" : `Conexão · ${t.label}`}</div>
             <div className="ttl" role="heading" aria-level={2}>
               {name(conn.from)} → {name(conn.to)}
             </div>
           </div>
         </div>
         {domainConn && conn.ddd && <div className="callout">O tipo <b>{t.label}</b> é definido pela relação <b>{conn.ddd.rel}</b>. Para escolher outro tipo UML, remova a relação.</div>}
-        <div className="type-grid" role="radiogroup" aria-label="Tipo" style={(domainConn && conn.ddd) || agentsConn || sqlConn || docMode(doc) === "logic" ? { display: "none" } : undefined}>
+        <div className="type-grid" role="radiogroup" aria-label="Tipo" style={(domainConn && conn.ddd) || agentsConn || sqlConn || brainConn || docMode(doc) === "logic" ? { display: "none" } : undefined}>
           {CONNECTION_TYPE_KEYS.filter((k) => !domainConn || !INFRA_CONNECTION_TYPES.includes(k)).map((k) => (
             <button key={k} role="radio" aria-checked={conn.type === k} className={`type-btn ${conn.type === k ? "active" : ""}`} style={{ ["--tc" as string]: CONNECTION_TYPES[k].color }} onClick={() => patch({ type: k }, "conn")} data-tip={CONNECTION_TYPES[k].semantics} data-tip-pos="left">
               <ConnSample type={k} />
@@ -943,16 +952,17 @@ export function Inspector() {
             </button>
           ))}
         </div>
-        {docMode(doc) !== "logic" && !agentsConn && !sqlConn && !(domainConn && conn.ddd) && <div className="callout">{t.semantics}</div>}
+        {docMode(doc) !== "logic" && !agentsConn && !sqlConn && !brainConn && !(domainConn && conn.ddd) && <div className="callout">{t.semantics}</div>}
         {docMode(doc) === "domain" && <DddConnFields conn={conn} patch={patch} />}
         {docMode(doc) === "logic" && <LogicConnFields conn={conn} patch={patch} />}
         {agentsConn && <AgentConnFields conn={conn} patch={patch} />}
         {sqlConn && <SqlConnFields conn={conn} patch={patch} />}
+        {brainConn && <BrainConnFields conn={conn} patch={patch} />}
         <label className="field">
           <span>Rótulo</span>
-          <TextField id="insp-first" value={conn.label ?? ""} placeholder="ex.: cria pedido" onCommit={(v) => patch({ label: v || undefined })} />
+          <TextField id="insp-first" value={conn.label ?? ""} placeholder={brainConn ? "ex.: sim · aprova · se faltar estoque" : "ex.: cria pedido"} onCommit={(v) => patch({ label: v || undefined })} />
         </label>
-        {docMode(doc) !== "logic" && !agentsConn && !sqlConn && !domainConn && (
+        {docMode(doc) !== "logic" && !agentsConn && !sqlConn && !brainConn && !domainConn && (
           <label className="field">
             <span>Protocolo</span>
             <TextField value={conn.protocol ?? ""} placeholder="HTTPS/REST · gRPC · AMQP · TCP/5432" onCommit={(v) => patch({ protocol: v || undefined })} />
@@ -975,13 +985,13 @@ export function Inspector() {
           </button>
           <div className="callout">Com a conexão selecionada, arraste o “•” no meio do traçado para criar um ponto e dobrá-la ali; arraste os círculos para ajustar; duplo clique num círculo o remove.</div>
         </div>
-        {t.motion !== "none" && (
+        {t.motion !== "none" && !brainConn && (
           <div className="toggle">
             Animar fluxo
             <button className="switch" role="switch" aria-checked={conn.animated !== false} aria-label="Animar fluxo" onClick={() => patch({ animated: conn.animated === false })} />
           </div>
         )}
-        {docMode(doc) !== "logic" && !agentsConn && !sqlConn && !domainConn && (
+        {docMode(doc) !== "logic" && !agentsConn && !sqlConn && !brainConn && !domainConn && (
         <>
         <div className="callout">
           {conn.interface ? (

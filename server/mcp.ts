@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
+import { BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -207,6 +207,21 @@ const sqlConnSchema = z
   })
   .describe("modo sql");
 
+const brainNodeSchema = z
+  .object({
+    shape: z.enum(BRAIN_SHAPE_KEYS as [string, ...string[]]).describe(BRAIN_SHAPE_KEYS.map((s) => `${s}: ${BRAIN_SHAPES[s].hint}`).join(" · ")),
+    color: z.string().optional().describe("cor hexadecimal do traço (ex.: #d0532c); omitida = a cor padrão da forma"),
+    step: z.number().int().min(0).max(999).optional().describe("shape step: o número do passo"),
+  })
+  .describe("modo brainstorm");
+
+const brainConnSchema = z
+  .object({
+    line: z.enum(BRAIN_LINE_KEYS as [string, ...string[]]).describe(BRAIN_LINE_KEYS.map((l) => `${l}: ${BRAIN_LINES[l].hint}`).join(" · ") + " O `type` é inferido do traço."),
+    color: z.string().optional().describe("cor hexadecimal do traço; omitida = grafite"),
+  })
+  .describe("modo brainstorm");
+
 const dddNodeSchema = z
   .object({
     role: z.enum(DDD_ROLE_KEYS as [string, ...string[]]).describe(DDD_ROLE_KEYS.map((r) => `${r}: ${DDD_ROLES[r].hint}`).join(" · ")),
@@ -243,7 +258,7 @@ const dddNodeSchema = z
 server.registerTool(
   "get_schema_guide",
   {
-    description: "Leia primeiro: vocabulário (kinds, tipos de conexão) e fluxo recomendado. `mode` escolhe o guia (architecture | domain | logic | agents | sql); omitido, usa o modo do diagrama aberto.",
+    description: "Leia primeiro: vocabulário (kinds, tipos de conexão) e fluxo recomendado. `mode` escolhe o guia (architecture | domain | logic | agents | sql | brainstorm); omitido, usa o modo do diagrama aberto.",
     inputSchema: { mode: modeEnum.optional() },
   },
   async ({ mode }) => text(schemaGuide((mode as DocMode | undefined) ?? docMode(await getDoc()))),
@@ -306,18 +321,19 @@ server.registerTool(
 server.registerTool(
   "add_components",
   {
-    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset; no modo logic, use `logic` (kind vira \"logic\"); no modo sql, use `sql` (kind vira \"sql\") — ou import_sql para montar o quadro de uma consulta.",
+    description: "Adiciona componentes. Use `asset` do catálogo quando existir. Posição é opcional (auto). `parent` = id de um grupo. Em diagramas de modo domain, use `ddd` (kind vira \"domain\") em vez de asset; no modo logic, use `logic` (kind vira \"logic\"); no modo sql, use `sql` (kind vira \"sql\") — ou import_sql para montar o quadro de uma consulta; no modo brainstorm, use `brain` (kind vira \"shape\").",
     inputSchema: {
       components: z.array(
         z.object({
           id: z.string().optional().describe("slug estável, ex.: orders-api"),
           label: z.string().optional(),
           asset: z.string().optional(),
-          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic", "agent", "sql"]).optional(),
+          kind: z.enum(["service", "client", "actor", "database", "cache", "queue", "gateway", "external", "ai", "infra", "library", "endpoint", "system", "domain", "logic", "agent", "sql", "shape"]).optional(),
           ddd: dddNodeSchema.optional(),
           agent: agentNodeSchema.optional(),
           logic: logicNodeSchema.optional(),
           sql: sqlNodeSchema.optional(),
+          brain: brainNodeSchema.optional(),
           technology: z.string().optional().describe("stack/versão: 'Laravel 11 / PHP 8.3'"),
           description: z.string().optional().describe("responsabilidade do componente"),
           parent: z.string().optional(),
@@ -415,6 +431,7 @@ server.registerTool(
             .optional(),
           agent: agentConnSchema.optional(),
           sql: sqlConnSchema.optional(),
+          brain: brainConnSchema.optional(),
           port: z
             .object({
               name: z.string().describe('nome da interface, ex.: "RepositorioDePedidos"'),
@@ -618,7 +635,7 @@ server.registerTool(
   async ({ language, target, write }) => {
     const doc = await getDoc();
     const mode = docMode(doc);
-    if (mode === "architecture") return text(`o diagrama aberto está em modo "${mode}"; gere código a partir de um diagrama de domínio, de lógica, de agents ou de sql`, true);
+    if (mode === "architecture" || mode === "brainstorm") return text(`o diagrama aberto está em modo "${mode}"; gere código a partir de um diagrama de domínio, de lógica, de agents ou de sql`, true);
     if (mode === "sql") {
       const sql = generateSql(doc);
       return text(sql ? "```sql\n" + sql + "\n```" : "nada a gerar: o quadro não tem um Resultado (role result) ligado às fontes por setas flow");
@@ -779,8 +796,8 @@ server.registerTool(
 server.registerTool(
   "new_diagram",
   {
-    description: "Cria um diagrama novo (.archflow.json) no projeto, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD), sql um diagrama de consulta SQL; depois chame get_schema_guide.",
-    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao projeto, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain | logic | agents | sql") },
+    description: "Cria um diagrama novo (.archflow.json) no projeto, opcionalmente numa subpasta, e o abre. `mode` domain cria um diagrama de domínio (DDD), sql um diagrama de consulta SQL, brainstorm um quadro livre para explicar processos com formas e traços; depois chame get_schema_guide.",
+    inputSchema: { title: z.string(), folder: z.string().optional().describe("subpasta relativa ao projeto, ex.: backend"), mode: modeEnum.optional().describe("architecture (padrão) | domain | logic | agents | sql | brainstorm") },
   },
   async ({ title, folder, mode }) => text("criado.\n" + fmtWorkspace(await post("/api/diagrams", { title, folder, mode, source: "mcp" }))),
 );

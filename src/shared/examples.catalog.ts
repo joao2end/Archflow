@@ -12,6 +12,7 @@ import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
 import { LOGIC_TOURS, tourStartDoc } from "./logictours";
 import { SQL_EXAMPLES, sqlExampleDoc } from "./sql.example";
+import { padariaDoc } from "./brainstorm.example";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
 
@@ -49,6 +50,7 @@ export const ARCH_DIR = "exemplos-arquitetura";
 export const LOGIC_DIR = "exemplos-logic";
 export const ALGORITHMS_DIR = `${LOGIC_DIR}/algoritmos`;
 export const SQL_DIR = "exemplos-sql";
+export const BRAIN_DIR = "exemplos-brainstorm";
 
 const pathOf = (dir: string, title: string) => `${dir}/${slug(title)}.archflow.json`;
 
@@ -168,7 +170,11 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
     const path = pathOf(SQL_DIR, ex.title);
     return { key: `sql:${ex.id}`, mode: "sql", title: ex.title, level: ex.level, summary: ex.summary, teaches: ex.teaches, files: [{ title: ex.title, path, mode: "sql", load: () => sqlExampleDoc(ex) }], open: path, linked: false, guided: false };
   });
-  return [...architecture, ...lessons, ...domain, ...logic, ...sql];
+  const padaria = pathOf(BRAIN_DIR, "Pedido na padaria");
+  const brain: CatalogExample[] = [
+    { key: "brainstorm:padaria", mode: "brainstorm", title: "Pedido na padaria", level: "iniciante", summary: "Um processo do dia a dia explicado com formas: início e fim, etapas, uma decisão com as saídas rotuladas, quem participa, uma ideia num post-it e a meta em destaque.", teaches: ["formas", "decisão", "traços"], files: [{ title: "Pedido na padaria", path: padaria, mode: "brainstorm", load: () => padariaDoc() }], open: padaria, linked: false, guided: false },
+  ];
+  return [...architecture, ...lessons, ...domain, ...logic, ...sql, ...brain];
 }
 
 export const EXAMPLE_MODES: { mode: DocMode; label: string; hint: string }[] = [
@@ -176,6 +182,7 @@ export const EXAMPLE_MODES: { mode: DocMode; label: string; hint: string }[] = [
   { mode: "domain", label: "Domínio", hint: "DDD: contextos, aggregates, comandos e eventos." },
   { mode: "logic", label: "Lógica", hint: "Regras e algoritmos como fluxo que o app executa e confere." },
   { mode: "sql", label: "SQL", hint: "Consultas desenhadas na ordem em que o banco as executa: fontes, joins, filtros e o resultado." },
+  { mode: "brainstorm", label: "Brain Storm", hint: "Processos explicados de forma simples, com formas, traços e post-its." },
 ];
 
 export { EXAMPLES_DIR };

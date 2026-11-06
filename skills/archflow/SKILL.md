@@ -75,7 +75,7 @@ Com `asset`, o `kind` já vem do catálogo — não repita.
 
 ## Modo domain (DDD): do caso de uso ao modelo
 
-Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio), `logic` (as regras do negócio, ver mais abaixo) `agents` (time de agentes de IA, ver «Modo agents») ou `sql` (uma consulta SELECT, ver «Modo sql»). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
+Todo diagrama tem um **modo**: `architecture` (padrão; serviços, bancos, filas), `domain` (o negócio), `logic` (as regras do negócio, ver mais abaixo) `agents` (time de agentes de IA, ver «Modo agents»), `sql` (uma consulta SELECT, ver «Modo sql») ou `brainstorm` (quadro livre para explicar um processo com formas e traços, ver «Modo brainstorm»). `new_diagram` aceita `mode: "domain"`; `set_diagram_info` troca o modo. **No modo domain o vocabulário é outro: chame `get_schema_guide` antes de começar** (ele devolve o guia do modo do diagrama aberto) e não use assets de tecnologia.
 
 Estrutura no projeto: **um diagrama por bounded context** + um **mapa de contextos** (visão geral), tudo em `dominio/`.
 
@@ -141,6 +141,14 @@ Quinto modo (`mode: "sql"`): o quadro é **uma consulta** na ordem lógica em qu
 - Do zero: `add_components` com `sql: { role, ... }` (kind vira `sql`): `table` (`table`, `alias`, `columns`), `subquery` (`alias`, `query`, `cte`, `name`), `filter` (`condition`), `aggregate` (`groupBy`, `having`), `sort` (`orderBy`, `limit`, `offset`), `result` (`columns`, `distinct`).
 - `connect` com `sql: { rel }` (o `type` vem da relação; omitido, é deduzido do par): `join` entre fontes (`join`: inner|left|right|full|cross, `on`: a condição; a origem da seta é o lado esquerdo) e `flow` da tabela do FROM pelas etapas até o `result`.
 - Fluxo: `new_diagram` com `mode: "sql"` → `import_sql` (ou componentes + connect) → `auto_layout` → `validate_diagram` (S001 sem Resultado, S010 join sem ON, S007 fluxo bifurcado são erros) → `generate_code` devolve o SQL montado do quadro. Expressões viajam como texto: use os apelidos (`p.total`).
+
+## Modo brainstorm: explicar um processo com formas e traços
+
+Sexto modo (`mode: "brainstorm"`, «Brain Storm» na UI): um quadro branco livre para explicar um processo de forma simples, para quem não é técnico. Sem tecnologia e sem regras: o significado está no texto das formas e nos rótulos das setas.
+
+- `add_components` com `brain: { shape }` (kind vira `shape`): `round` (início/fim), `box` (etapa), `diamond` (decisão/pergunta), `person` (quem participa), `doc` (documento), `data` (entrada/saída), `cylinder` (onde fica guardado), `sticky` (ideia/observação), `cloud` (algo vago ou externo), `circle` (conceito), `star` (destaque) e `step` (passo numerado, com `step: 1, 2…`). `brain.color` (hex) muda a cor; `label` curto, `description` para o detalhe.
+- `connect` com `brain: { line }` (omitido = seta): `arrow`, `line` (relacionado, sem direção), `dashed` (talvez/opcional), `dotted` (ligação fraca), `both` (vai e volta). **Rotule as saídas de cada `diamond`** (sim / não).
+- Fluxo: `new_diagram` com `mode: "brainstorm"` → formas → `connect` na ordem do processo → `auto_layout` → `validate_diagram` (só dicas: decisão com uma saída, saídas sem rótulo, passos com número repetido). Notas (`add_note`) e grupos (`add_groups`) também valem para áreas e observações.
 
 ## Convenções que evitam retrabalho
 

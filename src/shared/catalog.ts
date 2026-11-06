@@ -1,4 +1,4 @@
-import { AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, SQL_ROLES, SQL_ROLE_KEYS, type SqlRole, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
+import { BRAIN_SHAPES, BRAIN_SHAPE_KEYS, type BrainShape, AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, SQL_ROLES, SQL_ROLE_KEYS, type SqlRole, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
 
 /**
  * Catálogo de assets embutido. Cada asset diz QUE PROBLEMA a tecnologia resolve,
@@ -386,6 +386,36 @@ const sqlAssets: Asset[] = SQL_ROLE_KEYS.map((role) => ({
   builtin: true,
 }));
 
+/** Formas do Brain Storm. Fonte única: `BRAIN_SHAPES` em schema.ts. */
+export const BRAIN_CATEGORY = "Brain Storm";
+const BRAIN_TAGS: Record<BrainShape, string> = {
+  box: "caixa retângulo passo etapa atividade tarefa processo",
+  round: "início fim começo término pílula terminal",
+  circle: "círculo elipse conceito estado ideia central",
+  diamond: "losango decisão pergunta escolha condição se",
+  sticky: "post-it nota adesivo ideia lembrete observação",
+  cloud: "nuvem pensamento vago externo ideia",
+  person: "pessoa ator usuário cliente time papel quem",
+  doc: "documento papel arquivo relatório formulário",
+  data: "entrada saída paralelogramo dados pedido resultado",
+  cylinder: "armazenamento banco planilha estoque guardar cilindro",
+  star: "estrela destaque importante meta risco atenção",
+  step: "passo numerado número ordem sequência 1 2 3",
+};
+const brainAssets: Asset[] = BRAIN_SHAPE_KEYS.map((shape) => ({
+  id: `brain-${shape}`,
+  name: BRAIN_SHAPES[shape].label,
+  category: BRAIN_CATEGORY,
+  icon: `g:bs-${shape}`,
+  color: BRAIN_SHAPES[shape].color,
+  kind: "shape" as const,
+  brain: shape === "step" ? { shape, step: 1 } : { shape },
+  problem: BRAIN_SHAPES[shape].hint,
+  description: BRAIN_SHAPES[shape].hint,
+  tags: BRAIN_TAGS[shape].split(" "),
+  builtin: true,
+}));
+
 /** Formatos do componente "Arquivo": `props.format` escolhe o ícone e a cor do nó. */
 export const FILE_FORMATS: Record<string, { label: string; icon: string; color: string }> = {
   csv: { label: "CSV", icon: "t:CSV", color: "#1d6f42" },
@@ -412,7 +442,7 @@ export function displayAsset<A extends Pick<Asset, "id" | "icon" | "color" | "na
 }
 
 const generic = base.filter((a) => a.category === "Genéricos");
-export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...logicAssets, ...agentAssets, ...sqlAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
+export const BUILTIN_ASSETS: Asset[] = [...generic.slice(0, 1), refAsset, ...generic.slice(1), ...domainAssets, ...logicAssets, ...agentAssets, ...sqlAssets, ...brainAssets, ...comm, ...base.filter((a) => a.category !== "Genéricos")];
 
 /** Genéricos que fazem sentido num diagrama de domínio: o ator do caso de uso e a ligação com outro diagrama (contexto, arquitetura). */
 const DOMAIN_MODE_GENERICS = ["user", "diagram-ref"];
@@ -435,7 +465,11 @@ export function assetsForMode(assets: Asset[], mode: DocMode, all = false): Asse
     const keep = assets.filter((a) => a.category === SQL_CATEGORY || (a.builtin ? a.id === "diagram-ref" : a.kind === "sql"));
     return [...keep.filter((a) => a.category === SQL_CATEGORY), ...keep.filter((a) => a.category !== SQL_CATEGORY)];
   }
-  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY && a.category !== AGENTS_CATEGORY && a.category !== SQL_CATEGORY);
+  if (mode === "brainstorm") {
+    const keep = assets.filter((a) => a.category === BRAIN_CATEGORY || (a.builtin ? a.id === "diagram-ref" : a.kind === "shape"));
+    return [...keep.filter((a) => a.category === BRAIN_CATEGORY), ...keep.filter((a) => a.category !== BRAIN_CATEGORY)];
+  }
+  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY && a.category !== AGENTS_CATEGORY && a.category !== SQL_CATEGORY && a.category !== BRAIN_CATEGORY);
   const keep = assets.filter((a) => a.category === DOMAIN_CATEGORY || (a.builtin ? DOMAIN_MODE_GENERICS.includes(a.id) : a.kind === "domain" || a.kind === "actor"));
   return [...keep.filter((a) => a.category === DOMAIN_CATEGORY), ...keep.filter((a) => a.category !== DOMAIN_CATEGORY)];
 }

@@ -15,6 +15,9 @@ import {
   AGENT_RELS,
   AGENT_ROLES,
   SQL_RELS,
+  BRAIN_LINES,
+  BRAIN_SHAPES,
+  DOC_MODE_KEYS,
   isDataRole,
   isDocMode,
   SCHEMA_VERSION,
@@ -35,6 +38,8 @@ import {
   type AgentNodeSpec,
   type AgentRel,
   type SqlConnSpec,
+  type BrainConnSpec,
+  type BrainNodeSpec,
   type SqlNodeSpec,
   type SqlRel,
   type DddRel,
@@ -66,6 +71,7 @@ import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLa
 import { agentConnectionTypeError, agentIssues, checkAgentConn, checkAgentNode, describeAgents, schemaGuideAgents, suggestAgentRels } from "./agents";
 import { describeTour, normalizeTour, tourIssues } from "./tour";
 import { checkSqlConn, checkSqlNode, describeSql, resizeSql, schemaGuideSql, sqlConnLabel, sqlConnectionTypeError, sqlIssues, sqlSize, suggestSqlRels } from "./sql";
+import { brainIssues, brainSize, checkBrainConn, checkBrainNode, defaultBrainConn, describeBrain, schemaGuideBrain } from "./brainstorm";
 
 /** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain, Logic e Agents só carregam o que é compatível com o modo. */
 export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
@@ -73,16 +79,17 @@ export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
   logic: ["logic", "system"],
   agents: ["agent", "system"],
   sql: ["sql", "system"],
+  brainstorm: ["shape", "system"],
 };
 
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; sql?: SqlNodeSpec; source?: string; fill?: string; fillOpacity?: number; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; sql?: SqlNodeSpec; brain?: BrainNodeSpec; source?: string; fill?: string; fillOpacity?: number; x?: number; y?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; stage?: LogicStageSpec; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
-  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec; sql?: SqlConnSpec; port?: PortSpec }
+  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec; sql?: SqlConnSpec; brain?: BrainConnSpec; port?: PortSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
@@ -319,17 +326,26 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (op.kind && op.kind !== "sql") return { ok: false, error: `um nó com sql tem kind "sql" (recebeu "${op.kind}")` };
         if (ddd || logic || agent) return { ok: false, error: "um nó tem ddd, logic, agent OU sql — nunca dois" };
       }
-      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : logic ? LOGIC_ROLES[logic.role].label : agent ? AGENT_ROLES[agent.role].label : sql ? (sql.table ?? sql.alias ?? asset?.name) : asset?.name) ?? "Componente";
+      const brain: BrainNodeSpec | undefined = op.brain ?? (asset?.brain ? { ...asset.brain } : undefined);
+      if (brain !== undefined || op.kind === "shape") {
+        if (docMode(doc) !== "brainstorm") return { ok: false, error: `formas livres (kind "shape" / brain) só existem em diagramas de modo "brainstorm"; crie o diagrama com new_diagram mode "brainstorm" ou troque o modo em set_diagram_info` };
+        const bad = checkBrainNode(brain);
+        if (bad) return { ok: false, error: bad };
+        if (op.kind && op.kind !== "shape") return { ok: false, error: `um nó com brain tem kind "shape" (recebeu "${op.kind}")` };
+        if (ddd || logic || agent || sql) return { ok: false, error: "um nó tem ddd, logic, agent, sql OU brain — nunca dois" };
+      }
+      const label = op.label ?? (endpoint ? endpointLabel(endpoint) : ddd ? DDD_ROLES[ddd.role].label : logic ? LOGIC_ROLES[logic.role].label : agent ? AGENT_ROLES[agent.role].label : sql ? (sql.table ?? sql.alias ?? asset?.name) : brain ? (brain.shape === "step" ? `Passo ${brain.step ?? 1}` : BRAIN_SHAPES[brain.shape].label) : asset?.name) ?? "Componente";
       const id = uniqueId(doc, op.id ?? (endpoint && owner ? `${owner.id}-${label}` : label));
       const parent = owner ? owner.parent : op.parent && doc.groups.some((g) => g.id === op.parent) ? op.parent : undefined;
-      const kind: NodeKind = op.kind ?? (ddd ? "domain" : logic ? "logic" : agent ? "agent" : sql ? "sql" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
+      const kind: NodeKind = op.kind ?? (ddd ? "domain" : logic ? "logic" : agent ? "agent" : sql ? "sql" : brain ? "shape" : endpoint ? "endpoint" : op.ref ? "system" : asset?.kind ?? "service");
       const allowed = MODE_KINDS[docMode(doc)];
       if (allowed && !allowed.includes(kind)) return { ok: false, error: `componente "${kind}"${asset ? ` (asset "${asset.id}")` : ""} não existe no modo ${docMode(doc)}. Neste modo só entram: ${allowed.join(", ")}. Crie um diagrama de arquitetura para componentes de infraestrutura.` };
       const isEp = kind === "endpoint";
       const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic, description: op.description } as NodeEl, dataNames(doc), doc.showDescriptions) : undefined;
       const ssize = sql ? sqlSize(sql) : undefined;
-      const w = lsize?.w ?? ssize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
-      const h = lsize?.h ?? ssize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
+      const bsize = brain ? brainSize(brain.shape) : undefined;
+      const w = lsize?.w ?? ssize?.w ?? bsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
+      const h = lsize?.h ?? ssize?.h ?? bsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
       let pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : undefined;
       if (!pos && owner && isEp) pos = stackPos(doc, owner);
       if (!pos) {
@@ -341,7 +357,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         label,
         kind,
         asset: asset?.id,
-        technology: op.technology ?? (agent ? AGENT_ROLES[agent.role].label : sql ? undefined : !isEp && asset && asset.name !== label && asset.category !== "Genéricos" ? asset.name : undefined),
+        technology: op.technology ?? (agent ? AGENT_ROLES[agent.role].label : sql || brain ? undefined : !isEp && asset && asset.name !== label && asset.category !== "Genéricos" ? asset.name : undefined),
         description: op.description,
         parent,
         props: op.props,
@@ -352,6 +368,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ...(logic ? { logic } : {}),
         ...(agent ? { agent } : {}),
         ...(sql ? { sql } : {}),
+        ...(brain ? { brain } : {}),
         ...(op.source?.trim() ? { source: op.source.trim() } : {}),
         ...(op.fill ? { fill: op.fill } : {}),
         ...(op.fillOpacity != null && op.fillOpacity !== 1 ? { fillOpacity: op.fillOpacity } : {}),
@@ -446,6 +463,13 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         const bad = checkSqlConn(op.sql);
         if (bad) return { ok: false, error: bad };
       }
+      if (op.brain !== undefined) {
+        if (docMode(doc) !== "brainstorm") return { ok: false, error: `brain (estilo do traço) só existe em diagramas de modo "brainstorm"` };
+        const bad = checkBrainConn(op.brain);
+        if (bad) return { ok: false, error: bad };
+      }
+      // modo brainstorm: todo traço tem estilo (padrão: seta); o type acompanha o estilo e não há animação de tráfego
+      const brainConn = docMode(doc) === "brainstorm" ? op.brain ?? defaultBrainConn() : undefined;
       // modo domain: o tipo do conector vem da relação de domínio; infraestrutura (sync/async/stream/data) não existe aqui
       let ddd = op.ddd;
       let agentConn = op.agent;
@@ -476,7 +500,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
           if (only.length === 1) agentConn = { rel: only[0] }; // agent → skill só pode ser uses-skill; agent → agent só pode ser delegates
         }
       }
-      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : agentConn ? AGENT_RELS[agentConn.rel].type : sqlConn ? SQL_RELS[sqlConn.rel].type : domainMode ? "association" : docMode(doc) === "logic" ? "data" : "sync");
+      const type = op.type ?? (ddd ? DDD_RELS[ddd.rel].type : agentConn ? AGENT_RELS[agentConn.rel].type : sqlConn ? SQL_RELS[sqlConn.rel].type : brainConn ? BRAIN_LINES[brainConn.line].type : domainMode ? "association" : docMode(doc) === "logic" ? "data" : "sync");
       if (!CONNECTION_TYPES[type]) return { ok: false, error: `type inválido "${type}". Válidos: ${Object.keys(CONNECTION_TYPES).join(", ")}` };
       if (op.port !== undefined) {
         const bad = checkPort(doc, op.port);
@@ -494,11 +518,12 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         interface: op.interface,
         routing: op.routing ?? "curve",
         ...(op.waypoints?.length ? { waypoints: op.waypoints } : {}),
-        animated: op.animated ?? true,
+        animated: op.animated ?? !brainConn,
         ...(ddd ? { ddd } : {}),
         ...(op.logic ? { logic: op.logic } : {}),
         ...(agentConn ? { agent: agentConn } : {}),
         ...(sqlConn ? { sql: sqlConn } : {}),
+        ...(brainConn ? { brain: brainConn } : {}),
         ...(op.port ? { port: normalizePort(op.port) } : {}),
       };
       doc.connections.push(c);
@@ -562,6 +587,18 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         // o rótulo automático (LEFT JOIN · condição) acompanha a relação, a menos que venha um rótulo próprio
         if ("sql" in patch && patch.label === undefined && (el.label ?? "") === sqlConnLabel(el.sql)) patch.label = sqlConnLabel((patch.sql ?? undefined) as SqlConnSpec | undefined);
       }
+      if ("brain" in patch && patch.brain != null) {
+        if (docMode(doc) !== "brainstorm") return { ok: false, error: `brain só existe em diagramas de modo "brainstorm"` };
+        const bad = isConn ? checkBrainConn(patch.brain) : isNode ? checkBrainNode(patch.brain) : "brain não se aplica a grupos";
+        if (bad) return { ok: false, error: bad };
+        if (isNode && (patch.kind ?? el.kind) !== "shape") return { ok: false, error: `um nó com brain tem kind "shape"; inclua kind: "shape" no patch` };
+        if (isConn && patch.type === undefined) patch.type = BRAIN_LINES[(patch.brain as BrainConnSpec).line].type;
+        // trocar a forma de um nó que ainda tem o tamanho padrão da forma antiga: ele assume o tamanho da nova
+        const prevShape = isNode ? (el.brain as BrainNodeSpec | undefined)?.shape : undefined;
+        const nextShape = (patch.brain as BrainNodeSpec).shape;
+        if (isNode && prevShape && nextShape !== prevShape && patch.w === undefined && patch.h === undefined && el.w === BRAIN_SHAPES[prevShape].w && el.h === BRAIN_SHAPES[prevShape].h) Object.assign(patch, brainSize(nextShape));
+      }
+      if (isNode && patch.kind === "shape" && !(patch.brain ?? el.brain)) return { ok: false, error: `kind "shape" exige brain.shape` };
       if (isNode && patch.kind === "sql" && !(patch.sql ?? el.sql)) return { ok: false, error: `kind "sql" exige sql.role` };
       if (isNode && patch.kind === "logic" && !(patch.logic ?? el.logic)) return { ok: false, error: `kind "logic" exige logic.role` };
       if (isNode && patch.kind === "domain" && !(patch.ddd ?? el.ddd)) return { ok: false, error: `kind "domain" exige ddd.role` };
@@ -592,6 +629,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if ("logic" in patch && patch.logic == null) delete el.logic;
       if ("agent" in patch && patch.agent == null) delete el.agent;
       if ("sql" in patch && patch.sql == null) delete el.sql;
+      if ("brain" in patch && patch.brain == null) delete el.brain;
       if (isNode && "sql" in patch && el.sql) resizeSql([el as NodeEl]); // o cartão acompanha colunas e condições
       if ("port" in patch && patch.port == null) delete el.port;
       if (isNode && ("logic" in patch || "label" in patch || "description" in patch) && el.logic) resizeLogic(doc, [el as NodeEl]); // o cartão acompanha o texto
@@ -720,7 +758,7 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if (op.title != null) doc.title = op.title;
       if (op.description != null) doc.description = op.description;
       if (op.mode != null) {
-        if (!isDocMode(op.mode)) return { ok: false, error: `mode inválido "${op.mode}". Válidos: architecture, domain, logic, agents, sql` };
+        if (!isDocMode(op.mode)) return { ok: false, error: `mode inválido "${op.mode}". Válidos: ${DOC_MODE_KEYS.join(", ")}` };
         if (op.mode !== "architecture") doc.mode = op.mode;
         else delete doc.mode;
       }
@@ -1202,6 +1240,7 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
   const logicMode = docMode(doc) === "logic";
   const agentsMode = docMode(doc) === "agents";
   const sqlMode = docMode(doc) === "sql";
+  const brainMode = docMode(doc) === "brainstorm";
   const endpoints = new Set([...doc.nodes.map((n) => n.id), ...doc.groups.map((g) => g.id)]);
   const groups = new Set(doc.groups.map((g) => g.id));
   for (const c of doc.connections) {
@@ -1221,12 +1260,13 @@ export function validateDetailed(doc: Doc, opts: { exists?: (path: string) => bo
     if (n.sql && n.kind !== "sql") base(`${n.id}: sql só tem efeito em nós kind "sql"`, n.id);
     if (n.owner || n.kind === "endpoint") continue; // endpoints são expostos pelo serviço dono
     // skills soltas no grupo Global não têm conexão (é assim que valem para todos) — não é isolamento
-    if (!domain && !logicMode && !agentsMode && !sqlMode && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
+    if (!domain && !logicMode && !agentsMode && !sqlMode && !brainMode && !connected.has(n.id)) base(`${n.id}: componente sem nenhuma conexão (isolado)`, n.id);
   }
   if (domain) issues.push(...domainIssues(doc, opts));
   if (logicMode) issues.push(...logicIssues(doc), ...stageIssues(doc));
   if (agentsMode) issues.push(...agentIssues(doc));
   if (sqlMode) issues.push(...sqlIssues(doc));
+  if (brainMode) issues.push(...brainIssues(doc));
   for (const message of tourIssues(doc)) base(message);
   return issues;
 }
@@ -1296,6 +1336,7 @@ export function describe(doc: Doc, opts: { exists?: (path: string) => boolean } 
   if (docMode(doc) === "logic") return describeLogic(doc, validateDetailed(doc, opts)) + (stageGroups(doc).length ? "\n\n" + describeStages(doc) : "") + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "domain") return describeDomain(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "agents") return describeAgents(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
+  if (docMode(doc) === "brainstorm") return describeBrain(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   if (docMode(doc) === "sql") return describeSql(doc, validateDetailed(doc, opts)) + "\n\n## Mermaid\n```mermaid\n" + toMermaid(doc) + "\n```";
   const L: string[] = [];
   L.push(`# ${doc.title}`);
@@ -1364,6 +1405,7 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
   if (mode === "logic") return schemaGuideLogic();
   if (mode === "agents") return schemaGuideAgents();
   if (mode === "sql") return schemaGuideSql();
+  if (mode === "brainstorm") return schemaGuideBrain();
   return [
     `# Archflow ${SCHEMA_VERSION} — guia para LLMs`,
     "",
@@ -1371,7 +1413,7 @@ export function schemaGuide(mode: DocMode = "architecture"): string {
     "o app calcula posições (use a operação `layout`).",
     "",
     "## Tipos de componente (`kind`)",
-    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain" && k !== "logic" && k !== "agent" && k !== "sql").map(([k, v]) => `- \`${k}\`: ${v}`),
+    ...Object.entries(NODE_KINDS).filter(([k]) => k !== "domain" && k !== "logic" && k !== "agent" && k !== "sql" && k !== "shape").map(([k, v]) => `- \`${k}\`: ${v}`),
     "",
     "## Tipos de grupo (`kind`)",
     ...Object.entries(GROUP_KINDS).filter(([k]) => k !== "global").map(([k, v]) => `- \`${k}\`: ${v}`),
@@ -1408,6 +1450,7 @@ function inferMode(raw: any): Exclude<DocMode, "architecture"> | undefined {
   if (nodes.some((n) => n?.kind === "logic" && n.logic)) return "logic";
   if (nodes.some((n) => n?.kind === "agent" && n.agent)) return "agents";
   if (nodes.some((n) => n?.kind === "sql" && n.sql)) return "sql";
+  if (nodes.some((n) => n?.kind === "shape" && n.brain)) return "brainstorm";
   if (nodes.some((n) => n?.kind === "domain" && n.ddd)) return "domain";
   return undefined;
 }

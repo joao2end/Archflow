@@ -737,6 +737,54 @@ function SqlModal({ tab: initial }: { tab?: SqlTab }) {
   );
 }
 
+/* ───────── brainstorm: dicas de leitura e texto para IA ───────── */
+
+function BrainModal({ tab: initial }: { tab?: "issues" | "text" }) {
+  const doc = useStore((s) => s.doc);
+  const [tab, setTab] = useState<"issues" | "text">(initial ?? "issues");
+  const issues = useDomainIssues();
+  const text = tab === "text" ? describe(doc) : issues.map(issueText).join("\n");
+  return (
+    <Modal
+      wide
+      title="Brain Storm"
+      onClose={close}
+      foot={
+        <button className="btn primary" disabled={!text} onClick={() => copyText(text)}>
+          <Glyph name="copy" size={16} /> Copiar
+        </button>
+      }
+    >
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>Quadro livre para explicar um processo. As dicas só apontam o que atrapalha a leitura (uma decisão com um caminho só, passos com o mesmo número); o texto descreve o quadro na ordem de leitura, para colar numa IA ou num documento.</p>
+      <div className="tabs seg" role="tablist">
+        <button role="tab" aria-selected={tab === "issues"} className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
+          Dicas ({issues.length})
+        </button>
+        <button role="tab" aria-selected={tab === "text"} className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>
+          Texto (para IA)
+        </button>
+      </div>
+      {tab === "issues" &&
+        (issues.length ? (
+          <ul className="issue-list" aria-label="Dicas do quadro">
+            {issues.map((i, k) => (
+              <li key={k}>
+                <button className={`issue ${i.severity}`} disabled={!i.target} onClick={() => i.target && (select([i.target]), close())} data-tip={i.target ? "Selecionar no quadro" : undefined} data-tip-pos="left">
+                  <span className="issue-rule">{i.rule}</span>
+                  <span className="issue-sev">{i.severity}</span>
+                  <span className="issue-msg">{i.message}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="callout">Nada a apontar: o quadro está fácil de ler.</div>
+        ))}
+      {tab === "text" && <pre className="code">{text}</pre>}
+    </Modal>
+  );
+}
+
 /* ───────── MCP ───────── */
 
 function McpModal() {
@@ -1023,6 +1071,8 @@ export function Modals() {
       return <AgentsModal tab={m.tab} />;
     case "sql":
       return <SqlModal tab={m.tab} />;
+    case "brainstorm":
+      return <BrainModal tab={m.tab} />;
     case "skill":
       return <SkillModal key={m.id} id={m.id} tab={m.tab} />;
     case "tool":

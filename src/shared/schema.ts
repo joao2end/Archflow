@@ -27,7 +27,8 @@ export type NodeKind =
   | "domain"
   | "logic"
   | "agent"
-  | "sql";
+  | "sql"
+  | "shape";
 
 /** Rótulo curto de cada tipo (listas, selos): NODE_KINDS são descrições e cortá-las dava «Cliente (web». */
 export const NODE_KIND_SHORT: Record<NodeKind, string> = {
@@ -48,6 +49,7 @@ export const NODE_KIND_SHORT: Record<NodeKind, string> = {
   logic: "Lógica",
   agent: "Agente",
   sql: "SQL",
+  shape: "Forma",
 };
 
 export const NODE_KINDS: Record<NodeKind, string> = {
@@ -68,6 +70,7 @@ export const NODE_KINDS: Record<NodeKind, string> = {
   logic: "Elemento da lógica de negócio: o papel (action, decision, input, output, variable, scenario…) está em `logic.role`. Só existe em diagramas de modo `logic`",
   agent: "Agente de IA ou skill: o papel (agent, skill) está em `agent.role`. Só existe em diagramas de modo `agents`",
   sql: "Peça de uma consulta SQL: o papel (table, subquery, filter, aggregate, sort, result) está em `sql.role`. Só existe em diagramas de modo `sql`",
+  shape: "Forma livre do Brain Storm (caixa, círculo, losango, post-it, nuvem, pessoa…): o desenho está em `brain.shape`. Só existe em diagramas de modo `brainstorm`",
 };
 
 export type GroupKind =
@@ -527,10 +530,73 @@ export interface SqlConnSpec {
   on?: string;
 }
 
+/* ───────── modo brainstorm (explicar processos com formas e traços) ───────── */
+
+/**
+ * Formas livres para explicar um processo de forma simples, como num quadro branco: sem regras de negócio nem validação
+ * pesada — só formas, traços, textos e desenhos à mão. A forma muda o desenho; o significado fica no texto.
+ */
+export type BrainShape = "box" | "round" | "circle" | "diamond" | "sticky" | "cloud" | "person" | "doc" | "data" | "cylinder" | "star" | "step";
+
+export interface BrainNodeSpec {
+  shape: BrainShape;
+  /** cor do traço (o fundo é a mesma cor, clara); ausente = a cor padrão da forma */
+  color?: string;
+  /** step: o número do passo mostrado no círculo */
+  step?: number;
+}
+
+export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; color: string; badge: string; w: number; h: number }> = {
+  box: { label: "Caixa", hint: "Um passo ou etapa do processo: o que acontece.", color: "#4a63c8", badge: "▭", w: 170, h: 80 },
+  round: { label: "Início / Fim", hint: "Pílula que marca onde o processo começa ou termina.", color: "#1f8a5a", badge: "⬭", w: 160, h: 60 },
+  circle: { label: "Círculo", hint: "Um conceito, estado ou ponto central da ideia.", color: "#0e7f96", badge: "○", w: 120, h: 120 },
+  diamond: { label: "Decisão", hint: "Uma pergunta ou escolha: cada saída é uma resposta (rotule as setas: sim / não).", color: "#c07a12", badge: "◇", w: 160, h: 110 },
+  sticky: { label: "Post-it", hint: "Uma ideia solta, lembrete ou observação — como um adesivo no quadro.", color: "#c9a400", badge: "▤", w: 150, h: 140 },
+  cloud: { label: "Nuvem", hint: "Algo vago, externo ou ainda a definir; um pensamento.", color: "#6b7b93", badge: "☁", w: 190, h: 110 },
+  person: { label: "Pessoa", hint: "Quem participa do processo (cliente, time, papel).", color: "#b8478a", badge: "웃", w: 90, h: 120 },
+  doc: { label: "Documento", hint: "Um papel, arquivo, relatório ou formulário que circula no processo.", color: "#5b6abf", badge: "▯", w: 150, h: 96 },
+  data: { label: "Entrada / Saída", hint: "Paralelogramo: o que entra ou sai do processo (dados, pedido, resultado).", color: "#7a4cc2", badge: "▱", w: 180, h: 76 },
+  cylinder: { label: "Armazenamento", hint: "Onde algo fica guardado (planilha, banco, arquivo, estoque).", color: "#2f7d8c", badge: "⛁", w: 130, h: 110 },
+  star: { label: "Destaque", hint: "Chama a atenção: o ponto mais importante, um risco ou uma meta.", color: "#d0532c", badge: "☆", w: 150, h: 140 },
+  step: { label: "Passo numerado", hint: "Marcador de ordem (1, 2, 3…) para contar o processo em sequência; o texto fica ao lado.", color: "#2a5cb8", badge: "①", w: 210, h: 56 },
+};
+export const BRAIN_SHAPE_KEYS = Object.keys(BRAIN_SHAPES) as BrainShape[];
+
+/** Cores sugeridas no Inspetor (traço; o fundo é a mesma cor, clara). */
+export const BRAIN_COLORS: { id: string; name: string }[] = [
+  { id: "#4a63c8", name: "Azul" },
+  { id: "#1f8a5a", name: "Verde" },
+  { id: "#c07a12", name: "Laranja" },
+  { id: "#d0532c", name: "Vermelho" },
+  { id: "#b8478a", name: "Rosa" },
+  { id: "#7a4cc2", name: "Roxo" },
+  { id: "#0e7f96", name: "Turquesa" },
+  { id: "#c9a400", name: "Amarelo" },
+  { id: "#55606e", name: "Grafite" },
+];
+
+/** Traços do Brain Storm: como a linha liga duas formas. */
+export type BrainLine = "arrow" | "line" | "dashed" | "both" | "dotted";
+export const BRAIN_LINES: Record<BrainLine, { label: string; hint: string; dash?: string; head: boolean; tail: boolean; type: ConnectionType }> = {
+  arrow: { label: "Seta", hint: "Leva a / depois vem: a ordem do processo.", head: true, tail: false, type: "sync" },
+  line: { label: "Linha", hint: "Relacionado: liga sem dizer direção.", head: false, tail: false, type: "association" },
+  dashed: { label: "Seta tracejada", hint: "Talvez, opcional ou às vezes.", dash: "8 6", head: true, tail: false, type: "async" },
+  dotted: { label: "Pontilhado", hint: "Ligação fraca: influencia, lembra, depende de leve.", dash: "1.5 6", head: false, tail: false, type: "association" },
+  both: { label: "Seta dupla", hint: "Vai e volta: troca, conversa ou dependência mútua.", head: true, tail: true, type: "sync" },
+};
+export const BRAIN_LINE_KEYS = Object.keys(BRAIN_LINES) as BrainLine[];
+
+/** Campos próprios de uma conexão do modo brainstorm. */
+export interface BrainConnSpec {
+  line: BrainLine;
+  /** cor do traço; ausente = grafite */
+  color?: string;
+}
+
 /* ───────── modo domínio (DDD) ───────── */
 
-/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD) · `agents` = time de agentes de IA · `sql` = consultas SQL. */
-export type DocMode = "architecture" | "domain" | "logic" | "agents" | "sql";
+/** `architecture` (padrão) = infraestrutura e serviços · `domain` = modelo de domínio (DDD) · `agents` = time de agentes de IA · `sql` = consultas SQL · `brainstorm` = explicar processos com formas e traços. */
+export type DocMode = "architecture" | "domain" | "logic" | "agents" | "sql" | "brainstorm";
 
 export const DOC_MODES: Record<DocMode, { label: string; hint: string }> = {
   architecture: { label: "Architecture", hint: "Arquitetura: serviços, bancos, filas, nuvem e rede." },
@@ -538,6 +604,7 @@ export const DOC_MODES: Record<DocMode, { label: string; hint: string }> = {
   logic: { label: "Logic", hint: "Lógica: regras de negócio em ordem, dados e exemplos que se verificam sozinhos." },
   agents: { label: "Agents", hint: "Agentes de IA: subagentes, skills (do catálogo ou próprias) e como se plugam; exporta como harness para Claude Code ou Cursor." },
   sql: { label: "SQL", hint: "Consultas SQL: tabelas, joins, filtros, agrupamentos e o resultado; cola uma consulta para diagramá-la ou gera o SQL do quadro." },
+  brainstorm: { label: "Brain Storm", hint: "Brain Storm: explique um processo de forma simples com formas (caixas, círculos, losangos, post-its, nuvens, pessoas), traços e desenhos à mão." },
 };
 export const DOC_MODE_KEYS = Object.keys(DOC_MODES) as DocMode[];
 
@@ -970,6 +1037,8 @@ export interface Asset {
   agent?: AgentNodeSpec;
   /** valores padrão quando o asset é uma peça de consulta; só entra em diagramas de modo sql */
   sql?: SqlNodeSpec;
+  /** valores padrão quando o asset é uma forma do Brain Storm; só entra em diagramas de modo brainstorm */
+  brain?: BrainNodeSpec;
   icon: string;
   color: string;
   /** Qual problema a tecnologia resolve */
@@ -1029,6 +1098,8 @@ export interface NodeEl extends Base, Box {
   agent?: AgentNodeSpec;
   /** peça de consulta SQL (kind "sql"): papel e campos do papel */
   sql?: SqlNodeSpec;
+  /** forma do Brain Storm (kind "shape"): desenho, cor e número do passo */
+  brain?: BrainNodeSpec;
 }
 
 /** Anel do layout "camadas": raio interno (0 = disco) e, num setor, os ângulos em graus (0 = topo, sentido horário). */
@@ -1155,6 +1226,8 @@ export interface ConnectionEl {
   agent?: AgentConnSpec;
   /** semântica do modo sql: join entre fontes ou flow até o resultado */
   sql?: SqlConnSpec;
+  /** modo brainstorm: estilo do traço (seta, linha, tracejado…) e cor */
+  brain?: BrainConnSpec;
 }
 
 /** Um slide do roteiro de apresentação (modo architecture). */

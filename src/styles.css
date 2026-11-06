@@ -2832,6 +2832,7 @@ svg.canvas.drag-over {
 .mode-select.logic { background: #0b7a84; box-shadow: 0 1px 4px rgba(11, 122, 132, 0.4); } /* branco AA (5:1) */
 .mode-select.agents { background: #2a5cb8; box-shadow: 0 1px 4px rgba(42, 92, 184, 0.4); } /* branco AA (5:1); o #5b8def do ícone é claro demais */
 .mode-select.sql { background: #1f7a5f; box-shadow: 0 1px 4px rgba(31, 122, 95, 0.4); } /* branco AA (5,3:1) */
+.mode-select.brainstorm { background: #b8461f; box-shadow: 0 1px 4px rgba(184, 70, 31, 0.4); } /* branco AA (5,2:1) */
 :root[data-theme="dark"] .mode-select.architecture { color: #19181a; } /* texto branco sobre o roxo claro do escuro dava ~3:1 */
 .mode-select:hover { filter: brightness(1.08); }
 .mode-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
@@ -2845,6 +2846,28 @@ svg.canvas.drag-over {
 .mode-menu .logic .mode-dot { background: #0b7a84; }
 .mode-menu .agents .mode-dot { background: #2a5cb8; }
 .mode-menu .sql .mode-dot { background: #1f7a5f; }
+.mode-menu .brainstorm .mode-dot { background: #b8461f; }
+
+/* ───────── modo brainstorm: formas livres de quadro branco ───────── */
+.node.brain .brain-body { fill: color-mix(in srgb, var(--bc) 11%, var(--s-solid)); stroke: var(--bc); stroke-width: 2; stroke-linejoin: round; }
+.node.brain.brain-sticky .brain-body { fill: color-mix(in srgb, var(--bc) 30%, var(--s-solid)); stroke-width: 1.2; }
+.node.brain .brain-fold { fill: color-mix(in srgb, var(--bc) 45%, var(--s-solid)); stroke: var(--bc); stroke-width: 1.2; }
+.node.brain .brain-detail { fill: none; stroke: var(--bc); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.node.brain .brain-num { fill: var(--bc); }
+.node.brain .brain-num-text { font: 750 20px var(--sans); fill: #fff; text-anchor: middle; dominant-baseline: central; }
+.node.brain .brain-label { font: 600 14px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.node.brain .brain-label.left { text-anchor: start; }
+.node.brain .brain-desc { font: 500 11.5px var(--sans); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
+.node.brain .brain-desc.left { text-anchor: start; }
+.node.brain.sel .brain-body { stroke-width: 3; }
+.node.brain .brain-hit { fill: transparent; }
+.brain-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.brain-swatches .swatch { width: 22px; height: 22px; }
+.brain-shapes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.brain-shapes button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: 500 10.5px var(--sans); cursor: pointer; }
+.brain-shapes button.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.brain-shapes button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.brain-shapes svg { width: 30px; height: 22px; overflow: visible; }
 
 /* ───────── modo sql: peças da consulta como tabelas de diagrama ER ───────── */
 .node.sql .sql-head { fill: color-mix(in srgb, var(--sc) 14%, transparent); }

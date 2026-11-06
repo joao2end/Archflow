@@ -120,6 +120,7 @@ const NODE_ROLE: Record<NodeKind, string> = {
   logic: "Lógica",
   agent: "Agente",
   sql: "Peça da consulta",
+  shape: "Forma",
 };
 
 const GROUP_ROLE: Record<GroupKind, string> = {

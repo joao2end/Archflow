@@ -301,7 +301,7 @@ function textWidth(text: string, font: string, perChar: number): number {
 }
 
 export function labelSize(c: ConnectionEl): { text: string; sub?: string; w: number; h: number } | null {
-  const text = c.label ?? (c.protocol ? "" : CONNECTION_TYPES[c.type].label);
+  const text = c.label ?? (c.protocol || c.brain ? "" : CONNECTION_TYPES[c.type].label); // traços do brainstorm só mostram o rótulo escrito
   const sub = c.protocol;
   if (!(text || sub || c.interface)) return null;
   // a medida usa o mesmo corpo do CSS (.edge-label-main 600 12px, .edge-label-sub 500 10.5px) e nunca fica abaixo da estimativa antiga

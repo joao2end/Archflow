@@ -75,6 +75,22 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `join` | CLARO | fonte → fonte (`SQL_REL_PAIRS`); `join` = inner/left/right/full/cross, `on` = condição (ou USING); a origem é o lado esquerdo; type fixo `association` |
 | `flow` | CLARO | fonte ou etapa → próxima etapa; a ordem do SQL é WHERE → GROUP BY → ORDER BY → SELECT (S011 avisa fora dela); type fixo `data` |
 
+## Formas do modo brainstorm (`brain.shape`)
+
+| Item | Status | Nota |
+|---|---|---|
+| `box` · `round` · `circle` · `diamond` | CLARO | etapa · início/fim · conceito · decisão (B002/B003 pedem duas saídas rotuladas); `hint` em `BRAIN_SHAPES` |
+| `sticky` · `cloud` · `star` | CLARO | ideia/observação · algo vago ou externo · destaque; só desenho, sem semântica de fluxo |
+| `person` · `doc` · `data` · `cylinder` | CLARO | quem participa · documento · entrada/saída · onde fica guardado |
+| `step` | CLARO | passo numerado (`brain.step`); B004 avisa número repetido; a descrição para IA lê os passos em ordem |
+
+## Traços do modo brainstorm (`brain.line`)
+
+| Item | Status | Nota |
+|---|---|---|
+| `arrow` · `both` | CLARO | leva a · vai e volta; padrão quando a conexão não diz nada é `arrow` |
+| `line` · `dashed` · `dotted` | CLARO | relacionado sem direção · talvez/opcional · ligação fraca; o `type` é derivado (`BRAIN_LINES`) |
+
 ## Campos DDD
 
 | Item | Status | Nota |

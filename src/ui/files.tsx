@@ -36,6 +36,7 @@ export const MODE_ICON: Record<DocMode, { glyph: string; color: string; label: s
   logic: { glyph: "mode-logic", color: "#0e8f9a", label: "Lógica" },
   agents: { glyph: "mode-agents", color: "#5b8def", label: "Agentes" },
   sql: { glyph: "mode-sql", color: "#2b8a6e", label: "Consultas SQL" },
+  brainstorm: { glyph: "mode-brainstorm", color: "#d0532c", label: "Brain Storm" },
 };
 const fileMode = (f: { mode?: DocMode }): DocMode => f.mode ?? "architecture";
 const FileIcon = ({ mode, size = 16 }: { mode: DocMode; size?: number }) => <Glyph name={MODE_ICON[mode].glyph} size={size} className="tree-ico" style={{ color: MODE_ICON[mode].color }} />;
@@ -304,7 +305,7 @@ export function FilesPanel() {
       {edit && (edit.kind === "new-file" || edit.kind === "new-folder") && edit.path === n.path && (
         <div key="new-row" className="tree-row" style={{ paddingLeft: 10 + depth * 16 }}>
           {edit.kind === "new-file" ? <FileIcon mode={edit.mode ?? mode} /> : <Glyph name="folder" size={16} className="tree-ico" />}
-          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : edit.mode === "logic" ? "Título do diagrama de lógica" : edit.mode === "agents" ? "Título do time de agentes" : edit.mode === "sql" ? "Título da consulta" : "Título do diagrama") : "Nome da pasta")}
+          {inlineInput("", edit.kind === "new-file" ? (edit.mode === "domain" ? "Título do diagrama de domínio" : edit.mode === "logic" ? "Título do diagrama de lógica" : edit.mode === "agents" ? "Título do time de agentes" : edit.mode === "sql" ? "Título da consulta" : edit.mode === "brainstorm" ? "Título do brain storm" : "Título do diagrama") : "Nome da pasta")}
         </div>
       )}
       {n.children.map((c) => (c.type === "folder" ? folderRow(c, depth) : fileRow(c, depth)))}

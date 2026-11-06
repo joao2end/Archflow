@@ -90,6 +90,7 @@ export type Modal =
   | { type: "logic"; tab?: LogicTab }
   | { type: "agents"; tab?: "issues" | "text" | "harness" }
   | { type: "sql"; tab?: SqlTab }
+  | { type: "brainstorm"; tab?: "issues" | "text" }
   | { type: "skill"; id: string; tab?: "catalog" | "write" }
   | { type: "tool"; id: string; tab?: "search" | "paste" | "manual" }
   | { type: "ddd-guide" }

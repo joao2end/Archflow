@@ -5,6 +5,9 @@ import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, SQL_ROLES, docMode, isDataRole } from "../shared/schema";
 import { SQL_HEAD, SQL_LINE, SQL_MAX_LINES, sqlLines, sqlTitle } from "../shared/sql";
+import { BRAIN_LINES, BRAIN_SHAPES } from "../shared/schema";
+import { brainColor } from "../shared/brainstorm";
+import { BRAIN_LINE_INK, brainGeometry, brainText } from "./brainstorm";
 import { checkExamples } from "../shared/logic";
 import { explain, parseExpr, shortValue } from "../shared/expr";
 import { edgeIdsOf, dataKey, dataNames, dataNodes, logicStatus, nextExit, relatedTo } from "../shared/logic";
@@ -605,6 +608,53 @@ const SqlShape = memo(function SqlShape({ n, selected, hot, hovered }: { n: Node
   );
 });
 
+/**
+ * Forma livre do Brain Storm: o contorno da forma (caixa, losango, nuvem, pessoa…) na cor escolhida, com o texto
+ * centrado dentro. Redimensionável pela alça do canto, como os grupos e as notas.
+ */
+const BrainNodeShape = memo(function BrainNodeShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
+  const spec = n.brain!;
+  const shape = BRAIN_SHAPES[spec.shape];
+  const g = brainGeometry(spec.shape, n.w, n.h);
+  const { main, desc } = brainText(n.label, n.description, g.text, wrapLabel);
+  const lh = 18;
+  const dh = 15;
+  const total = main.length * lh + desc.length * dh;
+  const left = g.text.align === "left";
+  const tx = left ? g.text.x : g.text.x + g.text.w / 2;
+  const y0 = g.text.y + g.text.h / 2 - total / 2;
+  return (
+    <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={`${spec.shape === "step" ? `Passo ${spec.step ?? ""}` : shape.label}: ${n.label}`} transform={`translate(${n.x},${n.y})`} className={`node brain brain-${spec.shape}${selected ? " sel" : ""}${hot ? " drop-target" : ""}`} style={{ ["--bc" as string]: brainColor(spec) }}>
+      <title>{[n.label, shape.label, n.description].filter(Boolean).join("\n")}</title>
+      <rect className="brain-hit" width={n.w} height={n.h} />
+      {g.body && <path className="brain-body" d={g.body} filter="url(#shadow)" />}
+      {g.extra && <path className="brain-body" d={g.extra} filter="url(#shadow)" />}
+      {g.detail && <path className="brain-detail" d={g.detail} pointerEvents="none" />}
+      {g.fold && <path className="brain-fold" d={g.fold} pointerEvents="none" />}
+      {g.num && (
+        <>
+          <circle className="brain-num" cx={g.num.cx} cy={g.num.cy} r={g.num.r} filter="url(#shadow)" />
+          <text className="brain-num-text" x={g.num.cx} y={g.num.cy + 1} pointerEvents="none" style={{ fontSize: Math.max(12, Math.min(26, g.num.r * 0.9)) }}>
+            {spec.step ?? 1}
+          </text>
+        </>
+      )}
+      {main.map((t, i) => (
+        <text key={i} className={`brain-label${left ? " left" : ""}`} x={tx} y={y0 + lh / 2 + i * lh} pointerEvents="none">
+          {t}
+        </text>
+      ))}
+      {desc.map((t, i) => (
+        <text key={`d${i}`} className={`brain-desc${left ? " left" : ""}`} x={tx} y={y0 + main.length * lh + dh / 2 + i * dh} pointerEvents="none">
+          {t}
+        </text>
+      ))}
+      {(hovered || selected) && <Handles id={n.id} w={n.w} h={n.h} />}
+      {selected && <ResizeGrip w={n.w} h={n.h} />}
+    </g>
+  );
+});
+
 /** Assets personalizados do diagrama exibido (no visualizador, o diagrama é outro). */
 export const ViewerAssets = createContext<Asset[] | null>(null);
 
@@ -620,6 +670,7 @@ export const NodeShape = memo(function NodeShape({ n, selected, hot, hovered, st
   if (orbits(n) && n.parent?.startsWith(ONION_PREFIX)) return <OrbitShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   if (n.kind === "domain" && n.ddd) return <DomainShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   if (n.kind === "sql" && n.sql && SQL_ROLES[n.sql.role]) return <SqlShape n={n} selected={selected} hot={hot} hovered={hovered} />;
+  if (n.kind === "shape" && n.brain && BRAIN_SHAPES[n.brain.shape]) return <BrainNodeShape n={n} selected={selected} hot={hot} hovered={hovered} />;
   return (
     <g data-id={n.id} data-role="node" role="button" aria-pressed={selected} aria-label={[n.label, n.ref ? refName(n) : n.technology ?? asset?.name ?? n.kind].filter(Boolean).join(", ")} transform={`translate(${n.x},${n.y})`} className={`node${n.ref ? " ref" : ""}${selected ? " sel" : ""}${hot ? " drop-target" : ""}${runMark ? ` run-${runMark}` : ""}`}>
       {n.ref && (
@@ -1298,7 +1349,7 @@ function LabelPill({ c, mid }: { c: ConnectionEl; mid: Pt }) {
 /** Rótulo desenhado por cima dos nós e das notas, para nunca ficar escondido atrás de um componente; clicar ou arrastar seleciona a conexão como antes. */
 export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected, viz, flow, cover }: { c: ConnectionEl; mid: Pt; selected: boolean; viz?: Viz; flow?: boolean; cover?: number }) {
   return (
-    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}${flow ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: flow ? FLOW_EDGE[flowKey(c)].color : CONNECTION_TYPES[c.type].color }}>
+    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}${flow ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: flow ? FLOW_EDGE[flowKey(c)].color : c.brain ? c.brain.color ?? BRAIN_LINE_INK : CONNECTION_TYPES[c.type].color }}>
       <LabelPill c={c} mid={mid} />
       {cover !== undefined && <CoverChip c={c} mid={mid} n={cover} />}
     </g>
@@ -1325,13 +1376,22 @@ function CoverChip({ c, mid, n }: { c: ConnectionEl; mid: Pt; n: number }) {
 export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName, toName, withLabel = true, viz, flow }: { c: ConnectionEl; d: string; mid: Pt; selected: boolean; animate: boolean; fromName?: string; toName?: string; withLabel?: boolean; viz?: Viz; flow?: boolean }) {
   const t = CONNECTION_TYPES[c.type];
   const fl = flow ? FLOW_EDGE[flowKey(c)] : undefined;
-  const color = fl?.color ?? t.color;
+  // brainstorm: o traço (seta, linha, tracejado…) e a cor vêm do próprio conector, não do tipo de comunicação
+  const bl = c.brain ? BRAIN_LINES[c.brain.line] : undefined;
+  const color = fl?.color ?? (bl ? c.brain!.color ?? BRAIN_LINE_INK : t.color);
   const pid = `p-${c.id}`;
-  const motion = !fl && animate && c.animated !== false ? t.motion : "none";
+  const motion = !fl && !bl && animate && c.animated !== false ? t.motion : "none";
   const runFlow = useEdgeRunMark(c.id);
   return (
     <g data-id={c.id} data-role="conn" role="img" aria-label={`Conexão ${t.label.toLowerCase()}${c.label ? `: ${c.label}` : ""}, de ${fromName ?? c.from} para ${toName ?? c.to}`} className={`edge${selected ? " sel" : ""}${fl ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}${runFlow ? " run-flow" : ""}`} style={{ ["--ec" as string]: color }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={16} vectorEffect="non-scaling-stroke" />
+      {bl && (bl.head || bl.tail) && (
+        <defs>
+          <marker id={`bh-${c.id}`} viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+            <path d="M1 1.5L10.5 6L1 10.5z" fill={color} />
+          </marker>
+        </defs>
+      )}
       {selected && <path d={d} className="edge-glow" fill="none" stroke={color} strokeWidth={9} strokeOpacity={0.18} strokeLinecap="round" />}
       <path
         id={pid}
@@ -1339,10 +1399,10 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
         fill="none"
         stroke={color}
         strokeWidth={selected ? 2.6 : fl ? 1.7 : 2}
-        strokeDasharray={fl ? fl.dash : t.dash}
+        strokeDasharray={fl ? fl.dash : bl ? bl.dash : t.dash}
         strokeLinecap="round"
-        markerEnd={fl ? `url(#h-lg-${flowKey(c)})` : t.head !== "none" ? `url(#h-${c.type})` : undefined}
-        markerStart={!fl && t.tail !== "none" ? `url(#t-${c.type})` : undefined}
+        markerEnd={fl ? `url(#h-lg-${flowKey(c)})` : bl ? (bl.head ? `url(#bh-${c.id})` : undefined) : t.head !== "none" ? `url(#h-${c.type})` : undefined}
+        markerStart={!fl && bl ? (bl.tail ? `url(#bh-${c.id})` : undefined) : !fl && t.tail !== "none" ? `url(#t-${c.type})` : undefined}
         opacity={motion === "none" ? (fl ? 0.88 : 0.95) : 0.55}
       />
       {motion === "flow" && <path d={d} fill="none" stroke={t.color} strokeWidth={3} strokeLinecap="round" strokeDasharray="0.1 16" className="flow" />}
@@ -1939,7 +1999,7 @@ export function Canvas() {
     }
     if (t?.role === "resize") {
       const id = s.sel[0];
-      const el = [...s.doc.groups, ...s.doc.notes].find((x) => x.id === id);
+      const el = [...s.doc.groups, ...s.doc.notes, ...s.doc.nodes.filter((x) => x.brain)].find((x) => x.id === id);
       if (el) {
         beginTx();
         drag.current = { kind: "resize", id, start: p, orig: { w: el.w, h: el.h } };
@@ -2076,10 +2136,13 @@ export function Canvas() {
         break;
       }
       case "resize": {
-        const w = Math.max(120, snapV(d.orig.w + p.x - d.start.x, s.snap));
-        const h = Math.max(70, snapV(d.orig.h + p.y - d.start.y, s.snap));
+        // formas do brainstorm podem ficar pequenas (um passo numerado, uma estrela de destaque)
+        const shape = s.doc.nodes.some((x) => x.id === d.id && x.brain);
+        const w = Math.max(shape ? 40 : 120, snapV(d.orig.w + p.x - d.start.x, s.snap));
+        const h = Math.max(shape ? 36 : 70, snapV(d.orig.h + p.y - d.start.y, s.snap));
         live({
           ...s.doc,
+          nodes: shape ? s.doc.nodes.map((n) => (n.id === d.id ? { ...n, w, h } : n)) : s.doc.nodes,
           groups: s.doc.groups.map((g) => (g.id === d.id ? { ...g, w, h, auto: false } : g)),
           notes: s.doc.notes.map((n) => (n.id === d.id ? { ...n, w, h } : n)),
         });
@@ -2354,7 +2417,7 @@ export function Canvas() {
     if (t?.id && t.role !== "handle" && t.role !== "open-ref") {
       select([t.id]);
       set({ focusTick: getState().focusTick + 1 });
-      if (t.role === "conn" && getState().doc.mode !== "agents" && getState().doc.mode !== "sql") set({ modal: { type: "interface", id: t.id } }); // relações de agents e de sql não têm contrato de interface
+      if (t.role === "conn" && getState().doc.mode !== "agents" && getState().doc.mode !== "sql" && getState().doc.mode !== "brainstorm") set({ modal: { type: "interface", id: t.id } }); // relações de agents, sql e brainstorm não têm contrato de interface
     }
   };
 
@@ -2424,7 +2487,7 @@ export function Canvas() {
     <svg
       ref={svgRef}
       role="application"
-      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : docMode(doc) === "agents" ? "agentes de IA" : docMode(doc) === "sql" ? "consulta SQL" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
+      aria-label={`Quadro de ${docMode(doc) === "domain" ? "domínio" : docMode(doc) === "logic" ? "lógica de negócio" : docMode(doc) === "agents" ? "agentes de IA" : docMode(doc) === "sql" ? "consulta SQL" : docMode(doc) === "brainstorm" ? "brain storm" : "arquitetura"}. Setas movem a seleção; ? mostra os atalhos.`}
       aria-roledescription="quadro branco"
       className={`canvas${dragOver ? " drag-over" : ""}`}
       style={{ cursor, ["--z" as string]: view.z }}
