@@ -5,7 +5,7 @@
 // Requer: playwright-core, ffmpeg-static e o Microsoft Edge instalado (npm i --no-save playwright-core ffmpeg-static).
 // Uso:
 //   node scripts/dev-sandbox.mjs                       (outro terminal: app vazio em :5188, sem tocar nos seus projetos)
-//   node docs/promo/record-landing.mjs [cena ...]      (cenas: mcp library domain logic agents present; sem argumento = todas)
+//   node docs/promo/record-landing.mjs [cena ...]      (cenas: mcp library domain logic agents sql brainstorm present; sem argumento = todas)
 import { chromium } from "playwright-core";
 import ffmpegPath from "ffmpeg-static";
 import { spawn } from "node:child_process";
@@ -401,6 +401,69 @@ const SCENES = {
       await sleep(1600);
       await glide(page, W / 2 + 200, H / 2 + 120, 800);
       await page.mouse.wheel(0, 500);
+      await sleep(1800);
+    });
+    await browser.close();
+  },
+
+  /** SQL: cola uma consulta, o quadro se monta na ordem em que o banco executa, e a aba SQL devolve a consulta. */
+  async sql() {
+    await api("/api/diagrams", { title: "Melhores clientes", mode: "sql", blank: true });
+    const { browser, page } = await open();
+    await cursor(page);
+    await page.mouse.move(W / 2 + 160, H / 2 + 160);
+    await record(page, "sql", async () => {
+      await sleep(900);
+      await clickEl(page, page.getByRole("button", { name: "Colar uma consulta" }), 800);
+      await sleep(600);
+      const q = "SELECT c.nome, COUNT(*) AS pedidos, SUM(p.total) AS total\nFROM clientes c\nJOIN pedidos p ON p.cliente_id = c.id\nWHERE p.status = 'pago'\nGROUP BY c.nome\nHAVING COUNT(*) > 1\nORDER BY total DESC\nLIMIT 10";
+      await page.getByLabel("Consulta SELECT").fill("");
+      await page.keyboard.type(q, { delay: 14 });
+      await sleep(700);
+      await clickEl(page, page.getByRole("button", { name: /Diagramar a consulta/ }), 700);
+      await sleep(900);
+      await page.keyboard.press("f");
+      await sleep(2600);
+      await glide(page, W / 2, H / 2 - 40, 900);
+      await sleep(900);
+      await clickEl(page, page.getByLabel("Ver o SQL gerado"), 900);
+      await sleep(3200);
+    });
+    await browser.close();
+  },
+
+  /** Brain Storm: o agente mapeia um problema — o que dói, as causas, quem sofre e as ideias com prós e contras. */
+  async brainstorm() {
+    await api("/api/diagrams", { title: "Entregas atrasadas", mode: "brainstorm", blank: true });
+    const S = (id, shape, label, x, y, extra = {}) => ({ op: "add_node", id, label, brain: { shape, ...extra }, x, y });
+    const L = (from, to, label, line) => ({ op: "add_connection", from, to, ...(label ? { label } : {}), ...(line ? { brain: { line } } : {}) });
+    const steps = [
+      ["add_components", "problem · Entregas atrasam", [S("atraso", "problem", "Entregas atrasam", 330, 150)]],
+      ["add_components", "person · speech · feeling", [S("cliente", "person", "Cliente", 250, -40), S("humor", "feeling", "Irritado", 360, -46, { mood: "angry" }), S("fala", "speech", "Cadê meu pedido?!", 490, -40), L("cliente", "humor", "", "line"), L("fala", "atraso", "", "dotted")]],
+      ["connect", "causas → problema", [S("estoque", "box", "Estoque desatualizado no site", 0, 40), S("separacao", "clock", "Separação leva 2 dias", 0, 160), S("motorista", "stop", "Falta motorista", 30, 260), L("estoque", "atraso", "causa"), L("separacao", "atraso", "causa"), L("motorista", "atraso", "causa")]],
+      ["connect", "Falta motorista ⊣ meta · blocks", [S("meta", "target", "Entregar em até 2 dias", 30, 440), L("motorista", "meta", "trava", "blocks"), S("black", "warning", "Black Friday chegando", 300, 330), L("black", "atraso", "piora", "dashed")]],
+      ["add_components", "idea · soluções", [S("integrar", "idea", "Integrar estoque ao site", 640, 40), S("rotas", "idea", "Rotas por bairro", 640, 220), L("atraso", "integrar", "solução"), L("atraso", "rotas", "solução")]],
+      ["connect", "prós, contras e custo", [S("pro1", "pro", "Para de vender sem ter", 840, 40), S("con1", "con", "Um mês de TI", 840, 120), S("pro2", "pro", "Mais entregas por viagem", 840, 230), S("custo2", "money", "R$ 2 mil de sistema", 840, 310), L("integrar", "pro1", "", "line"), L("integrar", "con1", "", "line"), L("rotas", "pro2", "", "line"), L("rotas", "custo2", "", "line")]],
+      ["validate_diagram", "✓ tudo certo", []],
+    ];
+    const { browser, page } = await open();
+    await cursor(page);
+    await page.mouse.move(W - 200, H - 180);
+    await record(page, "brainstorm", async () => {
+      await hud(page, said("“Por que as nossas entregas atrasam e o que dá para fazer?”"));
+      await sleep(2100);
+      for (const [tool, text, list] of steps) {
+        await hud(page, calls(tool, text));
+        if (list.length) {
+          const bad = (await ops(list)).results.filter((r) => !r.ok);
+          if (bad.length) console.log(tool, bad);
+        }
+        await page.keyboard.press("f");
+        await sleep(1300);
+      }
+      await sleep(600);
+      await hud(page, "");
+      await glide(page, W / 2 - 80, H / 2 - 20, 900);
       await sleep(1800);
     });
     await browser.close();

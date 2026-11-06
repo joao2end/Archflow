@@ -7,9 +7,10 @@ import CursorTrail from "./CursorTrail";
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const style = (v: Record<string, string | number>) => v as CSSProperties;
 
-const WIN_VERSION = "0.3.0";
-const WIN_DOWNLOAD = `https://github.com/joao2end/Archflow/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
-const RELEASE_PAGE = `https://github.com/joao2end/Archflow/releases/tag/v${WIN_VERSION}`;
+const WIN_VERSION = "0.5.0";
+const GITHUB = "https://github.com/joao2end/Archflow";
+const WIN_DOWNLOAD = `${GITHUB}/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
+const RELEASE_PAGE = `${GITHUB}/releases/tag/v${WIN_VERSION}`;
 const TECHS = Math.floor(BUILTIN_ASSETS.length / 10) * 10;
 const MCP_CMD = `claude mcp add --scope user archflow -- "C:\\Program Files\\Archflow\\Archflow.exe" --mcp`;
 
@@ -62,7 +63,7 @@ function Hero() {
         ))}
       </h1>
       <p className="lp-lead lp-fade" style={style({ animationDelay: "800ms" })}>
-        Você pede, o agente desenha no quadro pelo MCP e você vê cada passo. Arquitetura, domínio, regras de negócio e times de agentes no mesmo lugar.
+        Você pede, o agente desenha no quadro pelo MCP e você vê cada passo. Arquitetura, domínio, regras de negócio, times de agentes, consultas SQL e brainstorms no mesmo lugar.
       </p>
       <div className="lp-cta lp-cta-center lp-fade" style={style({ animationDelay: "950ms" })}>
         <a className="btn primary lg shine" href="/app">
@@ -73,7 +74,7 @@ function Hero() {
         </a>
       </div>
       <p className="lp-dl-note lp-fade" style={style({ animationDelay: "1050ms" })}>
-        v{WIN_VERSION} · grátis · o instalador já traz o servidor MCP · <a href={RELEASE_PAGE}>macOS e Linux</a>
+        v{WIN_VERSION} · grátis · o instalador já traz o servidor MCP · <a href={RELEASE_PAGE}>macOS e Linux</a> · <a href={GITHUB}>código no GitHub</a>
       </p>
       <div className="lp-hero-video lp-fade" style={style({ animationDelay: "1150ms" })}>
         <Clip name="mcp" label="O agente desenha o checkout pelo MCP, ao vivo" />
@@ -122,6 +123,24 @@ const FEATURES: { id: string; video: string; icon: string; tag: string; title: s
     points: ["Grava .claude/ ou .cursor/ direto na pasta do projeto", "Workflows rodam no terminal do Claude Code dentro do app", "Catálogo de skills e servidores MCP"],
   },
   {
+    id: "sql",
+    video: "sql",
+    icon: "mode-sql",
+    tag: "SQL",
+    title: "A consulta desenhada, do quadro ao SELECT",
+    text: "Cole uma consulta e o quadro a monta na ordem em que o banco executa. Mude o quadro e o SQL acompanha.",
+    points: ["Tabelas, CTEs, joins, WHERE, GROUP BY, ORDER BY e o resultado", "Importa WITH, subconsultas, HAVING, LIMIT, TOP e FETCH FIRST", "Validação aponta join sem ON e agregação sem GROUP BY"],
+  },
+  {
+    id: "brainstorm",
+    video: "brainstorm",
+    icon: "mode-brainstorm",
+    tag: "Brain Storm",
+    title: "Explique processos e mapeie problemas",
+    text: "Um quadro livre para quem não é técnico: formas, traços e post-its contam o processo ou o problema de forma simples.",
+    points: ["Problema, causas, bloqueios, ideias, prós e contras", "Pessoas, falas e sentimentos mostram quem sofre e onde dói", "Traços seta, tracejado, seta dupla e bloqueia, com cor"],
+  },
+  {
     id: "apresentar",
     video: "present",
     icon: "present",
@@ -137,7 +156,7 @@ function Features() {
     <section id="recursos" className="lp-section">
       <span className="lp-eyebrow">Recursos</span>
       <h2>
-        Quatro modos, <i>um</i> quadro.
+        Seis modos, <i>um</i> quadro.
       </h2>
       <div className="lp-feats">
         {FEATURES.map((f, i) => (
@@ -190,13 +209,13 @@ function Connect() {
       </div>
       <ul className="lp-facts" aria-label="Números">
         <li>
-          <b>27</b> ferramentas MCP
+          <b>28</b> ferramentas MCP
         </li>
         <li>
           <b>{TECHS}+</b> tecnologias
         </li>
         <li>
-          <b>4</b> modos de diagrama
+          <b>6</b> modos de diagrama
         </li>
         <li>
           <b>100%</b> local, em arquivos .json
@@ -229,8 +248,13 @@ function Nav({ theme }: { theme: string }) {
         <a href="#domain">Domain</a>
         <a href="#logic">Logic</a>
         <a href="#agents">Agents</a>
+        <a href="#sql">SQL</a>
+        <a href="#brainstorm">Brain Storm</a>
         <a href="#mcp">MCP</a>
       </nav>
+      <a className="btn ghost icon" href={GITHUB} target="_blank" rel="noopener noreferrer" aria-label="Código no GitHub" data-tip="Código no GitHub" data-tip-pos="bottom">
+        <Glyph name="github" size={18} />
+      </a>
       <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip="Alternar tema" data-tip-pos="bottom">
         <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme as "system"]} size={18} />
       </button>
@@ -314,7 +338,11 @@ export default function Landing() {
         </main>
 
         <footer className="lp-footer">
-          © 2026 2-end Software Development
+          © 2026 2-end Software Development ·{" "}
+          <a href={GITHUB} target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>{" "}
+          · <a href={`${GITHUB}/releases`}>Versões</a>
         </footer>
       </div>
       <CursorTrail />

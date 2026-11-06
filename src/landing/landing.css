@@ -471,6 +471,13 @@ a.btn:not(.primary) {
   color: var(--ink-3);
   font-size: 13px;
 }
+.lp-footer a {
+  color: var(--ink-2);
+  text-underline-offset: 3px;
+}
+.lp-footer a:hover {
+  color: var(--primary);
+}
 
 /* ───────── Responsivo ───────── */
 @media (max-width: 960px) {
