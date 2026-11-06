@@ -2848,6 +2848,14 @@ svg.canvas.drag-over {
 .mode-menu .sql .mode-dot { background: #1f7a5f; }
 .mode-menu .brainstorm .mode-dot { background: #b8461f; }
 
+/* ───────── atualização do app desktop ───────── */
+.update-btn { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); font-weight: 650; }
+.update-btn:hover { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.update-bar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; margin-top: 6px; }
+.update-bar i { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width 0.3s ease; }
+.update-notes { max-height: 320px; overflow: auto; padding: 4px 2px; }
+.callout.error { border-color: color-mix(in srgb, #c62f3a 40%, transparent); color: var(--ink); background: color-mix(in srgb, #c62f3a 10%, transparent); }
+
 /* ───────── modo brainstorm: formas livres de quadro branco ───────── */
 .node.brain .brain-body { fill: color-mix(in srgb, var(--bc) 11%, var(--s-solid)); stroke: var(--bc); stroke-width: 2; stroke-linejoin: round; }
 .node.brain.brain-sticky .brain-body { fill: color-mix(in srgb, var(--bc) 30%, var(--s-solid)); stroke-width: 1.2; }

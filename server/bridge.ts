@@ -28,6 +28,7 @@
  *   GET  /api/runs/get?id=<id>            registro completo de uma execução
  *   POST /api/runs { record }             grava/atualiza uma execução (guarda as últimas 50)
  *   POST /api/runs/snapshot { id, step, patterns, since }  guarda os arquivos que o passo gerou (saídas esperadas)
+ *   GET  /api/update · POST /api/update/check { force? } · /download · /install { confirm: true }  atualização do app desktop (updater.ts)
  *   POST /api/runs/resume-files { from, to, upto, restore }  retomar: copia os arquivos dos passos anteriores e, com restore, devolve ao projeto
  *   POST /api/term/conversation/last { id }      { text|null } última resposta do agente na conversa (memória dos workflows)
  *   POST /api/term/conversation/denials { id, since } { denials[] } ferramentas negadas por permissão desde `since` (ms), com subagentes
@@ -57,6 +58,7 @@ import { harnessDiff, syncHarness, type HarnessSyncResult, readManifest } from "
 import { harnessToOps } from "../src/shared/agentimport";
 import { checkExpects, missingOutputs, type FsEntry } from "../src/shared/expects";
 import { getRun, listRuns, resumeFiles, RunStoreError, saveRun, snapshotStep } from "./runstore";
+import { UpdateError, checkUpdate, downloadUpdate, installUpdate, updateState } from "./updater";
 import { applyOps, createDoc, describe, normalizeDoc, schemaGuide, slug, type Op } from "../src/shared/ops";
 import { normalizeLibrary } from "../src/shared/prompts";
 import { DOC_MODE_KEYS, docMode, emptyDoc, isDocMode, type Doc, type DocMode } from "../src/shared/schema";
@@ -1310,6 +1312,14 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
   if (PUBLIC_MODE && path.startsWith("/api/")) return json(res, 404, { error: "indisponível no modo público" });
   try {
     if (path === "/api/health") return json(res, 200, { ok: true, rev, title: doc.title });
+    /* atualização do app desktop */
+    if (path === "/api/update" && m === "GET") return json(res, 200, updateState());
+    if (path === "/api/update/check" && m === "POST") return json(res, 200, await checkUpdate({ force: (await body(req)).force === true }));
+    if (path === "/api/update/download" && m === "POST") return json(res, 200, downloadUpdate());
+    if (path === "/api/update/install" && m === "POST") {
+      if ((await body(req)).confirm !== true) throw new HttpError(400, "a instalação precisa de confirm: true");
+      return json(res, 200, await installUpdate());
+    }
     if (path === "/api/doc" && m === "GET") return json(res, 200, { rev, doc, file: current, pristine });
     if (path === "/api/doc" && m === "PUT") {
       const b = await body(req);
@@ -1636,7 +1646,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     }
     json(res, 404, { error: "not found" });
   } catch (e) {
-    const status = e instanceof HttpError || e instanceof RunStoreError ? e.status : e instanceof SyntaxError ? 400 : 500;
+    const status = e instanceof HttpError || e instanceof RunStoreError ? e.status : e instanceof UpdateError ? 409 : e instanceof SyntaxError ? 400 : 500;
     json(res, status, { error: e instanceof Error ? e.message : String(e) });
   }
 }

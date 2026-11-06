@@ -8,6 +8,7 @@ import { DddConnFields, DomainFields, ModeSwitch, SubdomainField } from "./domai
 import { LogicConnFields, LogicFields, StageFields } from "./logic";
 import { AgentConnFields, AgentFields } from "./agents";
 import { SqlConnFields, SqlFields } from "./sql";
+import { UpdateButton } from "./update";
 import { BrainConnFields, BrainFields } from "./brainstorm";
 import { brainColor } from "../shared/brainstorm";
 import { BRAIN_SHAPES } from "../shared/schema";
@@ -251,6 +252,7 @@ export function TopBar() {
               }}
             />
           </div>
+          <UpdateButton />
           <button className="btn ghost icon" onClick={cycleTheme} aria-label={`Tema: ${theme}`} data-tip={`Tema: ${{ system: "automático", light: "claro", dark: "escuro" }[theme]} (T)\nClique para alternar`} data-tip-pos="bottom">
             <Glyph name={{ system: "monitor", light: "sun", dark: "moon" }[theme]} size={18} />
           </button>

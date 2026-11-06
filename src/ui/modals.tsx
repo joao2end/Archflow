@@ -19,6 +19,8 @@ import type { HarnessTarget } from "../shared/agentgen";
 import { generateSql } from "../shared/sqlgen";
 import { importSql } from "./sql";
 import type { SqlTab } from "./store";
+import { checkForUpdate, installNow, skipVersion, startDownload, useUpdate } from "./update";
+import { renderMarkdown } from "./markdown";
 
 function Modal({ title, onClose, children, foot, wide }: { title: string; onClose: () => void; children: ReactNode; foot?: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -785,6 +787,78 @@ function BrainModal({ tab: initial }: { tab?: "issues" | "text" }) {
   );
 }
 
+/* ───────── atualização do app desktop ───────── */
+
+const mb = (n: number) => `${(n / 1048576).toFixed(n > 104857600 ? 0 : 1)} MB`;
+
+function UpdateModal() {
+  const s = useUpdate();
+  useEffect(() => {
+    if (s?.desktop && (s.phase === "idle" || s.phase === "error")) void checkForUpdate(true);
+  }, []); // só ao abrir: a janela pede uma verificação fresca
+  const notes = useMemo(() => (s?.notes ? renderMarkdown(s.notes) : ""), [s?.notes]);
+  if (!s) return null;
+  const pct = s.asset?.size ? Math.min(100, Math.floor(((s.received ?? 0) / s.asset.size) * 100)) : 0;
+  const how = {
+    silent: "O Windows pede permissão de administrador uma vez; o app fecha, instala na mesma pasta e abre de novo já atualizado.",
+    replace: "O AppImage é trocado pelo novo e o app abre de novo já atualizado.",
+    open: "O app não é assinado pela Apple, então não se troca sozinho: o DMG é baixado em Downloads e aberto para você arrastar o Archflow para Aplicativos. Se o macOS reclamar, rode `xattr -cr /Applications/Archflow.app`.",
+  }[s.install ?? "open"];
+  const foot =
+    s.phase === "available" ? (
+      <>
+        <button className="btn ghost" onClick={() => (s.latest && skipVersion(s.latest), checkForUpdate(), close())} data-tip="Não avisa mais desta versão; «Verificar atualizações» na ajuda continua mostrando" data-tip-pos="top">
+          Pular esta versão
+        </button>
+        <button className="btn primary" onClick={() => void startDownload()} disabled={!s.asset} data-tip={s.asset ? undefined : "Esta versão não tem pacote para este sistema"} data-tip-pos="top">
+          <Glyph name="download" size={16} /> Baixar {s.asset ? `(${mb(s.asset.size)})` : ""}
+        </button>
+      </>
+    ) : s.phase === "ready" ? (
+      <button className="btn primary" onClick={() => void installNow()}>
+        <Glyph name="check" size={16} /> {s.install === "open" ? "Abrir o instalador" : "Instalar e reiniciar"}
+      </button>
+    ) : s.phase === "none" || s.phase === "error" ? (
+      <button className="btn" onClick={() => void checkForUpdate(true)}>
+        <Glyph name="reset" size={16} /> Verificar de novo
+      </button>
+    ) : null;
+  return (
+    <Modal title={s.phase === "none" ? "O Archflow está atualizado" : s.latest ? `Archflow ${s.latest}` : "Atualizações"} onClose={close} foot={foot}>
+      <p style={{ color: "var(--ink-2)", marginTop: 0 }}>
+        Versão instalada: <b>{s.current}</b>
+        {s.latest && s.phase !== "none" ? (
+          <>
+            {" "}· nova: <b>{s.latest}</b>
+          </>
+        ) : null}
+        {s.page ? (
+          <>
+            {" "}·{" "}
+            <a href={s.page} target="_blank" rel="noopener noreferrer">
+              página da versão
+            </a>
+          </>
+        ) : null}
+      </p>
+      {!s.desktop && <div className="callout">A atualização automática só existe no app desktop. No navegador, recarregar a página já traz a versão publicada.</div>}
+      {s.phase === "checking" && <div className="callout">Procurando a versão mais recente…</div>}
+      {s.phase === "none" && <div className="callout">Você já usa a versão mais recente ({s.current}).</div>}
+      {s.error && <div className="callout error" role="alert">{s.error}</div>}
+      {(s.phase === "downloading" || s.phase === "ready" || s.phase === "installing") && (
+        <div className="field">
+          <span>{s.phase === "downloading" ? `Baixando ${s.asset?.name ?? ""}… ${pct}%` : s.phase === "installing" ? "Instalando: o app vai fechar e abrir de novo." : "Download conferido (SHA-256 igual ao publicado no GitHub)."}</span>
+          <div className="update-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={s.phase === "downloading" ? pct : 100} aria-label="Progresso do download">
+            <i style={{ width: `${s.phase === "downloading" ? pct : 100}%` }} />
+          </div>
+        </div>
+      )}
+      {s.desktop && (s.phase === "available" || s.phase === "ready") && <div className="callout">{how}</div>}
+      {notes && s.phase !== "none" && <div className="note-md update-notes" dangerouslySetInnerHTML={{ __html: notes }} />}
+    </Modal>
+  );
+}
+
 /* ───────── MCP ───────── */
 
 function McpModal() {
@@ -806,6 +880,23 @@ function DddGuideModal() {
 }
 
 /* ───────── ajuda ───────── */
+
+/** Na ajuda: a versão instalada e, no app desktop, o «Verificar atualizações». */
+function UpdateLine() {
+  const s = useUpdate();
+  if (!s?.desktop) return null;
+  return (
+    <p className="callout" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <span>
+        <b>Archflow {s.current}</b>
+        {s.phase === "available" || s.phase === "ready" ? ` · a versão ${s.latest} está disponível` : s.phase === "none" ? " · atualizado" : ""}
+      </span>
+      <button className="btn" onClick={() => set({ modal: { type: "update" } })}>
+        <Glyph name="download" size={15} /> Verificar atualizações
+      </button>
+    </p>
+  );
+}
 
 function HelpModal() {
   const mode = useStore((st) => docMode(st.doc));
@@ -850,6 +941,7 @@ function HelpModal() {
           </div>
         </section>
       ))}
+      <UpdateLine />
       <p className="callout" style={{ marginTop: 16 }}>
         <b>Novo em DDD?</b> <button className="btn" style={{ marginLeft: 6 }} onClick={openDddGuide}>Abrir o guia animado</button>
       </p>
@@ -1073,6 +1165,8 @@ export function Modals() {
       return <SqlModal tab={m.tab} />;
     case "brainstorm":
       return <BrainModal tab={m.tab} />;
+    case "update":
+      return <UpdateModal />;
     case "skill":
       return <SkillModal key={m.id} id={m.id} tab={m.tab} />;
     case "tool":

@@ -49,6 +49,15 @@ if (app.isPackaged) process.env.ARCHFLOW_EXE = process.env.APPIMAGE ?? process.e
 
 async function createWindow() {
   const { DEFAULT_PORT, ensureBridge } = await import("../server/bridge");
+  if (app.isPackaged) {
+    const { setUpdateHooks } = await import("../server/updater");
+    setUpdateHooks({
+      version: app.getVersion(),
+      quit: () => app.quit(),
+      // AppImage novo: o single-instance lock solta no exit, e o relaunch sobe o arquivo atualizado
+      relaunch: (exe) => (app.relaunch({ execPath: exe, args: process.argv.slice(1) }), app.exit(0)),
+    });
+  }
   await ensureBridge(DEFAULT_PORT);
   const win = new BrowserWindow({
     width: 1440,

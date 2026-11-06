@@ -91,6 +91,7 @@ export type Modal =
   | { type: "agents"; tab?: "issues" | "text" | "harness" }
   | { type: "sql"; tab?: SqlTab }
   | { type: "brainstorm"; tab?: "issues" | "text" }
+  | { type: "update" }
   | { type: "skill"; id: string; tab?: "catalog" | "write" }
   | { type: "tool"; id: string; tab?: "search" | "paste" | "manual" }
   | { type: "ddd-guide" }
