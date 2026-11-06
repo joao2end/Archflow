@@ -4,20 +4,22 @@
  *
  * Só depende de `schema.ts` (`ops.ts` importa este módulo, nunca o contrário). Determinístico.
  */
-import { BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, SCHEMA_VERSION, type BrainConnSpec, type BrainNodeSpec, type BrainShape, type Doc, type NodeEl } from "./schema";
+import { BRAIN_GROUPS, BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_MOOD_KEYS, BRAIN_MOODS, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, SCHEMA_VERSION, brainGroup, type BrainConnSpec, type BrainNodeSpec, type BrainShape, type Doc, type NodeEl } from "./schema";
 import type { Issue } from "./domain";
 
 const COLOR = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i;
 
 /** Valida o objeto `brain` de um nó. Devolve a mensagem de erro (acionável) ou undefined. */
 export function checkBrainNode(brain: unknown): string | undefined {
-  if (!brain || typeof brain !== "object") return "brain deve ser um objeto { shape, color?, step? }";
+  if (!brain || typeof brain !== "object") return "brain deve ser um objeto { shape, color?, step?, mood? }";
   const a = brain as Record<string, unknown>;
-  for (const k of Object.keys(a)) if (a[k] !== undefined && !["shape", "color", "step"].includes(k)) return `forma do brainstorm não tem o campo "${k}". Campos: shape, color, step`;
+  for (const k of Object.keys(a)) if (a[k] !== undefined && !["shape", "color", "step", "mood"].includes(k)) return `forma do brainstorm não tem o campo "${k}". Campos: shape, color, step, mood`;
   if (!BRAIN_SHAPE_KEYS.includes(a.shape as never)) return `brain.shape inválido "${a.shape}". Válidos: ${BRAIN_SHAPE_KEYS.join(", ")}`;
   if (a.color !== undefined && (typeof a.color !== "string" || !COLOR.test(a.color))) return `brain.color deve ser uma cor hexadecimal (ex.: "#4a63c8")`;
   if (a.step !== undefined && (typeof a.step !== "number" || !Number.isInteger(a.step) || a.step < 0 || a.step > 999)) return "brain.step deve ser um inteiro de 0 a 999";
   if (a.step !== undefined && a.shape !== "step") return `brain.step só vale na forma "step" (passo numerado)`;
+  if (a.mood !== undefined && !BRAIN_MOOD_KEYS.includes(a.mood as never)) return `brain.mood inválido "${a.mood}". Válidos: ${BRAIN_MOOD_KEYS.join(", ")}`;
+  if (a.mood !== undefined && a.shape !== "feeling") return `brain.mood só vale na forma "feeling" (sentimento)`;
   return undefined;
 }
 
@@ -37,10 +39,13 @@ export const brainSize = (shape: BrainShape) => ({ w: BRAIN_SHAPES[shape].w, h: 
 /** Cor efetiva da forma (a escolhida ou a padrão do desenho). */
 export const brainColor = (spec: BrainNodeSpec) => spec.color ?? BRAIN_SHAPES[spec.shape].color;
 
-/** Troca a forma mantendo a cor; o número do passo só sobrevive no passo numerado. */
+/** Troca a forma mantendo a cor; o número do passo e o rosto só sobrevivem na forma que os usa. */
 export function reshapeBrain(old: BrainNodeSpec, shape: BrainShape): BrainNodeSpec {
-  return { shape, ...(old.color ? { color: old.color } : {}), ...(shape === "step" ? { step: old.step ?? 1 } : {}) };
+  return { shape, ...(old.color ? { color: old.color } : {}), ...(shape === "step" ? { step: old.step ?? 1 } : {}), ...(shape === "feeling" && old.mood ? { mood: old.mood } : {}) };
 }
+
+/** Rosto do sentimento (padrão: triste — a forma costuma marcar uma dor). */
+export const brainMood = (spec: BrainNodeSpec) => spec.mood ?? "sad";
 
 /** Próximo número livre para um passo numerado novo. */
 export function nextStep(doc: Doc): number {
@@ -65,6 +70,9 @@ export function brainIssues(doc: Doc): Issue[] {
       if (outs.length && outs.length < 2) add("B002", "dica", `${quote(n)}: decisão com uma saída só; uma pergunta costuma ter pelo menos dois caminhos (sim / não)`, n.id);
       for (const c of outs) if (outs.length > 1 && !c.label?.trim()) add("B003", "dica", `${quote(n)}: rotule as saídas da decisão (ex.: sim / não) para quem lê saber qual caminho é qual`, c.id);
     }
+  }
+  for (const n of shapes.filter((x) => x.brain!.shape === "problem")) {
+    if (!doc.connections.some((c) => c.from === n.id || c.to === n.id)) add("B005", "dica", `${quote(n)}: problema solto; ligue as causas a ele e ele às ideias de solução para o quadro contar a história`, n.id);
   }
   const steps = shapes.filter((n) => n.brain!.shape === "step");
   const seen = new Map<number, NodeEl>();
@@ -110,7 +118,7 @@ export function describeBrain(doc: Doc, issues: Issue[]): string {
   if (!order.length) L.push("(nenhuma)");
   for (const n of order) {
     const b = n.brain!;
-    const kind = b.shape === "step" ? `Passo ${b.step ?? "?"}` : BRAIN_SHAPES[b.shape].label;
+    const kind = b.shape === "step" ? `Passo ${b.step ?? "?"}` : b.shape === "feeling" ? `Sentimento: ${BRAIN_MOODS[brainMood(b)].toLowerCase()}` : BRAIN_SHAPES[b.shape].label;
     L.push(`- [${kind}] **${n.label || "(sem texto)"}** (${n.id})${n.description ? ` — ${n.description}` : ""}`);
   }
   const lines = doc.connections.filter((c) => byId.get(c.from)?.brain || byId.get(c.to)?.brain);
@@ -118,7 +126,7 @@ export function describeBrain(doc: Doc, issues: Issue[]): string {
   if (!lines.length) L.push("(nenhuma)");
   for (const c of lines) {
     const ln = BRAIN_LINES[c.brain?.line ?? "arrow"];
-    const arrow = ln.head && ln.tail ? "↔" : ln.head ? "→" : "—";
+    const arrow = ln.bar ? "⊣" : ln.head && ln.tail ? "↔" : ln.head ? "→" : "—";
     L.push(`- ${name(c.from)} ${arrow} ${name(c.to)}${c.label ? ` («${c.label}»)` : ""}${c.brain?.line && c.brain.line !== "arrow" ? ` [${ln.label.toLowerCase()}]` : ""}`);
   }
   if (doc.groups.length) {
@@ -135,12 +143,12 @@ export function schemaGuideBrain(): string {
   return [
     `# Archflow ${SCHEMA_VERSION} — modo brainstorm (Brain Storm)`,
     "",
-    "Quadro livre para EXPLICAR UM PROCESSO de forma simples, como num quadro branco: formas, traços, textos e desenhos à mão. Não há regras de negócio nem tecnologia: o significado está no texto de cada forma e nos rótulos das setas.",
+    "Quadro livre para EXPLICAR UM PROCESSO ou MAPEAR UM PROBLEMA de forma simples, como num quadro branco: formas, traços, textos e desenhos à mão. Não há regras de negócio nem tecnologia: o significado está no texto de cada forma e nos rótulos das setas.",
     "Todo nó é `kind: \"shape\"` com `brain.shape`. Use `label` curto (o que acontece), `description` para o detalhe.",
     "",
     "## Formas (`brain.shape`)",
-    ...BRAIN_SHAPE_KEYS.map((s) => `- \`${s}\` (${BRAIN_SHAPES[s].label}): ${BRAIN_SHAPES[s].hint}`),
-    "- `brain.color` (opcional): cor hexadecimal do traço; `brain.step`: o número no passo numerado.",
+    ...(["process", "problem"] as const).flatMap((g) => [`### ${BRAIN_GROUPS[g]}`, ...BRAIN_SHAPE_KEYS.filter((s) => brainGroup(s) === g).map((s) => `- \`${s}\` (${BRAIN_SHAPES[s].label}): ${BRAIN_SHAPES[s].hint}`)]),
+    `- \`brain.color\` (opcional): cor hexadecimal do traço; \`brain.step\`: o número no passo numerado; \`brain.mood\` (só em feeling): ${BRAIN_MOOD_KEYS.join(" | ")}.`,
     "",
     "## Traços (`brain.line` na conexão; o `type` vem do traço — não informe)",
     ...BRAIN_LINE_KEYS.map((l) => `- \`${l}\` (${BRAIN_LINES[l].label}): ${BRAIN_LINES[l].hint}`),
@@ -150,6 +158,12 @@ export function schemaGuideBrain(): string {
     "1. `add_components` com um `round` de início, uma `box` por etapa, `diamond` para cada pergunta e um `round` de fim; `person` para quem participa, `doc`/`data`/`cylinder` para o que circula ou fica guardado.",
     "2. `connect` na ordem do processo (seta); rotule as saídas de cada `diamond`.",
     "3. Ideias soltas e observações: `sticky` ou `add_note`. Agrupe etapas por área/pessoa com `add_groups` (kind `boundary`).",
-    "4. `auto_layout` e `validate_diagram` (só dicas leves: decisão sem duas saídas, passos com número repetido).",
+    "4. `auto_layout` e `validate_diagram` (só dicas leves: decisão sem duas saídas, passos com número repetido, problema solto).",
+    "",
+    "## Mapear um problema",
+    "1. Um `problem` no centro com o que dói (curto). `speech` com a reclamação de quem sofre e um `feeling` (mood sad/angry) ao lado da `person`.",
+    "2. Causas (`box`, `stop`, `clock`, `money`) ligadas ao problema com `arrow` (causa → problema); o que trava use `brain: { line: \"blocks\" }`.",
+    "3. `question` para o que ainda não se sabe; `warning` para riscos.",
+    "4. `idea` para cada solução (problema → ideia), com `pro`/`con` ligados por `line`; um `target` com a meta medível.",
   ].join("\n");
 }

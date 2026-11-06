@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
+import { BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_MOOD_KEYS, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -212,6 +212,7 @@ const brainNodeSchema = z
     shape: z.enum(BRAIN_SHAPE_KEYS as [string, ...string[]]).describe(BRAIN_SHAPE_KEYS.map((s) => `${s}: ${BRAIN_SHAPES[s].hint}`).join(" · ")),
     color: z.string().optional().describe("cor hexadecimal do traço (ex.: #d0532c); omitida = a cor padrão da forma"),
     step: z.number().int().min(0).max(999).optional().describe("shape step: o número do passo"),
+    mood: z.enum(BRAIN_MOOD_KEYS as [string, ...string[]]).optional().describe("shape feeling: o rosto (padrão sad)"),
   })
   .describe("modo brainstorm");
 

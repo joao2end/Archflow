@@ -32,7 +32,7 @@ export function EmptyHint() {
           : sql
           ? "Cole uma consulta SELECT e o quadro a desenha: as tabelas com as colunas usadas, os joins e o caminho WHERE → GROUP BY → ORDER BY → SELECT. Ou arraste da biblioteca uma Tabela e um Resultado e ligue-os; o SQL sai do quadro."
           : brain
-          ? "Arraste da biblioteca as formas — uma pílula de início, caixas para cada etapa, um losango para cada pergunta — e ligue-as puxando dos pontos “+”. Clique numa seta para trocar o traço (linha, tracejado, seta dupla). Post-its, textos e a caneta (D) completam o quadro."
+          ? "Para um processo: uma pílula de início, caixas para cada etapa e um losango para cada pergunta. Para um problema: a explosão no centro, as causas, quem sofre e as ideias de solução com prós e contras. Ligue as formas puxando dos pontos “+” e clique numa seta para trocar o traço (linha, tracejado, bloqueia…)."
           : agents
           ? "Arraste da biblioteca um Agent e escreva a description (quando o orquestrador deve chamá-lo); depois uma Skill e ligue com uma seta uses-skill, ou solte-a dentro de um grupo «global» (tecla G) para valer para todos os agentes."
           : "Abra a biblioteca e arraste uma tecnologia para o quadro, ou veja um exemplo pronto para entender como o quadro lê. Também dá para pedir ao seu agente via MCP."}

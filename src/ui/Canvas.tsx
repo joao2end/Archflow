@@ -6,8 +6,8 @@ import type { Asset } from "../shared/schema";
 import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, SQL_ROLES, docMode, isDataRole } from "../shared/schema";
 import { SQL_HEAD, SQL_LINE, SQL_MAX_LINES, sqlLines, sqlTitle } from "../shared/sql";
 import { BRAIN_LINES, BRAIN_SHAPES } from "../shared/schema";
-import { brainColor } from "../shared/brainstorm";
-import { BRAIN_LINE_INK, brainGeometry, brainText } from "./brainstorm";
+import { brainColor, brainMood } from "../shared/brainstorm";
+import { brainGeometry, brainLineColor, brainText } from "./brainstorm";
 import { checkExamples } from "../shared/logic";
 import { explain, parseExpr, shortValue } from "../shared/expr";
 import { edgeIdsOf, dataKey, dataNames, dataNodes, logicStatus, nextExit, relatedTo } from "../shared/logic";
@@ -615,7 +615,7 @@ const SqlShape = memo(function SqlShape({ n, selected, hot, hovered }: { n: Node
 const BrainNodeShape = memo(function BrainNodeShape({ n, selected, hot, hovered }: { n: NodeEl; selected: boolean; hot: boolean; hovered: boolean }) {
   const spec = n.brain!;
   const shape = BRAIN_SHAPES[spec.shape];
-  const g = brainGeometry(spec.shape, n.w, n.h);
+  const g = brainGeometry(spec.shape, n.w, n.h, brainMood(spec));
   const { main, desc } = brainText(n.label, n.description, g.text, wrapLabel);
   const lh = 18;
   const dh = 15;
@@ -635,9 +635,17 @@ const BrainNodeShape = memo(function BrainNodeShape({ n, selected, hot, hovered 
         <>
           <circle className="brain-num" cx={g.num.cx} cy={g.num.cy} r={g.num.r} filter="url(#shadow)" />
           <text className="brain-num-text" x={g.num.cx} y={g.num.cy + 1} pointerEvents="none" style={{ fontSize: Math.max(12, Math.min(26, g.num.r * 0.9)) }}>
-            {spec.step ?? 1}
+            {g.num.text ?? spec.step ?? 1}
           </text>
         </>
+      )}
+      {g.badge && (
+        <g pointerEvents="none">
+          <circle className="brain-num" cx={g.badge.cx} cy={g.badge.cy} r={g.badge.r} />
+          <text className="brain-num-text" x={g.badge.cx} y={g.badge.cy + 1} style={{ fontSize: g.badge.r * 1.35 }}>
+            {g.badge.text}
+          </text>
+        </g>
       )}
       {main.map((t, i) => (
         <text key={i} className={`brain-label${left ? " left" : ""}`} x={tx} y={y0 + lh / 2 + i * lh} pointerEvents="none">
@@ -1349,7 +1357,7 @@ function LabelPill({ c, mid }: { c: ConnectionEl; mid: Pt }) {
 /** Rótulo desenhado por cima dos nós e das notas, para nunca ficar escondido atrás de um componente; clicar ou arrastar seleciona a conexão como antes. */
 export const EdgeLabel = memo(function EdgeLabel({ c, mid, selected, viz, flow, cover }: { c: ConnectionEl; mid: Pt; selected: boolean; viz?: Viz; flow?: boolean; cover?: number }) {
   return (
-    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}${flow ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: flow ? FLOW_EDGE[flowKey(c)].color : c.brain ? c.brain.color ?? BRAIN_LINE_INK : CONNECTION_TYPES[c.type].color }}>
+    <g data-id={c.id} data-role="conn" className={`edge${selected ? " sel" : ""}${flow ? " flow-edge" : ""}${viz ? ` play-${viz}` : ""}`} style={{ ["--ec" as string]: flow ? FLOW_EDGE[flowKey(c)].color : c.brain ? brainLineColor(c.brain) : CONNECTION_TYPES[c.type].color }}>
       <LabelPill c={c} mid={mid} />
       {cover !== undefined && <CoverChip c={c} mid={mid} n={cover} />}
     </g>
@@ -1378,7 +1386,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
   const fl = flow ? FLOW_EDGE[flowKey(c)] : undefined;
   // brainstorm: o traço (seta, linha, tracejado…) e a cor vêm do próprio conector, não do tipo de comunicação
   const bl = c.brain ? BRAIN_LINES[c.brain.line] : undefined;
-  const color = fl?.color ?? (bl ? c.brain!.color ?? BRAIN_LINE_INK : t.color);
+  const color = fl?.color ?? (bl ? brainLineColor(c.brain!) : t.color);
   const pid = `p-${c.id}`;
   const motion = !fl && !bl && animate && c.animated !== false ? t.motion : "none";
   const runFlow = useEdgeRunMark(c.id);
@@ -1388,7 +1396,7 @@ export const Edge = memo(function Edge({ c, d, mid, selected, animate, fromName,
       {bl && (bl.head || bl.tail) && (
         <defs>
           <marker id={`bh-${c.id}`} viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-            <path d="M1 1.5L10.5 6L1 10.5z" fill={color} />
+            {bl.bar ? <path d="M9 0.5V11.5" stroke={color} strokeWidth={2.6} strokeLinecap="round" /> : <path d="M1 1.5L10.5 6L1 10.5z" fill={color} />}
           </marker>
         </defs>
       )}

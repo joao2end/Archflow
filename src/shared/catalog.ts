@@ -1,4 +1,4 @@
-import { BRAIN_SHAPES, BRAIN_SHAPE_KEYS, type BrainShape, AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, SQL_ROLES, SQL_ROLE_KEYS, type SqlRole, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
+import { BRAIN_GROUPS, BRAIN_SHAPES, BRAIN_SHAPE_KEYS, brainGroup, type BrainShape, AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, SQL_ROLES, SQL_ROLE_KEYS, type SqlRole, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
 
 /**
  * Catálogo de assets embutido. Cada asset diz QUE PROBLEMA a tecnologia resolve,
@@ -387,7 +387,9 @@ const sqlAssets: Asset[] = SQL_ROLE_KEYS.map((role) => ({
 }));
 
 /** Formas do Brain Storm. Fonte única: `BRAIN_SHAPES` em schema.ts. */
-export const BRAIN_CATEGORY = "Brain Storm";
+export const BRAIN_CATEGORY = BRAIN_GROUPS.process;
+export const BRAIN_PROBLEM_CATEGORY = BRAIN_GROUPS.problem;
+const isBrainCategory = (c: string) => c === BRAIN_CATEGORY || c === BRAIN_PROBLEM_CATEGORY;
 const BRAIN_TAGS: Record<BrainShape, string> = {
   box: "caixa retângulo passo etapa atividade tarefa processo",
   round: "início fim começo término pílula terminal",
@@ -401,15 +403,28 @@ const BRAIN_TAGS: Record<BrainShape, string> = {
   cylinder: "armazenamento banco planilha estoque guardar cilindro",
   star: "estrela destaque importante meta risco atenção",
   step: "passo numerado número ordem sequência 1 2 3",
+  problem: "problema dor erro falha defeito reclamação causa raiz",
+  warning: "risco alerta perigo atenção cuidado triângulo",
+  stop: "bloqueio impedimento trava pare stop obstáculo gargalo",
+  question: "dúvida pergunta incógnita hipótese não sei",
+  idea: "ideia solução proposta melhoria lâmpada sugestão",
+  target: "meta objetivo alvo resultado kpi indicador",
+  speech: "fala reclamação citação balão diz cliente feedback",
+  clock: "tempo prazo atraso demora relógio espera",
+  money: "custo dinheiro preço gasto prejuízo receita",
+  screen: "tela sistema aplicativo app site computador software",
+  feeling: "sentimento emoção humor rosto feliz triste bravo dor",
+  pro: "pró vantagem a favor benefício positivo mais",
+  con: "contra desvantagem negativo custo menos",
 };
 const brainAssets: Asset[] = BRAIN_SHAPE_KEYS.map((shape) => ({
   id: `brain-${shape}`,
   name: BRAIN_SHAPES[shape].label,
-  category: BRAIN_CATEGORY,
+  category: BRAIN_GROUPS[brainGroup(shape)],
   icon: `g:bs-${shape}`,
   color: BRAIN_SHAPES[shape].color,
   kind: "shape" as const,
-  brain: shape === "step" ? { shape, step: 1 } : { shape },
+  brain: shape === "step" ? { shape, step: 1 } : shape === "feeling" ? { shape, mood: "sad" as const } : { shape },
   problem: BRAIN_SHAPES[shape].hint,
   description: BRAIN_SHAPES[shape].hint,
   tags: BRAIN_TAGS[shape].split(" "),
@@ -466,10 +481,10 @@ export function assetsForMode(assets: Asset[], mode: DocMode, all = false): Asse
     return [...keep.filter((a) => a.category === SQL_CATEGORY), ...keep.filter((a) => a.category !== SQL_CATEGORY)];
   }
   if (mode === "brainstorm") {
-    const keep = assets.filter((a) => a.category === BRAIN_CATEGORY || (a.builtin ? a.id === "diagram-ref" : a.kind === "shape"));
-    return [...keep.filter((a) => a.category === BRAIN_CATEGORY), ...keep.filter((a) => a.category !== BRAIN_CATEGORY)];
+    const keep = assets.filter((a) => isBrainCategory(a.category) || (a.builtin ? a.id === "diagram-ref" : a.kind === "shape"));
+    return [...keep.filter((a) => isBrainCategory(a.category)), ...keep.filter((a) => !isBrainCategory(a.category))];
   }
-  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY && a.category !== AGENTS_CATEGORY && a.category !== SQL_CATEGORY && a.category !== BRAIN_CATEGORY);
+  if (mode !== "domain") return assets.filter((a) => a.category !== DOMAIN_CATEGORY && a.category !== LOGIC_CATEGORY && a.category !== AGENTS_CATEGORY && a.category !== SQL_CATEGORY && !isBrainCategory(a.category));
   const keep = assets.filter((a) => a.category === DOMAIN_CATEGORY || (a.builtin ? DOMAIN_MODE_GENERICS.includes(a.id) : a.kind === "domain" || a.kind === "actor"));
   return [...keep.filter((a) => a.category === DOMAIN_CATEGORY), ...keep.filter((a) => a.category !== DOMAIN_CATEGORY)];
 }

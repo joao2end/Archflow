@@ -12,7 +12,7 @@ import { LESSONS, buildLessonDoc, lessonPath } from "./lessons";
 import { pricingDoc } from "./logic.example";
 import { LOGIC_TOURS, tourStartDoc } from "./logictours";
 import { SQL_EXAMPLES, sqlExampleDoc } from "./sql.example";
-import { padariaDoc } from "./brainstorm.example";
+import { atrasoDoc, padariaDoc } from "./brainstorm.example";
 import { slug } from "./ops";
 import type { Doc, DocMode } from "./schema";
 
@@ -171,8 +171,10 @@ export function buildCatalog(loadAlgorithm: (file: string) => Promise<Doc>): Cat
     return { key: `sql:${ex.id}`, mode: "sql", title: ex.title, level: ex.level, summary: ex.summary, teaches: ex.teaches, files: [{ title: ex.title, path, mode: "sql", load: () => sqlExampleDoc(ex) }], open: path, linked: false, guided: false };
   });
   const padaria = pathOf(BRAIN_DIR, "Pedido na padaria");
+  const atraso = pathOf(BRAIN_DIR, "Entregas atrasadas");
   const brain: CatalogExample[] = [
     { key: "brainstorm:padaria", mode: "brainstorm", title: "Pedido na padaria", level: "iniciante", summary: "Um processo do dia a dia explicado com formas: início e fim, etapas, uma decisão com as saídas rotuladas, quem participa, uma ideia num post-it e a meta em destaque.", teaches: ["formas", "decisão", "traços"], files: [{ title: "Pedido na padaria", path: padaria, mode: "brainstorm", load: () => padariaDoc() }], open: padaria, linked: false, guided: false },
+    { key: "brainstorm:atraso", mode: "brainstorm", title: "Entregas atrasadas", level: "iniciante", summary: "Um mapa de problema: o que dói no centro, as causas e o que trava, quem sofre e o que diz, e as ideias de solução com prós, contras e custo.", teaches: ["problema", "causas", "soluções"], files: [{ title: "Entregas atrasadas", path: atraso, mode: "brainstorm", load: () => atrasoDoc() }], open: atraso, linked: false, guided: false },
   ];
   return [...architecture, ...lessons, ...domain, ...logic, ...sql, ...brain];
 }

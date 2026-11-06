@@ -536,7 +536,14 @@ export interface SqlConnSpec {
  * Formas livres para explicar um processo de forma simples, como num quadro branco: sem regras de negócio nem validação
  * pesada — só formas, traços, textos e desenhos à mão. A forma muda o desenho; o significado fica no texto.
  */
-export type BrainShape = "box" | "round" | "circle" | "diamond" | "sticky" | "cloud" | "person" | "doc" | "data" | "cylinder" | "star" | "step";
+export type BrainShape =
+  | "box" | "round" | "circle" | "diamond" | "sticky" | "cloud" | "person" | "doc" | "data" | "cylinder" | "star" | "step"
+  | "problem" | "warning" | "stop" | "question" | "idea" | "target" | "speech" | "clock" | "money" | "screen" | "feeling" | "pro" | "con";
+
+/** Sentimento (forma `feeling`): o rosto desenhado. */
+export type BrainMood = "happy" | "neutral" | "sad" | "angry";
+export const BRAIN_MOODS: Record<BrainMood, string> = { happy: "Feliz", neutral: "Neutro", sad: "Triste", angry: "Bravo" };
+export const BRAIN_MOOD_KEYS = Object.keys(BRAIN_MOODS) as BrainMood[];
 
 export interface BrainNodeSpec {
   shape: BrainShape;
@@ -544,9 +551,15 @@ export interface BrainNodeSpec {
   color?: string;
   /** step: o número do passo mostrado no círculo */
   step?: number;
+  /** feeling: o rosto (padrão sad: costuma marcar a dor de alguém) */
+  mood?: BrainMood;
 }
 
-export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; color: string; badge: string; w: number; h: number }> = {
+/** Grupos da biblioteca: o fluxo do processo e o mapa do problema (o que dói, por quê, o que fazer). */
+export type BrainGroup = "process" | "problem";
+export const BRAIN_GROUPS: Record<BrainGroup, string> = { process: "Brain Storm · Processo", problem: "Brain Storm · Problemas e ideias" };
+
+export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; color: string; badge: string; w: number; h: number; group?: BrainGroup }> = {
   box: { label: "Caixa", hint: "Um passo ou etapa do processo: o que acontece.", color: "#4a63c8", badge: "▭", w: 170, h: 80 },
   round: { label: "Início / Fim", hint: "Pílula que marca onde o processo começa ou termina.", color: "#1f8a5a", badge: "⬭", w: 160, h: 60 },
   circle: { label: "Círculo", hint: "Um conceito, estado ou ponto central da ideia.", color: "#0e7f96", badge: "○", w: 120, h: 120 },
@@ -559,7 +572,21 @@ export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; col
   cylinder: { label: "Armazenamento", hint: "Onde algo fica guardado (planilha, banco, arquivo, estoque).", color: "#2f7d8c", badge: "⛁", w: 130, h: 110 },
   star: { label: "Destaque", hint: "Chama a atenção: o ponto mais importante, um risco ou uma meta.", color: "#d0532c", badge: "☆", w: 150, h: 140 },
   step: { label: "Passo numerado", hint: "Marcador de ordem (1, 2, 3…) para contar o processo em sequência; o texto fica ao lado.", color: "#2a5cb8", badge: "①", w: 210, h: 56 },
+  problem: { label: "Problema", hint: "O que está dando errado ou dói: o centro da análise. Ligue as causas a ele e ele às ideias de solução.", color: "#c62f3a", badge: "✸", w: 200, h: 136, group: "problem" },
+  warning: { label: "Risco / Alerta", hint: "Algo que pode dar errado ou merece cuidado.", color: "#c87f0a", badge: "⚠", w: 180, h: 130, group: "problem" },
+  stop: { label: "Bloqueio", hint: "O que trava ou impede o processo de seguir (falta de acesso, aprovação, recurso).", color: "#a3202b", badge: "⛔", w: 140, h: 124, group: "problem" },
+  question: { label: "Dúvida", hint: "Uma pergunta em aberto: o que ainda não se sabe e precisa ser respondido.", color: "#2f7fbf", badge: "?", w: 180, h: 76, group: "problem" },
+  idea: { label: "Ideia / Solução", hint: "Uma proposta para resolver o problema ou melhorar o processo.", color: "#c99400", badge: "💡", w: 140, h: 150, group: "problem" },
+  target: { label: "Meta / Objetivo", hint: "Aonde se quer chegar: o resultado esperado, de preferência medível.", color: "#d0532c", badge: "◎", w: 230, h: 64, group: "problem" },
+  speech: { label: "Fala / Reclamação", hint: "O que alguém diz: a reclamação do cliente, o pedido do time, uma citação.", color: "#b8478a", badge: "💬", w: 190, h: 100, group: "problem" },
+  clock: { label: "Tempo / Prazo", hint: "Quanto demora, um atraso ou um prazo.", color: "#6b4fa0", badge: "◷", w: 210, h: 64, group: "problem" },
+  money: { label: "Custo / Dinheiro", hint: "Quanto custa, quanto se perde ou quanto se ganha.", color: "#1f8a5a", badge: "$", w: 210, h: 64, group: "problem" },
+  screen: { label: "Tela / Sistema", hint: "Uma tela, aplicativo ou sistema usado no processo.", color: "#3b6f9e", badge: "▭", w: 170, h: 116, group: "problem" },
+  feeling: { label: "Sentimento", hint: "Como alguém se sente nesse ponto (feliz, neutro, triste, bravo): mostra a dor ou o ganho.", color: "#c07a12", badge: "☺", w: 110, h: 126, group: "problem" },
+  pro: { label: "Ponto a favor", hint: "Uma vantagem: compare as ideias pelos prós e contras.", color: "#1f8a5a", badge: "+", w: 180, h: 64, group: "problem" },
+  con: { label: "Ponto contra", hint: "Uma desvantagem ou custo de uma ideia.", color: "#c62f3a", badge: "−", w: 180, h: 64, group: "problem" },
 };
+export const brainGroup = (s: BrainShape): BrainGroup => BRAIN_SHAPES[s].group ?? "process";
 export const BRAIN_SHAPE_KEYS = Object.keys(BRAIN_SHAPES) as BrainShape[];
 
 /** Cores sugeridas no Inspetor (traço; o fundo é a mesma cor, clara). */
@@ -572,17 +599,19 @@ export const BRAIN_COLORS: { id: string; name: string }[] = [
   { id: "#7a4cc2", name: "Roxo" },
   { id: "#0e7f96", name: "Turquesa" },
   { id: "#c9a400", name: "Amarelo" },
+  { id: "#c62f3a", name: "Carmim" },
   { id: "#55606e", name: "Grafite" },
 ];
 
 /** Traços do Brain Storm: como a linha liga duas formas. */
-export type BrainLine = "arrow" | "line" | "dashed" | "both" | "dotted";
-export const BRAIN_LINES: Record<BrainLine, { label: string; hint: string; dash?: string; head: boolean; tail: boolean; type: ConnectionType }> = {
+export type BrainLine = "arrow" | "line" | "dashed" | "both" | "dotted" | "blocks";
+export const BRAIN_LINES: Record<BrainLine, { label: string; hint: string; dash?: string; head: boolean; tail: boolean; type: ConnectionType; bar?: boolean; color?: string }> = {
   arrow: { label: "Seta", hint: "Leva a / depois vem: a ordem do processo.", head: true, tail: false, type: "sync" },
   line: { label: "Linha", hint: "Relacionado: liga sem dizer direção.", head: false, tail: false, type: "association" },
   dashed: { label: "Seta tracejada", hint: "Talvez, opcional ou às vezes.", dash: "8 6", head: true, tail: false, type: "async" },
   dotted: { label: "Pontilhado", hint: "Ligação fraca: influencia, lembra, depende de leve.", dash: "1.5 6", head: false, tail: false, type: "association" },
   both: { label: "Seta dupla", hint: "Vai e volta: troca, conversa ou dependência mútua.", head: true, tail: true, type: "sync" },
+  blocks: { label: "Bloqueia", hint: "Impede ou trava: a origem segura o destino (termina numa barra ⊣, em vermelho).", head: true, tail: false, type: "dependency", bar: true, color: "#c62f3a" },
 };
 export const BRAIN_LINE_KEYS = Object.keys(BRAIN_LINES) as BrainLine[];
 

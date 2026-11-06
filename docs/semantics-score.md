@@ -83,6 +83,11 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 | `sticky` · `cloud` · `star` | CLARO | ideia/observação · algo vago ou externo · destaque; só desenho, sem semântica de fluxo |
 | `person` · `doc` · `data` · `cylinder` | CLARO | quem participa · documento · entrada/saída · onde fica guardado |
 | `step` | CLARO | passo numerado (`brain.step`); B004 avisa número repetido; a descrição para IA lê os passos em ordem |
+| `problem` | CLARO | o que dói, centro do mapa de problema; B005 avisa quando está solto (sem causas nem soluções) |
+| `warning` · `stop` · `question` | CLARO | risco · bloqueio · dúvida em aberto |
+| `idea` · `target` · `pro` · `con` | CLARO | solução proposta · meta · ponto a favor · ponto contra (ligados à ideia por `line`) |
+| `speech` · `feeling` | CLARO | o que alguém diz · como se sente (`brain.mood`: happy/neutral/sad/angry, padrão sad; só nesta forma) |
+| `clock` · `money` · `screen` | CLARO | tempo/prazo · custo · tela/sistema |
 
 ## Traços do modo brainstorm (`brain.line`)
 
@@ -90,6 +95,7 @@ Mantida por `docs/SEMANTICS_LOOP_PROMPT.md`. Status: `CLARO` (verificado, com ev
 |---|---|---|
 | `arrow` · `both` | CLARO | leva a · vai e volta; padrão quando a conexão não diz nada é `arrow` |
 | `line` · `dashed` · `dotted` | CLARO | relacionado sem direção · talvez/opcional · ligação fraca; o `type` é derivado (`BRAIN_LINES`) |
+| `blocks` | CLARO | a origem impede/trava o destino; termina numa barra ⊣, vermelho por padrão; type `dependency` |
 
 ## Campos DDD
 
@@ -150,6 +156,7 @@ Cada valor tem rótulo e uma frase de significado no schema (única fonte: UI, g
 | `domain` | CLARO | `hint` do modo no schema (iteração 26) |
 | `logic` | CLARO | `hint` do modo no schema (iteração 26) |
 | `agents` | CLARO | `hint` do modo no schema (modo agents) |
+| `brainstorm` | CLARO | `hint` do modo no schema (modo brainstorm: explicar processos e mapear problemas com formas e traços) |
 
 ### Tipos de componente (`NodeKind`)
 
@@ -171,6 +178,7 @@ Cada valor tem rótulo e uma frase de significado no schema (única fonte: UI, g
 | `domain` | CLARO | frase em `NODE_KINDS` (iteração 26) |
 | `logic` | CLARO | frase em `NODE_KINDS` (iteração 26) |
 | `agent` | CLARO | frase em `NODE_KINDS` (modo agents) |
+| `shape` | CLARO | frase em `NODE_KINDS` (modo brainstorm; o desenho está em `brain.shape`) |
 
 ### Tipos de grupo (`GroupKind`)
 

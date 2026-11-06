@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { padariaDoc } from "./brainstorm.example";
+import { atrasoDoc, padariaDoc } from "./brainstorm.example";
 import { checkBrainNode, nextStep } from "./brainstorm";
 import { applyOps, describe, normalizeDoc, schemaGuide, validateDetailed } from "./ops";
 import { BRAIN_SHAPE_KEYS, BRAIN_SHAPES, emptyDoc } from "./schema";
@@ -90,6 +90,33 @@ test("brainstorm: exemplo da padaria é válido e a descrição segue a ordem de
   const text = describe(doc);
   assert.ok(text.indexOf("Cliente chega") < text.indexOf("Paga no caixa"));
   assert.match(text, /Tem o pão\? → Separa e embala \(«sim»\)/);
+});
+
+test("brainstorm: formas de problema — sentimento com rosto, bloqueio em vermelho e problema solto", () => {
+  assert.match(checkBrainNode({ shape: "box", mood: "sad" }) ?? "", /só vale na forma "feeling"/);
+  assert.match(checkBrainNode({ shape: "feeling", mood: "furioso" }) ?? "", /mood inválido/);
+  const { doc, results } = applyOps(brainDoc(), [
+    { op: "add_node", id: "p", brain: { shape: "problem" } },
+    { op: "add_node", id: "f", asset: "brain-feeling" },
+    { op: "add_node", id: "a", brain: { shape: "stop" } },
+    { op: "add_node", id: "m", brain: { shape: "target" } },
+    { op: "add_connection", id: "am", from: "a", to: "m", brain: { line: "blocks" } },
+  ]);
+  assert.ok(results.every((r) => r.ok), results.find((r) => !r.ok)?.error ?? "");
+  assert.equal(doc.nodes[1].brain?.mood, "sad");
+  assert.equal(doc.connections[0].type, "dependency");
+  assert.deepEqual(validateDetailed(doc).map((i) => i.rule), ["B005"]);
+  const swapped = applyOps(doc, [{ op: "update", id: "f", patch: { brain: { shape: "box" } } }]);
+  assert.ok(swapped.results[0].ok, swapped.results[0].error ?? "");
+});
+
+test("brainstorm: exemplo do mapa de problema é válido e a descrição mostra o bloqueio e o humor", () => {
+  const doc = atrasoDoc();
+  assert.equal(doc.nodes.length, 16);
+  assert.equal(validateDetailed(doc).filter((i) => i.severity !== "dica").length, 0);
+  const text = describe(doc);
+  assert.match(text, /Falta motorista ⊣ Entregar em até 2 dias/);
+  assert.match(text, /Sentimento: bravo/);
 });
 
 test("brainstorm: modo inferido ao abrir um arquivo sem mode e guia próprio", () => {
