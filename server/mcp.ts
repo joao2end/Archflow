@@ -20,6 +20,8 @@ import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage 
 import { generateHarness } from "../src/shared/agentgen";
 import { SqlParseError, generateSql, sqlToOps } from "../src/shared/sqlgen";
 import { SKILL_MD } from "../src/shared/skill.generated";
+import { DRAW_KINDS, type DrawSpec } from "../src/shared/draw";
+import { fetchImage, imageFrame, searchImages } from "./images";
 import pkg from "../package.json" with { type: "json" };
 
 const BASE = `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -339,6 +341,10 @@ server.registerTool(
           description: z.string().optional().describe("responsabilidade do componente"),
           parent: z.string().optional(),
           source: z.string().optional().describe("modo logic: de onde no código o passo veio, «arquivo:linha» ou «arquivo:inicio-fim» (ex.: src/pricing.ts:120-134)"),
+          x: z.number().optional().describe("posição no quadro (com y); omitida = a primeira vaga livre. Útil no brainstorm para montar a cena à mão"),
+          y: z.number().optional(),
+          w: z.number().optional().describe("largura (mín. 20); omitida = o tamanho padrão do tipo / forma"),
+          h: z.number().optional(),
           props: z.record(z.string(), z.string()).optional(),
           ref: z
             .object({ diagram: z.string().describe("caminho do diagrama relativo ao projeto (de list_diagrams)"), node: z.string().optional().describe("id de um componente dentro desse diagrama") })
@@ -476,6 +482,98 @@ server.registerTool(
   "add_note",
   { description: "Adiciona uma nota de texto livre (decisões, riscos, TODOs).", inputSchema: { text: z.string() } },
   async ({ text: t }) => report((await ops([{ op: "add_note", text: t }])).results),
+);
+
+const pt = z.object({ x: z.number(), y: z.number() });
+
+server.registerTool(
+  "draw",
+  {
+    description:
+      "Desenha à mão livre por cima do quadro (a mesma caneta do usuário), em coordenadas do quadro: line, arrow, rect, ellipse, polygon, freehand e underline. " +
+      "Use `around` com o id de um componente, grupo ou nota para circular (ellipse), emoldurar (rect) ou sublinhar (underline) sem calcular coordenadas; get_diagram format=json mostra x, y, w, h de cada elemento. " +
+      "Serve para chamar atenção e ilustrar; etapas e ligações com significado continuam sendo add_components + connect. Cada desenho vira um traço com id `ink-…` (apague com remove_elements).",
+    inputSchema: {
+      shapes: z.array(
+        z.object({
+          type: z.enum(DRAW_KINDS),
+          points: z.array(pt).optional().describe("line/arrow: [início, fim] (mais pontos = polilinha; a ponta vai no último) · polygon: vértices · freehand: o traçado"),
+          x: z.number().optional(),
+          y: z.number().optional(),
+          w: z.number().optional(),
+          h: z.number().optional().describe("rect/ellipse/underline sem around: a caixa"),
+          around: z.string().optional().describe("rect/ellipse/underline: id do elemento a circular, emoldurar ou sublinhar"),
+          pad: z.number().optional().describe("folga em volta do elemento de around (padrão 12; underline 4)"),
+          color: z.string().optional().describe("hexadecimal; padrão vermelho #e5484d (marca-texto: amarelo #facc15)"),
+          width: z.number().optional().describe("espessura em px do quadro (padrão 3; marca-texto 22)"),
+          dash: z.enum(["solid", "dashed", "dotted"]).optional(),
+          highlight: z.boolean().optional().describe("marca-texto: largo e translúcido"),
+          both: z.boolean().optional().describe("arrow: ponta nas duas pontas"),
+          id: z.string().optional(),
+        }),
+      ),
+    },
+  },
+  async ({ shapes }) => report((await ops(shapes.map(({ id, ...draw }) => ({ op: "add_ink" as const, ...(id ? { id } : {}), draw: draw as DrawSpec })))).results),
+);
+
+server.registerTool(
+  "search_images",
+  {
+    description:
+      "Busca imagens na web para ilustrar o quadro (modo brainstorm): Google Imagens quando GOOGLE_API_KEY e GOOGLE_CSE_ID estão definidos no ambiente do MCP; senão Openverse (só licenças abertas). " +
+      "Devolve URLs diretas; passe a escolhida para add_image. Prefira termos concretos e em inglês para mais resultados (ex.: \"warehouse forklift\").",
+    inputSchema: { query: z.string().min(1), limit: z.number().int().min(1).max(10).optional().describe("padrão 6") },
+  },
+  async ({ query, limit }) => {
+    try {
+      const { provider, hits } = await searchImages(query, limit ?? 6);
+      if (!hits.length) return text(`nenhuma imagem para "${query}" (${provider}); tente outros termos`);
+      const head = provider === "google" ? "Google Imagens (os direitos são do site de origem; prefira imagens que o usuário possa usar)" : "Openverse (licenças abertas; cite o autor na description)";
+      return text(
+        [`${hits.length} imagens · ${head}`, ...hits.map((h, i) => `${i + 1}. ${h.title}${h.width && h.height ? ` · ${h.width}×${h.height}` : ""}${h.license ? ` · ${h.license}` : ""}${h.creator ? ` · ${h.creator}` : ""}\n   url: ${h.url}${h.source ? `\n   página: ${h.source}` : ""}`)].join("\n"),
+      );
+    } catch (e) {
+      return text(`falha na busca de imagens: ${e instanceof Error ? e.message : String(e)}`, true);
+    }
+  },
+);
+
+server.registerTool(
+  "add_image",
+  {
+    description:
+      "Adiciona uma imagem ao quadro (modo brainstorm) como forma `image`: baixa a URL (de search_images ou qualquer URL direta de imagem), embute no diagrama e cria o componente com a proporção da foto. " +
+      "`label` é a legenda; ligue a imagem às outras formas com connect. Use `embed: false` para só referenciar a URL (o diagrama fica menor, mas depende do site).",
+    inputSchema: {
+      url: z.string().describe("URL direta do arquivo de imagem (png, jpg, gif, webp, svg)"),
+      label: z.string().optional().describe("legenda curta embaixo da imagem"),
+      description: z.string().optional().describe("o que a imagem mostra; fonte e licença"),
+      id: z.string().optional(),
+      x: z.number().optional(),
+      y: z.number().optional(),
+      width: z.number().optional().describe("largura no quadro (padrão 260); a altura segue a proporção"),
+      parent: z.string().optional().describe("id de um grupo"),
+      embed: z.boolean().optional().describe("padrão true"),
+    },
+  },
+  async ({ url, label, description, id, x, y, width, parent, embed }) => {
+    if (docMode(await getDoc()) !== "brainstorm") return text('imagens só existem em diagramas de modo "brainstorm"; crie com new_diagram mode "brainstorm" ou troque o modo em set_diagram_info', true);
+    let src = url;
+    let px: { width?: number; height?: number } | undefined;
+    if (embed !== false) {
+      try {
+        const img = await fetchImage(url);
+        src = img.dataUri;
+        px = img;
+      } catch (e) {
+        return text(`não deu para baixar a imagem: ${e instanceof Error ? e.message : String(e)}. Tente outra URL ou embed: false`, true);
+      }
+    }
+    const size = imageFrame(width, px);
+    const op: Op = { op: "add_node", kind: "shape", brain: { shape: "image", src }, label: label ?? "", ...(description ? { description } : {}), ...(id ? { id } : {}), ...(parent ? { parent } : {}), ...(x != null && y != null ? { x, y } : {}), w: size.w, h: size.h, props: { origem: url } };
+    return report((await ops([op])).results);
+  },
 );
 
 server.registerTool(

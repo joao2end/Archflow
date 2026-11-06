@@ -1,4 +1,5 @@
-import { brainColor, brainMood, reshapeBrain } from "../shared/brainstorm";
+import { useEffect, useState } from "react";
+import { brainColor, brainMood, isImageSrc, reshapeBrain } from "../shared/brainstorm";
 import { BRAIN_COLORS, BRAIN_GROUPS, BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_MOOD_KEYS, BRAIN_MOODS, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, brainGroup, type BrainConnSpec, type BrainLine, type BrainMood, type BrainNodeSpec, type BrainShape, type ConnectionEl, type NodeEl } from "../shared/schema";
 import { Glyph } from "./icons";
 
@@ -21,6 +22,8 @@ export interface BrainGeometry {
   num?: { cx: number; cy: number; r: number; text?: string };
   /** selo pequeno na cor da forma (?, !, +, −) */
   badge?: { cx: number; cy: number; r: number; text: string };
+  /** imagem: onde a foto é desenhada */
+  photo?: { x: number; y: number; w: number; h: number };
 }
 
 const f = (v: number) => Math.round(v * 10) / 10;
@@ -101,6 +104,11 @@ export function brainGeometry(shape: BrainShape, w: number, h: number, mood: Bra
         pts.push(`${f(cx + Math.cos(a) * (w / 2) * k)} ${f(cy + Math.sin(a) * (h * 0.53) * k)}`);
       }
       return { body: `M${pts.join("L")}Z`, text: { x: w * 0.25, y: h * 0.36, w: w * 0.5, h: h * 0.4 } };
+    }
+    case "image": {
+      // moldura com a foto em cima e a legenda numa faixa embaixo
+      const cap = Math.min(34, h * 0.3);
+      return { body: box, photo: { x: 6, y: 6, w: w - 12, h: h - cap - 6 }, text: { x: 8, y: h - cap, w: w - 16, h: cap } };
     }
     case "step":
       return { body: "", num: icon, text: beside };
@@ -204,6 +212,36 @@ function Swatches({ value, fallback, onPick, label }: { value?: string; fallback
   );
 }
 
+/** Imagem: colar uma URL ou escolher um arquivo do computador (embutido no diagrama). */
+function ImageSrcField({ brain, set }: { brain: BrainNodeSpec; set: (b: BrainNodeSpec) => void }) {
+  const embedded = brain.src?.startsWith("data:");
+  const [draft, setDraft] = useState(embedded ? "" : brain.src ?? "");
+  const [err, setErr] = useState("");
+  useEffect(() => setDraft(brain.src?.startsWith("data:") ? "" : brain.src ?? ""), [brain.src]);
+  const apply = (v: string) => {
+    const t = v.trim();
+    if (!t) return;
+    if (!isImageSrc(t)) return setErr("Use uma URL http(s) de imagem");
+    setErr("");
+    set({ ...brain, src: t });
+  };
+  const pick = (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > 8e6) return setErr("Imagem acima de 8 MB");
+    const r = new FileReader();
+    r.onload = () => (setErr(""), set({ ...brain, src: String(r.result) }));
+    r.readAsDataURL(f);
+  };
+  return (
+    <div className="field">
+      <span>Imagem{embedded ? " (embutida no diagrama)" : ""}</span>
+      <input className="input" type="url" placeholder="https://… (cole a URL e Enter)" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => draft !== (brain.src ?? "") && apply(draft)} onKeyDown={(e) => e.key === "Enter" && apply(draft)} aria-invalid={!!err} />
+      <input className="input" type="file" accept="image/*" aria-label="Escolher arquivo de imagem" onChange={(e) => pick(e.target.files?.[0])} />
+      {err && <div className="callout">{err}</div>}
+    </div>
+  );
+}
+
 export function BrainFields({ node, patch }: { node: NodeEl; patch: Patch }) {
   const brain = node.brain!;
   const color = brainColor(brain);
@@ -248,7 +286,8 @@ export function BrainFields({ node, patch }: { node: NodeEl; patch: Patch }) {
           </div>
         </div>
       )}
-      <Swatches label="Cor" value={brain.color} fallback={BRAIN_SHAPES[brain.shape].color} onPick={(c) => set({ shape: brain.shape, ...(brain.step != null ? { step: brain.step } : {}), ...(brain.mood ? { mood: brain.mood } : {}), ...(c ? { color: c } : {}) })} />
+      {brain.shape === "image" && <ImageSrcField brain={brain} set={set} />}
+      <Swatches label="Cor" value={brain.color} fallback={BRAIN_SHAPES[brain.shape].color} onPick={(c) => set({ shape: brain.shape, ...(brain.step != null ? { step: brain.step } : {}), ...(brain.mood ? { mood: brain.mood } : {}), ...(brain.src ? { src: brain.src } : {}), ...(c ? { color: c } : {}) })} />
     </>
   );
 }

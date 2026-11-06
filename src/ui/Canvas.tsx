@@ -631,6 +631,22 @@ const BrainNodeShape = memo(function BrainNodeShape({ n, selected, hot, hovered 
       {g.extra && <path className="brain-body" d={g.extra} filter="url(#shadow)" />}
       {g.detail && <path className="brain-detail" d={g.detail} pointerEvents="none" />}
       {g.fold && <path className="brain-fold" d={g.fold} pointerEvents="none" />}
+      {g.photo &&
+        (spec.src ? (
+          <>
+            <clipPath id={`bimg-${n.id}`}>
+              <rect x={g.photo.x} y={g.photo.y} width={g.photo.w} height={g.photo.h} rx={6} />
+            </clipPath>
+            <image href={spec.src} x={g.photo.x} y={g.photo.y} width={g.photo.w} height={g.photo.h} preserveAspectRatio="xMidYMid slice" clipPath={`url(#bimg-${n.id})`} pointerEvents="none" />
+          </>
+        ) : (
+          <g pointerEvents="none" className="brain-photo-empty">
+            <rect x={g.photo.x} y={g.photo.y} width={g.photo.w} height={g.photo.h} rx={6} />
+            <text x={g.photo.x + g.photo.w / 2} y={g.photo.y + g.photo.h / 2}>
+              sem imagem: cole a URL no Inspetor
+            </text>
+          </g>
+        ))}
       {g.num && (
         <>
           <circle className="brain-num" cx={g.num.cx} cy={g.num.cy} r={g.num.r} filter="url(#shadow)" />

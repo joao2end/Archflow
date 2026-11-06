@@ -537,7 +537,7 @@ export interface SqlConnSpec {
  * pesada — só formas, traços, textos e desenhos à mão. A forma muda o desenho; o significado fica no texto.
  */
 export type BrainShape =
-  | "box" | "round" | "circle" | "diamond" | "sticky" | "cloud" | "person" | "doc" | "data" | "cylinder" | "star" | "step"
+  | "box" | "round" | "circle" | "diamond" | "sticky" | "cloud" | "person" | "doc" | "data" | "cylinder" | "star" | "step" | "image"
   | "problem" | "warning" | "stop" | "question" | "idea" | "target" | "speech" | "clock" | "money" | "screen" | "feeling" | "pro" | "con";
 
 /** Sentimento (forma `feeling`): o rosto desenhado. */
@@ -553,6 +553,8 @@ export interface BrainNodeSpec {
   step?: number;
   /** feeling: o rosto (padrão sad: costuma marcar a dor de alguém) */
   mood?: BrainMood;
+  /** image: a imagem (URL http(s) ou data URI `data:image/...`); o texto vira a legenda */
+  src?: string;
 }
 
 /** Grupos da biblioteca: o fluxo do processo e o mapa do problema (o que dói, por quê, o que fazer). */
@@ -571,6 +573,7 @@ export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; col
   data: { label: "Entrada / Saída", hint: "Paralelogramo: o que entra ou sai do processo (dados, pedido, resultado).", color: "#7a4cc2", badge: "▱", w: 180, h: 76 },
   cylinder: { label: "Armazenamento", hint: "Onde algo fica guardado (planilha, banco, arquivo, estoque).", color: "#2f7d8c", badge: "⛁", w: 130, h: 110 },
   star: { label: "Destaque", hint: "Chama a atenção: o ponto mais importante, um risco ou uma meta.", color: "#d0532c", badge: "☆", w: 150, h: 140 },
+  image: { label: "Imagem", hint: "Uma imagem (foto, print, ícone, ilustração) para ilustrar a ideia; o texto vira a legenda embaixo.", color: "#55606e", badge: "▨", w: 240, h: 190 },
   step: { label: "Passo numerado", hint: "Marcador de ordem (1, 2, 3…) para contar o processo em sequência; o texto fica ao lado.", color: "#2a5cb8", badge: "①", w: 210, h: 56 },
   problem: { label: "Problema", hint: "O que está dando errado ou dói: o centro da análise. Ligue as causas a ele e ele às ideias de solução.", color: "#c62f3a", badge: "✸", w: 200, h: 136, group: "problem" },
   warning: { label: "Risco / Alerta", hint: "Algo que pode dar errado ou merece cuidado.", color: "#c87f0a", badge: "⚠", w: 180, h: 130, group: "problem" },

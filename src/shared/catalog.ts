@@ -402,6 +402,7 @@ const BRAIN_TAGS: Record<BrainShape, string> = {
   data: "entrada saída paralelogramo dados pedido resultado",
   cylinder: "armazenamento banco planilha estoque guardar cilindro",
   star: "estrela destaque importante meta risco atenção",
+  image: "imagem foto figura ilustração print screenshot ícone google",
   step: "passo numerado número ordem sequência 1 2 3",
   problem: "problema dor erro falha defeito reclamação causa raiz",
   warning: "risco alerta perigo atenção cuidado triângulo",

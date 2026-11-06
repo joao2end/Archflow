@@ -2853,6 +2853,8 @@ svg.canvas.drag-over {
 .node.brain.brain-sticky .brain-body { fill: color-mix(in srgb, var(--bc) 30%, var(--s-solid)); stroke-width: 1.2; }
 .node.brain .brain-fold { fill: color-mix(in srgb, var(--bc) 45%, var(--s-solid)); stroke: var(--bc); stroke-width: 1.2; }
 .node.brain .brain-detail { fill: none; stroke: var(--bc); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.node.brain .brain-photo-empty rect { fill: var(--s-solid); stroke: var(--bc); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.node.brain .brain-photo-empty text { font: 500 11px var(--sans); fill: var(--ink-3); text-anchor: middle; dominant-baseline: central; }
 .node.brain .brain-num { fill: var(--bc); }
 .node.brain .brain-num-text { font: 750 20px var(--sans); fill: #fff; text-anchor: middle; dominant-baseline: central; }
 .node.brain .brain-label { font: 600 14px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }

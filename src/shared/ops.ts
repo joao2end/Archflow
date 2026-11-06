@@ -72,6 +72,7 @@ import { agentConnectionTypeError, agentIssues, checkAgentConn, checkAgentNode, 
 import { describeTour, normalizeTour, tourIssues } from "./tour";
 import { checkSqlConn, checkSqlNode, describeSql, resizeSql, schemaGuideSql, sqlConnLabel, sqlConnectionTypeError, sqlIssues, sqlSize, suggestSqlRels } from "./sql";
 import { brainIssues, brainSize, checkBrainConn, checkBrainNode, defaultBrainConn, describeBrain, schemaGuideBrain } from "./brainstorm";
+import { drawToInk, type DrawSpec } from "./draw";
 
 /** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain, Logic e Agents só carregam o que é compatível com o modo. */
 export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
@@ -85,13 +86,14 @@ export const MODE_KINDS: Partial<Record<DocMode, NodeKind[]>> = {
 /* ───────────────────────── operações semânticas (UI e MCP usam as mesmas) ───────────────────────── */
 
 export type Op =
-  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; sql?: SqlNodeSpec; brain?: BrainNodeSpec; source?: string; fill?: string; fillOpacity?: number; x?: number; y?: number }
+  | { op: "add_node"; id?: string; asset?: string; label?: string; kind?: NodeKind; description?: string; technology?: string; parent?: string; props?: Record<string, string>; endpoint?: EndpointSpec; owner?: string; ref?: DiagramRef; ddd?: DddNodeSpec; logic?: LogicNodeSpec; agent?: AgentNodeSpec; sql?: SqlNodeSpec; brain?: BrainNodeSpec; source?: string; fill?: string; fillOpacity?: number; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; stage?: LogicStageSpec; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
   | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec; sql?: SqlConnSpec; brain?: BrainConnSpec; port?: PortSpec }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
+  | { op: "add_ink"; id?: string; draw: DrawSpec }
   | { op: "add_asset"; asset: Partial<Asset> & { name: string } }
   | { op: "layout"; style?: "flow" | "timeline" | "pipeline" | "grouped" | "onion"; direction?: "LR" | "TB"; spacing?: Spacing; minGap?: number; gapX?: number; gapY?: number; routing?: Routing }
   | { op: "set_meta"; title?: string; description?: string; mode?: DocMode; showDescriptions?: boolean }
@@ -144,6 +146,7 @@ export function allIds(doc: Doc): Set<string> {
     ...doc.groups.map((n) => n.id),
     ...doc.notes.map((n) => n.id),
     ...doc.connections.map((n) => n.id),
+    ...(doc.ink ?? []).map((n) => n.id),
   ]);
 }
 
@@ -344,8 +347,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const lsize = logic ? logicSize({ id, label, kind, x: 0, y: 0, w: 0, h: 0, logic, description: op.description } as NodeEl, dataNames(doc), doc.showDescriptions) : undefined;
       const ssize = sql ? sqlSize(sql) : undefined;
       const bsize = brain ? brainSize(brain.shape) : undefined;
-      const w = lsize?.w ?? ssize?.w ?? bsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
-      const h = lsize?.h ?? ssize?.h ?? bsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
+      const w = (op.w != null && op.w >= 20 ? op.w : undefined) ?? lsize?.w ?? ssize?.w ?? bsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
+      const h = (op.h != null && op.h >= 20 ? op.h : undefined) ?? lsize?.h ?? ssize?.h ?? bsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
       let pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : undefined;
       if (!pos && owner && isEp) pos = stackPos(doc, owner);
       if (!pos) {
@@ -662,7 +665,15 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       doc.groups = doc.groups.filter((n) => !gone.has(n.id));
       doc.notes = doc.notes.filter((n) => !gone.has(n.id));
       doc.connections = doc.connections.filter((c) => !gone.has(c.id) && !gone.has(c.from) && !gone.has(c.to));
+      if (doc.ink?.some((k) => gone.has(k.id))) doc.ink = doc.ink.filter((k) => !gone.has(k.id));
       return { ok: true, id: op.id };
+    }
+    case "add_ink": {
+      const r = drawToInk(doc, op.draw);
+      if ("error" in r) return { ok: false, error: r.error };
+      const id = uniqueId(doc, op.id ? `ink-${slug(op.id).replace(/^ink-/, "")}` : `ink-${op.draw.type}`);
+      doc.ink = [...(doc.ink ?? []), { id, ...r.stroke }];
+      return { ok: true, id };
     }
     case "add_asset": {
       const a = op.asset;

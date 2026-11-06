@@ -11,17 +11,23 @@ const COLOR = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i;
 
 /** Valida o objeto `brain` de um nó. Devolve a mensagem de erro (acionável) ou undefined. */
 export function checkBrainNode(brain: unknown): string | undefined {
-  if (!brain || typeof brain !== "object") return "brain deve ser um objeto { shape, color?, step?, mood? }";
+  if (!brain || typeof brain !== "object") return "brain deve ser um objeto { shape, color?, step?, mood?, src? }";
   const a = brain as Record<string, unknown>;
-  for (const k of Object.keys(a)) if (a[k] !== undefined && !["shape", "color", "step", "mood"].includes(k)) return `forma do brainstorm não tem o campo "${k}". Campos: shape, color, step, mood`;
+  for (const k of Object.keys(a)) if (a[k] !== undefined && !["shape", "color", "step", "mood", "src"].includes(k)) return `forma do brainstorm não tem o campo "${k}". Campos: shape, color, step, mood, src`;
   if (!BRAIN_SHAPE_KEYS.includes(a.shape as never)) return `brain.shape inválido "${a.shape}". Válidos: ${BRAIN_SHAPE_KEYS.join(", ")}`;
   if (a.color !== undefined && (typeof a.color !== "string" || !COLOR.test(a.color))) return `brain.color deve ser uma cor hexadecimal (ex.: "#4a63c8")`;
   if (a.step !== undefined && (typeof a.step !== "number" || !Number.isInteger(a.step) || a.step < 0 || a.step > 999)) return "brain.step deve ser um inteiro de 0 a 999";
   if (a.step !== undefined && a.shape !== "step") return `brain.step só vale na forma "step" (passo numerado)`;
   if (a.mood !== undefined && !BRAIN_MOOD_KEYS.includes(a.mood as never)) return `brain.mood inválido "${a.mood}". Válidos: ${BRAIN_MOOD_KEYS.join(", ")}`;
   if (a.mood !== undefined && a.shape !== "feeling") return `brain.mood só vale na forma "feeling" (sentimento)`;
+  if (a.src !== undefined && a.shape !== "image") return `brain.src só vale na forma "image" (imagem)`;
+  if (a.src !== undefined && !isImageSrc(a.src)) return "brain.src deve ser uma URL http(s) ou um data URI de imagem (data:image/png;base64,...)";
   return undefined;
 }
+
+/** Endereço aceito numa forma imagem: URL http(s) ou data URI de imagem em base64 (até ~8 MB). */
+export const isImageSrc = (v: unknown): v is string =>
+  typeof v === "string" && v.length <= 12_000_000 && (/^https?:\/\/\S+$/i.test(v) || /^data:image\/[a-z0-9.+-]+(;[a-z0-9=.-]+)*;base64,[a-z0-9+/=]+$/i.test(v));
 
 /** Valida o objeto `brain` (`BrainConnSpec`) de uma conexão. */
 export function checkBrainConn(brain: unknown): string | undefined {
@@ -41,7 +47,7 @@ export const brainColor = (spec: BrainNodeSpec) => spec.color ?? BRAIN_SHAPES[sp
 
 /** Troca a forma mantendo a cor; o número do passo e o rosto só sobrevivem na forma que os usa. */
 export function reshapeBrain(old: BrainNodeSpec, shape: BrainShape): BrainNodeSpec {
-  return { shape, ...(old.color ? { color: old.color } : {}), ...(shape === "step" ? { step: old.step ?? 1 } : {}), ...(shape === "feeling" && old.mood ? { mood: old.mood } : {}) };
+  return { shape, ...(old.color ? { color: old.color } : {}), ...(shape === "step" ? { step: old.step ?? 1 } : {}), ...(shape === "feeling" && old.mood ? { mood: old.mood } : {}), ...(shape === "image" && old.src ? { src: old.src } : {}) };
 }
 
 /** Rosto do sentimento (padrão: triste — a forma costuma marcar uma dor). */
@@ -64,7 +70,8 @@ export function brainIssues(doc: Doc): Issue[] {
   const shapes = doc.nodes.filter((n) => n.brain && BRAIN_SHAPES[n.brain.shape]);
   const quote = (n: NodeEl) => `"${n.label}" (${n.id})`;
   for (const n of shapes) {
-    if (!n.label.trim() && n.brain!.shape !== "step") add("B001", "dica", `${BRAIN_SHAPES[n.brain!.shape].label} ${n.id} sem texto: escreva o que ela representa`, n.id);
+    if (n.brain!.shape === "image" && !n.brain!.src) add("B006", "dica", `imagem ${quote(n)} sem arquivo: use add_image (ou cole a URL no Inspetor)`, n.id);
+    if (!n.label.trim() && n.brain!.shape !== "step" && n.brain!.shape !== "image") add("B001", "dica", `${BRAIN_SHAPES[n.brain!.shape].label} ${n.id} sem texto: escreva o que ela representa`, n.id);
     if (n.brain!.shape === "diamond") {
       const outs = doc.connections.filter((c) => c.from === n.id);
       if (outs.length && outs.length < 2) add("B002", "dica", `${quote(n)}: decisão com uma saída só; uma pergunta costuma ter pelo menos dois caminhos (sim / não)`, n.id);
@@ -165,5 +172,15 @@ export function schemaGuideBrain(): string {
     "2. Causas (`box`, `stop`, `clock`, `money`) ligadas ao problema com `arrow` (causa → problema); o que trava use `brain: { line: \"blocks\" }`.",
     "3. `question` para o que ainda não se sabe; `warning` para riscos.",
     "4. `idea` para cada solução (problema → ideia), com `pro`/`con` ligados por `line`; um `target` com a meta medível.",
+    "",
+    "## Imagens",
+    "- `search_images` busca fotos e ilustrações (Google Imagens quando GOOGLE_API_KEY e GOOGLE_CSE_ID estão definidos; senão Openverse, só imagens de licença aberta) e devolve URLs.",
+    "- `add_image` baixa a imagem, embute no diagrama e cria uma forma `image` (o `label` vira a legenda). Ligue-a às outras formas com `connect` como qualquer forma.",
+    "- Imagem ilustra (o produto, a tela, a pessoa, o lugar), não enfeita: uma ou duas por quadro costumam bastar.",
+    "",
+    "## Desenhar à mão (`draw`)",
+    "- `draw` faz traços livres por cima do quadro: `line`, `arrow`, `rect`, `ellipse`, `polygon`, `freehand` (pontos) e `underline`. `around: \"<id>\"` circula, emoldura ou sublinha um elemento sem calcular coordenadas.",
+    "- Serve para chamar atenção (circular o gargalo, sublinhar a meta, uma seta solta apontando um detalhe). O que tem significado (etapas, ligações) continua sendo forma + connect: o desenho não entra na descrição nem na validação.",
+    "- `highlight: true` vira marca-texto (largo e translúcido). Os traços recebem id `ink-…`; apague com `remove_elements`.",
   ].join("\n");
 }
