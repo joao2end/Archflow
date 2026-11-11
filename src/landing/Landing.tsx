@@ -7,7 +7,7 @@ import CursorTrail from "./CursorTrail";
 const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const style = (v: Record<string, string | number>) => v as CSSProperties;
 
-const WIN_VERSION = "0.5.0";
+const WIN_VERSION = "0.6.0";
 const GITHUB = "https://github.com/joao2end/Archflow";
 const WIN_DOWNLOAD = `${GITHUB}/releases/download/v${WIN_VERSION}/Archflow.Setup.${WIN_VERSION}.exe`;
 const RELEASE_PAGE = `${GITHUB}/releases/tag/v${WIN_VERSION}`;
@@ -209,7 +209,7 @@ function Connect() {
       </div>
       <ul className="lp-facts" aria-label="Números">
         <li>
-          <b>28</b> ferramentas MCP
+          <b>31</b> ferramentas MCP
         </li>
         <li>
           <b>{TECHS}+</b> tecnologias
