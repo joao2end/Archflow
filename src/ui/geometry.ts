@@ -70,7 +70,7 @@ export interface EdgeGeom {
 }
 
 /** Lado do caixa voltado para um ponto qualquer. */
-function sideToward(a: Box, p: Pt): Side {
+export function sideToward(a: Box, p: Pt): Side {
   const c = center(a);
   const dx = p.x - c.x;
   const dy = p.y - c.y;
@@ -122,13 +122,15 @@ function orthogonal(pts: Pt[], na: Pt): Pt[] {
 }
 
 /** `lane` desloca conexões paralelas entre o mesmo par (em px, perpendicular ao lado). */
-export function edgeGeom(a: Box, b: Box, routing: Routing = "curve", lane = 0, waypoints?: Pt[]): EdgeGeom {
+export function edgeGeom(a: Box, b: Box, routing: Routing = "curve", lane = 0, waypoints?: Pt[], sides?: { from?: Side; to?: Side }): EdgeGeom {
   if (waypoints?.length) {
-    const sa = sideToward(a, waypoints[0]);
-    const sb = sideToward(b, waypoints[waypoints.length - 1]);
+    const sa = sides?.from ?? sideToward(a, waypoints[0]);
+    const sb = sides?.to ?? sideToward(b, waypoints[waypoints.length - 1]);
     return throughWaypoints(sidePoint(a, sa), sidePoint(b, sb), normal[sa], normal[sb], waypoints, routing);
   }
-  const [sa, sb] = pickSides(a, b);
+  const [pa, pb] = pickSides(a, b);
+  const sa = sides?.from ?? pa;
+  const sb = sides?.to ?? pb;
   const start = sidePoint(a, sa, lane);
   const end = sidePoint(b, sb, lane);
   const na = normal[sa];
@@ -270,7 +272,7 @@ export function edgeGeoms(doc: Doc) {
     idx.set(k, i + 1);
     const n = pairCount.get(k)!;
     const lane = n > 1 ? (i - (n - 1) / 2) * 26 : 0;
-    const g = edgeGeom(a, b, c.routing, lane, c.waypoints);
+    const g = edgeGeom(a, b, c.routing, lane, c.waypoints, { from: c.fromSide, to: c.toSide });
     // o rótulo fica sempre no traçado desenhado (meio do comprimento por padrão), nunca na corda reta entre pontos
     const samples = samplePath(g.d);
     const t = c.labelT ?? 0.5;

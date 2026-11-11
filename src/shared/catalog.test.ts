@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AGENTS_CATEGORY, ASSET_CATEGORIES, BRAIN_CATEGORY, BRAIN_PROBLEM_CATEGORY, BUILTIN_ASSETS, DOMAIN_CATEGORY, LOGIC_CATEGORY, SQL_CATEGORY, assetsForMode, searchAssets } from "./catalog";
+import { AGENTS_CATEGORY, ASSET_CATEGORIES, BRAIN_CATEGORY, BRAIN_DATA_CATEGORY, BRAIN_PROBLEM_CATEGORY, BUILTIN_ASSETS, DOMAIN_CATEGORY, LOGIC_CATEGORY, SQL_CATEGORY, assetsForMode, searchAssets } from "./catalog";
 import { applyOps } from "./ops";
 import { AGENT_ROLE_KEYS, BRAIN_SHAPE_KEYS, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLE_KEYS, SQL_ROLE_KEYS, emptyDoc, type Asset } from "./schema";
 
@@ -32,7 +32,7 @@ test("assetsForMode: architecture esconde Domain; domain mostra só Domain + Gen
   const logicAssets = BUILTIN_ASSETS.filter((a) => a.category === LOGIC_CATEGORY);
   const agentAssets = BUILTIN_ASSETS.filter((a) => a.category === AGENTS_CATEGORY);
   const sqlAssets = BUILTIN_ASSETS.filter((a) => a.category === SQL_CATEGORY);
-  const brainAssets = BUILTIN_ASSETS.filter((a) => a.category === BRAIN_CATEGORY || a.category === BRAIN_PROBLEM_CATEGORY);
+  const brainAssets = BUILTIN_ASSETS.filter((a) => a.category === BRAIN_CATEGORY || a.category === BRAIN_PROBLEM_CATEGORY || a.category === BRAIN_DATA_CATEGORY);
   assert.equal(arch.some((a) => a.category === AGENTS_CATEGORY), false);
   assert.equal(arch.length, BUILTIN_ASSETS.length - domainAssets.length - logicAssets.length - agentAssets.length - sqlAssets.length - brainAssets.length, "architecture também esconde Logic, Agents, SQL e Brain Storm");
   const bs = assetsForMode(BUILTIN_ASSETS, "brainstorm");

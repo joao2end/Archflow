@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { DEFAULT_PORT, ensureBridge } from "./bridge";
 import { BUILTIN_ASSETS, assetsForMode, searchAssets } from "../src/shared/catalog";
-import { BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_MOOD_KEYS, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
+import { CONN_SIDES, BRAIN_LINE_KEYS, BRAIN_LINES, BRAIN_MOOD_KEYS, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, AGENT_FILE_KIND_KEYS, AGENT_REL_KEYS, AGENT_RELS, AGENT_ROLE_KEYS, CONNECTION_TYPE_KEYS, CONTEXT_PATTERN_KEYS, DDD_REL_KEYS, DDD_ROLE_KEYS, DDD_ROLES, DOC_MODE_KEYS, LOGIC_BRANCH_KEYS, SQL_JOIN_KEYS, SQL_JOIN_TYPES, SQL_REL_KEYS, SQL_RELS, SQL_ROLE_KEYS, SQL_ROLES, SUBDOMAINS, docMode, type Doc, type DocMode, type LogicBranch } from "../src/shared/schema";
 import { describe, schemaGuide, toMermaid, useCaseOps, validate, type Op } from "../src/shared/ops";
 import { domainOverview, traceUseCase, type ProjectDomainFile } from "../src/shared/domain";
 import { CODEGEN_LANGUAGES, filesToMarkdown, generateCode, type CodegenLanguage } from "../src/shared/codegen";
@@ -215,6 +215,9 @@ const brainNodeSchema = z
     color: z.string().optional().describe("cor hexadecimal do traço (ex.: #d0532c); omitida = a cor padrão da forma"),
     step: z.number().int().min(0).max(999).optional().describe("shape step: o número do passo"),
     mood: z.enum(BRAIN_MOOD_KEYS as [string, ...string[]]).optional().describe("shape feeling: o rosto (padrão sad)"),
+    content: z.string().max(20000).optional().describe("shapes json/list/tree/table: o dado em texto. json: o JSON; list: um item por linha (`1.` numera); tree: um nó por linha, 2 espaços de indentação por nível; table: colunas separadas por | (ou , ; tab), 1ª linha = cabeçalho. O label vira o título no cabeçalho do card"),
+    folded: z.array(z.string()).max(2000).optional().describe("shapes json/tree: trechos recolhidos. json: caminhos dos objetos/arrays ($.itens, $.itens[0], $.cliente.endereco); tree: t<i> = índice da linha não vazia que tem filhos (t0 = a primeira)"),
+    collapsed: z.boolean().optional().describe("shapes json/list/tree/table: true recolhe o card até o título (a altura aberta fica guardada); false reabre. Num update_element sem collapsed, o card mantém o estado"),
   })
   .describe("modo brainstorm");
 
@@ -439,6 +442,8 @@ server.registerTool(
           agent: agentConnSchema.optional(),
           sql: sqlConnSchema.optional(),
           brain: brainConnSchema.optional(),
+          fromSide: z.enum(CONN_SIDES).optional().describe("lado da origem onde a seta sai (left|right|top|bottom); omitido = o lado voltado para o destino. auto_layout limpa"),
+          toSide: z.enum(CONN_SIDES).optional().describe("lado do destino onde a seta entra; omitido = o lado voltado para a origem"),
           port: z
             .object({
               name: z.string().describe('nome da interface, ex.: "RepositorioDePedidos"'),
@@ -463,7 +468,9 @@ server.registerTool(
 server.registerTool(
   "update_element",
   {
-    description: "Altera campos de um elemento existente (label, description, technology, parent, type, interface, waypoints de conexão — [] ou null para resetar a curva, port de conexão no modo domain — null remove...).",
+    description:
+      "Altera campos de um elemento existente (label, description, technology, parent, type, interface, x, y, w, h, waypoints de conexão — [] ou null para resetar a curva, fromSide/toSide de conexão — left|right|top|bottom, null volta ao automático, port de conexão no modo domain — null remove...). " +
+      "Modo brainstorm: `brain` substitui o objeto inteiro (envie shape + o que quer manter: content, color…); `brain.collapsed` true/false recolhe ou abre um card de dados, `brain.folded` lista os trechos recolhidos do json/tree.",
     inputSchema: { id: z.string(), patch: z.record(z.string(), z.any()) },
   },
   async ({ id, patch }) => report((await ops([{ op: "update", id, patch }])).results),

@@ -538,7 +538,8 @@ export interface SqlConnSpec {
  */
 export type BrainShape =
   | "box" | "round" | "circle" | "diamond" | "sticky" | "cloud" | "person" | "doc" | "data" | "cylinder" | "star" | "step" | "image"
-  | "problem" | "warning" | "stop" | "question" | "idea" | "target" | "speech" | "clock" | "money" | "screen" | "feeling" | "pro" | "con";
+  | "problem" | "warning" | "stop" | "question" | "idea" | "target" | "speech" | "clock" | "money" | "screen" | "feeling" | "pro" | "con"
+  | "json" | "list" | "tree" | "table";
 
 /** Sentimento (forma `feeling`): o rosto desenhado. */
 export type BrainMood = "happy" | "neutral" | "sad" | "angry";
@@ -555,11 +556,33 @@ export interface BrainNodeSpec {
   mood?: BrainMood;
   /** image: a imagem (URL http(s) ou data URI `data:image/...`); o texto vira a legenda */
   src?: string;
+  /** formas de dados (json, list, tree, table): o conteúdo em texto — JSON; um item por linha; indentação = nível; colunas separadas por | , ; ou tab (1ª linha = cabeçalho) */
+  content?: string;
+  /** json e tree: trechos recolhidos (caminho do objeto/array no JSON, ex. `$.mapping[0]`; índice da linha na árvore, ex. `t3`) */
+  folded?: string[];
+  /** formas de dados recolhidas (só o cabeçalho): a altura que tinham aberta, para voltar a ela */
+  openH?: number;
 }
 
-/** Grupos da biblioteca: o fluxo do processo e o mapa do problema (o que dói, por quê, o que fazer). */
-export type BrainGroup = "process" | "problem";
-export const BRAIN_GROUPS: Record<BrainGroup, string> = { process: "Brain Storm · Processo", problem: "Brain Storm · Problemas e ideias" };
+/** Grupos da biblioteca: o fluxo do processo, o mapa do problema (o que dói, por quê, o que fazer) e os dados que circulam. */
+export type BrainGroup = "process" | "problem" | "data";
+export const BRAIN_GROUPS: Record<BrainGroup, string> = { process: "Brain Storm · Processo", problem: "Brain Storm · Problemas e ideias", data: "Brain Storm · Dados" };
+export const BRAIN_GROUP_KEYS = Object.keys(BRAIN_GROUPS) as BrainGroup[];
+/** Formas que mostram dados estruturados (o conteúdo fica em `brain.content`). */
+export const BRAIN_DATA_SHAPES: readonly BrainShape[] = ["json", "list", "tree", "table"];
+export const isBrainData = (s: BrainShape) => BRAIN_DATA_SHAPES.includes(s);
+/** Altura do cabeçalho das formas de dados: o card recolhido fica só com ele. */
+export const BRAIN_DATA_HEAD = 30;
+/** Lados de um componente onde uma conexão pode se ligar (`fromSide` / `toSide`). */
+export const CONN_SIDES = ["left", "right", "top", "bottom"] as const;
+export type ConnSide = (typeof CONN_SIDES)[number];
+/** Conteúdo de exemplo de cada forma de dados (a forma nasce mostrando como se escreve). */
+export const BRAIN_DATA_SAMPLES: Partial<Record<BrainShape, string>> = {
+  json: '{"id": 42, "nome": "Ana", "ativo": true, "tags": ["cliente", "vip"]}',
+  list: "Primeiro item\nSegundo item\nTerceiro item",
+  tree: "Raiz\n  Ramo A\n    Folha 1\n    Folha 2\n  Ramo B",
+  table: "id | nome | status\n1 | Ana | ativo\n2 | Bruno | pendente",
+};
 
 export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; color: string; badge: string; w: number; h: number; group?: BrainGroup }> = {
   box: { label: "Caixa", hint: "Um passo ou etapa do processo: o que acontece.", color: "#4a63c8", badge: "▭", w: 170, h: 80 },
@@ -588,6 +611,10 @@ export const BRAIN_SHAPES: Record<BrainShape, { label: string; hint: string; col
   feeling: { label: "Sentimento", hint: "Como alguém se sente nesse ponto (feliz, neutro, triste, bravo): mostra a dor ou o ganho.", color: "#c07a12", badge: "☺", w: 110, h: 126, group: "problem" },
   pro: { label: "Ponto a favor", hint: "Uma vantagem: compare as ideias pelos prós e contras.", color: "#1f8a5a", badge: "+", w: 180, h: 64, group: "problem" },
   con: { label: "Ponto contra", hint: "Uma desvantagem ou custo de uma ideia.", color: "#c62f3a", badge: "−", w: 180, h: 64, group: "problem" },
+  json: { label: "JSON", hint: "Um objeto JSON (payload, registro, configuração), mostrado formatado e colorido.", color: "#7a4cc2", badge: "{}", w: 260, h: 190, group: "data" },
+  list: { label: "Lista", hint: "Uma lista de itens, um por linha (comece com 1. para numerar).", color: "#2f7d8c", badge: "≡", w: 200, h: 140, group: "data" },
+  tree: { label: "Árvore", hint: "Uma hierarquia (pastas, categorias, organograma): a indentação de cada linha diz o nível.", color: "#1f8a5a", badge: "⊢", w: 220, h: 170, group: "data" },
+  table: { label: "Tabela", hint: "Linhas e colunas: a primeira linha é o cabeçalho; separe as colunas com | , ; ou tab.", color: "#4a63c8", badge: "▦", w: 300, h: 140, group: "data" },
 };
 export const brainGroup = (s: BrainShape): BrainGroup => BRAIN_SHAPES[s].group ?? "process";
 export const BRAIN_SHAPE_KEYS = Object.keys(BRAIN_SHAPES) as BrainShape[];
@@ -1243,6 +1270,9 @@ export interface ConnectionEl {
   routing?: Routing;
   /** pontos de passagem (coordenadas do mundo) que moldam o traçado; definidos arrastando a conexão na UI */
   waypoints?: { x: number; y: number }[];
+  /** lado do componente de origem/destino onde a seta se liga (escolhido arrastando a ponta na UI); sem ele, o lado voltado para o outro */
+  fromSide?: ConnSide;
+  toSide?: ConnSide;
   /** posição do rótulo ao longo do traçado (0–1, por comprimento de arco); o auto-layout a escolhe para não sobrepor nada */
   labelT?: number;
   /** deslocamento do rótulo perpendicular ao traçado, em px (negativo = outro lado) */

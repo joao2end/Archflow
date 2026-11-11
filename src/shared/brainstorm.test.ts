@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { atrasoDoc, padariaDoc } from "./brainstorm.example";
-import { checkBrainNode, nextStep } from "./brainstorm";
+import { checkBrainNode, nextStep, reshapeBrain } from "./brainstorm";
 import { applyOps, describe, normalizeDoc, schemaGuide, validateDetailed } from "./ops";
-import { BRAIN_SHAPE_KEYS, BRAIN_SHAPES, emptyDoc } from "./schema";
+import { BRAIN_DATA_HEAD, BRAIN_SHAPE_KEYS, BRAIN_SHAPES, emptyDoc } from "./schema";
 
 const brainDoc = () => emptyDoc("Processo", "brainstorm");
 
@@ -37,6 +37,47 @@ test("brainstorm: validação de entrada da forma", () => {
   assert.match(checkBrainNode({ shape: "box", color: "red" }) ?? "", /hexadecimal/);
   assert.match(checkBrainNode({ shape: "box", size: 3 }) ?? "", /não tem o campo "size"/);
   assert.equal(checkBrainNode({ shape: "step", step: 3, color: "#abc" }), undefined);
+});
+
+test("brainstorm: collapsed recolhe o card de dados até o cabeçalho e reabre na altura de antes", () => {
+  const { doc, results } = applyOps(brainDoc(), [{ op: "add_node", id: "p", label: "pedido", h: 200, brain: { shape: "json", content: "{}", collapsed: true } as never }]);
+  assert.ok(results[0].ok, results[0].error ?? "");
+  assert.deepEqual([doc.nodes[0].h, doc.nodes[0].brain?.openH], [BRAIN_DATA_HEAD, 200]);
+  // um patch de brain sem collapsed mantém o card recolhido (e a altura guardada)
+  const kept = applyOps(doc, [{ op: "update", id: "p", patch: { brain: { shape: "json", content: '{"a": 1}' } } }]).doc;
+  assert.deepEqual([kept.nodes[0].h, kept.nodes[0].brain?.openH], [BRAIN_DATA_HEAD, 200]);
+  const open = applyOps(kept, [{ op: "update", id: "p", patch: { brain: { shape: "json", content: '{"a": 1}', collapsed: false } } }]).doc;
+  assert.deepEqual([open.nodes[0].h, open.nodes[0].brain?.openH], [200, undefined]);
+  const bad = applyOps(brainDoc(), [{ op: "add_node", brain: { shape: "box", collapsed: true } as never }]);
+  assert.match(bad.results[0].error ?? "", /só vale nas formas de dados/);
+});
+
+test("brainstorm: fromSide/toSide fixam o lado da seta; null volta ao automático", () => {
+  const base = applyOps(brainDoc(), [{ op: "add_node", id: "a", brain: { shape: "box" } }, { op: "add_node", id: "b", brain: { shape: "box" } }]).doc;
+  const { doc, results } = applyOps(base, [{ op: "add_connection", id: "ab", from: "a", to: "b", fromSide: "bottom", toSide: "top" }]);
+  assert.ok(results[0].ok, results[0].error ?? "");
+  assert.deepEqual([doc.connections[0].fromSide, doc.connections[0].toSide], ["bottom", "top"]);
+  const reset = applyOps(doc, [{ op: "update", id: "ab", patch: { toSide: null } }]).doc;
+  assert.equal(reset.connections[0].toSide, undefined);
+  assert.match(applyOps(base, [{ op: "add_connection", from: "a", to: "b", fromSide: "up" as never }]).results[0].error ?? "", /fromSide inválido/);
+});
+
+test("brainstorm: formas de dados guardam o conteúdo em texto, que acompanha a troca entre elas", () => {
+  assert.equal(checkBrainNode({ shape: "table", content: "a | b\n1 | 2" }), undefined);
+  assert.match(checkBrainNode({ shape: "box", content: "x" }) ?? "", /só vale nas formas de dados/);
+  assert.match(checkBrainNode({ shape: "json", content: 3 }) ?? "", /texto/);
+  // trechos recolhidos (json/tree) e card recolhido (openH guarda a altura aberta)
+  assert.equal(checkBrainNode({ shape: "json", content: "{}", folded: ["$.a"], openH: 190 }), undefined);
+  assert.match(checkBrainNode({ shape: "table", folded: ["t1"] }) ?? "", /só vale nas formas "json" e "tree"/);
+  assert.match(checkBrainNode({ shape: "box", openH: 80 }) ?? "", /só vale nas formas de dados/);
+  assert.match(checkBrainNode({ shape: "list", openH: -1 }) ?? "", /altura/);
+  const { doc, results } = applyOps(brainDoc(), [{ op: "add_node", id: "d", asset: "brain-json" }]);
+  assert.ok(results[0].ok, results[0].error ?? "");
+  assert.match(doc.nodes[0].brain?.content ?? "", /"nome"/, "a forma nasce com um exemplo");
+  assert.equal(reshapeBrain({ shape: "list", content: "a\nb" }, "tree").content, "a\nb");
+  assert.equal(reshapeBrain({ shape: "list", content: "a\nb" }, "box").content, undefined);
+  const text = describe(applyOps(brainDoc(), [{ op: "add_node", label: "Pedido", brain: { shape: "json", content: '{"id": 7}' } }]).doc);
+  assert.match(text, /\[JSON\] \*\*Pedido\*\*[\s\S]*\{"id": 7\}/, "o conteúdo entra na descrição para o LLM");
 });
 
 test("brainstorm: conexão sem estilo vira seta sem animação; o estilo define o type", () => {

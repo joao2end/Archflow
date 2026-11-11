@@ -1,4 +1,4 @@
-import { BRAIN_GROUPS, BRAIN_SHAPES, BRAIN_SHAPE_KEYS, brainGroup, type BrainShape, AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, SQL_ROLES, SQL_ROLE_KEYS, type SqlRole, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
+import { BRAIN_DATA_SAMPLES, BRAIN_GROUPS, BRAIN_SHAPES, BRAIN_SHAPE_KEYS, brainGroup, type BrainShape, AGENT_ROLES, AGENT_ROLE_KEYS, DDD_BADGES, DDD_ROLES, DDD_ROLE_KEYS, LOGIC_ROLES, LOGIC_ROLE_KEYS, SQL_ROLES, SQL_ROLE_KEYS, type SqlRole, type AgentRole, type LogicRole, type Asset, type DddRole, type DocMode, type EndpointSpec, type NodeKind } from "./schema";
 
 /**
  * Catálogo de assets embutido. Cada asset diz QUE PROBLEMA a tecnologia resolve,
@@ -389,7 +389,8 @@ const sqlAssets: Asset[] = SQL_ROLE_KEYS.map((role) => ({
 /** Formas do Brain Storm. Fonte única: `BRAIN_SHAPES` em schema.ts. */
 export const BRAIN_CATEGORY = BRAIN_GROUPS.process;
 export const BRAIN_PROBLEM_CATEGORY = BRAIN_GROUPS.problem;
-const isBrainCategory = (c: string) => c === BRAIN_CATEGORY || c === BRAIN_PROBLEM_CATEGORY;
+export const BRAIN_DATA_CATEGORY = BRAIN_GROUPS.data;
+const isBrainCategory = (c: string) => c === BRAIN_CATEGORY || c === BRAIN_PROBLEM_CATEGORY || c === BRAIN_DATA_CATEGORY;
 const BRAIN_TAGS: Record<BrainShape, string> = {
   box: "caixa retângulo passo etapa atividade tarefa processo",
   round: "início fim começo término pílula terminal",
@@ -417,6 +418,10 @@ const BRAIN_TAGS: Record<BrainShape, string> = {
   feeling: "sentimento emoção humor rosto feliz triste bravo dor",
   pro: "pró vantagem a favor benefício positivo mais",
   con: "contra desvantagem negativo custo menos",
+  json: "json objeto payload registro dados chave valor api",
+  list: "lista itens tópicos enumeração checklist dados",
+  tree: "árvore hierarquia pastas categorias organograma níveis dados",
+  table: "tabela linhas colunas planilha registros grade dados csv",
 };
 const brainAssets: Asset[] = BRAIN_SHAPE_KEYS.map((shape) => ({
   id: `brain-${shape}`,
@@ -425,7 +430,7 @@ const brainAssets: Asset[] = BRAIN_SHAPE_KEYS.map((shape) => ({
   icon: `g:bs-${shape}`,
   color: BRAIN_SHAPES[shape].color,
   kind: "shape" as const,
-  brain: shape === "step" ? { shape, step: 1 } : shape === "feeling" ? { shape, mood: "sad" as const } : { shape },
+  brain: shape === "step" ? { shape, step: 1 } : shape === "feeling" ? { shape, mood: "sad" as const } : BRAIN_DATA_SAMPLES[shape] ? { shape, content: BRAIN_DATA_SAMPLES[shape] } : { shape },
   problem: BRAIN_SHAPES[shape].hint,
   description: BRAIN_SHAPES[shape].hint,
   tags: BRAIN_TAGS[shape].split(" "),

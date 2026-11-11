@@ -58,6 +58,7 @@ import {
   type NoteFont,
   type Routing,
   type TourStep,
+  type ConnSide,
 } from "./schema";
 import { layeredLayout, shelfPack } from "./layout";
 import { stormLayout } from "./storm";
@@ -71,7 +72,7 @@ import { checkDddConn, checkDddNode, composeDddLabel, connectionTypeError, dddLa
 import { agentConnectionTypeError, agentIssues, checkAgentConn, checkAgentNode, describeAgents, schemaGuideAgents, suggestAgentRels } from "./agents";
 import { describeTour, normalizeTour, tourIssues } from "./tour";
 import { checkSqlConn, checkSqlNode, describeSql, resizeSql, schemaGuideSql, sqlConnLabel, sqlConnectionTypeError, sqlIssues, sqlSize, suggestSqlRels } from "./sql";
-import { brainIssues, brainSize, checkBrainConn, checkBrainNode, defaultBrainConn, describeBrain, schemaGuideBrain } from "./brainstorm";
+import { brainIssues, brainSize, checkBrainConn, checkBrainNode, checkConnSide, defaultBrainConn, describeBrain, resolveBrainCollapse, schemaGuideBrain } from "./brainstorm";
 import { drawToInk, type DrawSpec } from "./draw";
 
 /** Tipos de componente aceitos em cada modo (arquitetura aceita todos). Domain, Logic e Agents só carregam o que é compatível com o modo. */
@@ -90,7 +91,7 @@ export type Op =
   | { op: "add_endpoint"; id?: string; owner: string; protocol?: EndpointProtocol; method?: string; path?: string; request?: string; response?: string; auth?: string; label?: string; description?: string }
   | { op: "add_group"; id?: string; label: string; kind?: GroupKind; description?: string; parent?: string; color?: string; fill?: string; fillOpacity?: number; subdomain?: Subdomain; stage?: LogicStageSpec; x?: number; y?: number; w?: number; h?: number }
   | { op: "add_note"; id?: string; text: string; x?: number; y?: number; variant?: "note" | "text" | "list"; title?: string; checklist?: boolean; color?: string; font?: NoteFont; fill?: string; fontSize?: number }
-  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec; sql?: SqlConnSpec; brain?: BrainConnSpec; port?: PortSpec }
+  | { op: "add_connection"; id?: string; from: string; to: string; type?: ConnectionType; label?: string; protocol?: string; description?: string; interface?: InterfaceSpec; routing?: Routing; waypoints?: { x: number; y: number }[]; animated?: boolean; ddd?: DddConnSpec; logic?: LogicConnSpec; agent?: AgentConnSpec; sql?: SqlConnSpec; brain?: BrainConnSpec; port?: PortSpec; fromSide?: ConnSide; toSide?: ConnSide }
   | { op: "update"; id: string; patch: Record<string, unknown> }
   | { op: "remove"; id: string }
   | { op: "add_ink"; id?: string; draw: DrawSpec }
@@ -329,7 +330,13 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         if (op.kind && op.kind !== "sql") return { ok: false, error: `um nó com sql tem kind "sql" (recebeu "${op.kind}")` };
         if (ddd || logic || agent) return { ok: false, error: "um nó tem ddd, logic, agent OU sql — nunca dois" };
       }
-      const brain: BrainNodeSpec | undefined = op.brain ?? (asset?.brain ? { ...asset.brain } : undefined);
+      let brain: BrainNodeSpec | undefined = op.brain ?? (asset?.brain ? { ...asset.brain } : undefined);
+      // `collapsed` é só entrada: vira openH + a altura do cabeçalho depois que o tamanho é conhecido
+      const collapse = brain && "collapsed" in brain ? (brain as { collapsed?: unknown }).collapsed : undefined;
+      if (brain && "collapsed" in brain) {
+        const { collapsed: _c, ...rest } = brain as BrainNodeSpec & { collapsed?: unknown };
+        brain = rest;
+      }
       if (brain !== undefined || op.kind === "shape") {
         if (docMode(doc) !== "brainstorm") return { ok: false, error: `formas livres (kind "shape" / brain) só existem em diagramas de modo "brainstorm"; crie o diagrama com new_diagram mode "brainstorm" ou troque o modo em set_diagram_info` };
         const bad = checkBrainNode(brain);
@@ -348,7 +355,13 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       const ssize = sql ? sqlSize(sql) : undefined;
       const bsize = brain ? brainSize(brain.shape) : undefined;
       const w = (op.w != null && op.w >= 20 ? op.w : undefined) ?? lsize?.w ?? ssize?.w ?? bsize?.w ?? (isEp ? ENDPOINT_W : NODE_W);
-      const h = (op.h != null && op.h >= 20 ? op.h : undefined) ?? lsize?.h ?? ssize?.h ?? bsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
+      let h = (op.h != null && op.h >= 20 ? op.h : undefined) ?? lsize?.h ?? ssize?.h ?? bsize?.h ?? (isEp ? ENDPOINT_H : NODE_H);
+      if (brain && collapse !== undefined) {
+        const r = resolveBrainCollapse({ ...brain, collapsed: collapse }, h);
+        if ("error" in r) return { ok: false, error: r.error };
+        brain = r.brain;
+        h = r.h;
+      }
       let pos = op.x != null && op.y != null ? { x: op.x, y: op.y } : undefined;
       if (!pos && owner && isEp) pos = stackPos(doc, owner);
       if (!pos) {
@@ -509,6 +522,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         const bad = checkPort(doc, op.port);
         if (bad) return { ok: false, error: bad };
       }
+      const sideBad = checkConnSide("fromSide", op.fromSide) ?? checkConnSide("toSide", op.toSide);
+      if (sideBad) return { ok: false, error: sideBad };
       const id = uniqueId(doc, op.id ?? `${op.from}-to-${op.to}`);
       const c: ConnectionEl = {
         id,
@@ -528,6 +543,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         ...(sqlConn ? { sql: sqlConn } : {}),
         ...(brainConn ? { brain: brainConn } : {}),
         ...(op.port ? { port: normalizePort(op.port) } : {}),
+        ...(op.fromSide ? { fromSide: op.fromSide } : {}),
+        ...(op.toSide ? { toSide: op.toSide } : {}),
       };
       doc.connections.push(c);
       return { ok: true, id };
@@ -590,6 +607,18 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         // o rótulo automático (LEFT JOIN · condição) acompanha a relação, a menos que venha um rótulo próprio
         if ("sql" in patch && patch.label === undefined && (el.label ?? "") === sqlConnLabel(el.sql)) patch.label = sqlConnLabel((patch.sql ?? undefined) as SqlConnSpec | undefined);
       }
+      if (isConn && ("fromSide" in patch || "toSide" in patch)) {
+        const bad = checkConnSide("fromSide", patch.fromSide) ?? checkConnSide("toSide", patch.toSide);
+        if (bad) return { ok: false, error: bad };
+      }
+      if (!isConn && ("fromSide" in patch || "toSide" in patch)) return { ok: false, error: "fromSide/toSide só valem em conexões" };
+      if (isNode && patch.brain != null && typeof patch.brain === "object") {
+        // recolher/expandir o card de dados (brain.collapsed) e preservar a altura aberta de um card já recolhido
+        const r = resolveBrainCollapse(patch.brain as BrainNodeSpec, typeof patch.h === "number" ? patch.h : el.h, el.brain);
+        if ("error" in r) return { ok: false, error: r.error };
+        patch.brain = r.brain;
+        if (r.h !== (typeof patch.h === "number" ? patch.h : el.h)) patch.h = r.h;
+      }
       if ("brain" in patch && patch.brain != null) {
         if (docMode(doc) !== "brainstorm") return { ok: false, error: `brain só existe em diagramas de modo "brainstorm"` };
         const bad = isConn ? checkBrainConn(patch.brain) : isNode ? checkBrainNode(patch.brain) : "brain não se aplica a grupos";
@@ -635,6 +664,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
       if ("brain" in patch && patch.brain == null) delete el.brain;
       if (isNode && "sql" in patch && el.sql) resizeSql([el as NodeEl]); // o cartão acompanha colunas e condições
       if ("port" in patch && patch.port == null) delete el.port;
+      if ("fromSide" in patch && patch.fromSide == null) delete el.fromSide;
+      if ("toSide" in patch && patch.toSide == null) delete el.toSide;
       if (isNode && ("logic" in patch || "label" in patch || "description" in patch) && el.logic) resizeLogic(doc, [el as NodeEl]); // o cartão acompanha o texto
       if ("subdomain" in patch && patch.subdomain == null) delete el.subdomain;
       if ("stage" in patch && patch.stage == null) delete el.stage;
@@ -733,6 +764,8 @@ function applyOne(doc: Doc, op: Op, touched: Set<string>): OpResult {
         for (const c of doc.connections) {
           delete c.labelT;
           delete c.labelOffset;
+          delete c.fromSide;
+          delete c.toSide;
           const wp = plan.waypoints.get(c.id);
           if (wp) {
             c.waypoints = wp;
@@ -883,6 +916,8 @@ export function timelineLayout(doc: Doc, routing?: Routing) {
   for (const c of doc.connections) {
     delete c.labelT;
     delete c.labelOffset;
+    delete c.fromSide;
+    delete c.toSide;
   }
   avoidCollisions(doc); // conexões que cruzariam outras raias contornam os componentes em vez de passar por cima
   placeLabels(doc);
@@ -944,6 +979,8 @@ export function onionTypeLayout(doc: Doc, routing?: Routing) {
     c.routing = routing ?? "elbow";
     delete c.labelT;
     delete c.labelOffset;
+    delete c.fromSide;
+    delete c.toSide;
   }
   avoidCollisions(doc);
   placeLabels(doc);
@@ -970,6 +1007,8 @@ export function groupedTypeLayout(doc: Doc, routing?: Routing) {
     c.routing = routing ?? "elbow";
     delete c.labelT;
     delete c.labelOffset;
+    delete c.fromSide;
+    delete c.toSide;
   }
   avoidCollisions(doc);
   placeLabels(doc);
@@ -987,6 +1026,8 @@ export function autoLayout(doc: Doc, dir: "LR" | "TB" = "LR", opts: { spacing?: 
   for (const c of doc.connections) {
     delete c.labelT;
     delete c.labelOffset;
+    delete c.fromSide;
+    delete c.toSide;
   }
   // gapX/gapY (px, eixos da tela) têm precedência; sem eles vale o preset: vizinhos na camada = gap, entre camadas = 2×gap
   const base = Math.max(16, opts.minGap ?? SPACING_GAP[opts.spacing ?? "comfortable"]);

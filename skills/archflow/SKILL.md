@@ -146,12 +146,44 @@ Quinto modo (`mode: "sql"`): o quadro é **uma consulta** na ordem lógica em qu
 
 Sexto modo (`mode: "brainstorm"`, «Brain Storm» na UI): um quadro branco livre para explicar um processo de forma simples, para quem não é técnico. Sem tecnologia e sem regras: o significado está no texto das formas e nos rótulos das setas.
 
-- `add_components` com `brain: { shape }` (kind vira `shape`): `round` (início/fim), `box` (etapa), `diamond` (decisão/pergunta), `person` (quem participa), `doc` (documento), `data` (entrada/saída), `cylinder` (onde fica guardado), `sticky` (ideia/observação), `cloud` (algo vago ou externo), `circle` (conceito), `star` (destaque) e `step` (passo numerado, com `step: 1, 2…`). Para **mapear um problema**: `problem` (o que dói, no centro), `warning` (risco), `stop` (bloqueio), `question` (dúvida em aberto), `idea` (solução), `target` (meta), `speech` (o que alguém diz), `clock` (tempo/prazo), `money` (custo), `screen` (tela/sistema), `feeling` (com `mood`: happy|neutral|sad|angry), `pro` e `con`. `brain.color` (hex) muda a cor; `label` curto, `description` para o detalhe.
+- `add_components` com `brain: { shape }` (kind vira `shape`; a tabela abaixo diz qual forma usar para cada coisa): `round` (início/fim), `box` (etapa), `diamond` (decisão/pergunta), `person` (quem participa), `doc` (documento), `data` (entrada/saída), `cylinder` (onde fica guardado), `sticky` (ideia/observação), `cloud` (algo vago ou externo), `circle` (conceito), `star` (destaque) e `step` (passo numerado, com `step: 1, 2…`). Para **mapear um problema**: `problem` (o que dói, no centro), `warning` (risco), `stop` (bloqueio), `question` (dúvida em aberto), `idea` (solução), `target` (meta), `speech` (o que alguém diz), `clock` (tempo/prazo), `money` (custo), `screen` (tela/sistema), `feeling` (com `mood`: happy|neutral|sad|angry), `pro` e `con`. Para **dados**: `json`, `list`, `tree`, `table` (ver abaixo). `brain.color` (hex) muda a cor; `label` curto, `description` para o detalhe.
 - `connect` com `brain: { line }` (omitido = seta): `arrow`, `line` (relacionado, sem direção), `dashed` (talvez/opcional), `dotted` (ligação fraca), `both` (vai e volta), `blocks` (bloqueia/impede: termina numa barra, em vermelho). **Rotule as saídas de cada `diamond`** (sim / não). Num problema: causa → `problem` (seta), `problem` → `idea` (seta), `idea` — `pro`/`con` (`line`).
 - Fluxo: `new_diagram` com `mode: "brainstorm"` → formas → `connect` na ordem do processo → `auto_layout` → `validate_diagram` (só dicas: decisão com uma saída, saídas sem rótulo, passos com número repetido, problema solto). Notas (`add_note`) e grupos (`add_groups`) também valem para áreas e observações.
 - **Posição e tamanho**: `add_components` aceita `x`, `y`, `w`, `h` para montar a cena à mão (omitidos = vaga livre e tamanho padrão da forma).
 - **Imagens**: `search_images` (Google Imagens com `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` no ambiente do MCP; senão Openverse, licenças abertas) → `add_image` com a URL escolhida: baixa, embute no diagrama e cria a forma `image` com a proporção da foto (`label` = legenda). Conecte-a como qualquer forma; uma ou duas por quadro, para ilustrar.
 - **Desenhar à mão**: `draw` com `line`, `arrow`, `rect`, `ellipse`, `polygon`, `freehand` ou `underline`; `around: "<id>"` circula, emoldura ou sublinha um elemento sem calcular coordenadas; `highlight: true` = marca-texto. Use para chamar atenção; o significado continua nas formas e conexões. Traços têm id `ink-…` (apague com `remove_elements`).
+- **Dados** (`json`, `list`, `tree`, `table`): cards com o título (`label`) no cabeçalho e o dado em `brain.content`, em texto. `json`: o JSON (o quadro formata e colore); `list`: um item por linha (`1.` numera); `tree`: um nó por linha, 2 espaços por nível; `table`: colunas separadas por `|` (ou `,` `;` tab), 1ª linha = cabeçalho. `brain.folded` recolhe trechos (JSON: `$.itens`, `$.itens[0]`; árvore: `t<i>`, índice da linha) e `brain.collapsed: true` deixa só o título (`false` reabre).
+- **Lado da seta**: `connect` aceita `fromSide`/`toSide` (`left|right|top|bottom`) para fixar onde a seta sai e entra; `update_element` com `null` volta ao automático. `auto_layout` limpa os lados: fixe-os depois do layout.
+
+### O que representar → forma → ferramenta
+
+| Quero mostrar | Forma / recurso | Ferramenta |
+|---|---|---|
+| Começo e fim do processo | `round` | `add_components` |
+| Uma etapa (o que acontece) | `box`; em sequência contada, `step` (`step: 1, 2…`) | `add_components` |
+| Uma pergunta / escolha | `diamond` + uma seta por resposta, **rotulada** (sim / não) | `add_components` + `connect` (`label`) |
+| Quem faz / participa | `person`; áreas ou responsáveis como grupo `boundary` | `add_components`, `add_groups` + `parent` |
+| Um sistema, tela ou app usado | `screen` (ou `cloud` se é externo / vago) | `add_components` |
+| Onde algo fica guardado | `cylinder` (banco, planilha, estoque) | `add_components` |
+| Um papel ou arquivo que circula | `doc`; o que entra/sai do processo: `data` | `add_components` |
+| **Um registro, payload ou resposta de API** | `json` com um exemplo real (3–15 linhas); recolha o que não importa com `folded` | `add_components` (`brain.content`, `folded`) |
+| **Linhas de um arquivo, planilha ou tabela** | `table` com cabeçalho + 2–5 linhas de exemplo | `add_components` (`brain.content`) |
+| **Campos, itens, checklist, passos de uma tela** | `list` | `add_components` (`brain.content`) |
+| **Hierarquia: pastas, categorias, organograma, estrutura de um documento** | `tree` | `add_components` (`brain.content`) |
+| De onde vem e para onde vai um dado | etapa → dado → etapa; `dashed` quando só ilustra | `connect` (`brain.line`) |
+| Um dado grande que atrapalha a leitura | o card recolhido (`collapsed: true`) ou só os trechos (`folded`) | `update_element` (`brain`) |
+| Um laço / retrabalho / volta | seta de volta com `label` («corrige e reenvia»); `fromSide: "bottom"`, `toSide: "bottom"` para contornar por baixo | `connect` (`fromSide`, `toSide`) |
+| O problema central | `problem`; causas → problema (seta); o que trava: `brain.line: "blocks"` | `add_components` + `connect` |
+| Risco, bloqueio, dúvida | `warning`, `stop`, `question` | `add_components` |
+| A dor de alguém | `speech` (a fala) + `feeling` (`mood`) ao lado da `person` | `add_components` |
+| Tempo, custo | `clock`, `money` (o número no `label`: «3 dias», «R$ 12 mil/mês») | `add_components` |
+| Soluções e a comparação entre elas | `idea`; `pro`/`con` ligados com `line`; a meta medível em `target` | `add_components` + `connect` |
+| Uma observação solta | `sticky` ou `add_note` | `add_components` / `add_note` |
+| Ilustrar com uma foto ou print | `image` | `search_images` → `add_image` |
+| Chamar atenção para um ponto | círculo, sublinhado ou marca-texto à mão | `draw` (`around`, `highlight`) |
+| Um detalhe longo de uma forma | `description` (não aumenta o `label`) | `add_components` / `update_element` |
+
+Escolhendo entre as formas de dados: **chave → valor e aninhamento** = `json`; **mesmas colunas em várias linhas** = `table`; **itens do mesmo nível** = `list`; **pai → filhos** = `tree`. Um dado é um exemplo, não o esquema completo: mostre o suficiente para a etapa fazer sentido.
 
 ## Convenções que evitam retrabalho
 

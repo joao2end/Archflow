@@ -5,9 +5,9 @@ import { applyOps, fitGroup, isContainerOf } from "../shared/ops";
 import type { Asset } from "../shared/schema";
 import { DDD_BADGES, DDD_ROLES, LOGIC_ROLES, SQL_ROLES, docMode, isDataRole } from "../shared/schema";
 import { SQL_HEAD, SQL_LINE, SQL_MAX_LINES, sqlLines, sqlTitle } from "../shared/sql";
-import { BRAIN_LINES, BRAIN_SHAPES } from "../shared/schema";
+import { BRAIN_LINES, BRAIN_SHAPES, isBrainData } from "../shared/schema";
 import { brainColor, brainMood } from "../shared/brainstorm";
-import { brainGeometry, brainLineColor, brainText } from "./brainstorm";
+import { BRAIN_DATA_HEAD, BrainCollapseToggle, BrainDataContent, brainDataArea, brainGeometry, brainLineColor, brainText } from "./brainstorm";
 import { checkExamples } from "../shared/logic";
 import { explain, parseExpr, shortValue } from "../shared/expr";
 import { edgeIdsOf, dataKey, dataNames, dataNodes, logicStatus, nextExit, relatedTo } from "../shared/logic";
@@ -23,7 +23,7 @@ import { FONT_CSS, parseInline, parseRich, plainText, type BlockKind, type Span 
 import { IconSvg } from "./icons";
 import { displayAsset } from "../shared/catalog";
 import { RichEditor, RichToolbar, richToHtml, type NoteCardStyle } from "./richeditor";
-import { SUMMARY_COLS, SUMMARY_PAD, contains, edgeGeoms, logicSummaryBox, summaryText, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, within, type Pt, type Side } from "./geometry";
+import { SUMMARY_COLS, SUMMARY_PAD, boxOf, contains, edgeGeoms, logicSummaryBox, summaryText, intersects, labelSize, normRect, previewGeom, projectOnPath, samplePath, sidePoint, sideToward, within, type Pt, type Side } from "./geometry";
 import { PresetPattern, presetById } from "./bgpresets";
 import { findSkillCatalogEntry } from "../shared/skillcatalog";
 import { findMcpCatalogEntry } from "../shared/mcpcatalog";
@@ -62,10 +62,12 @@ const snapV = (v: number, on: boolean) => (on ? Math.round(v / 8) * 8 : v);
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string; under?: string; /** clique sem arrastar numa nota já selecionada → editar in-place */ editNote?: string }
+  | { kind: "move"; start: Pt; origin: Map<string, Pt>; moved: boolean; id?: string; under?: string; /** clique sem arrastar numa nota já selecionada → editar in-place */ editNote?: string; /** idem, numa forma do Brain Storm → editar o texto ou o conteúdo */ editLabel?: BrainEdit }
   | { kind: "marquee"; start: Pt; cur: Pt; additive: boolean; base: string[]; /** começou num anel do layout "camadas": clique sem arrastar abre o menu de adicionar */ ring?: string }
   | { kind: "resize"; id: string; start: Pt; orig: { w: number; h: number } }
   | { kind: "waypoint"; id: string; idx: number }
+  /** arrastando a ponta de uma conexão: solta sobre outro componente para religar, no lado mais próximo do ponteiro */
+  | { kind: "reend"; id: string; end: "from" | "to"; base: Doc; cur: Pt; over: boolean }
   | { kind: "label"; id: string }
   | { kind: "connect"; from: string; side: Side; cur: Pt }
   | { kind: "create"; tool: "group" | "note" | "text" | "list"; start: Pt; cur: Pt }
@@ -673,11 +675,82 @@ const BrainNodeShape = memo(function BrainNodeShape({ n, selected, hot, hovered 
           {t}
         </text>
       ))}
+      {isBrainData(spec.shape) && !spec.openH && <BrainDataContent id={n.id} shape={spec.shape} content={spec.content ?? ""} folded={spec.folded} w={n.w} h={n.h} />}
+      {isBrainData(spec.shape) && <BrainCollapseToggle id={n.id} w={n.w} collapsed={!!spec.openH} />}
       {(hovered || selected) && <Handles id={n.id} w={n.w} h={n.h} />}
       {selected && <ResizeGrip w={n.w} h={n.h} />}
     </g>
   );
 });
+
+/** O que a edição in-place de uma forma do Brain Storm altera: o texto (título) ou, nas formas de dados, o conteúdo. */
+type BrainEdit = { id: string; field: "label" | "content" };
+
+/** Duplo clique (ou segundo clique) em `p`: no corpo de uma forma de dados edita o conteúdo; no resto, o texto. */
+const brainEditAt = (id: string, p: Pt): BrainEdit => {
+  const n = getState().doc.nodes.find((x) => x.id === id);
+  return { id, field: n?.brain && isBrainData(n.brain.shape) && p.y - n.y > BRAIN_DATA_HEAD ? "content" : "label" };
+};
+
+/** O nó é uma forma do Brain Storm (texto editável direto no quadro)? */
+const isBrainNode = (id: string) => {
+  const n = getState().doc.nodes.find((x) => x.id === id);
+  return !!(n?.kind === "shape" && n.brain && BRAIN_SHAPES[n.brain.shape]);
+};
+
+/**
+ * Edição in-place do texto de uma forma do Brain Storm: um campo sobre a área de texto da forma.
+ * Enter confirma, Shift+Enter quebra a linha, Esc desiste; sair do campo também confirma.
+ */
+function BrainLabelEditor({ n, field, onClose }: { n: NodeEl; field: BrainEdit["field"]; onClose: () => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const done = useRef(false);
+  const data = field === "content";
+  const t = data ? { ...brainDataArea(n.w, n.h), align: "left" as const } : brainGeometry(n.brain!.shape, n.w, n.h, brainMood(n.brain!)).text;
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+  const finish = (save: boolean) => {
+    if (done.current) return;
+    done.current = true;
+    const doc = getState().doc;
+    if (save && data) {
+      const v = ref.current?.value.replace(/\s+$/, "") ?? "";
+      const { content: _, ...rest } = n.brain!;
+      if (v !== (n.brain!.content ?? "")) commit({ ...doc, nodes: doc.nodes.map((x) => (x.id === n.id ? { ...x, brain: v ? { ...rest, content: v } : rest } : x)) });
+    } else if (save) {
+      const v = ref.current?.value.trim() ?? "";
+      if (v && v !== n.label) commit({ ...doc, nodes: doc.nodes.map((x) => (x.id === n.id ? { ...x, label: v } : x)) });
+    }
+    onClose();
+  };
+  return (
+    <foreignObject x={n.x + t.x} y={n.y + t.y} width={Math.max(t.w, 60)} height={Math.max(t.h, 28)} className="brain-edit-fo">
+      <div className={`brain-edit-box${data ? " data" : ""}`}>
+        <textarea
+          ref={ref}
+          className={`brain-edit${t.align === "left" ? " left" : ""}${data ? " data" : ""}`}
+          defaultValue={data ? n.brain!.content ?? "" : n.label}
+          aria-label={data ? "Conteúdo da forma (Ctrl+Enter salva)" : "Texto da forma"}
+          spellCheck={!data}
+          onPointerDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Escape") finish(false);
+            // nos dados Enter quebra a linha (uma linha por item); Ctrl+Enter salva
+            else if (e.key === "Enter" && (data ? e.ctrlKey || e.metaKey : !e.shiftKey)) {
+              e.preventDefault();
+              finish(true);
+            }
+          }}
+          onBlur={() => finish(true)}
+        />
+      </div>
+    </foreignObject>
+  );
+}
 
 /** Assets personalizados do diagrama exibido (no visualizador, o diagrama é outro). */
 export const ViewerAssets = createContext<Asset[] | null>(null);
@@ -1496,6 +1569,13 @@ function EdgeHandles({ c, g, z }: { c: ConnectionEl; g: { pts?: Pt[]; mid: Pt; a
           </g>
         );
       })}
+      {g.pts && ([["from", pts[0]], ["to", pts[pts.length - 1]]] as const).map(([end, p]) => (
+        <g key={end} data-role="conn-end" data-id={c.id} data-end={end} className="conn-end" transform={`translate(${p.x},${p.y})`}>
+          <title>{end === "from" ? "Arraste para ligar a origem a outro componente ou lado" : "Arraste para ligar o destino a outro componente ou lado"}</title>
+          <circle r={r * 1.9} fill="transparent" />
+          <circle r={r * 0.95} />
+        </g>
+      ))}
       {wps.map((w, i) => (
         <g key={`wp-${i}`} data-role="wp" data-id={c.id} data-idx={i} className="wp" transform={`translate(${w.x},${w.y})`}>
           <title>Arraste para mover · duplo clique remove</title>
@@ -1828,15 +1908,22 @@ export function Canvas() {
   const [ringMenu, setRingMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  /** forma do Brain Storm com o texto em edição direto no quadro */
+  const [brainEdit, setBrainEdit] = useState<BrainEdit | null>(null);
 
-  // Enter com nota/texto selecionado abre a edição in-place no quadro
+  // Enter com nota/texto (ou forma do Brain Storm) selecionado abre a edição in-place no quadro
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter" || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
-      if (editingNoteId || getState().present) return;
+      if (editingNoteId || brainEdit || getState().present) return;
       const id = getState().sel.length === 1 ? getState().sel[0] : null;
+      if (id && isBrainNode(id)) {
+        e.preventDefault();
+        setBrainEdit({ id, field: "label" });
+        return;
+      }
       const n = id ? getState().doc.notes.find((x) => x.id === id) : null;
       if (!n || n.variant === "list") return;
       e.preventDefault();
@@ -1844,7 +1931,7 @@ export function Canvas() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editingNoteId]);
+  }, [editingNoteId, brainEdit]);
 
   useEffect(() => {
     if (!menu && !nodeMenu && !paneMenu && !ringMenu) return;
@@ -1977,6 +2064,33 @@ export function Canvas() {
       eraseAt(p, e);
       return;
     }
+    if (t?.role === "brain-collapse" && t.id) {
+      // recolhe o card de dados até o cabeçalho (guardando a altura) ou o abre de volta; as setas seguem a borda real
+      commit({
+        ...s.doc,
+        nodes: s.doc.nodes.map((n) => {
+          if (n.id !== t.id || !n.brain) return n;
+          const { openH, ...rest } = n.brain;
+          return openH ? { ...n, h: openH, brain: rest } : { ...n, h: BRAIN_DATA_HEAD, brain: { ...rest, openH: n.h } };
+        }),
+      });
+      return;
+    }
+    if (t?.role === "brain-fold" && t.id) {
+      // seta de um trecho do JSON / ramo da árvore: recolhe ou expande (desfazível)
+      const path = ((e.target as Element).closest("[data-role]") as SVGElement).dataset.path!;
+      commit({
+        ...s.doc,
+        nodes: s.doc.nodes.map((n) => {
+          if (n.id !== t.id || !n.brain) return n;
+          const cur = n.brain.folded ?? [];
+          const next = cur.includes(path) ? cur.filter((x) => x !== path) : [...cur, path];
+          const { folded: _, ...rest } = n.brain;
+          return { ...n, brain: next.length ? { ...rest, folded: next } : rest };
+        }),
+      });
+      return;
+    }
     if (t?.role === "stage-toggle" && t.id) {
       toggleStage(t.id);
       return;
@@ -2003,6 +2117,12 @@ export function Canvas() {
     if (t?.role === "open-ref" && t.id) {
       const ref = s.doc.nodes.find((n) => n.id === t.id)?.ref;
       if (ref) set({ modal: { type: "diagram-view", diagram: ref.diagram, node: ref.node } });
+      return;
+    }
+    if (t?.role === "conn-end" && t.id) {
+      const el = (e.target as Element).closest("[data-role]") as SVGElement;
+      beginTx();
+      drag.current = { kind: "reend", id: t.id, end: el.dataset.end === "from" ? "from" : "to", base: s.doc, cur: p, over: true };
       return;
     }
     if ((t?.role === "wp" || t?.role === "wp-add") && t.id) {
@@ -2066,7 +2186,7 @@ export function Canvas() {
       else if (!s.sel.includes(t.id)) nextSel = [t.id];
       select(nextSel);
       // conjunto em movimento: selecionados + descendentes de grupos
-      const startMove = (ids: string[], id: string, under?: string, editNote?: string) => {
+      const startMove = (ids: string[], id: string, under?: string, editNote?: string, editLabel?: BrainEdit) => {
         const moving = new Set<string>();
         const add = (x: string) => {
           if (moving.has(x)) return;
@@ -2078,13 +2198,14 @@ export function Canvas() {
         const origin = new Map<string, Pt>();
         [...s.doc.nodes, ...s.doc.groups, ...s.doc.notes].forEach((el) => moving.has(el.id) && origin.set(el.id, { x: el.x, y: el.y }));
         beginTx();
-        drag.current = { kind: "move", start: p, origin, moved: false, id, under, editNote };
+        drag.current = { kind: "move", start: p, origin, moved: false, id, under, editNote, editLabel };
       };
       const reclickNote =
         t.role === "note" && !e.shiftKey && s.sel.length === 1 && s.sel[0] === t.id && s.doc.notes.find((n) => n.id === t.id)?.variant !== "list"
           ? t.id
           : undefined;
-      if (t.role !== "conn" && nextSel.includes(t.id)) startMove(nextSel, t.id, undefined, reclickNote);
+      const reclickLabel = t.role === "node" && !e.shiftKey && s.sel.length === 1 && s.sel[0] === t.id && isBrainNode(t.id) ? brainEditAt(t.id, p) : undefined;
+      if (t.role !== "conn" && nextSel.includes(t.id)) startMove(nextSel, t.id, undefined, reclickNote, reclickLabel);
       else if (t.role === "conn") {
         // a conexão (traço largo e rótulo) fica por cima dos grupos: arrastar a partir dela move o que está embaixo
         for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
@@ -2186,6 +2307,24 @@ export function Canvas() {
         live({ ...s.doc, connections: s.doc.connections.map((c) => (c.id === d.id ? { ...c, waypoints: (c.waypoints ?? []).map((w, i) => (i === d.idx ? pt : w)) } : c)) });
         break;
       }
+      case "reend": {
+        d.cur = p;
+        const c = d.base.connections.find((x) => x.id === d.id);
+        if (!c) break;
+        const fixed = d.end === "from" ? c.to : c.from;
+        const to = connectTarget(e.clientX, e.clientY, fixed);
+        const box = to ? boxOf(d.base, to) : undefined;
+        d.over = !!box;
+        setHotDrop(box ? to : null);
+        if (!box) live(d.base);
+        else {
+          const side = sideToward(box, p);
+          const next = d.end === "from" ? { ...c, from: to!, fromSide: side } : { ...c, to: to!, toSide: side };
+          live({ ...d.base, connections: d.base.connections.map((x) => (x.id === d.id ? next : x)) });
+        }
+        force((n) => n + 1);
+        break;
+      }
       case "connect": {
         d.cur = p;
         setHotDrop(connectTarget(e.clientX, e.clientY, d.from));
@@ -2227,6 +2366,7 @@ export function Canvas() {
         }
         // segundo clique (sem arrastar) na nota já selecionada → editar o texto no quadro
         if (!d.moved && d.editNote) setEditingNoteId(d.editNote);
+        if (!d.moved && d.editLabel) setBrainEdit(d.editLabel);
         if (d.moved) {
           // reparent: topo da seleção cai no menor grupo que contém seu centro
           const doc = structuredClone(s.doc);
@@ -2260,6 +2400,11 @@ export function Canvas() {
       case "marquee":
         if (d.ring && Math.hypot(p.x - d.start.x, p.y - d.start.y) * s.view.z < 5 && onionPicks(s.doc.groups.find((g) => g.id === d.ring)?.ring?.layer).length)
           setRingMenu({ x: e.clientX, y: e.clientY, id: d.ring });
+        break;
+      case "reend":
+        // solto no vazio: a conexão volta a ser como era
+        if (!d.over) live(d.base);
+        endTx();
         break;
       case "resize":
       case "waypoint":
@@ -2419,13 +2564,18 @@ export function Canvas() {
       commit({ ...doc, connections: doc.connections.map((c) => (c.id === t.id ? withWaypoints(c, (c.waypoints ?? []).filter((_, i) => i !== idx)) : c)) });
       return;
     }
-    if (t?.role === "wp-add") return;
+    if (t?.role === "wp-add" || t?.role === "brain-fold" || t?.role === "brain-collapse") return;
     if (t?.id && t.role === "node" && getState().doc.nodes.find((n) => n.id === t.id)?.ref) return; // o clique já abriu o visualizador
     if (t?.id && t.role === "note") {
       const nt = getState().doc.notes.find((n) => n.id === t.id);
       select([t.id]);
       if (nt && nt.variant !== "list") setEditingNoteId(t.id);
       else set({ focusTick: getState().focusTick + 1 });
+      return;
+    }
+    if (t?.id && t.role === "node" && isBrainNode(t.id)) {
+      select([t.id]);
+      setBrainEdit(brainEditAt(t.id, toWorld(e)));
       return;
     }
     if (t?.id && t.role === "node" && getState().doc.nodes.find((n) => n.id === t.id)?.agent?.role === "skill") {
@@ -2559,13 +2709,11 @@ export function Canvas() {
         {ownerLinks.map((l) => (
           <path key={l.id} d={l.d} className="owner-link" />
         ))}
-        {edges.map(({ c, g }) => (
-          <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} withLabel={false} />
-        ))}
-        {sel.length === 1 &&
-          edges
-            .filter(({ c }) => c.id === sel[0])
-            .map(({ c, g }) => <EdgeHandles key={c.id} c={c} g={g} z={view.z} />)}
+        {edges.map(({ c, g }) =>
+          d?.kind === "reend" && !d.over && d.id === c.id ? null : (
+            <Edge key={c.id} c={c} d={g.d} mid={g.label ?? g.mid} selected={selSet.has(c.id)} viz={viz.edges.get(c.id)} flow={docMode(doc) === "logic"} animate={animate} fromName={names.get(c.from)} toName={names.get(c.to)} withLabel={false} />
+          ),
+        )}
         {vdoc.nodes.filter((n) => !flow || flow.nodes.has(n.id)).map((n) => (
           <NodeShape key={n.id} n={n} selected={selSet.has(n.id)} hot={hotDrop === n.id} hovered={hover === n.id} status={lstatus?.get(n.id)} gap={lgaps?.get(n.id)} names={lnames} viz={viz.nodes.get(n.id)} badge={viz.badges.get(n.id)} visits={viz.visits.get(n.id)} liveValue={viz.live.get(n.id)} row={viz.rows.get(n.id)} />
         ))}
@@ -2573,6 +2721,15 @@ export function Canvas() {
           doc.nodes
             .filter((n) => n.id === focus!.id)
             .map((n) => <rect key="flow-ring" x={n.x - 6} y={n.y - 6} width={n.w + 12} height={n.h + 12} rx={16} className="flow-ring" pointerEvents="none" />)}
+        {/* alças do conector selecionado ficam acima dos componentes: as pontas encostam na borda deles */}
+        {sel.length === 1 &&
+          edges
+            .filter(({ c }) => c.id === sel[0])
+            .map(({ c, g }) => <EdgeHandles key={c.id} c={c} g={g} z={view.z} />)}
+        {brainEdit &&
+          doc.nodes
+            .filter((n) => n.id === brainEdit.id && n.brain)
+            .map((n) => <BrainLabelEditor key={`${n.id}-${brainEdit.field}`} n={n} field={brainEdit.field} onClose={() => setBrainEdit(null)} />)}
         {(flow ? [] : doc.notes).map((n) => (
           <NoteShape
             key={n.id}
@@ -2621,6 +2778,15 @@ export function Canvas() {
             const r = normRect(d.start, d.cur);
             const mode = d.kind === "marquee" ? (d.cur.x < d.start.x ? " crossing" : " window") : "";
             return <rect className={`marquee${mode}`} x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none" />;
+          })()}
+        {d?.kind === "reend" &&
+          !d.over &&
+          (() => {
+            const c = doc.connections.find((x) => x.id === d.id);
+            const fixed = c && boxOf(doc, d.end === "from" ? c.to : c.from);
+            if (!c || !fixed) return null;
+            const g = previewGeom(fixed, sideToward(fixed, d.cur), d.cur);
+            return <path d={g.d} fill="none" stroke={CONNECTION_TYPES[c.type].color} strokeWidth={2.4} strokeDasharray="6 6" strokeLinecap="round" className="flow-preview" pointerEvents="none" />;
           })()}
         {d?.kind === "connect" &&
           (() => {
